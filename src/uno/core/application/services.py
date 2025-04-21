@@ -1,0 +1,91 @@
+"""
+Application services for the Uno framework.
+
+This module provides base application service classes that orchestrate
+domain objects and infrastructure services.
+"""
+
+from typing import Generic, TypeVar, List, Optional, Type, Dict, Any, Callable
+
+from uno.core.domain.core import AggregateRoot, DomainEvent, T_ID
+from uno.database.repositories import SQLAlchemyRepository
+
+T = TypeVar("T", bound=AggregateRoot)
+
+
+class DomainEventDispatcher:
+    """Dispatches domain events to registered handlers."""
+
+    _handlers: Dict[Type[DomainEvent], List[Callable]] = {}
+
+    @classmethod
+    def register(cls, event_type: Type[DomainEvent], handler: Callable) -> None:
+        """Register a handler for a specific event type."""
+        if event_type not in cls._handlers:
+            cls._handlers[event_type] = []
+        cls._handlers[event_type].append(handler)
+
+    @classmethod
+    async def dispatch(cls, event: DomainEvent) -> None:
+        """Dispatch an event to all registered handlers."""
+        event_type = type(event)
+        if event_type in cls._handlers:
+            for handler in cls._handlers[event_type]:
+                await handler(event)
+
+
+class ApplicationService(Generic[T, T_ID]):
+    """Base class for application services."""
+
+    def __init__(self, repository: SQLAlchemyRepository[T, T_ID]):
+        """Initialize the service with a repository."""
+        self.repository = repository
+
+    async def get_by_id(self, id: T_ID) -> Optional[T]:
+        """Get an aggregate by ID."""
+        return await self.repository.get_by_id(id)
+
+    async def list(self, **filters) -> List[T]:
+        """List aggregates with optional filtering."""
+        return await self.repository.list(**filters)
+
+    async def create(self, data: Dict[str, Any], aggregate_class: Type[T]) -> T:
+        """Create a new aggregate."""
+        aggregate = aggregate_class(**data)
+        result = await self.repository.save(aggregate)
+        await self._dispatch_domain_events(aggregate)
+        return result
+
+    async def update(self, id: T_ID, data: Dict[str, Any]) -> Optional[T]:
+        """Update an existing aggregate."""
+        aggregate = await self.repository.get_by_id(id)
+        if not aggregate:
+            return None
+
+        # Update attributes
+        for key, value in data.items():
+            if hasattr(aggregate, key):
+                setattr(aggregate, key, value)
+
+        result = await self.repository.save(aggregate)
+        await self._dispatch_domain_events(aggregate)
+        return result
+
+    async def delete(self, id: T_ID) -> bool:
+        """Delete an aggregate by ID."""
+        aggregate = await self.repository.get_by_id(id)
+        if not aggregate:
+            return False
+
+        await self.repository.delete(aggregate)
+        await self._dispatch_domain_events(aggregate)
+        return True
+
+    async def _dispatch_domain_events(self, aggregate: AggregateRoot) -> None:
+        """Dispatch domain events from an aggregate."""
+        if hasattr(aggregate, "_events"):
+            events = aggregate._events
+            aggregate._events = []
+
+            for event in events:
+                await DomainEventDispatcher.dispatch(event)

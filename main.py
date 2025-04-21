@@ -54,7 +54,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 # Import error handling utilities
-from uno.core.fastapi_error_handlers import (
+from uno.core.application.fastapi_error_handlers import (
     setup_error_handlers,
     ErrorHandlingMiddleware,
 )
@@ -62,14 +62,18 @@ from uno.core.fastapi_error_handlers import (
 from uno.settings import uno_settings
 
 # Import the service provider, but don't use it yet
-from uno.dependencies.modern_provider import get_service_provider
+from uno.core.di.modern_provider import get_service_provider
 
 # Import the app, but we need to redefine it with our lifespan
-from uno.api.apidef import app as api_app
+from uno.application.fastapi.apidef import app as api_app
 from uno.core.feature_factory import FeatureFactory
 
 # Add modern lifespan event handlers for FastAPI
 from contextlib import asynccontextmanager
+
+# Add to your existing imports
+from uno.examples.todolist.api.routes import router as todo_router
+from uno.examples.todolist import initialize_todolist
 
 
 @asynccontextmanager
@@ -80,13 +84,13 @@ async def lifespan(app: FastAPI):
         logger.info("Starting application initialization")
 
         # Initialize the modern dependency injection system
-        from uno.dependencies.modern_provider import initialize_services
+        from uno.core.di.modern_provider import initialize_services
 
         await initialize_services()
         logger.info("Modern DI Service Provider initialized")
 
         # Register services using automatic discovery (optional)
-        from uno.dependencies.discovery import register_services_in_package
+        from uno.core.di.discovery import register_services_in_package
 
         try:
             # Discover and register services in the application
@@ -147,6 +151,9 @@ async def lifespan(app: FastAPI):
         setup_error_handlers(api_app, include_tracebacks=uno_settings.debug)
         logger.info("Error handlers setup complete")
 
+        # Add the TodoList routes
+        api_app.include_router(todo_router)
+
         logger.info("API routers setup complete")
         logger.info("Application startup complete")
 
@@ -157,7 +164,7 @@ async def lifespan(app: FastAPI):
         logger.info("Starting application shutdown")
 
         # Shut down the modern dependency injection system
-        from uno.dependencies.modern_provider import shutdown_services
+        from uno.core.di.modern_provider import shutdown_services
 
         await shutdown_services()
         logger.info("DI Service Provider shut down")
@@ -185,7 +192,7 @@ if "/static" not in [route.path for route in api_app.routes]:
     )
 
 # Configure the modern dependency injection system with FastAPI
-from uno.dependencies.fastapi_integration import configure_fastapi
+from uno.core.di.fastapi_integration import configure_fastapi
 
 configure_fastapi(api_app)
 
@@ -197,8 +204,8 @@ configure_fastapi(api_app)
 # )
 
 # Example of an endpoint using the new dependency injection system
-from uno.dependencies.decorators import inject_params
-from uno.dependencies.interfaces import UnoConfigProtocol
+from uno.core.di.decorators import inject_params
+from uno.core.di.interfaces import UnoConfigProtocol
 
 
 @api_app.get("/app", response_class=HTMLResponse, tags=["0KUI"])
@@ -344,6 +351,13 @@ def get_schema(schema_name: str):
     schema = schemas[schema_name]
 
     return JSONResponse(content=schema)
+
+
+# Add this to your startup event handler
+@api_app.on_event("startup")
+async def startup_event():
+    """Startup event handler."""
+    await initialize_todolist()
 
 
 # Export api_app as app for uvicorn to run it
