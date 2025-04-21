@@ -1,56 +1,33 @@
 """
 Modern service provider for Uno framework.
 
-This module implements a new service provider pattern that uses the scoped container
+This module implements a service provider pattern that uses the scoped container
 to provide enhanced dependency injection functionality, including proper scoping,
 automatic dependency resolution, and improved lifecycle management.
 """
 
-import inspect
 import logging
-import asyncio
 from contextlib import asynccontextmanager
-from typing import (
-    Dict,
-    Any,
-    Type,
-    TypeVar,
-    Optional,
-    Union,
-    List,
-    Set,
-    cast,
-    Callable,
-    Generic,
-    overload,
-)
+from typing import Any, TypeVar, overload
 
-from uno.settings import uno_settings
-from uno.core.di.scoped_container import (
-    ServiceCollection,
-    ServiceScope,
-    ServiceResolver,
-    initialize_container,
-    get_container,
-    get_service,
-    create_scope,
-    create_async_scope,
-)
 from uno.core.di.interfaces import (
-    UnoConfigProtocol,
-    UnoDatabaseProviderProtocol,
-    UnoDBManagerProtocol,
+    ConfigProtocol,
+    DatabaseProviderProtocol,
+    DBManagerProtocol,
+    EventBusProtocol,
     SchemaManagerProtocol,
     SQLEmitterFactoryProtocol,
     SQLExecutionProtocol,
-    EventBusProtocol,
 )
-from uno.core.errors import (
-    DependencyNotFoundError,
-    DependencyResolutionError,
-    DependencyCycleError,
+from uno.core.di.scoped_container import (
+    ServiceCollection,
+    create_async_scope,
+    create_scope,
+    get_container,
+    get_service,
+    initialize_container,
 )
-
+from uno.core.errors import DependencyResolutionError
 
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
@@ -70,7 +47,7 @@ class ServiceLifecycle:
         pass
 
 
-class UnoServiceProvider:
+class ServiceProvider:
     """
     Modern service provider for the Uno framework.
 
@@ -78,7 +55,7 @@ class UnoServiceProvider:
     with support for scoped services, lifecycle management, and automatic dependency resolution.
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         """
         Initialize the service provider.
 
@@ -88,9 +65,13 @@ class UnoServiceProvider:
         self._logger = logger or logging.getLogger("uno.services")
         self._initialized = False
         self._base_services = ServiceCollection()
-        self._extensions: Dict[str, ServiceCollection] = {}
-        self._lifecycle_queue: List[Type[ServiceLifecycle]] = []
+        self._extensions: dict[str, ServiceCollection] = {}
+        self._lifecycle_queue: list[type[ServiceLifecycle]] = []
         self._initializing = False
+
+    def is_initialized(self) -> bool:
+        """Return True if the service provider has been initialized."""
+        return self._initialized
 
     def configure_services(self, services: ServiceCollection) -> None:
         """
@@ -121,7 +102,7 @@ class UnoServiceProvider:
             )
         self._extensions[name] = services
 
-    def register_lifecycle_service(self, service_type: Type[ServiceLifecycle]) -> None:
+    def register_lifecycle_service(self, service_type: type[ServiceLifecycle]) -> None:
         """
         Register a service that requires lifecycle management.
 
@@ -234,16 +215,7 @@ class UnoServiceProvider:
         self._initialized = False
         self._logger.info("Service provider shut down")
 
-    def is_initialized(self) -> bool:
-        """
-        Check if the service provider is initialized.
-
-        Returns:
-            True if the service provider is initialized, False otherwise
-        """
-        return self._initialized
-
-    def get_service(self, service_type: Type[T]) -> T:
+    def get_service(self, service_type: type[T]) -> T:
         """
         Get a service by its type.
 
@@ -266,13 +238,13 @@ class UnoServiceProvider:
         return get_service(service_type)
 
     @overload
-    def get_service_in_scope(self, service_type: Type[T]) -> T: ...
+    def get_service_in_scope(self, service_type: type[T]) -> T: ...
 
     @overload
-    def get_service_in_scope(self, service_type: Type[T], scope_id: str) -> T: ...
+    def get_service_in_scope(self, service_type: type[T], scope_id: str) -> T: ...
 
     def get_service_in_scope(
-        self, service_type: Type[T], scope_id: Optional[str] = None
+        self, service_type: type[T], scope_id: str | None = None
     ) -> T:
         """
         Get a service in a new scope.
@@ -302,7 +274,7 @@ class UnoServiceProvider:
             return scope.resolve(service_type)
 
     async def get_service_async_scope(
-        self, service_type: Type[T], scope_id: Optional[str] = None
+        self, service_type: type[T], scope_id: str | None = None
     ) -> T:
         """
         Get a service in a new async scope.
@@ -332,7 +304,7 @@ class UnoServiceProvider:
             return scope.resolve(service_type)
 
     @asynccontextmanager
-    async def create_scope(self, scope_id: Optional[str] = None):
+    async def create_scope(self, scope_id: str | None = None):
         """
         Create a service scope.
 
@@ -360,32 +332,32 @@ class UnoServiceProvider:
 
     # Convenience methods for common services
 
-    def get_config(self) -> UnoConfigProtocol:
+    def get_config(self) -> ConfigProtocol:
         """
         Get the configuration service.
 
         Returns:
             The configuration service
         """
-        return self.get_service(UnoConfigProtocol)
+        return self.get_service(ConfigProtocol)
 
-    def get_db_provider(self) -> UnoDatabaseProviderProtocol:
+    def get_db_provider(self) -> DatabaseProviderProtocol:
         """
         Get the database provider service.
 
         Returns:
             The database provider service
         """
-        return self.get_service(UnoDatabaseProviderProtocol)
+        return self.get_service(DatabaseProviderProtocol)
 
-    def get_db_manager(self) -> UnoDBManagerProtocol:
+    def get_db_manager(self) -> DBManagerProtocol:
         """
         Get the database manager service.
 
         Returns:
             The database manager service
         """
-        return self.get_service(UnoDBManagerProtocol)
+        return self.get_service(DBManagerProtocol)
 
     def get_schema_manager(self) -> SchemaManagerProtocol:
         """
@@ -495,10 +467,10 @@ class UnoServiceProvider:
 
 
 # Global service provider instance
-_service_provider = UnoServiceProvider()
+_service_provider = ServiceProvider()
 
 
-def get_service_provider() -> UnoServiceProvider:
+def get_service_provider() -> ServiceProvider:
     """
     Get the global service provider instance.
 
@@ -508,7 +480,7 @@ def get_service_provider() -> UnoServiceProvider:
     return _service_provider
 
 
-def register_singleton(service_type: Type[T], instance: T) -> None:
+def register_singleton(service_type: type[T], instance: T) -> None:
     """
     Register a singleton instance in the container.
 
@@ -575,7 +547,7 @@ async def configure_base_services() -> None:
     # Register configuration service
     from uno.settings import uno_settings
 
-    class UnoConfig(UnoConfigProtocol):
+    class UnoConfig(ConfigProtocol):
         """Configuration provider implementation."""
 
         def __init__(self, settings=None):
@@ -585,7 +557,7 @@ async def configure_base_services() -> None:
             """Get a configuration value by key."""
             return getattr(self._settings, key, default)
 
-        def all(self) -> Dict[str, Any]:
+        def all(self) -> dict[str, Any]:
             """Get all configuration values."""
             return {
                 k: v
@@ -593,16 +565,10 @@ async def configure_base_services() -> None:
                 if not k.startswith("_")
             }
 
-    services.add_singleton(UnoConfigProtocol, UnoConfig)
+    services.add_singleton(ConfigProtocol, UnoConfig)
 
     # Register logger
     services.add_singleton(logging.Logger, lambda: logging.getLogger("uno"))
-
-    # Register registry
-    from uno.registry import get_registry, UnoRegistry
-
-    # Use the modern singleton pattern
-    services.add_instance(UnoRegistry, get_registry())
 
     # Register database provider
     from uno.database.config import ConnectionConfig
@@ -624,13 +590,13 @@ async def configure_base_services() -> None:
         connection_config, logger=logging.getLogger("uno.database")
     )
     services.add_instance(DatabaseProvider, db_provider)
-    services.add_instance(UnoDatabaseProviderProtocol, db_provider)
+    services.add_instance(DatabaseProviderProtocol, db_provider)
 
     # Register database manager
     from uno.database.db_manager import DBManager
 
     services.add_singleton(
-        UnoDBManagerProtocol,
+        DBManagerProtocol,
         DBManager,
         connection_provider=db_provider.sync_connection,
         logger=logging.getLogger("uno.database"),
