@@ -13,9 +13,7 @@ serialization, and API documentation.
 from typing import (
     Any,
     Generic,
-    Optional,
     TypeVar,
-    Set,
     cast,
 )
 
@@ -80,8 +78,8 @@ class DTOConfig(BaseModel):
     """
 
     dto_base: type[UnoDTO] = UnoDTO
-    exclude_fields: Set[str] = Field(default_factory=set)
-    include_fields: Set[str] = Field(default_factory=set)
+    exclude_fields: set[str] = Field(default_factory=set)
+    include_fields: set[str] = Field(default_factory=set)
 
     @model_validator(mode="after")
     def validate_exclude_include_fields(self) -> "DTOConfig":
@@ -208,5 +206,5 @@ class WithMetadataDTO(UnoDTO):
 
     created_at: str | None = Field(None, description="The creation timestamp")
     updated_at: str | None = Field(None, description="The last update timestamp")
-    version: Optional[int] = Field(None, description="The object version number")
-    metadata: Optional[dict[str, Any]] = Field(None, description="Additional metadata")
+    version: int | None = Field(None, description="The object version number")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
