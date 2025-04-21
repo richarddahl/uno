@@ -11,7 +11,7 @@ from alembic import context
 
 # Import Uno configuration and model base
 from uno.settings import uno_settings
-from uno.model import UnoModel
+from uno.model import Base
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine import sync_connection, SyncEngineFactory
 import uno.attributes.models  # noqa: F401
@@ -43,7 +43,7 @@ config = context.config
 fileConfig(config.config_file_name)
 
 # Add model's MetaData object for 'autogenerate' support
-target_metadata = UnoModel.metadata
+target_metadata = Base.metadata
 
 # Build connection URI with properly encoded password
 def get_connection_url():

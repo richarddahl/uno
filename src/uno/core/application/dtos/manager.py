@@ -129,10 +129,10 @@ class DTOManager:
         
         This method returns a DTO suitable for representing lists of items,
         typically used for API list endpoints. It handles both Pydantic models
-        and SQLAlchemy models like UnoModel.
+        and SQLAlchemy models like Base.
         
         Args:
-            model: The model to create a list DTO for (can be BaseModel or UnoModel)
+            model: The model to create a list DTO for (can be BaseModel or Base)
             
         Returns:
             A DTO class for lists of the given model

@@ -11,14 +11,14 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update, delete, text, Result, RowMapping
 
-from uno.model import UnoModel
+from uno.model import Base
 
 # Forward references for type checking to avoid circular imports
 if TYPE_CHECKING:
     from uno.obj import UnoObj
 
 
-ModelT = TypeVar('ModelT', bound=UnoModel)
+ModelT = TypeVar('ModelT', bound=Base)
 ObjT = TypeVar('ObjT', bound='UnoObj')
 
 
