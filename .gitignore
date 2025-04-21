@@ -82,3 +82,4 @@ site
 
 # PostgreSQL data directory
 data/postgresql/
+context_map.png

@@ -51,6 +51,7 @@ dependencies = [
   "msgspec>=0.18.4",   # Fast serialization
   "tenacity>=8.2.3",   # Retrying library
   "cachetools>=5.3.2", # Caching utilities
+  "graphviz",          # Graph visualization
 ]
 
 [project.urls]
@@ -64,6 +65,17 @@ ddd-lib = "src.scripts.ddd_lib:main"
 [tool.hatch.version]
 path = "src/uno/__about__.py"
 
+#GRAPHIZ 
+# Basic usage - generates a PNG file named context_map.png
+#python src/scripts/visualize_contexts.py
+# Generate and view the context map in your browser
+#python src/scripts/visualize_contexts.py --view
+# Generate in SVG format
+#python src/scripts/visualize_contexts.py --format svg
+# Analyze dependencies between contexts
+#python src/scripts/visualize_contexts.py --analyze
+# Custom output path
+#python src/scripts/visualize_contexts.py --output docs/architecture/context_map
 
 # Default Environment
 [tool.hatch.envs.default.scripts]
