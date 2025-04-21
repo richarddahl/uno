@@ -10,85 +10,71 @@ structured errors, error codes, contextual information, and
 integration with both exception-based and functional error handling.
 """
 
-from uno.core.errors.base import (
-    FrameworkError,
-    ErrorCode,
-    ErrorCategory,
-    ErrorSeverity,
-    ErrorContext,
-    ErrorInfo,
-    with_error_context,
-    with_async_error_context,
-    add_error_context,
-    get_error_context,
-    EntityNotFoundError,
-    ConcurrencyError,
-    DomainValidationError,
-    AggregateInvariantViolationError,
-)
-
 from uno.core.errors.catalog import (
     ErrorCatalog,
-    register_error,
-    get_error_code_info,
     get_all_error_codes,
+    get_error_code_info,
+    register_error,
 )
-
-from uno.core.errors.result import (
-    Result,
-    Success,
-    Failure,
-    of,
-    failure,
-    from_exception,
-    from_awaitable,
-    combine,
-    combine_dict,
-)
-
-from uno.core.errors.validation import (
-    ValidationError,
-    ValidationContext,
-    FieldValidationError,
-    validate_fields,
-)
-
-from uno.core.errors.logging import (
-    configure_logging,
-    get_logger,
-    LogConfig,
-    with_logging_context,
-    add_logging_context,
-    get_logging_context,
-    clear_logging_context,
-)
-
-from uno.core.errors.security import (
+from uno.core.errors.definitions import (
+    AggregateInvariantViolationError,
     AuthenticationError,
     AuthorizationError,
-)
-
-from uno.core.errors.core_errors import (
-    CoreErrorCode,
-    ConfigNotFoundError,
-    ConfigInvalidError,
-    ConfigTypeMismatchError,
-    InitializationError,
     ComponentInitializationError,
+    ConcurrencyError,
+    ConfigInvalidError,
+    ConfigNotFoundError,
+    ConfigTypeMismatchError,
+    CoreErrorCode,
+    DependencyCycleError,
     DependencyNotFoundError,
     DependencyResolutionError,
-    DependencyCycleError,
-    ObjectNotFoundError,
-    ObjectInvalidError,
-    ObjectPropertyError,
-    SerializationError,
     DeserializationError,
-    ProtocolValidationError,
+    DomainValidationError,
+    EntityNotFoundError,
+    ErrorCategory,
+    ErrorCode,
+    ErrorContext,
+    ErrorInfo,
+    ErrorSeverity,
+    FieldValidationError,
+    InitializationError,
     InterfaceMethodError,
-    OperationFailedError,
-    NotImplementedError as UnoNotImplementedError,
     InternalError,
+    ObjectInvalidError,
+    ObjectNotFoundError,
+    ObjectPropertyError,
+    OperationFailedError,
+    ProtocolValidationError,
+    SerializationError,
+    ValidationContext,
+    ValidationError,
+    add_error_context,
+    get_error_context,
     register_core_errors,
+    validate_fields,
+    with_async_error_context,
+    with_error_context,
+)
+from uno.core.errors.logging import (
+    LogConfig,
+    add_logging_context,
+    clear_logging_context,
+    configure_logging,
+    get_logger,
+    get_logging_context,
+    with_logging_context,
+)
+from uno.core.errors.result import (
+    Failure,
+    Result,
+    Success,
+    combine,
+    combine_dict,
+    failure,
+    from_awaitable,
+    from_exception,
+    of,
 )
 
 # Register core errors

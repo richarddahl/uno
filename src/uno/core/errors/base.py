@@ -174,25 +174,36 @@ class ErrorCategory(Enum):
     and reporting.
     """
 
+    # General categories
     VALIDATION = auto()  # Input validation errors
     BUSINESS_RULE = auto()  # Business rule violations
     AUTHORIZATION = auto()  # Permission/authorization errors
     AUTHENTICATION = auto()  # Login/identity errors
+    SECURITY = auto()  # Security-related errors
+
+    # Resource-related categories
+    RESOURCE = auto()  # Resource availability errors
+    NOT_FOUND = auto()  # Resource not found
+    CONFLICT = auto()  # Resource conflicts
+
+    # System-related categories
     DATABASE = auto()  # Database-related errors
     NETWORK = auto()  # Network/connectivity errors
-    RESOURCE = auto()  # Resource availability errors
     CONFIGURATION = auto()  # System configuration errors
-    INTEGRATION = auto()  # External system integration errors
-    INTERNAL = auto()  # Unexpected internal errors
+    DEPENDENCY = auto()  # Dependency resolution errors
+    SYSTEM = auto()  # System-level errors
+    APPLICATION = auto()  # Application-level errors
+
+    # Processing-related categories
+    EXECUTION = auto()  # Execution/processing errors
     INITIALIZATION = auto()  # Initialization errors
     SERIALIZATION = auto()  # Serialization/deserialization errors
-    DEPENDENCY = auto()  # Dependency resolution errors
-    EXECUTION = auto()  # Execution/processing errors
-    SECURITY = auto()  # Security-related errors
-    CONFLICT = auto()  # Resource conflicts
-    NOT_FOUND = auto()  # Resource not found
-    UNEXPECTED = auto()  # Unexpected errors
     FILTER = auto()  # Filtering errors
+
+    # Miscellaneous categories
+    INTEGRATION = auto()  # External system integration errors
+    INTERNAL = auto()  # Unexpected internal errors
+    UNEXPECTED = auto()  # Unexpected errors
 
 
 class ErrorSeverity(Enum):

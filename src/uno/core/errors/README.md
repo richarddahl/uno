@@ -7,13 +7,7 @@ Comprehensive error handling framework for the Uno application.
 - **__init__.py**: Package entrypoint; re-exports public API and registers core errors on import.
 - **base.py**: Defines `FrameworkError`, error-context utilities (`get_error_context`, `add_error_context`), context managers/decorators (`with_error_context`, `with_async_error_context`), and core enums/types (`ErrorCode`, `ErrorCategory`, `ErrorSeverity`, `ErrorInfo`).
 - **catalog.py**: Central registry for error metadata; provides `ErrorCatalog`, `register_error()`, and lookup helpers (`get_error_code_info()`, `get_all_error_codes()`).
-- **core_errors.py**: Core framework error definitions:
-  - `CoreErrorCode` constants (config, init, dependency, object, serialization, protocol, general).
-  - `FrameworkError` subclasses (e.g. `ConfigNotFoundError`, `InitializationError`, `DependencyCycleError`, etc.)
-  - Automatic registration of each code via the catalog.
-- **security.py**: Security-related errors: `AuthenticationError` and `AuthorizationError`.
-- **validation.py**: Validation utilities:
-  - `FieldValidationError` for single-field errors.
+- **definitions.py**: Canonical source for all error classes and error codes (config, init, dependency, object, serialization, protocol, general, security, validation). All errors are registered with the error catalog here.
   - `ValidationContext` to collect nested validation errors.
   - `ValidationError` exception and top-level `validate_fields()` helper.
 - **result.py**: Result/Either monad implementation:
