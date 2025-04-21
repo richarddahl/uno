@@ -1,0 +1,84 @@
+# .gitignore for FastAPI with SQLAlchemy, Pydantic, PostgreSQL, and VSCode on Mac
+
+# Python virtual environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+*.dist-info/
+*.egg-link
+*.orig
+*.rej
+*.log
+
+# Virtualenv
+venv/
+.virtualenv/
+
+# IDE and editor files
+.vscode/
+*.swp
+*.swo
+*.swn
+*.pyc
+*.bak
+*.tmp
+*.log
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# macOS files
+.DS_Store
+*.DS_Store
+*.plist
+*.lock
+
+*.sqlite3
+
+# Logs and caches
+logs/
+*.log
+*.cache
+
+# Dependency management
+Pipfile.lock
+poetry.lock
+
+# Testing and coverage
+.html
+.xml
+.coverage
+.nox
+
+# Hatch-specific files and directories
+.hatch/
+dist/
+build/
+*.egg
+*.egg-info/
+*.dist-info/
+*.whl
+.hatch-virtualenvs/
+.hatch-templates/
+.hatch-build/
+.hatch-release/
+
+# Additional build artifacts
+*.tar.gz
+*.zip
+bin
+lib
+pyvenv.cfg
+.aider*
+.env
+greenlet.h
+docker/pg_pwd.txt
+site
+.qodo
+
+# PostgreSQL data directory
+data/postgresql/
