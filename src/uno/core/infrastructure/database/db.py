@@ -45,8 +45,8 @@ K = TypeVar("K")
 
 def UnoDBFactory(
     obj: BaseModel,
-    session_context_factory: Optional[Type[DatabaseSessionContextProtocol]] = None,
-) -> Type[DatabaseRepository[T, K, Any, Dict[str, Any], Any]]:
+    session_context_factory: Optional[type[DatabaseSessionContextProtocol]] = None,
+) -> type[DatabaseRepository[T, K, Any, dict[str, Any], Any]]:
     """
     Factory function that creates a UnoDB class implementing the DatabaseRepository protocol.
 
@@ -63,7 +63,7 @@ def UnoDBFactory(
     # Use provided session factory or default
     SessionContextClass = session_context_factory or AsyncSessionContext
 
-    class UnoDB(DatabaseRepository[T, K, Any, Dict[str, Any], Any]):
+    class UnoDB(DatabaseRepository[T, K, Any, dict[str, Any], Any]):
 
         @classmethod
         def table_keys(cls) -> tuple[list[str], list[list[str]]]:
@@ -100,7 +100,7 @@ def UnoDBFactory(
             return pk_fields, uq_fields
 
         @classmethod
-        async def merge(cls, data: Dict[str, Any]) -> Any:
+        async def merge(cls, data: dict[str, Any]) -> Any:
             """
             Call the PostgreSQL merge_record function with escaped colons in the data values.
             """
@@ -203,7 +203,7 @@ def UnoDBFactory(
                 select_related: Controls which relationships to load:
                     - None/False: Load no relationships
                     - True: Load all relationships
-                    - List[str]: Load only specified relationships
+                    - list[str]: Load only specified relationships
                 **kwargs: Keyword arguments for filtering
 
             Returns:
@@ -256,7 +256,9 @@ def UnoDBFactory(
                         and hasattr(obj.model, "__relationships__")
                     ):
                         # Import the relationship loader
-                        from uno.infrastructure.database.relationship_loader import RelationshipLoader
+                        from uno.infrastructure.database.relationship_loader import (
+                            RelationshipLoader,
+                        )
 
                         # Create loader and load relationships
                         loader = RelationshipLoader(obj.model.__class__)
@@ -301,7 +303,7 @@ def UnoDBFactory(
         @classmethod
         async def filter(
             cls, filters: Optional[FilterParam] = None, select_related=None
-        ) -> List[T]:
+        ) -> list[T]:
             """
             Filter records with optional relationship loading.
 
@@ -310,7 +312,7 @@ def UnoDBFactory(
                 select_related: Controls which relationships to load:
                     - None/False: Load no relationships
                     - True: Load all relationships
-                    - List[str]: Load only specified relationships
+                    - list[str]: Load only specified relationships
 
             Returns:
                 List of matching records
@@ -363,7 +365,9 @@ def UnoDBFactory(
                         and hasattr(obj.model, "__relationships__")
                     ):
                         # Import the relationship loader
-                        from uno.infrastructure.database.relationship_loader import RelationshipLoader
+                        from uno.infrastructure.database.relationship_loader import (
+                            RelationshipLoader,
+                        )
 
                         # Create loader and load relationships in batch
                         loader = RelationshipLoader(obj.model.__class__)

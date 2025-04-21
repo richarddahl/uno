@@ -17,14 +17,14 @@ class TodoItemRepository(SQLAlchemyRepository[TodoItem, str]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, TodoItem, TodoItemModel)
 
-    async def find_by_status(self, status) -> List[TodoItem]:
+    async def find_by_status(self, status) -> list[TodoItem]:
         """Find todo items by status."""
         stmt = select(self.db_model_class).where(self.db_model_class.status == status)
         result = await self.session.execute(stmt)
         db_entities = result.scalars().all()
         return [self._to_domain_entity(e) for e in db_entities]
 
-    async def find_by_priority(self, priority) -> List[TodoItem]:
+    async def find_by_priority(self, priority) -> list[TodoItem]:
         """Find todo items by priority."""
         stmt = select(self.db_model_class).where(
             self.db_model_class.priority == priority

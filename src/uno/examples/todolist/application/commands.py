@@ -15,7 +15,7 @@ class CreateTodoItemCommand(Command):
     """Command to create a new todo item."""
 
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     priority: TodoPriority = TodoPriority.MEDIUM
     due_date: Optional[datetime] = None
 
@@ -32,4 +32,4 @@ class CancelTodoItemCommand(Command):
     """Command to cancel a todo item."""
 
     todo_id: str
-    reason: Optional[str] = None
+    reason: str | None = None

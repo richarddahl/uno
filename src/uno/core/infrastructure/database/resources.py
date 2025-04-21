@@ -74,8 +74,8 @@ class CircuitBreaker:
         failure_threshold: int = 5,
         recovery_timeout: float = 30.0,
         half_open_max_calls: int = 1,
-        exception_types: Optional[List[type]] = None,
-        logger: Optional[logging.Logger] = None,
+        exception_types: Optional[list[type]] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize a circuit breaker.
@@ -303,7 +303,7 @@ class ConnectionPool(Generic[T]):
         ttl: float = 60.0,
         validation_interval: float = 30.0,
         retry_backoff: float = 1.0,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize the connection pool.
@@ -334,7 +334,7 @@ class ConnectionPool(Generic[T]):
         self.logger = logger or logging.getLogger(__name__)
 
         # Pool state
-        self._connections: List[Dict[str, Any]] = []
+        self._connections: list[dict[str, Any]] = []
         self._pool_lock = AsyncLock()
         self._connection_available = AsyncEvent()
         self._closed = False
@@ -747,7 +747,7 @@ class ConnectionPool(Generic[T]):
             f"Validation failures: {self._validation_failures}"
         )
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get metrics about the connection pool.
 
@@ -795,7 +795,7 @@ class ResourceRegistry:
     like connection pools and circuit breakers.
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger | None = None):
         """
         Initialize the resource registry.
 
@@ -803,7 +803,7 @@ class ResourceRegistry:
             logger: Optional logger instance
         """
         self.logger = logger or logging.getLogger(__name__)
-        self._resources: Dict[str, Any] = {}
+        self._resources: dict[str, Any] = {}
         self._resource_lock = AsyncLock()
         self._closed = False
 
@@ -904,7 +904,7 @@ class ResourceRegistry:
             f"Resource registry closed ({len(resources_to_close)} resources)"
         )
 
-    def get_all_resources(self) -> Dict[str, Any]:
+    def get_all_resources(self) -> dict[str, Any]:
         """
         Get all registered resources.
 
@@ -913,7 +913,7 @@ class ResourceRegistry:
         """
         return dict(self._resources)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get metrics about all resources.
 
@@ -947,7 +947,7 @@ def get_resource_registry() -> ResourceRegistry:
     Returns:
         A ResourceRegistry instance
     """
-    from uno.core.di.modern_provider import get_service, register_singleton
+    from uno.core.di.provider import get_service, register_singleton
 
     try:
         # Try to get from the DI container
@@ -962,7 +962,7 @@ def get_resource_registry() -> ResourceRegistry:
 
 
 @contextlib.asynccontextmanager
-async def managed_resource(resource: Any, name: Optional[str] = None) -> Any:
+async def managed_resource(resource: Any, name: str | None = None) -> Any:
     """
     Context manager for automatically registering and unregistering a resource.
 
@@ -1008,7 +1008,7 @@ class BackgroundTask:
         restart_on_failure: bool = False,
         max_restarts: int = 3,
         restart_delay: float = 1.0,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize a background task.
@@ -1150,7 +1150,7 @@ class BackgroundTask:
         """
         return self._task is not None and not self._task.done()
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get metrics about the background task.
 

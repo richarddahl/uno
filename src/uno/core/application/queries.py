@@ -32,11 +32,11 @@ class QueryHandler(Generic[Q, T], ABC):
 class QueryBus:
     """Query bus for dispatching queries to their handlers."""
 
-    _handlers: Dict[Type[Query], QueryHandler] = {}
-    _middleware: List[Callable] = []
+    _handlers: dict[type[Query], QueryHandler] = {}
+    _middleware: list[Callable] = []
 
     @classmethod
-    def register_handler(cls, query_type: Type[Query], handler: QueryHandler) -> None:
+    def register_handler(cls, query_type: type[Query], handler: QueryHandler) -> None:
         """Register a handler for a specific query type."""
         cls._handlers[query_type] = handler
 

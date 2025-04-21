@@ -17,7 +17,7 @@ from uno.sql.errors import (
     SQLRegistryClassNotFoundError,
     SQLRegistryClassAlreadyExistsError,
     SQLExecutionError,
-    SQLConfigError
+    SQLConfigError,
 )
 
 
@@ -31,10 +31,10 @@ class SQLConfigRegistry:
         _registry: Dictionary of registered SQLConfig classes by name
     """
 
-    _registry: Dict[str, Type["SQLConfig"]] = {}
+    _registry: dict[str, type["SQLConfig"]] = {}
 
     @classmethod
-    def register(cls, config_class: Type["SQLConfig"]) -> None:
+    def register(cls, config_class: type["SQLConfig"]) -> None:
         """Register a SQLConfig class in the registry.
 
         Args:
@@ -56,7 +56,7 @@ class SQLConfigRegistry:
         cls._registry[config_class.__name__] = config_class
 
     @classmethod
-    def get(cls, name: str) -> Optional[Type["SQLConfig"]]:
+    def get(cls, name: str) -> Optional[type["SQLConfig"]]:
         """Get a SQLConfig class by name.
 
         Args:
@@ -68,7 +68,7 @@ class SQLConfigRegistry:
         return cls._registry.get(name)
 
     @classmethod
-    def all(cls) -> Dict[str, Type["SQLConfig"]]:
+    def all(cls) -> dict[str, type["SQLConfig"]]:
         """Get all registered SQLConfig classes.
 
         Returns:
@@ -82,7 +82,7 @@ class SQLConfigRegistry:
         connection: Optional[Connection] = None,
         engine_factory: Optional[SyncEngineFactory] = None,
         config: Optional[ConnectionConfig] = None,
-        exclude: List[str] = None,
+        exclude: list[str] = None,
     ) -> None:
         """Emit SQL for all registered SQLConfig classes.
 

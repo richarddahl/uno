@@ -23,6 +23,7 @@ from typing import (
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
+
 class DomainEvent(BaseModel):
     """
     Base class for domain events.
@@ -39,11 +40,11 @@ class DomainEvent(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DomainEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "DomainEvent":
         """Create an event from a dictionary."""
         return cls(**data)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to a dictionary."""
         return self.model_dump()
 
@@ -162,7 +163,7 @@ class AggregateRoot(Entity[T_ID]):
 
     # Add type annotations to mark class attributes
     # These can be used to hold instance attributes that should be properly initialized
-    _events: List[DomainEvent]
+    _events: list[DomainEvent]
     _child_entities: Set[Entity]
 
     def __init__(self, **data):
@@ -201,7 +202,7 @@ class AggregateRoot(Entity[T_ID]):
             self._events = []
         self._events.append(event)
 
-    def clear_events(self) -> List[DomainEvent]:
+    def clear_events(self) -> list[DomainEvent]:
         """
         Clear all domain events from this aggregate.
 

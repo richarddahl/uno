@@ -13,7 +13,7 @@ class CreateTodoRequest(BaseModel):
     """Schema for creating a new todo item."""
 
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     priority: TodoPriority = TodoPriority.MEDIUM
     due_date: Optional[datetime] = None
 
@@ -21,8 +21,8 @@ class CreateTodoRequest(BaseModel):
 class UpdateTodoRequest(BaseModel):
     """Schema for updating an existing todo item."""
 
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
     priority: Optional[TodoPriority] = None
     due_date: Optional[datetime] = None
 
@@ -32,7 +32,7 @@ class TodoItemResponse(BaseModel):
 
     id: str
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     status: TodoStatus
     priority: TodoPriority
     due_date: Optional[datetime] = None

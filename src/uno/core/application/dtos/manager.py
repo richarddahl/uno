@@ -9,7 +9,18 @@ This module provides functionality for creating and managing DTOs for domain ent
 SQLAlchemy models, and data transfer objects (DTOs) used in the Uno framework.
 """
 
-from typing import Dict, Type, Optional, Any, Set, TypeVar, cast, get_origin, get_args, List
+from typing import (
+    Dict,
+    Type,
+    Optional,
+    Any,
+    Set,
+    TypeVar,
+    cast,
+    get_origin,
+    get_args,
+    List,
+)
 import inspect
 from collections.abc import Mapping
 
@@ -23,21 +34,21 @@ from uno.schema.errors import (
     SchemaInvalidError,
     SchemaFieldMissingError,
     SchemaFieldTypeMismatchError,
-    SchemaConversionError
+    SchemaConversionError,
 )
 from uno.dto.dto import UnoDTO, DTOConfig, PaginatedListDTO
 from uno.core.errors.base import UnoError
 
 
 # Type variables for improved type safety
-ModelT = TypeVar('ModelT', bound=BaseModel)
-T = TypeVar('T')
+ModelT = TypeVar("ModelT", bound=BaseModel)
+T = TypeVar("T")
 
 
 class DTOManager:
     """
     Manager for creating and managing DTOs for domain entities and data models.
-    
+
     This class handles:
     - Creating Pydantic DTOs from various source types
     - Configuring field inclusion/exclusion
@@ -45,15 +56,15 @@ class DTOManager:
     - Managing DTO registrations for API documentation
     """
 
-    def __init__(self, dto_configs: Optional[Dict[str, DTOConfig]] = None):
+    def __init__(self, dto_configs: Optional[dict[str, DTOConfig]] = None):
         """
         Initialize the DTO manager.
 
         Args:
             dto_configs: Optional initial DTO configurations
         """
-        self.dto_configs: Dict[str, DTOConfig] = dto_configs or {}
-        self.dtos: Dict[str, Type[UnoDTO]] = {}
+        self.dto_configs: dict[str, DTOConfig] = dto_configs or {}
+        self.dtos: dict[str, type[UnoDTO]] = {}
 
     def add_dto_config(self, name: str, config: DTOConfig) -> None:
         """
@@ -65,9 +76,7 @@ class DTOManager:
         """
         self.dto_configs[name] = config
 
-    def create_dto(
-        self, dto_name: str, model: Type[BaseModel]
-    ) -> Type[UnoDTO]:
+    def create_dto(self, dto_name: str, model: type[BaseModel]) -> type[UnoDTO]:
         """
         Create a DTO for a model.
 
@@ -97,7 +106,7 @@ class DTOManager:
         self.dtos[dto_name] = dto
         return dto
 
-    def create_all_dtos(self, model: Type[BaseModel]) -> Dict[str, Type[UnoDTO]]:
+    def create_all_dtos(self, model: type[BaseModel]) -> dict[str, type[UnoDTO]]:
         """
         Create all DTOs for a model.
 
@@ -111,7 +120,7 @@ class DTOManager:
             self.create_dto(dto_name, model)
         return self.dtos
 
-    def get_dto(self, dto_name: str) -> Optional[Type[UnoDTO]]:
+    def get_dto(self, dto_name: str) -> Optional[type[UnoDTO]]:
         """
         Get a DTO by name.
 
@@ -122,38 +131,40 @@ class DTOManager:
             The DTO if found, None otherwise
         """
         return self.dtos.get(dto_name)
-        
-    def get_list_dto(self, model: Type[Any]) -> Type[UnoDTO]:
+
+    def get_list_dto(self, model: type[Any]) -> type[UnoDTO]:
         """
         Get or create a DTO for lists of the given model.
-        
+
         This method returns a DTO suitable for representing lists of items,
         typically used for API list endpoints. It handles both Pydantic models
         and SQLAlchemy models like Base.
-        
+
         Args:
             model: The model to create a list DTO for (can be BaseModel or Base)
-            
+
         Returns:
             A DTO class for lists of the given model
-            
+
         Raises:
             UnoError: If there are issues with the DTO creation
         """
         # Use a standard naming convention for list DTOs
         dto_name = f"{model.__name__}_list"
-        
+
         # Check if the DTO already exists
         if dto_name in self.dtos:
             return self.dtos[dto_name]
-            
+
         # If not, check if we have a config for this list type
         if dto_name in self.dto_configs:
             return self.create_dto(dto_name, model)
-            
+
         # Determine if this is a SQLAlchemy model
-        is_sqlalchemy_model = isinstance(model, type) and hasattr(model, '__tablename__')
-        
+        is_sqlalchemy_model = isinstance(model, type) and hasattr(
+            model, "__tablename__"
+        )
+
         # Create the base item DTO
         if is_sqlalchemy_model:
             # Create a Pydantic model from SQLAlchemy model
@@ -161,84 +172,79 @@ class DTOManager:
         else:
             # For Pydantic models, get or create a detail DTO
             base_dto = self._get_or_create_detail_dto(model)
-        
+
         # Create the list DTO using the PaginatedListDTO generic
         list_dto_name = f"{model.__name__}ListDTO"
         # Create a specialized list DTO as a subclass of PaginatedListDTO
         # Use a different approach to create the list DTO to avoid mypy issues
         from typing import cast
-        
+
         # Create a list DTO directly without using PaginatedListDTO[T]
         # mypy has issues with create_model and variable types, so we use type: ignore
         item_type = Any  # Default type for mypy
         if isinstance(base_dto, type):
             item_type = base_dto
-            
+
         list_dto = create_model(  # type: ignore
             list_dto_name,
             __base__=UnoDTO,
-            items=(List[item_type], ...),  # type: ignore
+            items=(list[item_type], ...),  # type: ignore
             total=(int, ...),
             page=(int, 1),
             page_size=(int, 25),
-            pages=(int, 1)
+            pages=(int, 1),
         )
-        
+
         # Cast to ensure the type system recognizes it correctly
-        typed_list_dto = cast(Type[UnoDTO], list_dto)
-        
+        typed_list_dto = cast(type[UnoDTO], list_dto)
+
         # Store the created DTO
         self.dtos[dto_name] = typed_list_dto
         return typed_list_dto
-    
-    def _create_dto_from_sqlalchemy_model(self, model: Type[Any]) -> Type[UnoDTO]:
+
+    def _create_dto_from_sqlalchemy_model(self, model: type[Any]) -> type[UnoDTO]:
         """
         Create a Pydantic DTO from a SQLAlchemy model.
-        
+
         Args:
             model: The SQLAlchemy model to create a DTO from
-            
+
         Returns:
             A Pydantic DTO for the model
         """
         # Get the mapper for this model class
         mapper = sa_inspect(model)
-        
+
         # Get column info
         fields = {}
         for column in mapper.columns:
             # Convert SQLAlchemy types to Python types
             python_type = self._get_python_type_for_column(column)
-            
+
             # Add the field with an appropriate default value
-            fields[column.name] = (
-                python_type, 
-                None if column.nullable else ...
-            )
-        
+            fields[column.name] = (python_type, None if column.nullable else ...)
+
         # Create a new Pydantic model based on the SQLAlchemy model
         # mypy has issues with create_model, so we use type: ignore
         dto = create_model(  # type: ignore
-            f"{model.__name__}DTO",
-            __base__=UnoDTO,
-            **fields
+            f"{model.__name__}DTO", __base__=UnoDTO, **fields
         )
-        
-        return cast(Type[UnoDTO], dto)
-    
-    def _get_python_type_for_column(self, column: Any) -> Type[Any]:
+
+        return cast(type[UnoDTO], dto)
+
+    def _get_python_type_for_column(self, column: Any) -> type[Any]:
         """
         Get the Python type for a SQLAlchemy column.
-        
+
         Args:
             column: The SQLAlchemy column
-            
+
         Returns:
             The Python type for the column
         """
         # Default to string if we can't determine the type
-        python_type: Type[Any] = str
-        
+        python_type: type[Any] = str
+
         try:
             if hasattr(column, "type") and hasattr(column.type, "python_type"):
                 column_python_type = column.type.python_type
@@ -249,29 +255,29 @@ class DTOManager:
                 elif column_python_type == float:
                     python_type = float
                 elif column_python_type == dict:
-                    python_type = Dict[str, Any]
+                    python_type = dict[str, Any]
                 elif column_python_type == list:
-                    python_type = List[Any]
+                    python_type = list[Any]
         except (AttributeError, TypeError):
             # Fall back to string if we can't determine the type
             python_type = str
-            
+
         return python_type
-    
-    def _get_or_create_detail_dto(self, model: Type[BaseModel]) -> Type[UnoDTO]:
+
+    def _get_or_create_detail_dto(self, model: type[BaseModel]) -> type[UnoDTO]:
         """
         Get or create a detail DTO for a Pydantic model.
-        
+
         Args:
             model: The Pydantic model to create a DTO for
-            
+
         Returns:
             A DTO for the model
         """
         # Try different DTO names
         base_dto_name = f"{model.__name__}_detail"
         base_dto = self.get_dto(base_dto_name)
-        
+
         if base_dto is None:
             # If no detail DTO exists, try to create it
             if base_dto_name in self.dto_configs:
@@ -286,7 +292,7 @@ class DTOManager:
                     detail_config = DTOConfig()
                     self.add_dto_config(base_dto_name, detail_config)
                     base_dto = self.create_dto(base_dto_name, model)
-        
+
         return base_dto
 
 
@@ -297,16 +303,16 @@ _dto_manager: Optional[DTOManager] = None
 def get_dto_manager() -> DTOManager:
     """
     Get the global DTO manager instance.
-    
+
     This function returns the global DTO manager instance, creating it
     if it doesn't exist yet.
-    
+
     Returns:
         The global DTO manager instance
     """
     global _dto_manager
-    
+
     if _dto_manager is None:
         _dto_manager = DTOManager()
-        
+
     return _dto_manager

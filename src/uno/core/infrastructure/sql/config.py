@@ -14,11 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.sql.errors import (
-    SQLConfigError,
-    SQLConfigInvalidError,
-    SQLExecutionError
-)
+from uno.sql.errors import SQLConfigError, SQLConfigInvalidError, SQLExecutionError
 
 from uno.sql.registry import SQLConfigRegistry
 from uno.sql.emitter import SQLEmitter
@@ -40,7 +36,7 @@ class SQLConfig(BaseModel):
     """
 
     # Default emitters to use for this config
-    default_emitters: ClassVar[List[Type[SQLEmitter]]] = []
+    default_emitters: ClassVar[list[type[SQLEmitter]]] = []
 
     # The table for which SQL is being generated
     table: ClassVar[Optional[Table]] = None
@@ -52,7 +48,7 @@ class SQLConfig(BaseModel):
     engine_factory: Optional[SyncEngineFactory] = None
 
     # Emitter instances
-    emitters: List[SQLEmitter] = []
+    emitters: list[SQLEmitter] = []
 
     model_config = {"arbitrary_types_allowed": True}
 

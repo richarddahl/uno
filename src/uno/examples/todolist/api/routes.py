@@ -56,7 +56,7 @@ async def get_todo(todo_id: str):
     return todo
 
 
-@router.get("/", response_model=List[TodoItemResponse])
+@router.get("/", response_model=list[TodoItemResponse])
 async def list_todos(
     status: Optional[TodoStatus] = None, priority: Optional[TodoPriority] = None
 ):
@@ -80,7 +80,7 @@ async def complete_todo(todo_id: str):
 
 
 @router.put("/{todo_id}/cancel")
-async def cancel_todo(todo_id: str, reason: Optional[str] = None):
+async def cancel_todo(todo_id: str, reason: str | None = None):
     """Cancel a todo item."""
     try:
         command = CancelTodoItemCommand(todo_id=todo_id, reason=reason)

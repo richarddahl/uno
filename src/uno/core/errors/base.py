@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 # Type for error context dict
-ErrorContext = Dict[str, Any]
+ErrorContext = dict[str, Any]
 
 # Thread-local storage for error context
 _error_context = contextvars.ContextVar[ErrorContext]("error_context", default={})
@@ -314,7 +314,7 @@ class UnoError(Exception):
         self.error_code: str = error_code
 
         # Combine the explicit context with the ambient context
-        self.context: Dict[str, Any] = get_error_context().copy()
+        self.context: dict[str, Any] = get_error_context().copy()
         self.context.update(context)
 
         # Capture stack trace information
@@ -371,7 +371,7 @@ class UnoError(Exception):
             return self.error_info.retry_allowed
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert the error to a dictionary.
 
@@ -406,7 +406,7 @@ class UnoError(Exception):
 class DomainValidationError(UnoError):
     """Error raised when domain validation fails."""
 
-    def __init__(self, message: str, entity_name: Optional[str] = None, **context: Any):
+    def __init__(self, message: str, entity_name: str | None = None, **context: Any):
         """
         Initialize a DomainValidationError.
 
@@ -430,8 +430,8 @@ class AggregateInvariantViolationError(UnoError):
     def __init__(
         self,
         message: str,
-        aggregate_name: Optional[str] = None,
-        aggregate_id: Optional[str] = None,
+        aggregate_name: str | None = None,
+        aggregate_id: str | None = None,
         **context: Any,
     ):
         """
@@ -520,9 +520,9 @@ class AuthorizationError(UnoError):
     def __init__(
         self,
         message: str = "User is not authorized to perform this operation",
-        resource_type: Optional[str] = None,
+        resource_type: str | None = None,
         resource_id: Optional[Any] = None,
-        permission: Optional[str] = None,
+        permission: str | None = None,
         **context: Any,
     ):
         """
@@ -554,7 +554,7 @@ class ValidationError(UnoError):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
+        field: str | None = None,
         value: Optional[Any] = None,
         **context: Any,
     ):

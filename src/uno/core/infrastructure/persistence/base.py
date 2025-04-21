@@ -86,7 +86,7 @@ class MetadataFactory:
 
     @staticmethod
     def create_metadata(
-        schema: Optional[str] = None, naming_convention: Optional[dict] = None
+        schema: str | None = None, naming_convention: Optional[dict] = None
     ) -> MetaData:
         """
         Create a new SQLAlchemy metadata instance with the specified schema and naming convention.
@@ -159,7 +159,7 @@ class Base(AsyncAttrs, DeclarativeBase):
     metadata = default_metadata
 
     @classmethod
-    def with_custom_metadata(cls, metadata: MetaData) -> Type[T]:
+    def with_custom_metadata(cls, metadata: MetaData) -> type[T]:
         """
         Create a subclass of Base with custom metadata.
 

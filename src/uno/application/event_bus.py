@@ -24,7 +24,7 @@ class InMemoryEventBus:
     """
 
     def __init__(self) -> None:
-        self._handlers: Dict[str, list[Callable[[DomainEvent], None]]] = {}
+        self._handlers: dict[str, list[Callable[[DomainEvent], None]]] = {}
 
     def subscribe(
         self, event_type: str, handler: Callable[[DomainEvent], None]

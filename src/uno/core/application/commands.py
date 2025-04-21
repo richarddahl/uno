@@ -32,12 +32,12 @@ class CommandHandler(Generic[C, T], ABC):
 class CommandBus:
     """Command bus for dispatching commands to their handlers."""
 
-    _handlers: Dict[Type[Command], CommandHandler] = {}
-    _middleware: List[Callable] = []
+    _handlers: dict[type[Command], CommandHandler] = {}
+    _middleware: list[Callable] = []
 
     @classmethod
     def register_handler(
-        cls, command_type: Type[Command], handler: CommandHandler
+        cls, command_type: type[Command], handler: CommandHandler
     ) -> None:
         """Register a handler for a specific command type."""
         cls._handlers[command_type] = handler

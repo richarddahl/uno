@@ -16,10 +16,10 @@ T = TypeVar("T", bound=AggregateRoot)
 class DomainEventDispatcher:
     """Dispatches domain events to registered handlers."""
 
-    _handlers: Dict[Type[DomainEvent], List[Callable]] = {}
+    _handlers: dict[type[DomainEvent], list[Callable]] = {}
 
     @classmethod
-    def register(cls, event_type: Type[DomainEvent], handler: Callable) -> None:
+    def register(cls, event_type: type[DomainEvent], handler: Callable) -> None:
         """Register a handler for a specific event type."""
         if event_type not in cls._handlers:
             cls._handlers[event_type] = []
@@ -45,18 +45,18 @@ class ApplicationService(Generic[T, T_ID]):
         """Get an aggregate by ID."""
         return await self.repository.get_by_id(id)
 
-    async def list(self, **filters) -> List[T]:
+    async def list(self, **filters) -> list[T]:
         """List aggregates with optional filtering."""
         return await self.repository.list(**filters)
 
-    async def create(self, data: Dict[str, Any], aggregate_class: Type[T]) -> T:
+    async def create(self, data: dict[str, Any], aggregate_class: type[T]) -> T:
         """Create a new aggregate."""
         aggregate = aggregate_class(**data)
         result = await self.repository.save(aggregate)
         await self._dispatch_domain_events(aggregate)
         return result
 
-    async def update(self, id: T_ID, data: Dict[str, Any]) -> Optional[T]:
+    async def update(self, id: T_ID, data: dict[str, Any]) -> Optional[T]:
         """Update an existing aggregate."""
         aggregate = await self.repository.get_by_id(id)
         if not aggregate:

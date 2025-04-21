@@ -36,7 +36,7 @@ class UnoDTO(BaseModel):
     """
 
     @classmethod
-    def create_field_dict(cls, field_name: str) -> Dict[str, Any]:
+    def create_field_dict(cls, field_name: str) -> dict[str, Any]:
         """
         Create a field dictionary for a given field name.
 
@@ -79,7 +79,7 @@ class DTOConfig(BaseModel):
     include or exclude and the base class to use.
     """
 
-    dto_base: Type[UnoDTO] = UnoDTO
+    dto_base: type[UnoDTO] = UnoDTO
     exclude_fields: Set[str] = Field(default_factory=set)
     include_fields: Set[str] = Field(default_factory=set)
 
@@ -206,7 +206,7 @@ class WithMetadataDTO(UnoDTO):
     such as created_at, updated_at, and version information.
     """
 
-    created_at: Optional[str] = Field(None, description="The creation timestamp")
-    updated_at: Optional[str] = Field(None, description="The last update timestamp")
+    created_at: str | None = Field(None, description="The creation timestamp")
+    updated_at: str | None = Field(None, description="The last update timestamp")
     version: Optional[int] = Field(None, description="The object version number")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    metadata: Optional[dict[str, Any]] = Field(None, description="Additional metadata")

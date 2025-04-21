@@ -71,7 +71,7 @@ class PooledAsyncSessionFactory(EnhancedAsyncSessionFactory):
         engine_factory: Optional[PooledAsyncEngineFactory] = None,
         session_limiter: Optional[Limiter] = None,
         resource_registry: Optional[ResourceRegistry] = None,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize the pooled async session factory.
@@ -91,7 +91,7 @@ class PooledAsyncSessionFactory(EnhancedAsyncSessionFactory):
 
         # Store additional attributes
         self.resource_registry = resource_registry or get_resource_registry()
-        self._session_circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self._session_circuit_breakers: dict[str, CircuitBreaker] = {}
         self._registry_lock = AsyncLock()
 
         # Cache for session makers
@@ -295,10 +295,10 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
         db_role: str = f"{uno_settings.DB_NAME}_login",
-        db_host: Optional[str] = uno_settings.DB_HOST,
+        db_host: str | None = uno_settings.DB_HOST,
         db_port: Optional[int] = uno_settings.DB_PORT,
         factory: Optional[DatabaseSessionFactoryProtocol] = None,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         scoped: bool = False,
         timeout_seconds: Optional[float] = None,
         pool_size: int = 10,
@@ -404,10 +404,10 @@ async def pooled_async_session(
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
-    db_host: Optional[str] = uno_settings.DB_HOST,
+    db_host: str | None = uno_settings.DB_HOST,
     db_port: Optional[int] = uno_settings.DB_PORT,
     factory: Optional[DatabaseSessionFactoryProtocol] = None,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     scoped: bool = False,
     timeout_seconds: Optional[float] = None,
     pool_size: int = 10,
@@ -469,7 +469,7 @@ class PooledSessionOperationGroup(SessionOperationGroup):
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
         db_role: str = f"{uno_settings.DB_NAME}_login",
-        db_host: Optional[str] = uno_settings.DB_HOST,
+        db_host: str | None = uno_settings.DB_HOST,
         db_port: Optional[int] = uno_settings.DB_PORT,
         factory: Optional[DatabaseSessionFactoryProtocol] = None,
         pool_size: int = 10,

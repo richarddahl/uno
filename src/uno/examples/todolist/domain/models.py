@@ -44,14 +44,14 @@ class TodoItemCancelledEvent(DomainEvent):
     """Event raised when a todo item is cancelled."""
 
     todo_id: str
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class TodoItem(AggregateRoot[str]):
     """A todo item in the system."""
 
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     status: TodoStatus = Field(default=TodoStatus.PENDING)
     priority: TodoPriority = Field(default=TodoPriority.MEDIUM)
     due_date: Optional[datetime] = None
@@ -61,7 +61,7 @@ class TodoItem(AggregateRoot[str]):
     def create(
         cls,
         title: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         priority: TodoPriority = TodoPriority.MEDIUM,
         due_date: Optional[datetime] = None,
     ) -> "TodoItem":
@@ -88,7 +88,7 @@ class TodoItem(AggregateRoot[str]):
             TodoItemCompletedEvent(todo_id=self.id, completed_at=self.completed_at)
         )
 
-    def cancel(self, reason: Optional[str] = None) -> None:
+    def cancel(self, reason: str | None = None) -> None:
         """Cancel the todo item."""
         if self.status != TodoStatus.PENDING:
             return  # Can only cancel pending items

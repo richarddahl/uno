@@ -14,17 +14,17 @@ original_register = SQLConfigRegistry.register
 
 
 # Completely replace the register method to skip duplicates
-def patched_register(cls, config_class: Type["SQLConfig"]) -> None:
+def patched_register(cls, config_class: type["SQLConfig"]) -> None:
     """
     Register a SQLConfig class in the registry, skip if already registered.
-    
+
     Args:
         config_class: SQLConfig class to register
     """
     if config_class.__name__ in cls._registry:
         # Skip registering the same class again
         return
-    
+
     # Just add to the registry directly
     cls._registry[config_class.__name__] = config_class
 

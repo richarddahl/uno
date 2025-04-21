@@ -26,7 +26,7 @@ class DBManager:
     def __init__(
         self,
         connection_provider: Callable[[], ContextManager[psycopg.Connection]],
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize the schema manager.
@@ -86,7 +86,7 @@ class DBManager:
         ddl = f"DROP SCHEMA IF EXISTS {schema_name} {cascade_stmt}"
         self.execute_ddl(ddl)
 
-    def table_exists(self, table_name: str, schema: Optional[str] = None) -> bool:
+    def table_exists(self, table_name: str, schema: str | None = None) -> bool:
         """
         Check if a table exists in the database.
 
@@ -114,7 +114,7 @@ class DBManager:
                 result = cursor.fetchone()
                 return result[0] if result else False
 
-    def function_exists(self, function_name: str, schema: Optional[str] = None) -> bool:
+    def function_exists(self, function_name: str, schema: str | None = None) -> bool:
         """
         Check if a function exists in the database.
 
@@ -143,7 +143,7 @@ class DBManager:
                 result = cursor.fetchone()
                 return result[0] if result else False
 
-    def create_tables(self, models: List[Any]) -> None:
+    def create_tables(self, models: list[Any]) -> None:
         """
         Create tables for the given models using SQLAlchemy's metadata.
 

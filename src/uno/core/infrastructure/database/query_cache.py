@@ -202,7 +202,7 @@ class QueryCacheStats:
             return 0.0
         return self.total_miss_time / self.misses
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """
         Get a summary of the cache statistics.
 
@@ -240,8 +240,8 @@ class QueryCacheKey:
     @staticmethod
     def hash_query(
         query: Union[str, Executable],
-        params: Optional[Dict[str, Any]] = None,
-        table_names: Optional[List[str]] = None,
+        params: Optional[dict[str, Any]] = None,
+        table_names: Optional[list[str]] = None,
     ) -> str:
         """
         Generate a hash for a query.
@@ -287,7 +287,7 @@ class QueryCacheKey:
     @staticmethod
     def from_select(
         select_query: Select,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Generate a cache key from a SQLAlchemy select query.
@@ -325,8 +325,8 @@ class QueryCacheKey:
     @staticmethod
     def from_text(
         sql: str,
-        params: Optional[Dict[str, Any]] = None,
-        table_names: Optional[List[str]] = None,
+        params: Optional[dict[str, Any]] = None,
+        table_names: Optional[list[str]] = None,
     ) -> str:
         """
         Generate a cache key from a SQL text query.
@@ -458,7 +458,7 @@ class QueryCache:
     def __init__(
         self,
         config: Optional[QueryCacheConfig] = None,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
     ):
         """
         Initialize the query cache.
@@ -471,13 +471,13 @@ class QueryCache:
         self.logger = logger or logging.getLogger(__name__)
 
         # Memory cache storage
-        self._cache: Dict[str, CachedResult[Any]] = {}
+        self._cache: dict[str, CachedResult[Any]] = {}
 
         # Statistics
         self.stats = QueryCacheStats()
 
         # Dependency tracking
-        self._dependencies: Dict[str, Set[str]] = {}  # table_name -> set of cache keys
+        self._dependencies: dict[str, Set[str]] = {}  # table_name -> set of cache keys
 
         # Redis client (initialized lazily)
         self._redis_client = None
@@ -602,7 +602,7 @@ class QueryCache:
         key: str,
         value: Any,
         ttl: Optional[float] = None,
-        dependencies: Optional[List[str]] = None,
+        dependencies: Optional[list[str]] = None,
         query_time: float = 0.0,
     ) -> None:
         """
@@ -811,7 +811,7 @@ class QueryCache:
             self.stats.record_eviction()
             self.stats.record_entry_removed()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get statistics about the cache.
 
@@ -836,7 +836,7 @@ class QueryCache:
 
 def cached(
     ttl: Optional[float] = None,
-    dependencies: Optional[List[str]] = None,
+    dependencies: Optional[list[str]] = None,
     key_builder: Optional[Callable[..., str]] = None,
     cache_instance: Optional[QueryCache] = None,
 ):
@@ -898,7 +898,7 @@ def cached(
 
 def cached_query(
     ttl: Optional[float] = None,
-    dependencies: Optional[List[str]] = None,
+    dependencies: Optional[list[str]] = None,
     cache_instance: Optional[QueryCache] = None,
 ):
     """
@@ -1010,7 +1010,7 @@ class QueryCacheManager:
     """
 
     _default_cache: Optional[QueryCache] = None
-    _named_caches: Dict[str, QueryCache] = {}
+    _named_caches: dict[str, QueryCache] = {}
 
     # Singleton instance (will be replaced with DI in the future)
     _instance = None
@@ -1021,13 +1021,13 @@ class QueryCacheManager:
         Get the singleton instance.
 
         DEPRECATED: This method is maintained for backward compatibility only and will be removed.
-        Use dependency injection via uno.core.di.modern_provider.get_service() instead.
+        Use dependency injection via uno.core.di.provider.get_service() instead.
 
         Returns:
             QueryCacheManager instance
         """
         # Import at function level to avoid circular imports
-        from uno.core.di.modern_provider import register_singleton
+        from uno.core.di.provider import register_singleton
 
         if cls._instance is None:
             cls._instance = QueryCacheManager()
@@ -1084,7 +1084,7 @@ class QueryCacheManager:
         """
         self._named_caches[name] = cache
 
-    def get_all_caches(self) -> Dict[str, QueryCache]:
+    def get_all_caches(self) -> dict[str, QueryCache]:
         """
         Get all named caches.
 
@@ -1113,7 +1113,7 @@ def _get_cache_manager() -> QueryCacheManager:
     Returns:
         QueryCacheManager instance
     """
-    from uno.core.di.modern_provider import get_service, register_singleton
+    from uno.core.di.provider import get_service, register_singleton
 
     try:
         # Try to get from DI system first

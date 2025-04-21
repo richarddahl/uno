@@ -62,7 +62,7 @@ from uno.core.application.fastapi_error_handlers import (
 from uno.settings import uno_settings
 
 # Import the service provider, but don't use it yet
-from uno.core.di.modern_provider import get_service_provider
+from uno.core.di.provider import get_service_provider
 
 # Import the app, but we need to redefine it with our lifespan
 from uno.application.fastapi.apidef import app as api_app
@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
         logger.info("Starting application initialization")
 
         # Initialize the modern dependency injection system
-        from uno.core.di.modern_provider import initialize_services
+        from uno.core.di.provider import initialize_services
 
         await initialize_services()
         logger.info("Modern DI Service Provider initialized")
@@ -164,7 +164,7 @@ async def lifespan(app: FastAPI):
         logger.info("Starting application shutdown")
 
         # Shut down the modern dependency injection system
-        from uno.core.di.modern_provider import shutdown_services
+        from uno.core.di.provider import shutdown_services
 
         await shutdown_services()
         logger.info("DI Service Provider shut down")
@@ -205,7 +205,7 @@ configure_fastapi(api_app)
 
 # Example of an endpoint using the new dependency injection system
 from uno.core.di.decorators import inject_params
-from uno.core.di.interfaces import UnoConfigProtocol
+from uno.core.di.interfaces import ConfigProtocol
 
 
 @api_app.get("/app", response_class=HTMLResponse, tags=["0KUI"])

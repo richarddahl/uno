@@ -90,13 +90,13 @@ class GetTodoItemHandler(QueryHandler[GetTodoItemQuery, Optional[TodoItem]]):
         return await self.repository.get_by_id(query.todo_id)
 
 
-class ListTodoItemsHandler(QueryHandler[ListTodoItemsQuery, List[TodoItem]]):
+class ListTodoItemsHandler(QueryHandler[ListTodoItemsQuery, list[TodoItem]]):
     """Handler for listing todo items."""
 
     def __init__(self, repository: TodoItemRepository):
         self.repository = repository
 
-    async def handle(self, query: ListTodoItemsQuery) -> List[TodoItem]:
+    async def handle(self, query: ListTodoItemsQuery) -> list[TodoItem]:
         """Handle the list todo items query."""
         # Apply filters if provided
         if query.status is not None and query.priority is not None:
