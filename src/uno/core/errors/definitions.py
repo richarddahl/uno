@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from uno.core.errors.base import ErrorCategory, ErrorSeverity, FrameworkError
+from uno.core.errors.base import ErrorCategory, ErrorSeverity, FrameworkError, ErrorCode
 from uno.core.errors.catalog import register_error
 
 # -----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ class InitializationError(FrameworkError):
         if component:
             ctx["component"] = component
         message = message or f"Initialization failed: {reason}"
-        super().__init__(
+        register_error(
             message=message, error_code=CoreErrorCode.INIT_FAILED, reason=reason, **ctx
         )
 
@@ -136,7 +136,7 @@ class ComponentInitializationError(FrameworkError):
         self, component: str, reason: str, message: str | None = None, **context: Any
     ):
         message = message or f"Component '{component}' initialization failed: {reason}"
-        super().__init__(
+        register_error(
             message=message,
             error_code=CoreErrorCode.COMPONENT_INIT_FAILED,
             component=component,
@@ -159,7 +159,7 @@ class DependencyNotFoundError(FrameworkError):
         if component:
             ctx["component"] = component
         message = message or f"Dependency '{dependency_name}' not found"
-        super().__init__(
+        register_error(
             message=message,
             error_code=CoreErrorCode.DEPENDENCY_NOT_FOUND,
             dependency_name=dependency_name,
@@ -430,6 +430,127 @@ class AuthorizationError(FrameworkError):
         if resource:
             ctx["resource"] = resource
         super().__init__(message, error_code, **ctx)
+
+
+# -----------------------------------------------------------------------------
+# Domain Error Classes
+# -----------------------------------------------------------------------------
+
+class DomainError(FrameworkError):
+    """
+    Base class for all domain-level exceptions.
+
+    Domain errors represent business rule violations and other exceptional
+    conditions that arise in the domain model.
+    """
+    def __init__(self, message: str, code: str, details: dict[str, Any] | None = None, **kwargs):
+        self.message = message
+        self.code = code
+        self.details = details or {}
+        context = self.details.copy()
+        if kwargs:
+            context.update(kwargs)
+        super().__init__(message=message, error_code=code, **context)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"message": self.message, "code": self.code, "details": self.details}
+
+
+class DomainValidationError(DomainError):
+    """
+    Exception raised when domain validation fails.
+    This exception is raised when an entity or value object fails validation,
+    such as when a business rule is violated.
+    """
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
+        super().__init__(message, "DOMAIN_VALIDATION_ERROR", details)
+
+class EntityNotFoundError(DomainError):
+    """
+    Exception raised when an entity cannot be found.
+    This exception is raised when attempting to retrieve an entity that doesn't exist in the repository.
+    """
+    def __init__(self, entity_type: str, entity_id: Any):
+        message = f"{entity_type} with ID {entity_id} not found"
+        details = {"entity_type": entity_type, "entity_id": str(entity_id)}
+        super().__init__(message, "ENTITY_NOT_FOUND", details)
+
+class BusinessRuleViolationError(DomainError):
+    """
+    Exception raised when a business rule is violated.
+    This exception is raised when an operation would violate a business rule, such as when attempting to perform an action that is not allowed in the current state.
+    """
+    def __init__(self, message: str, rule_name: str, details: dict[str, Any] | None = None):
+        error_details = details or {}
+        error_details["rule_name"] = rule_name
+        super().__init__(message, "BUSINESS_RULE_VIOLATION", error_details)
+
+class ConcurrencyError(DomainError):
+    """
+    Exception raised when a concurrency conflict occurs.
+    This exception is raised when attempting to update an entity that has been modified by another operation since it was retrieved.
+    """
+    def __init__(self, entity_type: str, entity_id: Any):
+        message = f"Concurrency conflict for {entity_type} with ID {entity_id}"
+        details = {"entity_type": entity_type, "entity_id": str(entity_id)}
+        super().__init__(message, "CONCURRENCY_CONFLICT", details)
+
+class AggregateInvariantViolationError(DomainError):
+    """
+    Exception raised when an aggregate invariant is violated.
+    This exception is raised when an operation would leave an aggregate in an invalid state, violating its invariants.
+    """
+    def __init__(self, aggregate_type: str, invariant_name: str, message: str):
+        details = {"aggregate_type": aggregate_type, "invariant_name": invariant_name}
+        super().__init__(message, "AGGREGATE_INVARIANT_VIOLATION", details)
+
+class CommandHandlerNotFoundError(DomainError):
+    """
+    Exception raised when a command handler cannot be found.
+    This exception is raised when attempting to dispatch a command for which there is no registered handler.
+    """
+    def __init__(self, command_type: str):
+        message = f"No handler registered for command {command_type}"
+        details = {"command_type": command_type}
+        super().__init__(message, "COMMAND_HANDLER_NOT_FOUND", details)
+
+class QueryHandlerNotFoundError(DomainError):
+    """
+    Exception raised when a query handler cannot be found.
+    This exception is raised when attempting to dispatch a query for which there is no registered handler.
+    """
+    def __init__(self, query_type: str):
+        message = f"No handler registered for query {query_type}"
+        details = {"query_type": query_type}
+        super().__init__(message, "QUERY_HANDLER_NOT_FOUND", details)
+
+class CommandExecutionError(DomainError):
+    """
+    Exception raised when a command execution fails.
+    This exception is raised when a command fails to execute due to an error in the command handler.
+    """
+    def __init__(self, command_type: str, message: str, details: dict[str, Any] | None = None):
+        error_details = details or {}
+        error_details["command_type"] = command_type
+        super().__init__(message, "COMMAND_EXECUTION_ERROR", error_details)
+
+class QueryExecutionError(DomainError):
+    """
+    Exception raised when a query execution fails.
+    This exception is raised when a query fails to execute due to an error in the query handler.
+    """
+    def __init__(self, query_type: str, message: str, details: dict[str, Any] | None = None):
+        error_details = details or {}
+        error_details["query_type"] = query_type
+        super().__init__(message, "QUERY_EXECUTION_ERROR", error_details)
+
+class AuthorizationError(DomainError):
+    """
+    Exception raised when authorization fails.
+    This exception is raised when a user is not authorized to perform an operation.
+    """
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
+        super().__init__(message, "AUTHORIZATION_ERROR", details)
 
 
 # -----------------------------------------------------------------------------

@@ -312,109 +312,52 @@ class FrameworkError(Exception):
     """
 
     def __init__(self, message: str, error_code: str, **context: Any):
-        """
-        Initialize a FrameworkError.
-
-        Args:
-            message: The error message
-            error_code: A code identifying the error type
-            **context: Additional context information
-        """
         super().__init__(message)
         self.message: str = message
         self.error_code: str = error_code
-
-        # Combine the explicit context with the ambient context
         self.context: dict[str, Any] = get_error_context().copy()
         self.context.update(context)
-
-        # Capture stack trace information
-        self.traceback: str = "".join(
-            traceback.format_exception(*traceback.sys.exc_info())
-        )
-
-        # Get error info from catalog if available
+        self.traceback: str = "".join(traceback.format_exception(*traceback.sys.exc_info()))
         from uno.core.errors.catalog import get_error_code_info
-
         self.error_info: ErrorInfo | None = get_error_code_info(error_code)
 
     @property
     def category(self) -> ErrorCategory | None:
-        """
-        Get the error category.
-
-        Returns:
-            The error category, or None if not available
-        """
         return self.error_info.category if self.error_info else None
 
     @property
     def severity(self) -> ErrorSeverity | None:
-        """
-        Get the error severity.
-
-        Returns:
-            The error severity, or None if not available
-        """
         return self.error_info.severity if self.error_info else None
 
     @property
     def http_status_code(self) -> int | None:
-        """
-        Get the HTTP status code for this error.
-
-        Returns:
-            The HTTP status code (defaults to 500)
-        """
         if self.error_info and self.error_info.http_status_code:
             return self.error_info.http_status_code
         return 500
 
     @property
     def retry_allowed(self) -> bool:
-        """
-        Check if retry is allowed for this error.
-
-        Returns:
-            True if retry is allowed, False otherwise
-        """
         if self.error_info:
             return self.error_info.retry_allowed
         return True
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert the error to a dictionary.
-
-        Returns:
-            A dictionary representation of the error
-        """
         result = {
             "message": self.message,
             "error_code": self.error_code,
             "context": self.context,
         }
-
-        # Add additional information if available
         if self.category:
             result["category"] = self.category.name
-
         if self.severity:
             result["severity"] = self.severity.name
-
         return result
 
     def __str__(self) -> str:
-        """
-        String representation of the error.
-
-        Returns:
-            A string representation of the error
-        """
         return f"{self.error_code}: {self.message}"
 
 
-class DomainValidationError(FrameworkError):
+
     """Error raised when domain validation fails."""
 
     def __init__(self, message: str, entity_name: str | None = None, **context: Any):
@@ -435,7 +378,7 @@ class DomainValidationError(FrameworkError):
         )
 
 
-class AggregateInvariantViolationError(FrameworkError):
+
     """Error raised when an aggregate invariant is violated."""
 
     def __init__(
@@ -465,7 +408,7 @@ class AggregateInvariantViolationError(FrameworkError):
         )
 
 
-class EntityNotFoundError(FrameworkError):
+
     """Error raised when an entity is not found."""
 
     def __init__(self, entity_type: str, entity_id: Any, **context: Any):
@@ -487,7 +430,7 @@ class EntityNotFoundError(FrameworkError):
         )
 
 
-class ConcurrencyError(FrameworkError):
+
     """Error raised when there is a concurrency conflict."""
 
     def __init__(
@@ -525,7 +468,7 @@ class ConcurrencyError(FrameworkError):
         )
 
 
-class AuthorizationError(FrameworkError):
+
     """Error raised when user is not authorized to perform an operation."""
 
     def __init__(
@@ -559,7 +502,7 @@ class AuthorizationError(FrameworkError):
         )
 
 
-class ValidationError(FrameworkError):
+
     """Error raised when validation fails."""
 
     def __init__(

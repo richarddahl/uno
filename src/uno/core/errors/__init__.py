@@ -10,6 +10,18 @@ structured errors, error codes, contextual information, and
 integration with both exception-based and functional error handling.
 """
 
+from uno.core.errors.base import (
+    ErrorCategory,
+    ErrorCode,
+    ErrorContext,
+    ErrorInfo,
+    ErrorSeverity,
+    FrameworkError,
+    add_error_context,
+    get_error_context,
+    with_async_error_context,
+    with_error_context,
+)
 from uno.core.errors.catalog import (
     ErrorCatalog,
     get_all_error_codes,
@@ -32,11 +44,6 @@ from uno.core.errors.definitions import (
     DeserializationError,
     DomainValidationError,
     EntityNotFoundError,
-    ErrorCategory,
-    ErrorCode,
-    ErrorContext,
-    ErrorInfo,
-    ErrorSeverity,
     FieldValidationError,
     InitializationError,
     InterfaceMethodError,
@@ -49,12 +56,7 @@ from uno.core.errors.definitions import (
     SerializationError,
     ValidationContext,
     ValidationError,
-    add_error_context,
-    get_error_context,
-    register_core_errors,
     validate_fields,
-    with_async_error_context,
-    with_error_context,
 )
 from uno.core.errors.logging import (
     LogConfig,
@@ -78,7 +80,7 @@ from uno.core.errors.result import (
 )
 
 # Register core errors
-register_core_errors()
+# register_core_errors()  # No longer needed if registration is in definitions.pydd
 
 __all__ = [
     # Base errors

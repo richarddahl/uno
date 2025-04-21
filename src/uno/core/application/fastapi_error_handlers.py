@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, FrameworkError
-from uno.core.errors.validation import ValidationError
+from uno.core.errors import ValidationError as UnoValidationError
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -161,9 +161,9 @@ def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None
         request: Request, exc: ValidationError
     ) -> JSONResponse:
         """
-        Handle ValidationError exceptions.
+        Handle UnoValidationError exceptions.
 
-        This handler converts ValidationError objects to JSONResponse with status code 400.
+        This handler converts UnoValidationError objects to JSONResponse with status code 400.
 
         Args:
             request: The FastAPI request object
