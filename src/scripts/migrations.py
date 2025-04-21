@@ -35,7 +35,7 @@ import subprocess
 from pathlib import Path
 
 from uno.settings import uno_settings
-from uno.database.config import ConnectionConfig
+from uno.infrastructure.database.config import ConnectionConfig
 from alembic.config import Config
 from alembic import command
 
@@ -90,7 +90,7 @@ def get_alembic_config() -> Config:
 
     # Override SQLAlchemy URL if needed
     from uno.settings import uno_settings
-    from uno.database.config import ConnectionConfig
+    from uno.infrastructure.database.config import ConnectionConfig
 
     # Use login role (not admin) since login role has connect permission
     conn_config = ConnectionConfig(
@@ -238,7 +238,7 @@ Create Date: ${create_date}
 from typing import Optional
 from alembic import op
 import sqlalchemy as sa
-import uno.database.engine  # noqa: F401
+import uno.infrastructure.database.engine  # noqa: F401
 ${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
@@ -273,8 +273,8 @@ from alembic import context
 # Import Uno configuration and model base
 from uno.settings import uno_settings
 from uno.model import UnoModel
-from uno.database.config import ConnectionConfig
-from uno.database.engine import sync_connection, SyncEngineFactory
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine import sync_connection, SyncEngineFactory
 import uno.attributes.models  # noqa: F401
 import uno.authorization.models  # noqa: F401
 import uno.meta.models  # noqa: F401

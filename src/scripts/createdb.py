@@ -5,9 +5,9 @@ import logging
 from contextlib import contextmanager
 
 from uno.settings import uno_settings
-from uno.database.engine import SyncEngineFactory
-from uno.database.manager import DBManager as InitDBManager  # Renamed to avoid confusion
-from uno.database.db_manager import DBManager  # Our new DBManager for DDL operations
+from uno.infrastructure.database.engine import SyncEngineFactory
+from uno.infrastructure.database.manager import DBManager as InitDBManager  # Renamed to avoid confusion
+from uno.infrastructure.database.db_manager import DBManager  # Our new DBManager for DDL operations
 from uno.sql.emitters.database import (
     DropDatabaseAndRoles,
     CreateRolesAndDatabase,
@@ -20,7 +20,7 @@ from uno.sql.emitters.database import (
 )
 from uno.sql.emitters.table import InsertMetaRecordFunction
 from uno.meta.sqlconfigs import MetaTypeSQLConfig
-from uno.database.config import ConnectionConfig
+from uno.infrastructure.database.config import ConnectionConfig
 
 # Initialize a logger
 logger = logging.getLogger(__name__)

@@ -215,9 +215,6 @@ warn_unused_configs = true
 exclude = ["migrations"]
 
 [tool.ruff]
-# Target Python version
-target-version = "py313"
-
 # Line length
 line-length = 88
 

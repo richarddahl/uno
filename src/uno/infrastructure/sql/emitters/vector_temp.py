@@ -13,7 +13,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy import text
 
 from uno.sql.emitter import SQLEmitter
-from uno.database.session import DatabaseSessionProtocol
+from uno.infrastructure.database.session import DatabaseSessionProtocol
 
 T = TypeVar('T')
 

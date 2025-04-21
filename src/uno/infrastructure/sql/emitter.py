@@ -14,8 +14,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from uno.database.config import ConnectionConfig
-from uno.database.engine.sync import SyncEngineFactory, sync_connection
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
 from uno.settings import uno_settings
 from uno.sql.errors import (
     SQLErrorCode,

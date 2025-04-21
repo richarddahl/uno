@@ -10,8 +10,8 @@ from typing import Dict, Type, List, Optional
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 
-from uno.database.config import ConnectionConfig
-from uno.database.engine.sync import SyncEngineFactory, sync_connection
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
 from uno.sql.errors import (
     SQLErrorCode,
     SQLRegistryClassNotFoundError,

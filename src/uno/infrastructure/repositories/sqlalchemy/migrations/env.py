@@ -12,8 +12,8 @@ from alembic import context
 # Import Uno configuration and model base
 from uno.settings import uno_settings
 from uno.model import UnoModel
-from uno.database.config import ConnectionConfig
-from uno.database.engine import sync_connection, SyncEngineFactory
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine import sync_connection, SyncEngineFactory
 import uno.attributes.models  # noqa: F401
 import uno.authorization.models  # noqa: F401
 import uno.meta.models  # noqa: F401
