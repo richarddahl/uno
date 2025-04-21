@@ -9,13 +9,13 @@ This module provides the foundation for structured error handling with
 error codes, contextual information, and error categories.
 """
 
-from typing import Any, Dict, Optional, Type, TypeVar, cast, Callable
+import contextvars
 import functools
 import inspect
 import traceback
-import contextvars
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Any
 
 # Type for error context dict
 ErrorContext = dict[str, Any]
@@ -223,7 +223,7 @@ class ErrorInfo:
     category: ErrorCategory
     severity: ErrorSeverity
     description: str
-    http_status_code: Optional[int] = None
+    http_status_code: int | None = None
     retry_allowed: bool = True
 
 
@@ -292,7 +292,7 @@ class ErrorCode:
         return info.http_status_code if info and info.http_status_code else 500
 
 
-class UnoError(Exception):
+class FrameworkError(Exception):
     """
     Base class for all Uno framework errors.
 
@@ -302,7 +302,7 @@ class UnoError(Exception):
 
     def __init__(self, message: str, error_code: str, **context: Any):
         """
-        Initialize a UnoError.
+        Initialize a FrameworkError.
 
         Args:
             message: The error message
@@ -325,10 +325,10 @@ class UnoError(Exception):
         # Get error info from catalog if available
         from uno.core.errors.catalog import get_error_code_info
 
-        self.error_info: Optional[ErrorInfo] = get_error_code_info(error_code)
+        self.error_info: ErrorInfo | None = get_error_code_info(error_code)
 
     @property
-    def category(self) -> Optional[ErrorCategory]:
+    def category(self) -> ErrorCategory | None:
         """
         Get the error category.
 
@@ -338,7 +338,7 @@ class UnoError(Exception):
         return self.error_info.category if self.error_info else None
 
     @property
-    def severity(self) -> Optional[ErrorSeverity]:
+    def severity(self) -> ErrorSeverity | None:
         """
         Get the error severity.
 
@@ -348,7 +348,7 @@ class UnoError(Exception):
         return self.error_info.severity if self.error_info else None
 
     @property
-    def http_status_code(self) -> int:
+    def http_status_code(self) -> int | None:
         """
         Get the HTTP status code for this error.
 
@@ -403,7 +403,7 @@ class UnoError(Exception):
         return f"{self.error_code}: {self.message}"
 
 
-class DomainValidationError(UnoError):
+class DomainValidationError(FrameworkError):
     """Error raised when domain validation fails."""
 
     def __init__(self, message: str, entity_name: str | None = None, **context: Any):
@@ -424,7 +424,7 @@ class DomainValidationError(UnoError):
         )
 
 
-class AggregateInvariantViolationError(UnoError):
+class AggregateInvariantViolationError(FrameworkError):
     """Error raised when an aggregate invariant is violated."""
 
     def __init__(
@@ -454,7 +454,7 @@ class AggregateInvariantViolationError(UnoError):
         )
 
 
-class EntityNotFoundError(UnoError):
+class EntityNotFoundError(FrameworkError):
     """Error raised when an entity is not found."""
 
     def __init__(self, entity_type: str, entity_id: Any, **context: Any):
@@ -476,15 +476,15 @@ class EntityNotFoundError(UnoError):
         )
 
 
-class ConcurrencyError(UnoError):
+class ConcurrencyError(FrameworkError):
     """Error raised when there is a concurrency conflict."""
 
     def __init__(
         self,
         entity_type: str,
         entity_id: Any,
-        expected_version: Optional[int] = None,
-        actual_version: Optional[int] = None,
+        expected_version: int | None = None,
+        actual_version: int | None = None,
         **context: Any,
     ):
         """
@@ -514,14 +514,14 @@ class ConcurrencyError(UnoError):
         )
 
 
-class AuthorizationError(UnoError):
+class AuthorizationError(FrameworkError):
     """Error raised when user is not authorized to perform an operation."""
 
     def __init__(
         self,
         message: str = "User is not authorized to perform this operation",
         resource_type: str | None = None,
-        resource_id: Optional[Any] = None,
+        resource_id: Any | None = None,
         permission: str | None = None,
         **context: Any,
     ):
@@ -548,14 +548,14 @@ class AuthorizationError(UnoError):
         )
 
 
-class ValidationError(UnoError):
+class ValidationError(FrameworkError):
     """Error raised when validation fails."""
 
     def __init__(
         self,
         message: str,
         field: str | None = None,
-        value: Optional[Any] = None,
+        value: Any | None = None,
         **context: Any,
     ):
         """

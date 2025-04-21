@@ -37,7 +37,7 @@ from uno.schema.errors import (
     SchemaConversionError,
 )
 from uno.dto.dto import UnoDTO, DTOConfig, PaginatedListDTO
-from uno.core.errors.base import UnoError
+from uno.core.errors.base import FrameworkError
 
 
 # Type variables for improved type safety
@@ -88,11 +88,11 @@ class DTOManager:
             The created DTO class
 
         Raises:
-            UnoError: If the DTO configuration is not found or if there are issues
+            FrameworkError: If the DTO configuration is not found or if there are issues
                     with the DTO creation
         """
         if dto_name not in self.dto_configs:
-            raise UnoError(
+            raise FrameworkError(
                 f"DTO configuration {dto_name} not found.",
                 "DTO_CONFIG_NOT_FOUND",
             )
@@ -147,7 +147,7 @@ class DTOManager:
             A DTO class for lists of the given model
 
         Raises:
-            UnoError: If there are issues with the DTO creation
+            FrameworkError: If there are issues with the DTO creation
         """
         # Use a standard naming convention for list DTOs
         dto_name = f"{model.__name__}_list"

@@ -18,17 +18,17 @@ warnings.warn(
 )
 
 # Import from the new location to maintain backward compatibility
-from uno.core.errors.base import UnoError
+from uno.core.errors.base import FrameworkError
 
 
-class DomainError(UnoError):
+class DomainError(FrameworkError):
     """
     Base class for all domain-level exceptions.
 
     Domain errors represent business rule violations and other exceptional
     conditions that arise in the domain model.
 
-    DEPRECATED: Use UnoError from uno.core.errors.base instead.
+    DEPRECATED: Use FrameworkError from uno.core.errors.base instead.
     """
 
     def __init__(
@@ -50,7 +50,7 @@ class DomainError(UnoError):
         self.code = code
         self.details = details or {}
 
-        # Map to UnoError properties
+        # Map to FrameworkError properties
         context = self.details.copy()
         if kwargs:
             context.update(kwargs)

@@ -10,7 +10,7 @@ for core framework functionality that doesn't fit in other specific modules.
 """
 
 from typing import Any, Dict, List, Optional, Union, Type
-from uno.core.errors.base import UnoError, ErrorCategory, ErrorSeverity
+from uno.core.errors.base import FrameworkError, ErrorCategory, ErrorSeverity
 from uno.core.errors.catalog import register_error
 
 
@@ -52,7 +52,7 @@ class CoreErrorCode:
 
 
 # Configuration errors
-class ConfigNotFoundError(UnoError):
+class ConfigNotFoundError(FrameworkError):
     """Error raised when a configuration setting is not found."""
 
     def __init__(self, config_key: str, message: str | None = None, **context: Any):
@@ -65,7 +65,7 @@ class ConfigNotFoundError(UnoError):
         )
 
 
-class ConfigInvalidError(UnoError):
+class ConfigInvalidError(FrameworkError):
     """Error raised when a configuration setting is invalid."""
 
     def __init__(
@@ -81,7 +81,7 @@ class ConfigInvalidError(UnoError):
         )
 
 
-class ConfigTypeMismatchError(UnoError):
+class ConfigTypeMismatchError(FrameworkError):
     """Error raised when a configuration setting has the wrong type."""
 
     def __init__(
@@ -116,7 +116,7 @@ class ConfigTypeMismatchError(UnoError):
 
 
 # Initialization errors
-class InitializationError(UnoError):
+class InitializationError(FrameworkError):
     """Error raised when framework initialization fails."""
 
     def __init__(
@@ -136,7 +136,7 @@ class InitializationError(UnoError):
         )
 
 
-class ComponentInitializationError(UnoError):
+class ComponentInitializationError(FrameworkError):
     """Error raised when a specific component fails to initialize."""
 
     def __init__(
@@ -153,7 +153,7 @@ class ComponentInitializationError(UnoError):
 
 
 # Dependency errors
-class DependencyNotFoundError(UnoError):
+class DependencyNotFoundError(FrameworkError):
     """Error raised when a required dependency is not found."""
 
     def __init__(
@@ -176,7 +176,7 @@ class DependencyNotFoundError(UnoError):
         )
 
 
-class DependencyResolutionError(UnoError):
+class DependencyResolutionError(FrameworkError):
     """Error raised when dependency resolution fails."""
 
     def __init__(
@@ -198,7 +198,7 @@ class DependencyResolutionError(UnoError):
         )
 
 
-class DependencyCycleError(UnoError):
+class DependencyCycleError(FrameworkError):
     """Error raised when a dependency cycle is detected."""
 
     def __init__(
@@ -215,7 +215,7 @@ class DependencyCycleError(UnoError):
 
 
 # Object errors
-class ObjectNotFoundError(UnoError):
+class ObjectNotFoundError(FrameworkError):
     """Error raised when an object is not found."""
 
     def __init__(
@@ -241,7 +241,7 @@ class ObjectNotFoundError(UnoError):
         )
 
 
-class ObjectInvalidError(UnoError):
+class ObjectInvalidError(FrameworkError):
     """Error raised when an object is invalid."""
 
     def __init__(
@@ -266,7 +266,7 @@ class ObjectInvalidError(UnoError):
         )
 
 
-class ObjectPropertyError(UnoError):
+class ObjectPropertyError(FrameworkError):
     """Error raised when there is an issue with an object property."""
 
     def __init__(
@@ -291,7 +291,7 @@ class ObjectPropertyError(UnoError):
 
 
 # Serialization errors
-class SerializationError(UnoError):
+class SerializationError(FrameworkError):
     """Error raised when object serialization fails."""
 
     def __init__(
@@ -307,7 +307,7 @@ class SerializationError(UnoError):
         )
 
 
-class DeserializationError(UnoError):
+class DeserializationError(FrameworkError):
     """Error raised when object deserialization fails."""
 
     def __init__(
@@ -324,7 +324,7 @@ class DeserializationError(UnoError):
 
 
 # Protocol errors
-class ProtocolValidationError(UnoError):
+class ProtocolValidationError(FrameworkError):
     """Error raised when protocol validation fails."""
 
     def __init__(
@@ -346,7 +346,7 @@ class ProtocolValidationError(UnoError):
         )
 
 
-class InterfaceMethodError(UnoError):
+class InterfaceMethodError(FrameworkError):
     """Error raised when a required interface method is missing."""
 
     def __init__(
@@ -370,7 +370,7 @@ class InterfaceMethodError(UnoError):
 
 
 # General errors
-class OperationFailedError(UnoError):
+class OperationFailedError(FrameworkError):
     """Error raised when an operation fails."""
 
     def __init__(
@@ -386,7 +386,7 @@ class OperationFailedError(UnoError):
         )
 
 
-class NotImplementedError(UnoError):
+class NotImplementedError(FrameworkError):
     """Error raised when a feature is not implemented."""
 
     def __init__(self, feature: str, message: str | None = None, **context: Any):
@@ -399,7 +399,7 @@ class NotImplementedError(UnoError):
         )
 
 
-class InternalError(UnoError):
+class InternalError(FrameworkError):
     """Error raised when an internal error occurs."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):

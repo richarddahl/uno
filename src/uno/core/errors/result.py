@@ -9,24 +9,22 @@ This module implements the Result pattern (also known as the Either pattern)
 for handling errors in a functional way without relying on exceptions.
 """
 
+import functools
+import traceback
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from contextlib import suppress
+from dataclasses import dataclass
 from typing import (
-    TypeVar,
-    Generic,
-    Optional,
-    Callable,
-    cast,
     Any,
-    List,
-    Dict,
-    Union,
+    Generic,
     Protocol,
+    TypeVar,
+    cast,
     runtime_checkable,
 )
-import traceback
-import inspect
-import functools
-from dataclasses import dataclass
-from uno.core.errors.base import UnoError, ErrorCode, get_error_context
+
+from uno.core.errors.base import ErrorCode, FrameworkError, get_error_context
 
 T = TypeVar("T")
 E = TypeVar("E", bound=Exception)
@@ -42,8 +40,38 @@ class HasToDict(Protocol):
     def to_dict(self) -> dict[str, Any]: ...
 
 
+class Result(Generic[T], ABC):
+    """Abstract base class for Result monad."""
+
+    @property
+    @abstractmethod
+    def is_success(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def is_failure(self) -> bool: ...
+
+    @abstractmethod
+    def map(self, func: Callable[[T], U]) -> "Result[U]": ...
+
+    @abstractmethod
+    def flat_map(self, func: Callable[[T], "Result[U]"]) -> "Result[U]": ...
+
+    @abstractmethod
+    def unwrap(self) -> T: ...
+
+    @abstractmethod
+    def unwrap_or(self, default: T) -> T: ...
+
+    @abstractmethod
+    def unwrap_or_else(self, func: Callable[[Exception], T]) -> T: ...
+
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True)
-class Success(Generic[T]):
+class Success(Result[T], Generic[T]):
     """
     Represents a successful result with a value.
 
@@ -108,11 +136,8 @@ class Success(Generic[T]):
         Returns:
             The original Result
         """
-        try:
+        with suppress(Exception):
             func(self.value)
-        except Exception:
-            # Ignore exceptions in the handler
-            pass
         return self
 
     def on_failure(self, func: Callable[[Exception], Any]) -> "Success[T]":
@@ -189,7 +214,7 @@ class Success(Generic[T]):
 
 
 @dataclass(frozen=True)
-class Failure(Generic[T]):
+class Failure(Result[T], Generic[T]):
     """
     Represents a failed result with an error.
 
@@ -271,11 +296,8 @@ class Failure(Generic[T]):
         Returns:
             The original Result
         """
-        try:
+        with suppress(Exception):
             func(self.error)
-        except Exception:
-            # Ignore exceptions in the handler
-            pass
         return self
 
     # Backward compatibility methods for tests
@@ -319,7 +341,7 @@ class Failure(Generic[T]):
         Returns:
             A dictionary representation of the result
         """
-        if isinstance(self.error, UnoError):
+        if isinstance(self.error, FrameworkError):
             return {"status": "error", "error": self.error.to_dict()}
         else:
             # Create a generic error structure
@@ -343,16 +365,6 @@ class Failure(Generic[T]):
     def __repr__(self) -> str:
         """Detailed string representation of a failed result."""
         return f"Failure({repr(self.error)})"
-
-
-# Type alias for Result
-Result = Union[Success[T], Failure[T]]
-
-# Alias Ok for backward compatibility
-Ok = Success
-
-# Alias Err for backward compatibility
-Err = Failure
 
 
 def of(value: T) -> Result[T]:

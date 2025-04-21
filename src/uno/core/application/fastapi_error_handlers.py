@@ -6,7 +6,7 @@
 FastAPI exception handlers for Uno error system.
 
 This module provides exception handlers for FastAPI applications that integrate
-with the Uno error system. These handlers convert UnoError objects to
+with the Uno error system. These handlers convert FrameworkError objects to
 appropriate HTTP responses with correct status codes.
 """
 
@@ -20,8 +20,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, UnoError
-from uno.core.errors.validation import ValidationError as UnoValidationError
+from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, FrameworkError
+from uno.core.errors.validation import ValidationError
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -39,22 +39,22 @@ def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None
         include_tracebacks: Whether to include tracebacks in error responses (default: False)
     """
 
-    @app.exception_handler(UnoError)
-    async def uno_error_handler(request: Request, exc: UnoError) -> JSONResponse:
+    @app.exception_handler(FrameworkError)
+    async def uno_error_handler(request: Request, exc: FrameworkError) -> JSONResponse:
         """
-        Handle UnoError exceptions.
+        Handle FrameworkError exceptions.
 
-        This handler converts UnoError objects to JSONResponse with appropriate status code
+        This handler converts FrameworkError objects to JSONResponse with appropriate status code
         from the error's error_info.
 
         Args:
             request: The FastAPI request object
-            exc: The UnoError exception
+            exc: The FrameworkError exception
 
         Returns:
             A JSONResponse with appropriate status code and content
         """
-        logger.error(f"UnoError: {exc}", exc_info=True)
+        logger.error(f"FrameworkError: {exc}", exc_info=True)
 
         response_content = _build_error_response(
             exc, include_traceback=include_tracebacks
@@ -156,18 +156,18 @@ def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None
             status_code=status.HTTP_400_BAD_REQUEST, content=response_content
         )
 
-    @app.exception_handler(UnoValidationError)
+    @app.exception_handler(ValidationError)
     async def uno_validation_error_handler(
-        request: Request, exc: UnoValidationError
+        request: Request, exc: ValidationError
     ) -> JSONResponse:
         """
-        Handle UnoValidationError exceptions.
+        Handle ValidationError exceptions.
 
-        This handler converts UnoValidationError objects to JSONResponse with status code 400.
+        This handler converts ValidationError objects to JSONResponse with status code 400.
 
         Args:
             request: The FastAPI request object
-            exc: The UnoValidationError exception
+            exc: The ValidationError exception
 
         Returns:
             A JSONResponse with status code 400 and error content
@@ -223,13 +223,13 @@ def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None
 
 
 def _build_error_response(
-    exc: UnoError, include_traceback: bool = False
+    exc: FrameworkError, include_traceback: bool = False
 ) -> dict[str, Any]:
     """
-    Build a standardized error response from an UnoError.
+    Build a standardized error response from an FrameworkError.
 
     Args:
-        exc: The UnoError exception
+        exc: The FrameworkError exception
         include_traceback: Whether to include traceback in the response
 
     Returns:
@@ -305,9 +305,11 @@ class ErrorHandlingMiddleware:
             # Log the error
             self.logger.log(self.log_level, f"Error in request: {exc}", exc_info=True)
 
-            # Convert to UnoError if it's not already
-            if not isinstance(exc, UnoError):
-                exc = UnoError(message=str(exc), error_code=ErrorCode.INTERNAL_ERROR)
+            # Convert to FrameworkError if it's not already
+            if not isinstance(exc, FrameworkError):
+                exc = FrameworkError(
+                    message=str(exc), error_code=ErrorCode.INTERNAL_ERROR
+                )
 
             # Build the response
             response_content = _build_error_response(

@@ -215,7 +215,7 @@ class StreamingCursor(Generic[T]):
 
         return row
 
-    async def fetchmany(self, size: Optional[int] = None) -> list[T]:
+    async def fetchmany(self, size: int | None = None) -> list[T]:
         """
         Fetch multiple rows from the cursor.
 
@@ -355,7 +355,7 @@ class ResultChunk(Generic[T]):
         self,
         items: list[T],
         chunk_index: int,
-        total_chunks: Optional[int] = None,
+        total_chunks: int | None = None,
         is_last_chunk: bool = False,
         metadata: Optional[dict[str, Any]] = None,
     ):

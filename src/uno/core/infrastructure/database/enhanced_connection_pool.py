@@ -1967,7 +1967,7 @@ async def enhanced_async_engine(
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
-    db_port: Optional[int] = uno_settings.DB_PORT,
+    db_port: int | None = uno_settings.DB_PORT,
     **kwargs: Any,
 ) -> AsyncEngine:
     """
@@ -2011,7 +2011,7 @@ async def enhanced_async_connection(
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
-    db_port: Optional[int] = uno_settings.DB_PORT,
+    db_port: int | None = uno_settings.DB_PORT,
     isolation_level: str = "AUTOCOMMIT",
     **kwargs: Any,
 ) -> AsyncConnection:

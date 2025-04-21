@@ -10,7 +10,7 @@ specific to the database functionality.
 """
 
 from typing import Any, Dict, List, Optional, Union, Type
-from uno.core.errors.base import UnoError, ErrorCategory, ErrorSeverity
+from uno.core.errors.base import FrameworkError, ErrorCategory, ErrorSeverity
 from uno.core.errors.catalog import register_error
 
 
@@ -65,7 +65,7 @@ class DatabaseErrorCode:
 
 
 # Connection errors
-class DatabaseConnectionError(UnoError):
+class DatabaseConnectionError(FrameworkError):
     """Error raised when there is a database connection issue."""
 
     def __init__(
@@ -88,7 +88,7 @@ class DatabaseConnectionError(UnoError):
         )
 
 
-class DatabaseConnectionTimeoutError(UnoError):
+class DatabaseConnectionTimeoutError(FrameworkError):
     """Error raised when a database connection times out."""
 
     def __init__(
@@ -113,7 +113,7 @@ class DatabaseConnectionTimeoutError(UnoError):
         )
 
 
-class DatabaseConnectionPoolExhaustedError(UnoError):
+class DatabaseConnectionPoolExhaustedError(FrameworkError):
     """Error raised when a connection pool is exhausted."""
 
     def __init__(
@@ -137,7 +137,7 @@ class DatabaseConnectionPoolExhaustedError(UnoError):
 
 
 # Query errors
-class DatabaseQueryError(UnoError):
+class DatabaseQueryError(FrameworkError):
     """Error raised when there is a database query issue."""
 
     def __init__(
@@ -161,7 +161,7 @@ class DatabaseQueryError(UnoError):
         )
 
 
-class DatabaseQueryTimeoutError(UnoError):
+class DatabaseQueryTimeoutError(FrameworkError):
     """Error raised when a database query times out."""
 
     def __init__(
@@ -185,7 +185,7 @@ class DatabaseQueryTimeoutError(UnoError):
         )
 
 
-class DatabaseQuerySyntaxError(UnoError):
+class DatabaseQuerySyntaxError(FrameworkError):
     """Error raised when a database query has a syntax error."""
 
     def __init__(
@@ -210,7 +210,7 @@ class DatabaseQuerySyntaxError(UnoError):
 
 
 # Transaction errors
-class DatabaseTransactionError(UnoError):
+class DatabaseTransactionError(FrameworkError):
     """Error raised when there is a database transaction issue."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):
@@ -223,7 +223,7 @@ class DatabaseTransactionError(UnoError):
         )
 
 
-class DatabaseTransactionRollbackError(UnoError):
+class DatabaseTransactionRollbackError(FrameworkError):
     """Error raised when a database transaction is rolled back."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):
@@ -236,7 +236,7 @@ class DatabaseTransactionRollbackError(UnoError):
         )
 
 
-class DatabaseTransactionConflictError(UnoError):
+class DatabaseTransactionConflictError(FrameworkError):
     """Error raised when there is a database transaction conflict."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):
@@ -250,7 +250,7 @@ class DatabaseTransactionConflictError(UnoError):
 
 
 # Data errors
-class DatabaseIntegrityError(UnoError):
+class DatabaseIntegrityError(FrameworkError):
     """Error raised when there is a database integrity issue."""
 
     def __init__(
@@ -273,7 +273,7 @@ class DatabaseIntegrityError(UnoError):
         )
 
 
-class DatabaseUniqueViolationError(UnoError):
+class DatabaseUniqueViolationError(FrameworkError):
     """Error raised when a unique constraint is violated."""
 
     def __init__(
@@ -299,7 +299,7 @@ class DatabaseUniqueViolationError(UnoError):
         )
 
 
-class DatabaseForeignKeyViolationError(UnoError):
+class DatabaseForeignKeyViolationError(FrameworkError):
     """Error raised when a foreign key constraint is violated."""
 
     def __init__(
@@ -326,7 +326,7 @@ class DatabaseForeignKeyViolationError(UnoError):
 
 
 # Resource errors
-class DatabaseResourceNotFoundError(UnoError):
+class DatabaseResourceNotFoundError(FrameworkError):
     """Error raised when a database resource is not found."""
 
     def __init__(
@@ -348,7 +348,7 @@ class DatabaseResourceNotFoundError(UnoError):
         )
 
 
-class DatabaseResourceAlreadyExistsError(UnoError):
+class DatabaseResourceAlreadyExistsError(FrameworkError):
     """Error raised when a database resource already exists."""
 
     def __init__(
@@ -371,7 +371,7 @@ class DatabaseResourceAlreadyExistsError(UnoError):
         )
 
 
-class DatabaseTableNotFoundError(UnoError):
+class DatabaseTableNotFoundError(FrameworkError):
     """Error raised when a database table is not found."""
 
     def __init__(self, table_name: str, message: str | None = None, **context: Any):
@@ -384,7 +384,7 @@ class DatabaseTableNotFoundError(UnoError):
         )
 
 
-class DatabaseColumnNotFoundError(UnoError):
+class DatabaseColumnNotFoundError(FrameworkError):
     """Error raised when a database column is not found."""
 
     def __init__(
@@ -408,7 +408,7 @@ class DatabaseColumnNotFoundError(UnoError):
 
 
 # Session errors
-class DatabaseSessionError(UnoError):
+class DatabaseSessionError(FrameworkError):
     """Error raised when there is a database session issue."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):
@@ -421,7 +421,7 @@ class DatabaseSessionError(UnoError):
         )
 
 
-class DatabaseSessionExpiredError(UnoError):
+class DatabaseSessionExpiredError(FrameworkError):
     """Error raised when a database session has expired."""
 
     def __init__(
@@ -440,7 +440,7 @@ class DatabaseSessionExpiredError(UnoError):
 
 
 # Configuration errors
-class DatabaseConfigError(UnoError):
+class DatabaseConfigError(FrameworkError):
     """Error raised when there is a database configuration issue."""
 
     def __init__(
@@ -464,7 +464,7 @@ class DatabaseConfigError(UnoError):
 
 
 # Operational errors
-class DatabaseOperationalError(UnoError):
+class DatabaseOperationalError(FrameworkError):
     """Error raised when there is a database operational issue."""
 
     def __init__(self, reason: str, message: str | None = None, **context: Any):
@@ -477,7 +477,7 @@ class DatabaseOperationalError(UnoError):
         )
 
 
-class DatabaseNotSupportedError(UnoError):
+class DatabaseNotSupportedError(FrameworkError):
     """Error raised when a database feature is not supported."""
 
     def __init__(self, feature: str, message: str | None = None, **context: Any):

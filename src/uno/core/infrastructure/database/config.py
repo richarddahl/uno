@@ -11,15 +11,15 @@ class ConnectionConfig(BaseModel):
     db_name: str | None = uno_settings.DB_NAME
     db_user_pw: str | None = uno_settings.DB_USER_PW
     db_host: str | None = uno_settings.DB_HOST
-    db_port: Optional[int] = uno_settings.DB_PORT
+    db_port: int | None = uno_settings.DB_PORT
     db_driver: str | None = uno_settings.DB_ASYNC_DRIVER
     db_schema: str | None = uno_settings.DB_SCHEMA
 
     # Connection pooling parameters
-    pool_size: Optional[int] = 5
-    max_overflow: Optional[int] = 0
-    pool_timeout: Optional[int] = 30
-    pool_recycle: Optional[int] = 90
+    pool_size: int | None = 5
+    max_overflow: int | None = 0
+    pool_timeout: int | None = 30
+    pool_recycle: int | None = 90
 
     # Additional driver-specific arguments
     connect_args: Optional[dict] = None

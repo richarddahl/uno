@@ -20,7 +20,7 @@ import contextvars
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Type, Union, cast, Tuple
-from uno.core.errors.base import UnoError
+from uno.core.errors.base import FrameworkError
 
 # Context variable for logging context
 _logging_context = contextvars.ContextVar[dict[str, Any]]("logging_context", default={})
@@ -151,8 +151,8 @@ class StructuredJsonFormatter(logging.Formatter):
                     record.exc_info
                 )
 
-            # Add UnoError specific fields
-            if isinstance(exc_value, UnoError):
+            # Add FrameworkError specific fields
+            if isinstance(exc_value, FrameworkError):
                 log_data["exception"]["error_code"] = exc_value.error_code
                 if hasattr(exc_value, "context") and exc_value.context:
                     log_data["exception"]["error_context"] = exc_value.context

@@ -208,7 +208,7 @@ class SQLEmitter(BaseModel):
             List of SQL statements if dry_run is True, None otherwise
 
         Raises:
-            UnoError: If SQL execution fails
+            FrameworkError: If SQL execution fails
         """
         statements = []
         if 1 == 1:  # try:
@@ -239,7 +239,7 @@ class SQLEmitter(BaseModel):
         #        observer.on_sql_error(self.__class__.__name__, statements, e)
 
         #    # Re-raise the exception
-        #    raise UnoError(f"Failed to execute SQL: {e}", "SQL_EXECUTION_ERROR")
+        #    raise FrameworkError(f"Failed to execute SQL: {e}", "SQL_EXECUTION_ERROR")
 
     def emit_with_connection(
         self,
@@ -261,7 +261,7 @@ class SQLEmitter(BaseModel):
 
         Raises:
             ValueError: If no connection configuration is provided
-            UnoError: If SQL execution fails
+            FrameworkError: If SQL execution fails
         """
         # Use provided factory or instance factory or create a new one
         engine_factory = (

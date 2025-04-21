@@ -10,10 +10,10 @@ security-related concerns.
 """
 
 from typing import Any, Dict, Optional
-from uno.core.errors.base import UnoError, ErrorCode
+from uno.core.errors.base import FrameworkError, ErrorCode
 
 
-class AuthenticationError(UnoError):
+class AuthenticationError(FrameworkError):
     """
     Error raised when authentication fails.
 
@@ -38,7 +38,7 @@ class AuthenticationError(UnoError):
         super().__init__(message, error_code, **context)
 
 
-class AuthorizationError(UnoError):
+class AuthorizationError(FrameworkError):
     """
     Error raised when authorization fails.
 

@@ -10,7 +10,7 @@ specific to the SQL functionality.
 """
 
 from typing import Any, Dict, List, Optional, Union
-from uno.core.errors.base import UnoError, ErrorCategory, ErrorSeverity
+from uno.core.errors.base import FrameworkError, ErrorCategory, ErrorSeverity
 from uno.core.errors.catalog import register_error
 
 
@@ -48,7 +48,7 @@ class SQLErrorCode:
 
 
 # SQL statement errors
-class SQLStatementError(UnoError):
+class SQLStatementError(FrameworkError):
     """Error raised when there is an issue with a SQL statement."""
 
     def __init__(
@@ -71,7 +71,7 @@ class SQLStatementError(UnoError):
         )
 
 
-class SQLExecutionError(UnoError):
+class SQLExecutionError(FrameworkError):
     """Error raised when SQL execution fails."""
 
     def __init__(
@@ -94,7 +94,7 @@ class SQLExecutionError(UnoError):
         )
 
 
-class SQLSyntaxError(UnoError):
+class SQLSyntaxError(FrameworkError):
     """Error raised when a SQL statement has a syntax error."""
 
     def __init__(
@@ -118,7 +118,7 @@ class SQLSyntaxError(UnoError):
 
 
 # SQL emitter errors
-class SQLEmitterError(UnoError):
+class SQLEmitterError(FrameworkError):
     """Error raised when there is an issue with a SQL emitter."""
 
     def __init__(
@@ -141,7 +141,7 @@ class SQLEmitterError(UnoError):
         )
 
 
-class SQLEmitterInvalidConfigError(UnoError):
+class SQLEmitterInvalidConfigError(FrameworkError):
     """Error raised when a SQL emitter has an invalid configuration."""
 
     def __init__(
@@ -168,7 +168,7 @@ class SQLEmitterInvalidConfigError(UnoError):
 
 
 # SQL registry errors
-class SQLRegistryClassNotFoundError(UnoError):
+class SQLRegistryClassNotFoundError(FrameworkError):
     """Error raised when a SQL registry class is not found."""
 
     def __init__(self, class_name: str, message: str | None = None, **context: Any):
@@ -181,7 +181,7 @@ class SQLRegistryClassNotFoundError(UnoError):
         )
 
 
-class SQLRegistryClassAlreadyExistsError(UnoError):
+class SQLRegistryClassAlreadyExistsError(FrameworkError):
     """Error raised when a SQL registry class already exists."""
 
     def __init__(self, class_name: str, message: str | None = None, **context: Any):
@@ -195,7 +195,7 @@ class SQLRegistryClassAlreadyExistsError(UnoError):
 
 
 # SQL configuration errors
-class SQLConfigError(UnoError):
+class SQLConfigError(FrameworkError):
     """Error raised when there is an issue with SQL configuration."""
 
     def __init__(
@@ -218,7 +218,7 @@ class SQLConfigError(UnoError):
         )
 
 
-class SQLConfigInvalidError(UnoError):
+class SQLConfigInvalidError(FrameworkError):
     """Error raised when SQL configuration is invalid."""
 
     def __init__(

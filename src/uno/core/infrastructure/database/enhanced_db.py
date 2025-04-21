@@ -158,8 +158,8 @@ class EnhancedUnoDb(UnoDb):
         self,
         model_class: type[T],
         criteria: dict[str, Any],
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        limit: int | None = None,
+        offset: int | None = None,
         order_by: Optional[list[Any]] = None,
         use_cache: bool = False,
     ) -> list[T]:
@@ -200,8 +200,8 @@ class EnhancedUnoDb(UnoDb):
         self,
         model_class: type[T],
         criteria: dict[str, Any],
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        limit: int | None = None,
+        offset: int | None = None,
         order_by: Optional[list[Any]] = None,
     ) -> list[T]:
         """

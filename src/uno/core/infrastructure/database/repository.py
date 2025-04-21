@@ -77,8 +77,8 @@ class UnoBaseRepository(Generic[ModelT]):
         self,
         filters: Optional[dict[str, Any]] = None,
         order_by: Optional[list[str]] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[ModelT]:
         """
         List models with optional filtering, ordering, and pagination.

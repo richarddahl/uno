@@ -278,7 +278,7 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
         db_user_pw: str = uno_settings.DB_USER_PW,
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
-        db_port: Optional[int] = uno_settings.DB_PORT,
+        db_port: int | None = uno_settings.DB_PORT,
         factory: Optional[DatabaseSessionFactoryProtocol] = None,
         logger: logging.Logger | None = None,
         scoped: bool = False,
@@ -389,7 +389,7 @@ async def enhanced_pool_session(
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
-    db_port: Optional[int] = uno_settings.DB_PORT,
+    db_port: int | None = uno_settings.DB_PORT,
     factory: Optional[DatabaseSessionFactoryProtocol] = None,
     logger: logging.Logger | None = None,
     scoped: bool = False,
@@ -503,7 +503,7 @@ class EnhancedPooledSessionOperationGroup:
         db_user_pw: str = uno_settings.DB_USER_PW,
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
-        db_port: Optional[int] = uno_settings.DB_PORT,
+        db_port: int | None = uno_settings.DB_PORT,
         **kwargs,
     ) -> AsyncSession:
         """

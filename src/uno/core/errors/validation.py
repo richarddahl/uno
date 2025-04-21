@@ -10,7 +10,7 @@ collection and contextual information.
 """
 
 from typing import Any, Dict, List, Optional, Set, Callable
-from uno.core.errors.base import UnoError, ErrorCode
+from uno.core.errors.base import FrameworkError, ErrorCode
 
 
 class FieldValidationError:
@@ -139,7 +139,7 @@ class ValidationContext:
             )
 
 
-class ValidationError(UnoError):
+class ValidationError(FrameworkError):
     """
     Error raised when validation fails.
 

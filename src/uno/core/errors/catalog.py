@@ -22,7 +22,7 @@ def register_error(
     category: ErrorCategory,
     severity: ErrorSeverity,
     description: str,
-    http_status_code: Optional[int] = None,
+    http_status_code: int | None = None,
     retry_allowed: bool = True,
 ) -> None:
     """

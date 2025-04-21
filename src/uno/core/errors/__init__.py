@@ -11,7 +11,7 @@ integration with both exception-based and functional error handling.
 """
 
 from uno.core.errors.base import (
-    UnoError,
+    FrameworkError,
     ErrorCode,
     ErrorCategory,
     ErrorSeverity,
@@ -96,7 +96,7 @@ register_core_errors()
 
 __all__ = [
     # Base errors
-    "UnoError",
+    "FrameworkError",
     "ErrorCode",
     "ErrorCategory",
     "ErrorSeverity",
@@ -110,13 +110,11 @@ __all__ = [
     "ConcurrencyError",
     "DomainValidationError",
     "AggregateInvariantViolationError",
-    
     # Error catalog
     "ErrorCatalog",
     "register_error",
     "get_error_code_info",
     "get_all_error_codes",
-    
     # Result pattern
     "Result",
     "Success",
@@ -127,13 +125,11 @@ __all__ = [
     "from_awaitable",
     "combine",
     "combine_dict",
-    
     # Validation
     "ValidationError",
     "ValidationContext",
     "FieldValidationError",
     "validate_fields",
-    
     # Logging
     "configure_logging",
     "get_logger",
@@ -142,15 +138,13 @@ __all__ = [
     "add_logging_context",
     "get_logging_context",
     "clear_logging_context",
-    
     # Security
     "AuthenticationError",
     "AuthorizationError",
-    
     # Core errors
     "CoreErrorCode",
     "ConfigNotFoundError",
-    "ConfigInvalidError", 
+    "ConfigInvalidError",
     "ConfigTypeMismatchError",
     "InitializationError",
     "ComponentInitializationError",

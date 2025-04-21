@@ -81,7 +81,7 @@ class ServiceProvider:
             services: The service collection to use
         """
         if self._initialized:
-            raise UnoError(
+            raise FrameworkError(
                 "Services have already been initialized and cannot be reconfigured",
                 "SERVICES_ALREADY_INITIALIZED",
             )
@@ -96,7 +96,7 @@ class ServiceProvider:
             services: The service collection containing extension services
         """
         if self._initialized:
-            raise UnoError(
+            raise FrameworkError(
                 "Services have already been initialized and cannot be extended",
                 "SERVICES_ALREADY_INITIALIZED",
             )
@@ -226,11 +226,11 @@ class ServiceProvider:
             An instance of the requested service
 
         Raises:
-            UnoError: If the service provider is not initialized
+            FrameworkError: If the service provider is not initialized
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise UnoError(
+            raise FrameworkError(
                 "Service provider must be initialized before retrieving services",
                 "SERVICES_NOT_INITIALIZED",
             )
@@ -261,11 +261,11 @@ class ServiceProvider:
             An instance of the requested service
 
         Raises:
-            UnoError: If the service provider is not initialized
+            FrameworkError: If the service provider is not initialized
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise UnoError(
+            raise FrameworkError(
                 "Service provider must be initialized before retrieving services",
                 "SERVICES_NOT_INITIALIZED",
             )
@@ -291,11 +291,11 @@ class ServiceProvider:
             An instance of the requested service
 
         Raises:
-            UnoError: If the service provider is not initialized
+            FrameworkError: If the service provider is not initialized
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise UnoError(
+            raise FrameworkError(
                 "Service provider must be initialized before retrieving services",
                 "SERVICES_NOT_INITIALIZED",
             )
@@ -318,11 +318,11 @@ class ServiceProvider:
             The service resolver with the active scope
 
         Raises:
-            UnoError: If the service provider is not initialized
+            FrameworkError: If the service provider is not initialized
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise UnoError(
+            raise FrameworkError(
                 "Service provider must be initialized before creating a scope",
                 "SERVICES_NOT_INITIALIZED",
             )
