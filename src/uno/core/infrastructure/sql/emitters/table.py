@@ -137,9 +137,9 @@ class RecordStatusFunction(SQLEmitter):
                 NEW.is_active = TRUE;
                 NEW.is_deleted = FALSE;
                 NEW.created_at = now;
-                NEW.modified_at = now;
+                NEW.updated_at = now;
             ELSIF TG_OP = 'UPDATE' THEN
-                NEW.modified_at = now;
+                NEW.updated_at = now;
             ELSIF TG_OP = 'DELETE' THEN
                 NEW.is_active = FALSE;
                 NEW.is_deleted = TRUE;
@@ -227,9 +227,9 @@ class RecordUserAuditFunction(SQLEmitter):
 
             IF TG_OP = 'INSERT' THEN
                 NEW.created_by_id = user_id;
-                NEW.modified_by_id = user_id;
+                NEW.updated_by_id = user_id;
             ELSIF TG_OP = 'UPDATE' THEN
-                NEW.modified_by_id = user_id;
+                NEW.updated_by_id = user_id;
             ELSIF TG_OP = 'DELETE' THEN
                 NEW.deleted_by_id = user_id;
             END IF;
@@ -656,9 +656,9 @@ class UserRecordUserAuditFunction(SQLEmitter):
                     user_id := NEW.id;
                 END IF;
                 NEW.created_by_id = user_id;
-                NEW.modified_by_id = user_id;
+                NEW.updated_by_id = user_id;
             ELSIF TG_OP = 'UPDATE' THEN
-                NEW.modified_by_id = user_id;
+                NEW.updated_by_id = user_id;
             ELSIF TG_OP = 'DELETE' THEN
                 NEW.deleted_by_id = user_id;
             END IF;
@@ -856,8 +856,8 @@ class EnableHistoricalAudit(SQLEmitter):
         CREATE INDEX {self.config.DB_SCHEMA}_{self.table.name}_pk_idx
         ON audit.{self.config.DB_SCHEMA}_{self.table.name} (pk);
 
-        CREATE INDEX {self.config.DB_SCHEMA}_{self.table.name}_id_modified_at_idx
-        ON audit.{self.config.DB_SCHEMA}_{self.table.name} (id, modified_at);
+        CREATE INDEX {self.config.DB_SCHEMA}_{self.table.name}_id_updated_at_idx
+        ON audit.{self.config.DB_SCHEMA}_{self.table.name} (id, updated_at);
         """
 
         # Add the statement to the list

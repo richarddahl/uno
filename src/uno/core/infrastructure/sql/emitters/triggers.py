@@ -36,8 +36,8 @@ class RecordUserAuditFunction(SQLEmitter):
         function_body = """
         DECLARE
         BEGIN
-            -- Update the modified_by field with the current user
-            NEW.modified_by = (SELECT current_setting('app.current_user', TRUE));
+            -- Update the updated_by field with the current user
+            NEW.updated_by = (SELECT current_setting('app.current_user', TRUE));
             RETURN NEW;
         END;
         """
