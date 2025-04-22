@@ -3,18 +3,17 @@
 import decimal
 from datetime import date, datetime, timedelta
 
-import decimal
-from datetime import date, datetime, timedelta
-
 import pytest
-from uno.core.di.provider import get_service_provider
 from uno.config.general import GeneralConfig
 from uno.core import utils
 
 @pytest.fixture
 def general_config():
-    provider = get_service_provider()
-    return provider.get_service(GeneralConfig)
+    """
+    Provide a GeneralConfig instance for testing.
+    """
+    # Create and return an instance directly instead of using DI
+    return GeneralConfig()
 
 
 

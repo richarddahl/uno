@@ -16,7 +16,7 @@ from uno.config.base import (
 
 class GeneralConfig(BaseSettings):
     UNO_ROOT: str = dirname(dirname(abspath(__file__)))
-    SITE_NAME: str
+    SITE_NAME: str = "uno"
     DEBUG: bool = False
     LOCALE: str = "en_US"
     ENV: str = "prod"

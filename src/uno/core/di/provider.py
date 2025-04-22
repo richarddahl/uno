@@ -553,6 +553,10 @@ async def configure_base_services() -> None:
 
     services.add_singleton(ConfigProtocol, UnoConfig)
 
+    # Register GeneralConfig
+    from uno.config.general import GeneralConfig
+    services.add_singleton(GeneralConfig, GeneralConfig)
+
     # Register logger
     from uno.core.logging.logger import get_logger
 
