@@ -14,6 +14,8 @@ This document details the core components of the Uno framework's dependency inje
 | `add_instance(service_type, instance)` | Register an existing instance as a singleton |
 | `add_scoped(service_type, implementation=None, **params)` | Register a scoped service |
 | `add_transient(service_type, implementation=None, **params)` | Register a transient service |
+| `add_factory(service_type, factory_func)` | Register a factory function for creating service instances |
+| `add_lazy(service_type, implementation=None, **params)` | Register a lazily-initialized service |
 | `build(logger=None)` | Build a `ServiceResolver` from the collection |
 
 ### Example
@@ -26,6 +28,10 @@ services = ServiceCollection()
 services.add_singleton(DatabaseService)
 services.add_scoped(UserService, UserServiceImpl)
 services.add_transient(EmailSender)
+services.add_factory(ComplexService, lambda sp: ComplexService(
+    sp.resolve(Dependency1),
+    config_value="custom_value"
+))
 ```
 
 ## ServiceScope
@@ -49,6 +55,8 @@ ServiceRegistration(
     implementation: type[T] | Callable[..., T],
     scope: ServiceScope = ServiceScope.SINGLETON,
     params: dict[str, Any] | None = None,
+    is_factory: bool = False,
+    is_lazy: bool = False,
 )
 ```
 
@@ -62,7 +70,10 @@ ServiceRegistration(
 |--------|-------------|
 | `register(service_type, implementation, scope, params=None)` | Register a service |
 | `register_instance(service_type, instance)` | Register an existing instance |
+| `register_factory(service_type, factory_func, scope=ServiceScope.SINGLETON)` | Register a factory function |
+| `register_lazy(service_type, implementation, scope, params=None)` | Register a lazily-initialized service |
 | `resolve(service_type)` | Resolve a service instance |
+| `resolve_lazy(service_type)` | Resolve a lazy reference to a service |
 | `create_scope(scope_id=None)` | Create a service scope (context manager) |
 | `create_async_scope(scope_id=None)` | Create an async service scope (async context manager) |
 
@@ -74,6 +85,11 @@ resolver.register(UserService, UserServiceImpl, ServiceScope.SCOPED)
 
 # Resolve a service
 user_service = resolver.resolve(UserService)
+
+# Resolve a lazy service
+lazy_service = resolver.resolve_lazy(ExpensiveService)
+# Later when needed
+actual_service = lazy_service.value
 
 # Create a scope
 with resolver.create_scope() as scoped_resolver:
@@ -91,8 +107,10 @@ with resolver.create_scope() as scoped_resolver:
 | `initialize(services=None, logger=None)` | Initialize the container |
 | `get()` | Get the container instance |
 | `resolve(service_type)` | Resolve a service from the container |
+| `resolve_lazy(service_type)` | Resolve a lazy reference to a service |
 | `create_scope(scope_id=None)` | Create a service scope |
 | `create_async_scope(scope_id=None)` | Create an async service scope |
+| `add_middleware(middleware)` | Add resolution middleware |
 
 ### Example
 
@@ -107,9 +125,16 @@ ServiceContainer.initialize(services)
 # Resolve
 user_service = ServiceContainer.resolve(UserService)
 
+# Lazy resolution
+lazy_service = ServiceContainer.resolve_lazy(ExpensiveService)
+
 # Create scope
 with ServiceContainer.create_scope() as scope:
     scoped_service = scope.resolve(ScopedService)
+
+# Async scope
+async with ServiceContainer.create_async_scope() as scope:
+    db = await scope.resolve_async(AsyncDatabase)
 ```
 
 ## ServiceProvider
@@ -124,6 +149,7 @@ with ServiceContainer.create_scope() as scope:
 | `initialize()` | Initialize the provider and all registered services |
 | `dispose()` | Dispose all registered services |
 | `get_service(service_type)` | Get a service from the provider |
+| `get_service_lazy(service_type)` | Get a lazy reference to a service |
 | `create_scope(scope_id=None)` | Create a service scope |
 | `create_async_scope(scope_id=None)` | Create an async service scope |
 
@@ -138,6 +164,10 @@ provider = ServiceProvider()
 def configure(services):
     services.add_singleton(ConfigService)
     services.add_scoped(UserService)
+    services.add_factory(ComplexService, lambda sp: ComplexService(
+        sp.resolve(Dependency1),
+        environment=app_config.environment
+    ))
     
 provider.configure_services(configure)
 
@@ -147,12 +177,33 @@ await provider.initialize()
 # Get a service
 config = provider.get_service(ConfigService)
 
+# Get a lazy service
+lazy_service = provider.get_service_lazy(ExpensiveService)
+
 # Create a scope
 async with provider.create_async_scope() as scope:
     user_service = scope.resolve(UserService)
 
 # Dispose (cleanup)
 await provider.dispose()
+```
+
+## Disposable Interface
+
+Services that need to clean up resources should implement the `Disposable` interface:
+
+```python
+from uno.core.di import Disposable
+
+class DatabaseConnection(Disposable):
+    def __init__(self, connection_string):
+        self.connection = create_connection(connection_string)
+    
+    def dispose(self) -> None:
+        self.connection.close()
+    
+    async def dispose_async(self) -> None:
+        await self.connection.close_async()
 ```
 
 ## Module-Level Functions
@@ -164,6 +215,7 @@ The DI system also provides module-level convenience functions for direct access
 | `initialize_container(services, logger=None)` | Initialize the container |
 | `get_container()` | Get the container instance |
 | `get_service(service_type)` | Resolve a service from the container |
+| `get_service_lazy(service_type)` | Get a lazy reference to a service |
 | `create_scope(scope_id=None)` | Create a service scope |
 | `create_async_scope(scope_id=None)` | Create an async service scope |
 
