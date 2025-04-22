@@ -10,21 +10,15 @@ approach in the Uno framework, including entities, value objects, aggregates, an
 
 import uuid
 from datetime import datetime, timezone
-from functools import wraps
 from typing import (
-    Dict,
     Any,
-    Optional,
-    List,
-    TypeVar,
     Generic,
-    Set,
-    ClassVar,
-    Type,
-    cast,
+    TypeVar,
+    list,
+    set,
 )
 
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DomainEvent(BaseModel):

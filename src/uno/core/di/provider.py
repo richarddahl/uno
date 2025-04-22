@@ -13,22 +13,22 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar, overload
 
-from uno.core.di.interfaces import (
-    ConfigProtocol,
-    DatabaseProviderProtocol,
-    DBManagerProtocol,
-    EventBusProtocol,
-    SchemaManagerProtocol,
-    SQLEmitterFactoryProtocol,
-    SQLExecutionProtocol,
-)
-from uno.core.di.scoped_container import (
+from uno.core.di.container import (
     ServiceCollection,
     create_async_scope,
     create_scope,
     get_container,
     get_service,
     initialize_container,
+)
+from uno.core.di.interfaces import (
+    ConfigProtocol,
+    DatabaseProviderProtocol,
+    DBManagerProtocol,
+    EventBusProtocol,
+    DTOManagerProtocol,
+    SQLEmitterFactoryProtocol,
+    SQLExecutionProtocol,
 )
 from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
@@ -382,14 +382,14 @@ class ServiceProvider:
         """
         return self.get_service(DBManagerProtocol)
 
-    def get_schema_manager(self) -> SchemaManagerProtocol:
+    def get_dto_manager(self) -> DTOManagerProtocol:
         """
-        Get the schema manager service.
+        Get the DTO manager service.
 
         Returns:
-            The schema manager service
+            The DTO manager service
         """
-        return self.get_service(SchemaManagerProtocol)
+        return self.get_service(DTOManagerProtocol)
 
     def get_sql_emitter_factory(self) -> SQLEmitterFactoryProtocol:
         """
@@ -645,11 +645,11 @@ async def configure_base_services() -> None:
     )
 
     # Register schema manager
-    from uno.schema.services import SchemaManagerService
+    from uno.schema.services import DTOManagerService
 
     services.add_singleton(
-        SchemaManagerProtocol,
-        SchemaManagerService,
+        DTOManagerProtocol,
+        DTOManagerService,
         logger=logging.getLogger("uno.schema"),
     )
 

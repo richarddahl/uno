@@ -8,9 +8,10 @@ This module implements a hierarchical dependency injection container that suppor
 different scopes for services, such as singleton (application), request, and transient.
 """
 
+import contextlib
 import inspect
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable, Generator
 from contextlib import asynccontextmanager, contextmanager
 from enum import Enum, auto
 from typing import Any, Generic, TypeVar, cast
@@ -210,17 +211,16 @@ class ServiceResolver:
             # Try to resolve this parameter as a dependency
             param_type = param.annotation
             if param_type is not param.empty and param_type is not Any:
-                try:
+                with contextlib.suppress(KeyError, ValueError):
                     params[param_name] = self.resolve(param_type)
-                except (KeyError, ValueError):
-                    # If we can't resolve it, let the constructor fail
-                    pass
 
         # Create the instance
         return impl(**params)  # type: ignore
 
     @contextmanager
-    def create_scope(self, scope_id: str | None = None) -> "ServiceResolver":
+    def create_scope(
+        self, scope_id: str | None = None
+    ) -> Generator["ServiceResolver", None, None]:
         """
         Create a service scope.
 
@@ -247,7 +247,10 @@ class ServiceResolver:
                 # Dispose any resources that need disposing
                 for instance in instances.values():
                     import inspect
-                    if hasattr(instance, "dispose_async") and callable(instance.dispose_async):
+
+                    if hasattr(instance, "dispose_async") and callable(
+                        instance.dispose_async
+                    ):
                         self._logger.warning(
                             f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal. Use an async scope for proper disposal."
                         )
@@ -273,7 +276,7 @@ class ServiceResolver:
     @asynccontextmanager
     async def create_async_scope(
         self, scope_id: str | None = None
-    ) -> "ServiceResolver":
+    ) -> AsyncGenerator["ServiceResolver", None]:
         """
         Create an async service scope.
 
@@ -308,6 +311,7 @@ class ServiceResolver:
                             self._logger.warning(f"Error disposing async service: {e}")
                     elif hasattr(instance, "dispose") and callable(instance.dispose):
                         import inspect
+
                         try:
                             dispose_method = instance.dispose
                             if inspect.iscoroutinefunction(dispose_method):
@@ -513,7 +517,7 @@ class ServiceContainer:
 
     @classmethod
     @contextmanager
-    def create_scope(cls, scope_id: str | None = None) -> ServiceResolver:
+    def create_scope(cls, scope_id: str | None = None) -> Generator[ServiceResolver]:
         """
         Create a service scope.
 
@@ -531,7 +535,9 @@ class ServiceContainer:
 
     @classmethod
     @asynccontextmanager
-    async def create_async_scope(cls, scope_id: str | None = None) -> ServiceResolver:
+    async def create_async_scope(
+        cls, scope_id: str | None = None
+    ) -> AsyncGenerator[ServiceResolver]:
         """
         Create an async service scope.
 
@@ -549,21 +555,27 @@ class ServiceContainer:
 
 
 # Module-level convenience functions for backward compatibility
-def initialize_container(services: ServiceCollection, logger: logging.Logger | None = None) -> ServiceResolver:
+def initialize_container(
+    services: ServiceCollection, logger: logging.Logger | None = None
+) -> ServiceResolver:
     """Alias for ServiceContainer.initialize."""
     return ServiceContainer.initialize(services, logger)
+
 
 def get_container() -> ServiceResolver:
     """Alias for ServiceContainer.get."""
     return ServiceContainer.get()
 
+
 def get_service(service_type: type[T]) -> T:
     """Alias for ServiceContainer.resolve."""
     return ServiceContainer.resolve(service_type)
 
+
 def create_scope(scope_id: str | None = None):
     """Alias for ServiceContainer.create_scope."""
     return ServiceContainer.create_scope(scope_id)
+
 
 def create_async_scope(scope_id: str | None = None):
     """Alias for ServiceContainer.create_async_scope."""

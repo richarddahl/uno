@@ -206,7 +206,7 @@ class SQLExecutionProtocol(Protocol):
         ...
 
 
-class SchemaManagerProtocol(Protocol):
+class DTOManagerProtocol(Protocol):
     """Protocol for schema manager services."""
 
     def add_schema_config(self, name: str, config: Any) -> None:

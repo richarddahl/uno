@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: MIT
 # uno framework
 import pytest
+
+from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceLifecycle, get_service_provider
-from uno.core.di.scoped_container import ServiceCollection
+
 
 class FakeService(ServiceLifecycle):
     def __init__(self):
