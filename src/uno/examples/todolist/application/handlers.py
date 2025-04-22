@@ -18,6 +18,8 @@ from uno.examples.todolist.application.queries import (
     ListTodoItemsQuery,
 )
 
+from uno.core.errors.result import Success, Failure
+
 
 class CreateTodoItemHandler(CommandHandler[CreateTodoItemCommand, TodoItem]):
     """Handler for creating new todo items."""
@@ -45,18 +47,15 @@ class CompleteTodoItemHandler(CommandHandler[CompleteTodoItemCommand, TodoItem])
     def __init__(self, repository: TodoItemRepository):
         self.repository = repository
 
-    async def handle(self, command: CompleteTodoItemCommand) -> TodoItem:
-        """Handle the complete todo item command."""
-        # Get the todo item
+    async def handle(self, command: CompleteTodoItemCommand) -> "Success[TodoItem] | Failure[ValueError]":
+        """Handle the complete todo item command.
+        Returns Success(TodoItem) if completed, or Failure(ValueError) if not found.
+        """
         todo_item = await self.repository.get_by_id(command.todo_id)
         if not todo_item:
-            raise ValueError(f"Todo item {command.todo_id} not found")
-
-        # Mark as completed
+            return Failure(ValueError(f"Todo item {command.todo_id} not found"))
         todo_item.complete()
-
-        # Persist and return
-        return await self.repository.save(todo_item)
+        return Success(await self.repository.save(todo_item))
 
 
 class CancelTodoItemHandler(CommandHandler[CancelTodoItemCommand, TodoItem]):
@@ -65,18 +64,15 @@ class CancelTodoItemHandler(CommandHandler[CancelTodoItemCommand, TodoItem]):
     def __init__(self, repository: TodoItemRepository):
         self.repository = repository
 
-    async def handle(self, command: CancelTodoItemCommand) -> TodoItem:
-        """Handle the cancel todo item command."""
-        # Get the todo item
+    async def handle(self, command: CancelTodoItemCommand) -> "Success[TodoItem] | Failure[ValueError]":
+        """Handle the cancel todo item command.
+        Returns Success(TodoItem) if cancelled, or Failure(ValueError) if not found.
+        """
         todo_item = await self.repository.get_by_id(command.todo_id)
         if not todo_item:
-            raise ValueError(f"Todo item {command.todo_id} not found")
-
-        # Cancel the item
+            return Failure(ValueError(f"Todo item {command.todo_id} not found"))
         todo_item.cancel(command.reason)
-
-        # Persist and return
-        return await self.repository.save(todo_item)
+        return Success(await self.repository.save(todo_item))
 
 
 class GetTodoItemHandler(QueryHandler[GetTodoItemQuery, Optional[TodoItem]]):

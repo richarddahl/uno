@@ -24,36 +24,36 @@ from uno.examples.todolist.api.schemas import (
     UpdateTodoRequest,
 )
 
+from uno.core.errors.result import Failure
+
 router = APIRouter(prefix="/todos", tags=["todos"])
 
 
 @router.post("/", response_model=TodoItemResponse)
 async def create_todo(request: CreateTodoRequest):
     """Create a new todo item."""
-    try:
-        command = CreateTodoItemCommand(
-            title=request.title,
-            description=request.description,
-            priority=request.priority,
-            due_date=request.due_date,
-        )
-
-        todo = await CommandBus.dispatch(command)
-        return todo
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    command = CreateTodoItemCommand(
+        title=request.title,
+        description=request.description,
+        priority=request.priority,
+        due_date=request.due_date,
+    )
+    result = await CommandBus.dispatch(command)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=400, detail=str(result.error))
+    return result.value
 
 
 @router.get("/{todo_id}", response_model=TodoItemResponse)
 async def get_todo(todo_id: str):
     """Get a specific todo item."""
     query = GetTodoItemQuery(todo_id=todo_id)
-    todo = await QueryBus.dispatch(query)
-
-    if not todo:
+    result = await QueryBus.dispatch(query)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=404, detail=str(result.error))
+    if result.value is None:
         raise HTTPException(status_code=404, detail="Todo item not found")
-
-    return todo
+    return result.value
 
 
 @router.get("/", response_model=list[TodoItemResponse])
@@ -62,31 +62,27 @@ async def list_todos(
 ):
     """List todo items with optional filtering."""
     query = ListTodoItemsQuery(status=status, priority=priority)
-    todos = await QueryBus.dispatch(query)
-    return todos
+    result = await QueryBus.dispatch(query)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=400, detail=str(result.error))
+    return result.value
 
 
 @router.put("/{todo_id}/complete")
 async def complete_todo(todo_id: str):
     """Mark a todo item as completed."""
-    try:
-        command = CompleteTodoItemCommand(todo_id=todo_id)
-        todo = await CommandBus.dispatch(command)
-        return todo
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    command = CompleteTodoItemCommand(todo_id=todo_id)
+    result = await CommandBus.dispatch(command)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=404, detail=str(result.error))
+    return result.value
 
 
 @router.put("/{todo_id}/cancel")
 async def cancel_todo(todo_id: str, reason: str | None = None):
     """Cancel a todo item."""
-    try:
-        command = CancelTodoItemCommand(todo_id=todo_id, reason=reason)
-        todo = await CommandBus.dispatch(command)
-        return todo
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    command = CancelTodoItemCommand(todo_id=todo_id, reason=reason)
+    result = await CommandBus.dispatch(command)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=404, detail=str(result.error))
+    return result.value

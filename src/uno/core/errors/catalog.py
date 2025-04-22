@@ -11,6 +11,7 @@ descriptions, categories, and other metadata.
 
 from typing import Dict, List, Optional
 from uno.core.errors.base import ErrorInfo, ErrorCategory, ErrorSeverity
+from uno.core.errors.result import Failure
 
 # Global registry of error codes
 _ERROR_CATALOG: dict[str, ErrorInfo] = {}
@@ -37,11 +38,11 @@ def register_error(
         http_status_code: The HTTP status code for this error (optional)
         retry_allowed: Whether retry is allowed for this error (default True)
 
-    Raises:
-        ValueError: If the error code is already registered
+    Returns:
+        Success(None) if registration succeeds, or Failure(ValueError) if error code is already registered.
     """
     if code in _ERROR_CATALOG:
-        raise ValueError(f"Error code {code} is already registered")
+        return Failure(ValueError(f"Error code {code} is already registered"))
 
     _ERROR_CATALOG[code] = ErrorInfo(
         code=code,

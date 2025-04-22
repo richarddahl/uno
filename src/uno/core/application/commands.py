@@ -49,13 +49,11 @@ class CommandBus:
 
     @classmethod
     async def dispatch(cls, command: Command) -> Any:
-        """Dispatch a command to its registered handler."""
+        """Dispatch a command to its registered handler, returning Failure if no handler is registered."""
         command_type = type(command)
 
         if command_type not in cls._handlers:
-            raise ValueError(
-                f"No handler registered for command type {command_type.__name__}"
-            )
+            return Failure(ValueError(f"No handler registered for command type {command_type.__name__}"))
 
         handler = cls._handlers[command_type]
 

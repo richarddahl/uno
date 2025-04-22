@@ -27,7 +27,9 @@ from uno.core.di.scoped_container import (
     get_service,
     initialize_container,
 )
-from uno.core.errors import DependencyResolutionError
+from uno.core.errors.base import FrameworkError
+from uno.core.errors.definitions import DependencyResolutionError
+from uno.core.errors.result import Failure, Success
 
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
@@ -73,17 +75,24 @@ class ServiceProvider:
         """Return True if the service provider has been initialized."""
         return self._initialized
 
-    def configure_services(self, services: ServiceCollection) -> None:
+    def configure_services(
+        self, services: ServiceCollection
+    ) -> Success[None] | Failure[FrameworkError]:
         """
         Configure the base services.
 
         Args:
             services: The service collection to use
+
+        Returns:
+            Success(None) if base services set, or Failure(FrameworkError) if already initialized.
         """
         if self._initialized:
-            raise FrameworkError(
-                "Services have already been initialized and cannot be reconfigured",
-                "SERVICES_ALREADY_INITIALIZED",
+            return Failure(
+                FrameworkError(
+                    "Services have already been initialized and cannot be reconfigured",
+                    "SERVICES_ALREADY_INITIALIZED",
+                )
             )
         self._base_services = services
 
@@ -94,11 +103,16 @@ class ServiceProvider:
         Args:
             name: The name of the extension
             services: The service collection containing extension services
+
+        Returns:
+            Success(None) if extension registered, or Failure(FrameworkError) if already initialized.
         """
         if self._initialized:
-            raise FrameworkError(
-                "Services have already been initialized and cannot be extended",
-                "SERVICES_ALREADY_INITIALIZED",
+            return Failure(
+                FrameworkError(
+                    "Services have already been initialized and cannot be extended",
+                    "SERVICES_ALREADY_INITIALIZED",
+                )
             )
         self._extensions[name] = services
 
@@ -230,9 +244,11 @@ class ServiceProvider:
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise FrameworkError(
-                "Service provider must be initialized before retrieving services",
-                "SERVICES_NOT_INITIALIZED",
+            return Failure(
+                FrameworkError(
+                    "Service provider must be initialized before retrieving services",
+                    "SERVICES_NOT_INITIALIZED",
+                )
             )
 
         return get_service(service_type)
@@ -265,9 +281,11 @@ class ServiceProvider:
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise FrameworkError(
-                "Service provider must be initialized before retrieving services",
-                "SERVICES_NOT_INITIALIZED",
+            return Failure(
+                FrameworkError(
+                    "Service provider must be initialized before retrieving services",
+                    "SERVICES_NOT_INITIALIZED",
+                )
             )
 
         with create_scope(scope_id) as scope:
@@ -295,9 +313,11 @@ class ServiceProvider:
         """
         if not self._initialized:
             self._logger.error("Service provider not initialized")
-            raise FrameworkError(
-                "Service provider must be initialized before retrieving services",
-                "SERVICES_NOT_INITIALIZED",
+            return Failure(
+                FrameworkError(
+                    "Service provider must be initialized before retrieving services",
+                    "SERVICES_NOT_INITIALIZED",
+                )
             )
 
         async with create_async_scope(scope_id) as scope:
@@ -498,9 +518,11 @@ def register_singleton(service_type: type[T], instance: T) -> None:
         container = get_container()
         container.register_instance(service_type, instance)
     except Exception as e:
-        raise DependencyResolutionError(
-            f"Failed to register singleton for {service_type.__name__}: {str(e)}",
-            "DEPENDENCY_REGISTRATION_ERROR",
+        return Failure(
+            DependencyResolutionError(
+                f"Failed to register singleton for {service_type.__name__}: {str(e)}",
+                "DEPENDENCY_REGISTRATION_ERROR",
+            )
         )
 
 

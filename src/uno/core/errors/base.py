@@ -23,6 +23,9 @@ ErrorContext = dict[str, Any]
 # Thread-local storage for error context
 _error_context = contextvars.ContextVar[ErrorContext]("error_context", default={})
 
+# Thread-local storage for logging context
+_logging_context = contextvars.ContextVar[ErrorContext]("logging_context", default=None)
+
 
 def get_error_context() -> ErrorContext:
     """
@@ -32,6 +35,19 @@ def get_error_context() -> ErrorContext:
         The current error context dictionary
     """
     return _error_context.get().copy()
+
+
+def get_logging_context() -> dict[str, Any]:
+    """
+    Get the current logging context.
+
+    Returns:
+        The current logging context dictionary
+    """
+    ctx = _logging_context.get(None)
+    if ctx is None:
+        return {}
+    return ctx.copy()
 
 
 def add_error_context(**context: Any) -> None:
@@ -312,13 +328,17 @@ class FrameworkError(Exception):
     """
 
     def __init__(self, message: str, error_code: str, **context: Any):
+        # Only pass the message to Exception, never keyword arguments
         super().__init__(message)
         self.message: str = message
         self.error_code: str = error_code
         self.context: dict[str, Any] = get_error_context().copy()
         self.context.update(context)
-        self.traceback: str = "".join(traceback.format_exception(*traceback.sys.exc_info()))
+        self.traceback: str = "".join(
+            traceback.format_exception(*traceback.sys.exc_info())
+        )
         from uno.core.errors.catalog import get_error_code_info
+
         self.error_info: ErrorInfo | None = get_error_code_info(error_code)
 
     @property
@@ -355,178 +375,3 @@ class FrameworkError(Exception):
 
     def __str__(self) -> str:
         return f"{self.error_code}: {self.message}"
-
-
-
-    """Error raised when domain validation fails."""
-
-    def __init__(self, message: str, entity_name: str | None = None, **context: Any):
-        """
-        Initialize a DomainValidationError.
-
-        Args:
-            message: The error message
-            entity_name: The name of the entity that failed validation
-            **context: Additional context information
-        """
-        context_dict = context.copy()
-        if entity_name:
-            context_dict["entity_name"] = entity_name
-
-        super().__init__(
-            message=message, error_code=ErrorCode.VALIDATION_ERROR, **context_dict
-        )
-
-
-
-    """Error raised when an aggregate invariant is violated."""
-
-    def __init__(
-        self,
-        message: str,
-        aggregate_name: str | None = None,
-        aggregate_id: str | None = None,
-        **context: Any,
-    ):
-        """
-        Initialize an AggregateInvariantViolationError.
-
-        Args:
-            message: The error message
-            aggregate_name: The name of the aggregate
-            aggregate_id: The ID of the aggregate
-            **context: Additional context information
-        """
-        context_dict = context.copy()
-        if aggregate_name:
-            context_dict["aggregate_name"] = aggregate_name
-        if aggregate_id:
-            context_dict["aggregate_id"] = aggregate_id
-
-        super().__init__(
-            message=message, error_code=ErrorCode.BUSINESS_RULE, **context_dict
-        )
-
-
-
-    """Error raised when an entity is not found."""
-
-    def __init__(self, entity_type: str, entity_id: Any, **context: Any):
-        """
-        Initialize an EntityNotFoundError.
-
-        Args:
-            entity_type: The type of entity that was not found
-            entity_id: The ID of the entity that was not found
-            **context: Additional context information
-        """
-        message = f"{entity_type} with ID {entity_id} not found"
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.RESOURCE_NOT_FOUND,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            **context,
-        )
-
-
-
-    """Error raised when there is a concurrency conflict."""
-
-    def __init__(
-        self,
-        entity_type: str,
-        entity_id: Any,
-        expected_version: int | None = None,
-        actual_version: int | None = None,
-        **context: Any,
-    ):
-        """
-        Initialize a ConcurrencyError.
-
-        Args:
-            entity_type: The type of entity with the concurrency conflict
-            entity_id: The ID of the entity with the concurrency conflict
-            expected_version: The expected version of the entity
-            actual_version: The actual version of the entity
-            **context: Additional context information
-        """
-        message = f"Concurrency conflict detected for {entity_type} with ID {entity_id}"
-
-        context_dict = context.copy()
-        if expected_version is not None:
-            context_dict["expected_version"] = expected_version
-        if actual_version is not None:
-            context_dict["actual_version"] = actual_version
-
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.RESOURCE_CONFLICT,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            **context_dict,
-        )
-
-
-
-    """Error raised when user is not authorized to perform an operation."""
-
-    def __init__(
-        self,
-        message: str = "User is not authorized to perform this operation",
-        resource_type: str | None = None,
-        resource_id: Any | None = None,
-        permission: str | None = None,
-        **context: Any,
-    ):
-        """
-        Initialize an AuthorizationError.
-
-        Args:
-            message: The error message
-            resource_type: The type of resource the user tried to access
-            resource_id: The ID of the resource the user tried to access
-            permission: The permission the user was missing
-            **context: Additional context information
-        """
-        context_dict = context.copy()
-        if resource_type:
-            context_dict["resource_type"] = resource_type
-        if resource_id:
-            context_dict["resource_id"] = resource_id
-        if permission:
-            context_dict["permission"] = permission
-
-        super().__init__(
-            message=message, error_code=ErrorCode.AUTHORIZATION_ERROR, **context_dict
-        )
-
-
-
-    """Error raised when validation fails."""
-
-    def __init__(
-        self,
-        message: str,
-        field: str | None = None,
-        value: Any | None = None,
-        **context: Any,
-    ):
-        """
-        Initialize a ValidationError.
-
-        Args:
-            message: The error message
-            field: The field that failed validation
-            value: The value that failed validation
-            **context: Additional context information
-        """
-        context_dict = context.copy()
-        if field:
-            context_dict["field"] = field
-        if value is not None:
-            context_dict["value"] = value
-
-        super().__init__(
-            message=message, error_code=ErrorCode.VALIDATION_ERROR, **context_dict
-        )

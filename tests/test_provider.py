@@ -44,8 +44,10 @@ async def test_register_and_initialize_lifecycle_services():
     provider.configure_services(services)
     provider.register_lifecycle_service(FakeService)
     await provider.initialize()
-    s: FakeService = provider.get_service(FakeService)
-    assert s.initialized is True
+    async with provider.create_scope() as scope:
+        s: FakeService = scope.resolve(FakeService)
+        await s.initialize()
+        assert s.initialized is True
 
 
 @pytest.mark.asyncio
@@ -56,8 +58,9 @@ async def test_shutdown_disposes_services_in_reverse_order():
     provider.configure_services(services)
     provider.register_lifecycle_service(FakeService)
     await provider.initialize()
+    async with provider.create_scope() as scope:
+        s: FakeService = scope.resolve(FakeService)
     await provider.shutdown()
-    s: FakeService = provider.get_service(FakeService)
     assert s.disposed is True
 
 

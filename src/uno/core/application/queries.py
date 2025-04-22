@@ -7,7 +7,8 @@ which formalizes data retrieval operations as explicit query objects.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Dict, Any, Type, Callable, List, Optional
+from typing import Generic, TypeVar, Dict, Any, Callable, List, Optional
+from uno.core.errors.result import Result, Failure
 
 T = TypeVar("T")  # Query result type
 Q = TypeVar("Q")  # Query type
@@ -46,14 +47,12 @@ class QueryBus:
         cls._middleware.append(middleware)
 
     @classmethod
-    async def dispatch(cls, query: Query) -> Any:
-        """Dispatch a query to its registered handler."""
+    async def dispatch(cls, query: Query) -> Result[Any, ValueError]:
+        """Dispatch a query to its registered handler, returning a Failure if no handler is registered."""
         query_type = type(query)
 
         if query_type not in cls._handlers:
-            raise ValueError(
-                f"No handler registered for query type {query_type.__name__}"
-            )
+            return Failure(ValueError(f"No handler registered for query type {query_type.__name__}"))
 
         handler = cls._handlers[query_type]
 

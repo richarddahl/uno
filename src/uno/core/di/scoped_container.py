@@ -243,9 +243,20 @@ class ServiceResolver:
                 instances = self._scoped_instances[scope_id]
                 # Dispose any resources that need disposing
                 for instance in instances.values():
-                    if hasattr(instance, "dispose") and callable(instance.dispose):
+                    import inspect
+                    if hasattr(instance, "dispose_async") and callable(instance.dispose_async):
+                        self._logger.warning(
+                            f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal. Use an async scope for proper disposal."
+                        )
+                    elif hasattr(instance, "dispose") and callable(instance.dispose):
                         try:
-                            instance.dispose()
+                            dispose_method = instance.dispose
+                            if inspect.iscoroutinefunction(dispose_method):
+                                self._logger.warning(
+                                    f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal. Use an async scope for proper disposal."
+                                )
+                            else:
+                                dispose_method()
                         except Exception as e:
                             self._logger.warning(f"Error disposing service: {e}")
 
@@ -293,8 +304,13 @@ class ServiceResolver:
                         except Exception as e:
                             self._logger.warning(f"Error disposing async service: {e}")
                     elif hasattr(instance, "dispose") and callable(instance.dispose):
+                        import inspect
                         try:
-                            instance.dispose()
+                            dispose_method = instance.dispose
+                            if inspect.iscoroutinefunction(dispose_method):
+                                await dispose_method()
+                            else:
+                                dispose_method()
                         except Exception as e:
                             self._logger.warning(f"Error disposing service: {e}")
 

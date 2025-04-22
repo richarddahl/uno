@@ -243,7 +243,10 @@ def get_logging_context() -> dict[str, Any]:
     Returns:
         The current logging context dictionary
     """
-    return _logging_context.get().copy()
+    ctx = _logging_context.get(None)
+    if ctx is None:
+        return {}
+    return ctx.copy()
 
 
 def clear_logging_context() -> None:
