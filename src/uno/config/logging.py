@@ -5,7 +5,13 @@
 # Logging configuration
 import os
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+
+from uno.config.base import (
+    DevSettingsConfigDict,
+    ProdSettingsConfigDict,
+    TestSettingsConfigDict,
+)
 
 
 class LoggingConfig(BaseSettings):
@@ -24,15 +30,15 @@ class LoggingConfig(BaseSettings):
 
 
 class Prod(LoggingConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env")
+    model_config = ProdSettingsConfigDict
 
 
 class Dev(LoggingConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env_dev")
+    model_config = DevSettingsConfigDict
 
 
 class Test(LoggingConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env_test")
+    model_config = TestSettingsConfigDict
 
 
 # Create a dictionary of environment settings

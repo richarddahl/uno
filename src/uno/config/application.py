@@ -1,10 +1,15 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 #
 # SPDX-License-Identifier: MIT
-
 import os
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+
+from uno.config.base import (
+    DevSettingsConfigDict,
+    ProdSettingsConfigDict,
+    TestSettingsConfigDict,
+)
 
 
 class ApplicationConfig(BaseSettings):
@@ -32,15 +37,15 @@ class ApplicationConfig(BaseSettings):
 
 
 class Prod(ApplicationConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env")
+    model_config = ProdSettingsConfigDict
 
 
 class Dev(ApplicationConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env_dev")
+    model_config = DevSettingsConfigDict
 
 
 class Test(ApplicationConfig):
-    model_config = SettingsConfigDict(case_sensitive=False, env_file=".env_test")
+    model_config = TestSettingsConfigDict
 
 
 # Create a dictionary of environment settings
