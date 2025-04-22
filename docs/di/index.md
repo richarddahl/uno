@@ -2,6 +2,24 @@
 
 The Uno Framework provides a robust dependency injection (DI) system that helps manage object creation, lifetime, and dependencies. This document explains how to use and extend the DI system in your applications.
 
+## Key Features
+
+* **Loose Coupling**: Reduce dependencies between components and make your code more modular and testable.
+* **Inversion of Control**: Let the container manage object creation and lifetime, making it easier to switch between different implementations.
+* **Extensive Configuration Options**: Customize the DI system to fit your needs, from simple to complex scenarios.
+
+## Architecture
+
+The Uno DI system consists of the following components:
+
+* **ServiceCollection**: A registry for all available services.
+* **ServiceContainer**: Handles resolving services based on their registered interfaces and lifetimes.
+* **ServiceScope**: Manages the lifetime of services within a specific scope.
+
+## Terminology Note
+
+> **Note:** In this documentation, the term "service" refers to any class or object managed by the dependency injection (DI) container, such as repositories, loggers, or domain services. This usage is standard in DI frameworks. In contrast, in Domain-Driven Design (DDD), a "domain service" is a specific pattern for encapsulating domain logic that doesn't naturally fit within an Entity or Value Object. If you are building DDD-style applications, be mindful of this distinction: "service" in the DI context is a broader term and may include both domain and infrastructure-level components.
+
 ## Core Concepts
 
 ### Service Lifetimes
