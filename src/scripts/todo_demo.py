@@ -1,8 +1,14 @@
 #!/usr/bin/env python
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 Demo script to showcase the TodoList bounded context.
 """
 import asyncio
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import sys
 from pathlib import Path
 import logging

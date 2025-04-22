@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 PostgreSQL database initialization script.
 
@@ -6,6 +9,9 @@ It ensures all required extensions are enabled in the database.
 """
 
 import os
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import sys
 import argparse
 import logging

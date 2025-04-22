@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 Docker container rebuild and database reset utilities.
 
@@ -10,6 +13,9 @@ This module provides tools for:
 import os
 import sys
 import time
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import subprocess
 import argparse
 from pathlib import Path

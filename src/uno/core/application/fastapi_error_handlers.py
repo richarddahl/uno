@@ -10,6 +10,9 @@ with the Uno error system. These handlers convert FrameworkError objects to
 appropriate HTTP responses with correct status codes.
 """
 
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import logging
 import traceback
 from collections.abc import Callable

@@ -1,6 +1,9 @@
 from typing import Optional, AsyncIterator
 import contextlib
 import logging
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import asyncio
 
 from logging import Logger

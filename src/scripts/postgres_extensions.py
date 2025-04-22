@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 PostgreSQL extension installation and management utilities.
 
@@ -8,6 +11,9 @@ This module provides tools for:
 """
 
 import os
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import sys
 import tempfile
 import shutil

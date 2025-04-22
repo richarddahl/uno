@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 Docker utility functions for managing container environments.
 
@@ -11,6 +14,9 @@ This module provides utilities for:
 import os
 import sys
 import time
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import subprocess
 import argparse
 from pathlib import Path

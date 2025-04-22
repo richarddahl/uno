@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 import pytest
 from uno.core.di.provider import ServiceLifecycle, get_service_provider
 from uno.core.di.scoped_container import ServiceCollection

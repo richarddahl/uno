@@ -1,9 +1,15 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 Application services for the Uno framework.
 
 This module provides base application service classes that orchestrate
 domain objects and infrastructure services.
 """
+
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
 
 from typing import Generic, TypeVar, List, Optional, Type, Dict, Any, Callable
 

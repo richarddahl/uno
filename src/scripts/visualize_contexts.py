@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
 """
 Bounded Context Visualization Tool.
 
@@ -7,6 +10,9 @@ and their relationships using the DOT graph functionality.
 """
 import argparse
 import os
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
 import sys
 from pathlib import Path
 import tempfile

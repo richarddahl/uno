@@ -1,4 +1,9 @@
-from typing import Protocol, Callable
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+
+from collections.abc import Callable
+from typing import Protocol
+
 from uno.core.domain.core import DomainEvent
 
 

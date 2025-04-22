@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 #
 # SPDX-License-Identifier: MIT
+# SPDX-
 
 """
 Error catalog for the Uno framework.
@@ -9,8 +10,9 @@ This module maintains a registry of all error codes with their
 descriptions, categories, and other metadata.
 """
 
-from typing import Dict, List, Optional
-from uno.core.errors.base import ErrorInfo, ErrorCategory, ErrorSeverity
+from typing import Optional
+
+from uno.core.errors.base import ErrorCategory, ErrorInfo, ErrorSeverity
 from uno.core.errors.result import Failure
 
 # Global registry of error codes
