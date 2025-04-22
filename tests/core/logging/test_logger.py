@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from uno.core.logging.logger import configure_root_logger, get_logger
+from uno.core.logging.logger import (
+    configure_root_logger,
+    get_logger,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -35,7 +38,7 @@ def test_logger_has_correct_type():
 
 
 def test_configure_root_logger_called_once():
-    with patch("logging.basicConfig") as mock_basic_config:
+    with patch.object(logging, "basicConfig") as mock_basic_config:
         get_logger()
         get_logger()
         mock_basic_config.assert_called_once()
