@@ -8,13 +8,14 @@ This module implements a hierarchical dependency injection container that suppor
 different scopes for services, such as singleton (application), scoped, and transient.
 """
 
-import contextlib
 import inspect
 import logging
-from collections.abc import AsyncGenerator, Callable, Generator
-from contextlib import asynccontextmanager, contextmanager
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from enum import Enum, auto
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar
+
+from uno.core.errors.base import ErrorCode, FrameworkError
 
 T = TypeVar("T")
 ProviderT = TypeVar("ProviderT")
@@ -55,12 +56,12 @@ class ServiceRegistration(Generic[T]):
         self.params = params or {}
 
 
-class ServiceResolver:
+class _ServiceResolver:
     """
-    Service resolver for dependency injection.
+    Internal: Service resolver for dependency injection.
 
-    This class is responsible for resolving services based on their registrations,
-    including handling dependencies and maintaining instance caches for different scopes.
+    This class is responsible for low-level service registration, resolution, and scoping.
+    Not intended for direct use by application code. All application/service code should use ServiceProvider.
     """
 
     def __init__(self, logger: logging.Logger | None = None):
@@ -75,8 +76,6 @@ class ServiceResolver:
         self._logger = logger or get_logger("uno.di")
         self._registrations: dict[type, ServiceRegistration] = {}
         self._singletons: dict[type, Any] = {}
-        self._scoped_instances: dict[str, dict[type, Any]] = {}
-        self._current_scope: str | None = None
 
     def register(
         self,
@@ -105,13 +104,6 @@ class ServiceResolver:
             del self._singletons[service_type]
             self._logger.debug(f"Cleared singleton cache for {service_type.__name__}")
 
-        # Clear scoped caches for this type
-        for scope_id, instances in self._scoped_instances.items():
-            if service_type in instances:
-                del instances[service_type]
-                self._logger.debug(
-                    f"Cleared scoped cache for {service_type.__name__} in scope {scope_id}"
-                )
 
     def register_instance(self, service_type: type[T], instance: T) -> None:
         """
@@ -124,54 +116,59 @@ class ServiceResolver:
         self._singletons[service_type] = instance
         self._logger.debug(f"Registered instance of {service_type.__name__}")
 
-    def resolve(self, service_type: type[T]) -> T:
+    def resolve(self, service_type: type[T], scope=None) -> T:
         """
-        Resolve a service instance.
-
-        This method returns an instance of the requested service type, creating it
-        if necessary according to its registered scope.
+        Resolve a service by its type.
 
         Args:
             service_type: The type of service to resolve
+            scope: The current Scope object if resolving a scoped service
 
         Returns:
-            An instance of the requested service
+            The resolved service instance
 
         Raises:
-            KeyError: If the service type is not registered
-            ValueError: If a scoped service is requested outside a scope
+            FrameworkError: If the service is not registered
         """
-        registration = self._registrations.get(service_type)
-        if not registration:
-            raise KeyError(f"Service {service_type.__name__} is not registered.")
+        if service_type not in self._registrations:
+            raise FrameworkError(
+                f"Service {service_type.__name__} is not registered",
+                error_code=ErrorCode.DEPENDENCY_ERROR
+            )
 
-        # Handle singletons
-        if registration.scope == ServiceScope.SINGLETON:
+        registration = self._registrations[service_type]
+        lifetime = registration.scope
+
+        if lifetime == ServiceScope.SINGLETON:
             if service_type not in self._singletons:
                 self._singletons[service_type] = self._create_instance(registration)
-            return cast(T, self._singletons[service_type])
+            return self._singletons[service_type]
+        elif lifetime == ServiceScope.TRANSIENT:
+            return self._create_instance(registration)
+        elif lifetime == ServiceScope.SCOPED:
+            # Use contextvar-based scope management
+            from .scope import Scope
 
-        # Handle scoped services
-        if registration.scope == ServiceScope.SCOPED:
-            if not self._current_scope:
-                self._logger.error(
-                    f"Attempted to resolve scoped service {service_type.__name__} outside a scope"
+            active_scope = scope or Scope.get_current_scope()
+            if active_scope is None:
+                raise FrameworkError(
+                    f"Cannot resolve scoped service {service_type.__name__} outside of an active scope.",
+                    error_code=ErrorCode.DEPENDENCY_ERROR
                 )
-                raise ValueError(
-                    f"Scoped service {service_type.__name__} cannot be resolved outside a scope"
-                )
+            instance = active_scope.get_instance(service_type)
+            if instance is None:
+                instance = self._create_instance(registration)
+                active_scope.set_instance(service_type, instance)
+            return instance
+        else:
+            raise FrameworkError(
+                f"Unknown service scope: {lifetime}",
+                error_code=ErrorCode.DEPENDENCY_ERROR
+            )
 
-            if self._current_scope not in self._scoped_instances:
-                self._scoped_instances[self._current_scope] = {}
-
-            scope_cache = self._scoped_instances[self._current_scope]
-            if service_type not in scope_cache:
-                scope_cache[service_type] = self._create_instance(registration)
-
-            return cast(T, scope_cache[service_type])
-
-        # Handle transient services
-        return cast(T, self._create_instance(registration))
+    # Internal use: for Scope and ServiceProvider to resolve with explicit scope
+    def resolve_in_scope(self, service_type: type[T], scope) -> T:
+        return self.resolve(service_type, scope=scope)
 
     def _create_instance(self, registration: ServiceRegistration) -> Any:
         """
@@ -234,91 +231,9 @@ class ServiceResolver:
         Yields:
             The service resolver with the active scope
         """
-        prev_scope = self._current_scope
         scope_id = scope_id or f"scope_{id(object())}"
-
-        try:
-            self._current_scope = scope_id
-            self._logger.debug(f"Created scope {scope_id}")
-            yield self
-        finally:
-            # Clean up disposable services in this scope
-            if scope_id in self._scoped_instances:
-                instances = self._scoped_instances[scope_id]
-                # Dispose any resources that need disposing
-                for instance in instances.values():
-                    if hasattr(instance, "dispose") and callable(instance.dispose):
-                        try:
-                            dispose_method = instance.dispose
-                            if not inspect.iscoroutinefunction(dispose_method):
-                                dispose_method()
-                            else:
-                                self._logger.warning(
-                                    f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal."
-                                )
-                        except Exception as e:
-                            self._logger.warning(f"Error disposing service: {e}")
-
-                # Remove the scope
-                del self._scoped_instances[scope_id]
-                self._logger.debug(f"Removed scope {scope_id}")
-
-            # Restore previous scope
-            self._current_scope = prev_scope
-
-    @asynccontextmanager
-    async def create_async_scope(
-        self, scope_id: str | None = None
-    ) -> AsyncGenerator["ServiceResolver", None]:
-        """
-        Create an async service scope.
-
-        This async context manager creates a new scope for resolving scoped services,
-        ensuring they are properly disposed when the scope ends.
-
-        Args:
-            scope_id: Optional scope identifier, defaults to a generated ID
-
-        Yields:
-            The service resolver with the active scope
-        """
-        prev_scope = self._current_scope
-        scope_id = scope_id or f"async_scope_{id(object())}"
-
-        try:
-            self._current_scope = scope_id
-            self._logger.debug(f"Created async scope {scope_id}")
-            yield self
-        finally:
-            # Clean up disposable services in this scope
-            if scope_id in self._scoped_instances:
-                instances = self._scoped_instances[scope_id]
-                # Dispose any resources that need disposing
-                for instance in instances.values():
-                    if hasattr(instance, "dispose_async") and callable(
-                        instance.dispose_async
-                    ):
-                        try:
-                            await instance.dispose_async()
-                        except Exception as e:
-                            self._logger.warning(f"Error disposing async service: {e}")
-                    elif hasattr(instance, "dispose") and callable(instance.dispose):
-                        try:
-                            dispose_method = instance.dispose
-                            if inspect.iscoroutinefunction(dispose_method):
-                                await dispose_method()
-                            else:
-                                dispose_method()
-                        except Exception as e:
-                            self._logger.warning(f"Error disposing service: {e}")
-
-                # Remove the scope
-                del self._scoped_instances[scope_id]
-                self._logger.debug(f"Removed async scope {scope_id}")
-
-            # Restore previous scope
-            self._current_scope = prev_scope
-
+        self._logger.debug(f"Created scope {scope_id}")
+        yield self
 
 class ServiceCollection:
     """
@@ -326,6 +241,8 @@ class ServiceCollection:
 
     This class provides a fluent interface for registering services,
     making it easier to configure the dependency injection container.
+
+    Note: ServiceCollection builds an internal _ServiceResolver. Do not use _ServiceResolver directly.
     """
 
     def __init__(self):
@@ -416,17 +333,20 @@ class ServiceCollection:
         )
         return self
 
-    def build(self, logger: logging.Logger | None = None) -> ServiceResolver:
+    def build(self, logger: logging.Logger | None = None, resolver_class=None):
         """
         Build a service resolver from the collection.
 
         Args:
             logger: Optional logger for diagnostic information
+            resolver_class: Internal use only. The resolver class to instantiate (default: _ServiceResolver)
 
         Returns:
-            A configured service resolver
+            A configured internal service resolver
         """
-        resolver = ServiceResolver(logger)
+        if resolver_class is None:
+            resolver_class = _ServiceResolver
+        resolver = resolver_class(logger)
 
         # Register all services
         for service_type, registration in self._registrations.items():

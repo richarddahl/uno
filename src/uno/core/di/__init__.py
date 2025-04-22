@@ -11,16 +11,10 @@ The module offers a decorator-based approach to dependency management
 with proper scope handling and automatic discovery of injectable services.
 """
 
-"""
-Modern dependency injection entry point for Uno framework.
-
-Exports only the canonical ServiceProvider-based DI system and related types.
-"""
 from uno.core.di.container import (
     ServiceCollection,
-    ServiceResolver,
-    ServiceScope,
     ServiceRegistration,
+    ServiceScope,
 )
 from uno.core.di.provider import (
     ServiceLifecycle,
@@ -32,11 +26,10 @@ from uno.core.di.provider import (
 
 __all__ = [
     "ServiceCollection",
-    "ServiceResolver",
-    "ServiceScope",
-    "ServiceRegistration",
     "ServiceLifecycle",
     "ServiceProvider",
+    "ServiceRegistration",
+    "ServiceScope",
     "get_service_provider",
     "initialize_services",
     "shutdown_services",

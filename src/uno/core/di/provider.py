@@ -13,7 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar, overload
 
-from uno.core.di.container import ServiceCollection
+from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
 from uno.core.di.interfaces import (
     ConfigProtocol,
     DatabaseProviderProtocol,
@@ -23,7 +23,7 @@ from uno.core.di.interfaces import (
     SQLEmitterFactoryProtocol,
     SQLExecutionProtocol,
 )
-from uno.core.errors.base import FrameworkError
+from uno.core.errors.base import ErrorCode, FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
 from uno.core.errors.result import Failure, Success
 
@@ -118,10 +118,29 @@ class ServiceProvider:
     def register_lifecycle_service(self, service_type: type[ServiceLifecycle]) -> None:
         """
         Register a service that requires lifecycle management.
+        Only singleton services can be registered as lifecycle services.
 
         Args:
             service_type: The service type to register
+
+        Raises:
+            NotImplementedError: If the service is not registered as a singleton
         """
+        # Check if service is registered and is a singleton
+        registration = (
+            self._resolver._registrations.get(service_type)
+            if hasattr(self, "_resolver")
+            else None
+        )
+
+        if (
+            registration is not None
+            and getattr(registration, "scope", None) != "singleton"
+        ):
+            raise NotImplementedError(
+                f"Lifecycle services must be registered as singletons. {service_type.__name__} is registered as {getattr(registration, 'scope', 'unknown')}."
+            )
+
         self._lifecycle_queue.append(service_type)
 
     async def initialize(self) -> None:
@@ -142,23 +161,29 @@ class ServiceProvider:
         self._initializing = True
         try:
             # Modern DI: Build the resolver from the base services
-            self._resolver = self._base_services.build()
+            self._resolver = self._base_services.build(resolver_class=_ServiceResolver)
 
             # Initialize each extension and integrate with main resolver
             for name, services in self._extensions.items():
                 self._logger.info(f"Initializing extension: {name}")
                 # For each service in the extension, register it in the main resolver
-                extension_resolver = services.build()
-                for service_type, registration in extension_resolver._registrations.items():
+                extension_resolver = services.build(resolver_class=_ServiceResolver)
+                for (
+                    service_type,
+                    registration,
+                ) in extension_resolver._registrations.items():
                     self._resolver.register(
                         service_type,
                         registration.implementation,
-                        getattr(registration, 'scope', None),
-                        getattr(registration, 'params', {})
+                        getattr(registration, "scope", None),
+                        getattr(registration, "params", {}),
                     )
                 # Also copy over any instances
-                if hasattr(extension_resolver, '_singletons'):
-                    for service_type, instance in extension_resolver._singletons.items():
+                if hasattr(extension_resolver, "_singletons"):
+                    for (
+                        service_type,
+                        instance,
+                    ) in extension_resolver._singletons.items():
                         self._resolver.register_instance(service_type, instance)
                 self._logger.info(f"Initialized extension: {name}")
 
@@ -173,12 +198,19 @@ class ServiceProvider:
                         # Get the registration if it exists
                         registration = self._resolver._registrations.get(service_type)
                         # Skip if it's not a singleton (scoped lifecycle services should be initialized in their scope)
-                        if registration is not None and getattr(registration, 'scope', None) != 'singleton':
-                            self._logger.warning(f"Skipping lifecycle initialization for non-singleton service: {service_type.__name__}")
+                        if (
+                            registration is not None
+                            and getattr(registration, "scope", None) != "singleton"
+                        ):
+                            self._logger.error(
+                                f"Non-singleton service registered for lifecycle management: {service_type.__name__}"
+                            )
                             continue
-                        
+
                         service = self._resolver.resolve(service_type)
-                        if hasattr(service, 'initialize') and callable(service.initialize):
+                        if hasattr(service, "initialize") and callable(
+                            service.initialize
+                        ):
                             await service.initialize()
                         self._logger.debug(
                             f"Initialized lifecycle service: {service_type.__name__}"
@@ -231,9 +263,23 @@ class ServiceProvider:
         self._initialized = False
         self._logger.info("Service provider shut down")
 
+    async def create_scope(self, scope_id: str | None = None):
+        """
+        Create a new async DI scope. Use as:
+            async with provider.create_scope() as scope:
+                ...
+        Returns a Scope object that can resolve services within the scope.
+        """
+        from .scope import Scope
+
+        return Scope(self, scope_id)
+
     def get_service(self, service_type: type[T]) -> T:
         """
-        Get a service by its type.
+        Get a service by its type. Supports singleton, transient, and scoped lifetimes.
+
+        If a scope is active and the service is SCOPED, resolves in the current scope.
+        Otherwise, uses the default resolver.
 
         Args:
             service_type: The type of service to retrieve
@@ -244,50 +290,15 @@ class ServiceProvider:
         Raises:
             FrameworkError: If the service provider is not initialized
         """
-        if not self._initialized or not hasattr(self, '_resolver'):
-            self._logger.error("Service provider not initialized")
-            raise FrameworkError(
-                "Service provider must be initialized before retrieving services",
-                "SERVICES_NOT_INITIALIZED",
-            )
-        return self._resolver.resolve(service_type)
+        if not self._initialized:
+            raise FrameworkError("Service provider is not initialized")
+        from .scope import Scope
 
-    @overload
-    def get_service_in_scope(self, service_type: type[T]) -> T: ...
+        scope = Scope.get_current_scope()
+        return self._resolver.resolve(service_type, scope=scope)
 
-    @overload
-    def get_service_in_scope(self, service_type: type[T], scope_id: str) -> T: ...
-
-    def get_service_in_scope(
-        self, service_type: type[T], scope_id: str | None = None
-    ) -> T:
-        """
-        Get a service in a new scope.
-
-        Not implemented in modern DI system. Use get_service for singleton/transient services.
-        """
-        raise NotImplementedError("Scoped service resolution is not implemented in the modern DI system.")
-
-    async def get_service_async_scope(
-        self, service_type: type[T], scope_id: str | None = None
-    ) -> T:
-        """
-        Get a service in a new async scope.
-
-        Not implemented in modern DI system. Use get_service for singleton/transient services.
-        """
-        raise NotImplementedError("Async scoped service resolution is not implemented in the modern DI system.")
-
-    @asynccontextmanager
-    async def create_scope(self, scope_id: str | None = None):
-        """
-        Create a service scope.
-
-        Not implemented in modern DI system. Use get_service for singleton/transient services.
-        """
-        raise NotImplementedError("Async service scoping is not implemented in the modern DI system.")
-        yield  # pragma: no cover
-
+    # All scope-related APIs and legacy logic have been removed.
+    # ServiceProvider only exposes high-level APIs and delegates to _ServiceResolver for resolution.
 
     # Convenience methods for common services
 
@@ -431,6 +442,7 @@ import threading
 _service_provider: ServiceProvider | None = None
 _service_provider_lock = threading.Lock()
 
+
 def get_service_provider() -> ServiceProvider:
     """
     Get the global service provider instance (thread-safe singleton).
@@ -444,6 +456,7 @@ def get_service_provider() -> ServiceProvider:
             if _service_provider is None:
                 _service_provider = ServiceProvider()
     return _service_provider
+
 
 # Generic thread-safe singleton pattern for any class (for future use)
 def get_singleton(cls, *args, **kwargs):
@@ -461,7 +474,9 @@ def get_singleton(cls, *args, **kwargs):
     return cls._singleton_instance
 
 
-def register_singleton(service_type: type[T], instance: T) -> Success[None] | Failure[FrameworkError]:
+def register_singleton(
+    service_type: type[T], instance: T
+) -> Success[None] | Failure[FrameworkError]:
     """
     Register a singleton instance in the container.
 
@@ -555,6 +570,7 @@ async def configure_base_services() -> None:
 
     # Register GeneralConfig
     from uno.config.general import GeneralConfig
+
     services.add_singleton(GeneralConfig, GeneralConfig)
 
     # Register logger

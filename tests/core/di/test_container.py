@@ -4,9 +4,8 @@
 
 import pytest
 
-from uno.core.di.container import (
-    ServiceCollection,
-)
+from uno.core.di.container import ServiceCollection
+from uno.core.errors.base import FrameworkError
 
 
 class Foo:
@@ -36,9 +35,5 @@ def test_scoped_lifetime_outside_scope_raises():
     services = ServiceCollection()
     services.add_scoped(Foo)
     resolver = services.build()
-    with pytest.raises(ValueError):
+    with pytest.raises(FrameworkError):
         resolver.resolve(Foo)
-
-
-
-
