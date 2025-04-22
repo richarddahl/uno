@@ -5,7 +5,7 @@
 Middleware for the TodoList bounded context.
 """
 
-from uno.core.logging.logger import get_logger
+# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 from typing import Any, Callable, TypeVar
 
@@ -14,10 +14,9 @@ from uno.core.application.queries import Query
 
 T = TypeVar("T")  # Return type
 
-logger = get_logger(__name__)
 
 
-async def logging_middleware(request: Command | Query, next_handler: Callable) -> Any:
+async def logging_middleware(request: Command | Query, next_handler: Callable, logger: logging.Logger) -> Any:
     """Middleware that logs command/query execution."""
     request_type = type(request).__name__
     logger.info(f"Processing {request_type}: {request}")

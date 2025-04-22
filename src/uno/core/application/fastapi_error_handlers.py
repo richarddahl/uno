@@ -13,7 +13,7 @@ appropriate HTTP responses with correct status codes.
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
-from uno.core.logging.logger import get_logger
+# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 import traceback
 from collections.abc import Callable
@@ -27,11 +27,11 @@ from pydantic import ValidationError
 from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, FrameworkError
 from uno.core.errors import ValidationError as UnoValidationError
 
-# Setup logging
-logger = get_logger(__name__)
 
 
-def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None:
+def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False, logger: logging.Logger = None) -> None:
+    if logger is None:
+        raise ValueError("Logger must be provided to setup_error_handlers via DI or argument.")
     """
     Set up exception handlers for a FastAPI application.
 
@@ -275,6 +275,7 @@ class ErrorHandlingMiddleware:
         app: FastAPI,
         include_tracebacks: bool = False,
         log_level: int = logging.ERROR,
+        logger: logging.Logger = None,
     ):
         """
         Initialize the error handling middleware.
@@ -283,11 +284,14 @@ class ErrorHandlingMiddleware:
             app: The FastAPI application
             include_tracebacks: Whether to include tracebacks in error responses
             log_level: The logging level for errors
+            logger: Logger instance to use for error logging
         """
         self.app = app
         self.include_tracebacks = include_tracebacks
         self.log_level = log_level
-        self.logger = get_logger(__name__)
+        if logger is None:
+            raise ValueError("Logger must be provided to ErrorHandlingMiddleware via DI or argument.")
+        self.logger = logger
 
     async def __call__(self, scope, receive, send):
         """

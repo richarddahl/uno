@@ -4,7 +4,7 @@
 
 """Base class and protocols for SQL emitters."""
 
-from uno.core.logging.logger import get_logger
+# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
 import time
 import logging
 from typing import Dict, List, Optional, Protocol, ClassVar, Type
@@ -96,7 +96,7 @@ class SQLEmitter(BaseModel):
     config: BaseModel = uno_settings
 
     # Logger for this emitter
-    logger: logging.Logger = get_logger(__name__)
+    logger: logging.Logger
 
     # Engine factory for creating connections
     engine_factory: Optional[SyncEngineFactory] = None
@@ -105,6 +105,12 @@ class SQLEmitter(BaseModel):
     observers: list[BaseObserver] = []
 
     model_config = {"arbitrary_types_allowed": True}
+
+    def __init__(self, **data):
+        logger = data.pop('logger', None)
+        if logger is None:
+            raise ValueError("Logger must be provided to SQLEmitter via DI or constructor argument.")
+        super().__init__(logger=logger, **data)
 
     @model_validator(mode="before")
     def initialize_connection_config(cls, values: Dict) -> Dict:
