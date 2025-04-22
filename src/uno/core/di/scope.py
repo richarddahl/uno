@@ -1,6 +1,13 @@
+"""
+Async context manager for DI scopes in Uno.
+
+This module provides the Scope class, which manages the lifecycle of scoped services
+using Python contextvars for per-coroutine/task isolation.
+"""
+
 import asyncio
 import contextvars
-from typing import Any, TypeVar, Generic, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 if TYPE_CHECKING:
     from .provider import ServiceProvider
@@ -15,10 +22,10 @@ class Scope:
     Async context manager representing a DI scope.
     Tracks scoped service instances and disposes them on exit.
     """
-    def __init__(self, provider: 'ServiceProvider', scope_id: Optional[str] = None):
+    def __init__(self, provider: 'ServiceProvider', scope_id: str | None = None):
         self._provider = provider
         self._scope_id = scope_id
-        self._instances: Dict[type, Any] = {}
+        self._instances: dict[type, Any] = {}
         self._disposed = False
         self._token = None
 

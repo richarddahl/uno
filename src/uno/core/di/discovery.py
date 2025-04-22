@@ -22,6 +22,47 @@ from uno.core.di.provider import ServiceProvider, get_service_provider
 T = TypeVar("T")
 
 
+def validate_service_discovery(modules, service_collection, logger=None, strict=False):
+    """
+    Warn if likely service classes are not registered for DI.
+    """
+    import inspect
+    from uno.core.di.provider import ServiceLifecycle
+    try:
+        from uno.core.di.interfaces import DomainServiceProtocol
+    except ImportError:
+        DomainServiceProtocol = None
+
+    logger = logger or logging.getLogger("uno.discovery")
+    registered_types = set(service_collection._registrations.keys())
+    warnings = []
+
+    for module in modules:
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj.__module__ != module.__name__:
+                continue
+            # Skip builtins or likely non-service classes
+            if name.startswith('_'):
+                continue
+            # Check if class is a likely service
+            is_lifecycle = ServiceLifecycle and issubclass(obj, ServiceLifecycle) and obj is not ServiceLifecycle
+            is_domain_service = DomainServiceProtocol and issubclass(obj, DomainServiceProtocol)
+            is_named_service = name.endswith('Service')
+            if not (is_lifecycle or is_domain_service or is_named_service):
+                continue
+            # Check if registered (decorator or explicit)
+            if hasattr(obj, "__framework_service__") and obj.__framework_service__:
+                continue
+            if obj in registered_types:
+                continue
+            # Not registered: warn
+            msg = f"Likely service class '{name}' in module '{module.__name__}' is not registered for DI (missing decorator or explicit registration)."
+            warnings.append(msg)
+            logger.warning(msg)
+    if strict and warnings:
+        raise RuntimeError("Service discovery validation failed: " + "\n".join(warnings))
+
+
 def find_modules(package_name: str) -> Iterator[str]:
     """
     Find all modules in a package.
@@ -126,6 +167,9 @@ def discover_services(
             )
 
     logger.info(f"Discovered {service_count} services in {package_name}")
+
+    # Run discovery validation (strict mode: raise error if missing)
+    validate_service_discovery(modules, service_collection, logger=logger, strict=True)
     return service_collection
 
 

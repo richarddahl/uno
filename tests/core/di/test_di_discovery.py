@@ -13,6 +13,8 @@ from uno.core.di.discovery import discover_services, get_class_metadata
 def make_dummy_service():
     @framework_service(scope=ServiceScope.SINGLETON)
     class DummyService:
+        def __init__(self):
+            pass
         def hello(self):
             return "world"
 

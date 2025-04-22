@@ -10,8 +10,8 @@ automatic dependency resolution, and improved lifecycle management.
 """
 
 import logging
-from contextlib import asynccontextmanager
-from typing import Any, TypeVar, overload
+from collections.abc import Callable, Awaitable
+from typing import Any, TypeVar, Protocol
 
 from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
 from uno.core.di.interfaces import (
@@ -23,7 +23,7 @@ from uno.core.di.interfaces import (
     SQLEmitterFactoryProtocol,
     SQLExecutionProtocol,
 )
-from uno.core.errors.base import ErrorCode, FrameworkError
+from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
 from uno.core.errors.result import Failure, Success
 
@@ -33,16 +33,19 @@ QueryT = TypeVar("QueryT")
 ResultT = TypeVar("ResultT")
 
 
-class ServiceLifecycle:
+from typing import runtime_checkable
+
+@runtime_checkable
+class ServiceLifecycle(Protocol):
     """Interface for services with custom initialization and disposal."""
 
     async def initialize(self) -> None:
         """Initialize the service asynchronously."""
-        pass
+        ...
 
     async def dispose(self) -> None:
         """Dispose the service asynchronously."""
-        pass
+        ...
 
 
 class ServiceProvider:
@@ -51,9 +54,17 @@ class ServiceProvider:
 
     This class provides a centralized registry for all services in the application,
     with support for scoped services, lifecycle management, and automatic dependency resolution.
+
+    Performance Tuning:
+    - Use `prewarm_singletons()` after configuring services and before starting your app to eagerly instantiate all singleton services.
+    - This can help catch errors early and improve startup performance for critical services.
+
+    API Clarity:
+    - Most users should interact with ServiceProvider and ServiceCollection only.
+    - Internal helpers (e.g., _ServiceResolver, ServiceRegistration) are for advanced/extensibility use only.
     """
 
-    def __init__(self, logger: logging.Logger | None = None):
+    def __init__(self, logger: logging.Logger | None = None) -> None:
         """
         Initialize the service provider.
 
@@ -69,8 +80,52 @@ class ServiceProvider:
         self._lifecycle_queue: list[type[ServiceLifecycle]] = []
         self._initializing = False
 
+    def _auto_register_lifecycle_services(self) -> None:
+        """
+        Automatically detect and register all ServiceLifecycle subclasses for lifecycle management.
+        Enforces singleton scope for all lifecycle services and raises errors if misconfigured.
+        """
+        from uno.core.di.container import ServiceScope
+        from uno.core.di.provider import ServiceLifecycle
+
+        # Collect all registered services from base and extensions
+        all_collections = [self._base_services] + list(self._extensions.values())
+        seen_types = set()
+        for services in all_collections:
+            # Access _registrations dict from ServiceCollection
+            for service_type, registration in getattr(services, '_registrations', {}).items():
+                if (
+                    isinstance(service_type, type)
+                    and issubclass(service_type, ServiceLifecycle)
+                    and service_type is not ServiceLifecycle
+                ):
+                    # Enforce singleton scope
+                    if registration.scope != ServiceScope.SINGLETON:
+                        raise TypeError(
+                            f"Lifecycle service {service_type.__name__} must be registered as singleton, "
+                            f"but has scope {registration.scope}."
+                        )
+                    # Auto-queue for lifecycle management if not already queued
+                    if service_type not in self._lifecycle_queue:
+                        self._lifecycle_queue.append(service_type)
+                    seen_types.add(service_type)
+        # Remove any stale entries from lifecycle queue
+        self._lifecycle_queue = [t for t in self._lifecycle_queue if t in seen_types]
+
+    def prewarm_singletons(self) -> None:
+        """
+        Eagerly instantiate all singleton services and cache them.
+        Useful for performance-sensitive applications or to catch errors early.
+
+        Call this after configuring all services and before application startup.
+        """
+        if hasattr(self, '_resolver') and self._resolver:
+            self._resolver.prewarm_singletons()
+
     def is_initialized(self) -> bool:
-        """Return True if the service provider has been initialized."""
+        """
+        Return True if the service provider has been initialized.
+        """
         return self._initialized
 
     def configure_services(
@@ -95,7 +150,7 @@ class ServiceProvider:
         self._base_services = services
         return Success(None)
 
-    def register_extension(self, name: str, services: ServiceCollection) -> None:
+    def register_extension(self, name: str, services: ServiceCollection) -> Success[None] | Failure[FrameworkError]:
         """
         Register a service extension.
 
@@ -113,7 +168,15 @@ class ServiceProvider:
                     "SERVICES_ALREADY_INITIALIZED",
                 )
             )
+        if name in self._extensions:
+            return Failure(
+                FrameworkError(
+                    f"Extension '{name}' is already registered.",
+                    "EXTENSION_ALREADY_REGISTERED",
+                )
+            )
         self._extensions[name] = services
+        return Success(None)
 
     def register_lifecycle_service(self, service_type: type[ServiceLifecycle]) -> None:
         """
@@ -127,21 +190,111 @@ class ServiceProvider:
             NotImplementedError: If the service is not registered as a singleton
         """
         # Check if service is registered and is a singleton
+        # Only allow singleton lifecycle services
         registration = (
             self._resolver._registrations.get(service_type)
             if hasattr(self, "_resolver")
             else None
         )
-
-        if (
-            registration is not None
-            and getattr(registration, "scope", None) != "singleton"
-        ):
+        if registration is not None and getattr(registration, "scope", None) != ServiceScope.SINGLETON:
             raise NotImplementedError(
                 f"Lifecycle services must be registered as singletons. {service_type.__name__} is registered as {getattr(registration, 'scope', 'unknown')}."
             )
-
         self._lifecycle_queue.append(service_type)
+
+    async def _integrate_extensions(self) -> None:
+        """
+        Integrate extensions into the main resolver.
+        Called only by initialize().
+        Async for future compatibility.
+        """
+        for name, services in self._extensions.items():
+            self._logger.info(f"Initializing extension: {name}")
+            # For each service in the extension, register it in the main resolver
+            extension_resolver = services.build(resolver_class=_ServiceResolver)
+            for (
+                service_type,
+                registration,
+            ) in extension_resolver._registrations.items():
+                self._resolver.register(
+                    service_type,
+                    registration.implementation,
+                    getattr(registration, "scope", None),
+                    getattr(registration, "params", {}),
+                )
+            # Also copy over any instances
+            if hasattr(extension_resolver, "_singletons"):
+                for (
+                    service_type,
+                    instance,
+                ) in extension_resolver._singletons.items():
+                    self._resolver.register_instance(service_type, instance)
+            self._logger.info(f"Initialized extension: {name}")
+
+    async def _initialize_lifecycle_services(self) -> None:
+        """
+        Initialize lifecycle services.
+        Called only by initialize().
+        Async to support async service initialization.
+        """
+        if self._lifecycle_queue:
+            self._logger.info(
+                f"Initializing {len(self._lifecycle_queue)} lifecycle services"
+            )
+            # Modern DI: Use the main resolver to resolve and initialize lifecycle services
+            for service_type in self._lifecycle_queue:
+                try:
+                    # Get the registration if it exists
+                    registration = self._resolver._registrations.get(service_type)
+                    # Skip if it's not a singleton (scoped lifecycle services should be initialized in their scope)
+                    if (
+                        registration is not None
+                        and getattr(registration, "scope", None) != "singleton"
+                    ):
+                        self._logger.error(
+                            f"Non-singleton service registered for lifecycle management: {service_type.__name__}"
+                        )
+                        continue
+
+                    service = self._resolver.resolve(service_type)
+                    if hasattr(service, "initialize") and callable(
+                        service.initialize
+                    ):
+                        await service.initialize()
+                    self._logger.debug(
+                        f"Initialized lifecycle service: {service_type.__name__}"
+                    )
+                except Exception as e:
+                    self._logger.error(
+                        f"Error initializing service {service_type.__name__}: {e!s}"
+                    )
+                    raise
+
+    async def _dispose_lifecycle_services(self) -> None:
+        """
+        Dispose lifecycle services.
+        Called only by shutdown().
+        Async to support async service disposal.
+        """
+        if self._lifecycle_queue:
+            # Make a reversed copy to avoid modifying the original
+            reversed_queue = self._lifecycle_queue.copy()
+            reversed_queue.reverse()
+
+            self._logger.info(f"Disposing {len(reversed_queue)} lifecycle services")
+
+            for service_type in reversed_queue:
+                try:
+                    # Get the service if it exists
+                    service = self.get_service(service_type)
+                    await service.dispose()
+                    self._logger.debug(
+                        f"Disposed lifecycle service: {service_type.__name__}"
+                    )
+                except Exception as e:
+                    self._logger.error(
+                        f"Error disposing service {service_type.__name__}: {e!s}"
+                    )
 
     async def initialize(self) -> None:
         """
@@ -149,9 +302,15 @@ class ServiceProvider:
 
         This method initializes the container and all registered services.
         It should be called during application startup.
+
+        Runs all configuration validation hooks registered in the base ServiceCollection before building the resolver.
+        Raises if any validation fails.
         """
         if self._initialized:
-            return
+            raise FrameworkError(
+                "ServiceProvider has already been initialized.",
+                "SERVICE_PROVIDER_ALREADY_INITIALIZED",
+            )
 
         if self._initializing:
             # Prevent circular initialization
@@ -160,66 +319,19 @@ class ServiceProvider:
 
         self._initializing = True
         try:
+            # Run configuration validation hooks before building resolver
+            for validation_fn in getattr(self._base_services, "validation_hooks", []):
+                try:
+                    validation_fn(self._base_services)
+                except Exception as e:
+                    self._logger.error(f"Service configuration validation failed: {e!s}")
+                    raise
+
             # Modern DI: Build the resolver from the base services
             self._resolver = self._base_services.build(resolver_class=_ServiceResolver)
 
-            # Initialize each extension and integrate with main resolver
-            for name, services in self._extensions.items():
-                self._logger.info(f"Initializing extension: {name}")
-                # For each service in the extension, register it in the main resolver
-                extension_resolver = services.build(resolver_class=_ServiceResolver)
-                for (
-                    service_type,
-                    registration,
-                ) in extension_resolver._registrations.items():
-                    self._resolver.register(
-                        service_type,
-                        registration.implementation,
-                        getattr(registration, "scope", None),
-                        getattr(registration, "params", {}),
-                    )
-                # Also copy over any instances
-                if hasattr(extension_resolver, "_singletons"):
-                    for (
-                        service_type,
-                        instance,
-                    ) in extension_resolver._singletons.items():
-                        self._resolver.register_instance(service_type, instance)
-                self._logger.info(f"Initialized extension: {name}")
-
-            # Initialize lifecycle services
-            if self._lifecycle_queue:
-                self._logger.info(
-                    f"Initializing {len(self._lifecycle_queue)} lifecycle services"
-                )
-                # Modern DI: Use the main resolver to resolve and initialize lifecycle services
-                for service_type in self._lifecycle_queue:
-                    try:
-                        # Get the registration if it exists
-                        registration = self._resolver._registrations.get(service_type)
-                        # Skip if it's not a singleton (scoped lifecycle services should be initialized in their scope)
-                        if (
-                            registration is not None
-                            and getattr(registration, "scope", None) != "singleton"
-                        ):
-                            self._logger.error(
-                                f"Non-singleton service registered for lifecycle management: {service_type.__name__}"
-                            )
-                            continue
-
-                        service = self._resolver.resolve(service_type)
-                        if hasattr(service, "initialize") and callable(
-                            service.initialize
-                        ):
-                            await service.initialize()
-                        self._logger.debug(
-                            f"Initialized lifecycle service: {service_type.__name__}"
-                        )
-                    except Exception as e:
-                        self._logger.error(
-                            f"Error initializing service {service_type.__name__}: {str(e)}"
-                        )
-                        raise
+            await self._integrate_extensions()
+            await self._initialize_lifecycle_services()
 
             self._initialized = True
             self._logger.info("Service provider initialized successfully")
@@ -239,26 +351,7 @@ class ServiceProvider:
 
         self._logger.info("Shutting down service provider")
 
-        # Shut down lifecycle services in reverse order
-        if self._lifecycle_queue:
-            # Make a reversed copy to avoid modifying the original
-            reversed_queue = self._lifecycle_queue.copy()
-            reversed_queue.reverse()
-
-            self._logger.info(f"Disposing {len(reversed_queue)} lifecycle services")
-
-            for service_type in reversed_queue:
-                try:
-                    # Get the service if it exists
-                    service = self.get_service(service_type)
-                    await service.dispose()
-                    self._logger.debug(
-                        f"Disposed lifecycle service: {service_type.__name__}"
-                    )
-                except Exception as e:
-                    self._logger.error(
-                        f"Error disposing service {service_type.__name__}: {str(e)}"
-                    )
+        await self._dispose_lifecycle_services()
 
         self._initialized = False
         self._logger.info("Service provider shut down")
@@ -436,6 +529,13 @@ class ServiceProvider:
         return factory.create_rag_service(vector_search)
 
 
+"""
+uno.core.di.provider
+
+Provides the ServiceProvider class and related helpers for dependency injection in Uno.
+Manages service lifecycles, scopes, and global provider access for application and test contexts.
+"""
+
 import threading
 
 # Thread-safe global singleton pattern for ServiceProvider
@@ -499,7 +599,7 @@ def register_singleton(
     except Exception as e:
         return Failure(
             DependencyResolutionError(
-                f"Failed to register singleton for {service_type.__name__}: {str(e)}",
+                f"Failed to register singleton for {service_type.__name__}: {e!s}",
                 "DEPENDENCY_REGISTRATION_ERROR",
             )
         )

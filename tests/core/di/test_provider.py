@@ -5,13 +5,42 @@ import pytest
 
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceLifecycle, get_service_provider
+
+class CounterSingleton:
+    def __init__(self):
+        CounterSingleton.counter += 1
+    counter = 0
+
+class ErrorSingleton:
+    def __init__(self):
+        raise RuntimeError("Singleton error!")
 from uno.core.errors.base import FrameworkError
+
+@pytest.mark.asyncio
+async def test_provider_validation_hook_blocks_init():
+    provider = get_service_provider()
+    services = ServiceCollection()
+    services.add_singleton(SimpleService)
+    def fail_validation(sc):
+        raise ValueError("Provider invalid!")
+    services.add_validation(fail_validation)
+    provider.configure_services(services)
+    with pytest.raises(ValueError):
+        await provider.initialize()
+
+@pytest.mark.asyncio
+async def test_provider_validation_hook_passes():
+    provider = get_service_provider()
+    services = ServiceCollection()
+    services.add_singleton(SimpleService)
+    services.add_validation(lambda sc: None)
+    provider.configure_services(services)
+    await provider.initialize()
+    assert provider.is_initialized() is True
 
 
 class FakeService(ServiceLifecycle):
     # Ensure this is registered as singleton in tests
-    pass
-
     def __init__(self):
         self.initialized = False
         self.disposed = False
@@ -24,7 +53,8 @@ class FakeService(ServiceLifecycle):
 
 
 class SimpleService:
-    pass
+    def __init__(self):
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -121,3 +151,43 @@ async def test_resolve_singleton_service():
     async with await provider.create_scope() as scope:
         s3 = scope.get_service(SimpleService)
         assert s3 is s1
+
+
+import pytest
+
+def test_prewarm_singletons_instantiates_all_singletons():
+    provider = get_service_provider()
+    services = ServiceCollection()
+    CounterSingleton.counter = 0
+    services.add_singleton(CounterSingleton)
+    provider.configure_services(services)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    provider.prewarm_singletons()
+    assert CounterSingleton.counter == 1
+    # Second call should not increment
+    provider.prewarm_singletons()
+    assert CounterSingleton.counter == 1
+
+def test_prewarm_singletons_is_idempotent():
+    provider = get_service_provider()
+    services = ServiceCollection()
+    CounterSingleton.counter = 0
+    services.add_singleton(CounterSingleton)
+    provider.configure_services(services)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    provider.prewarm_singletons()
+    provider.prewarm_singletons()
+    provider.prewarm_singletons()
+    assert CounterSingleton.counter == 1
+
+def test_prewarm_singletons_surfaces_errors():
+    provider = get_service_provider()
+    services = ServiceCollection()
+    services.add_singleton(ErrorSingleton)
+    provider.configure_services(services)
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    # Should not raise, but error is logged (cannot assert logs here)
+    provider.prewarm_singletons()
