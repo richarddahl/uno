@@ -13,14 +13,13 @@ name = "uno"
 dynamic = ["version"]
 description = 'uno is not an orm'
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = "MIT"
 keywords = []
 authors = [{ name = "Richard Dahl", email = "richard@dahl.us" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
@@ -209,12 +208,25 @@ lint = "ruff check {args:src/uno tests}"
 format = "ruff format {args:src/uno tests}"
 all = ["check", "lint", "format"]
 
+# MyPy Configuration - merged from mypy.ini
 [tool.mypy]
+# Core settings
 python_version = "3.13"
+plugins = ["sqlmypy"]
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+exclude = "(?x)(migrations|migrations/versions)"
+
+# Warning settings
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
+warn_no_return = true
+warn_unused_configs = true
+
+# Strictness settings
 disallow_any_generics = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -222,9 +234,6 @@ check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
 strict_optional = true
-warn_no_return = true
-warn_unused_configs = true
-exclude = ["migrations"]
 
 [tool.ruff]
 # Line length
