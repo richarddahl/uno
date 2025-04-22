@@ -73,4 +73,5 @@ def test_get_scoped_service_async():
             foo = scope.resolve(Foo)
             assert isinstance(foo, Foo)
 
-    asyncio.get_event_loop().run_until_complete(runner())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)

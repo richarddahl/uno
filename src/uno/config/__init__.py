@@ -8,7 +8,6 @@ from .application import ApplicationConfig, application_config
 from .database import DatabaseConfig, database_config
 from .general import GeneralConfig, general_config
 from .jwt import JWTConfig, jwt_config
-from .logging import LoggingConfig, logging_config
 from .security import SecurityConfig, security_config
 from .vector_search import VectorSearchConfig, vector_search_config
 
@@ -18,7 +17,6 @@ services.add_singleton(ApplicationConfig, application_config)
 services.add_singleton(DatabaseConfig, database_config)
 services.add_singleton(GeneralConfig, general_config)
 services.add_singleton(JWTConfig, jwt_config)
-services.add_singleton(LoggingConfig, logging_config)
 services.add_singleton(SecurityConfig, security_config)
 services.add_singleton(VectorSearchConfig, vector_search_config)
 

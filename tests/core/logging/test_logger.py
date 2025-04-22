@@ -91,12 +91,12 @@ def test_logger_multiple_names():
 
 def test_logger_reconfiguration():
     logger = get_logger("uno")
-    from uno.config import logging as config_logging
+    from uno.core.logging.logger import logging_config
 
-    old_level = config_logging.logging_config.LEVEL
-    config_logging.logging_config.LEVEL = "DEBUG"
+    old_level = logging_config.LEVEL
+    logging_config.LEVEL = "DEBUG"
     try:
         logger2 = get_logger("uno")
         assert logger is logger2
     finally:
-        config_logging.logging_config.LEVEL = old_level
+        logging_config.LEVEL = old_level

@@ -64,6 +64,12 @@ class ServiceResolver:
     """
 
     def __init__(self, logger: logging.Logger | None = None):
+        if logger is None:
+            from uno.core.logging.logger import get_logger
+
+            self._logger = get_logger("uno.di")
+        else:
+            self._logger = logger
         """
         Initialize the service resolver.
 
