@@ -3,6 +3,7 @@
 ## Basic Logging
 
 ### Getting a Logger
+
 Always get a logger for your module using the `get_logger` function:
 
 ```python
@@ -15,26 +16,31 @@ logger = get_logger(__name__)
 ### Using Log Levels Appropriately
 
 - **DEBUG**: Detailed information, typically useful only for diagnosing problems
+
   ```python
   logger.debug("Connecting to database at %s:%s", host, port)
   ```
 
 - **INFO**: Confirmation that things are working as expected
+
   ```python
   logger.info("User %s successfully authenticated", user_id)
   ```
 
 - **WARNING**: An indication that something unexpected happened, or may happen in the near future
+
   ```python
   logger.warning("API rate limit at 90% (%s/%s requests)", current, limit)
   ```
 
 - **ERROR**: Due to a more serious problem, the software has not been able to perform a function
+
   ```python
   logger.error("Failed to process payment", extra={"order_id": order_id, "error_code": error_code})
   ```
 
 - **CRITICAL**: A serious error indicating that the program itself may be unable to continue running
+
   ```python
   logger.critical("Database connection lost, application cannot function")
   ```
@@ -42,6 +48,7 @@ logger = get_logger(__name__)
 ## Structured Logging
 
 ### Adding Context to Logs
+
 Always include relevant context with your logs:
 
 ```python
@@ -53,6 +60,7 @@ logger.info("Order processed", extra={"order_id": "12345", "amount": 99.95, "cur
 ```
 
 ### Using Consistent Keys
+
 Use consistent keys for common entities across your application:
 
 ```python
@@ -66,6 +74,7 @@ logger.info("Order shipped", extra={"order_id": "456", "user_id": "123", "shippi
 ## Contextual Logging
 
 ### Using Context Managers
+
 Use context managers to add consistent context to multiple log statements:
 
 ```python
@@ -79,6 +88,7 @@ with logging_context(request_id="abc-123", user_id="user-456"):
 ```
 
 ### Function and Request Contexts
+
 Use decorators to add consistent context to all logs within a function:
 
 ```python
@@ -94,6 +104,7 @@ def process_payment(order_id, amount):
 ## Error Logging
 
 ### Logging Exceptions
+
 Always include exception information when logging errors:
 
 ```python
@@ -110,6 +121,7 @@ except Exception as e:
 ```
 
 ### Logging with Traceback Control
+
 Control traceback inclusion based on log level:
 
 ```python
@@ -124,6 +136,7 @@ log_error(logger, "Operation partially failed", exception=exc,
 ## Performance Considerations
 
 ### Expensive Operations in Logs
+
 Use lazy evaluation for expensive operations:
 
 ```python
@@ -140,6 +153,7 @@ if logger.isEnabledFor(logging.DEBUG):
 ```
 
 ### Batch Logging
+
 For high-frequency logs, consider batching:
 
 ```python
@@ -158,6 +172,7 @@ batch_logger.flush()
 ## Integration with Application Features
 
 ### Request Logging
+
 Integrate with web request handling:
 
 ```python
@@ -168,6 +183,7 @@ app.add_middleware(RequestLoggingMiddleware)
 ```
 
 ### Database Operation Logging
+
 Log database operations:
 
 ```python
@@ -179,6 +195,7 @@ DatabaseLoggingMiddleware.setup(engine)
 ```
 
 ### Audit Logging
+
 For security-sensitive operations:
 
 ```python

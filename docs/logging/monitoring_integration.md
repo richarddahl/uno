@@ -1,6 +1,7 @@
 # Integration with Monitoring Tools
 
 ## Overview
+
 The Uno logging system integrates with various monitoring and observability tools to provide comprehensive insights into application behavior. This integration allows logs to be correlated with metrics, traces, and other observability data for a complete view of system performance and health.
 
 ## Distributed Tracing Integration
@@ -30,6 +31,7 @@ with tracer.start_as_current_span("operation_name") as span:
 ```
 
 The logs will automatically include:
+
 - `trace_id`: The trace identifier
 - `span_id`: The span identifier
 - `trace_flags`: Tracing flags like sampled status
@@ -185,6 +187,7 @@ configure_logging(
 ```
 
 This will expose metrics like:
+
 - `uno_logging_total{level="info"}`: Counter of logs by level
 - `uno_logging_errors_total`: Counter of logging errors
 - `uno_logging_latency_seconds`: Histogram of logging latency
@@ -345,6 +348,7 @@ logger.info("API request processed", extra={
 ```
 
 This structured data can be used to create dashboards showing:
+
 - API response time by endpoint
 - Success/failure rates
 - Resource usage patterns
@@ -354,7 +358,8 @@ This structured data can be used to create dashboards showing:
 
 Example queries for common log analytics platforms:
 
-#### Elasticsearch Query:
+#### Elasticsearch Query
+
 ```json
 {
   "query": {
@@ -376,7 +381,8 @@ Example queries for common log analytics platforms:
 }
 ```
 
-#### Loki Query:
+#### Loki Query
+
 ```
 {app="uno"} | json | level="ERROR" | unwrap response_time_ms | rate(5m)
 ```

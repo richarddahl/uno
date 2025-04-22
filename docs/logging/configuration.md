@@ -1,11 +1,13 @@
 # Logging Configuration
 
 ## Overview
+
 The Uno logging system is highly configurable to support different environments, output formats, and logging levels. Configuration can be specified through environment variables, configuration files, or programmatically.
 
 ## Basic Configuration
 
 ### Environment Variables
+
 The following environment variables control logging behavior:
 
 - `UNO_LOG_LEVEL`: Sets the global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -15,6 +17,7 @@ The following environment variables control logging behavior:
 - `UNO_LOG_INCLUDE_TIMESTAMP`: Whether to include timestamps (TRUE, FALSE)
 
 ### Configuration File
+
 Logging can be configured in the application config file:
 
 ```yaml
@@ -51,6 +54,7 @@ logging:
 ## Advanced Configuration
 
 ### Programmatic Configuration
+
 For more complex setups, logging can be configured programmatically:
 
 ```python
@@ -81,6 +85,7 @@ configure_logging(
 ```
 
 ### Custom Handlers
+
 You can register custom log handlers:
 
 ```python
@@ -94,7 +99,9 @@ register_handler("monitoring", monitor_handler, level="WARNING")
 ## Environment-Specific Configurations
 
 ### Development
+
 For development environments, we recommend:
+
 ```yaml
 logging:
   level: DEBUG
@@ -104,7 +111,9 @@ logging:
 ```
 
 ### Production
+
 For production environments, we recommend:
+
 ```yaml
 logging:
   level: INFO
@@ -125,7 +134,9 @@ logging:
 ```
 
 ### Testing
+
 For testing environments, we recommend:
+
 ```yaml
 logging:
   level: CRITICAL  # Minimize logging output during tests

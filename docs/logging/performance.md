@@ -1,11 +1,13 @@
 # Logging Performance Considerations
 
 ## Overview
+
 Logging should provide valuable insight into application behavior without significantly impacting performance. This document outlines best practices for performance-efficient logging.
 
 ## Performance Impact of Logging
 
 Logging can impact performance in several ways:
+
 - **CPU usage**: String formatting and JSON serialization require CPU cycles
 - **Memory usage**: Creating log records and buffering them consumes memory
 - **I/O operations**: Writing logs to disk or sending them over the network impacts I/O
@@ -168,6 +170,7 @@ configure_logging(
 ```
 
 This will expose metrics such as:
+
 - `logging_throughput`: Logs per second
 - `logging_latency`: Time spent logging
 - `logging_queue_size`: Size of the logging queue

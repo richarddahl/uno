@@ -1,6 +1,7 @@
 # Uno Logging System
 
 ## Introduction
+
 The Uno logging system provides a unified approach to logging across all components of the application. This documentation covers the design principles, configuration options, and usage patterns for effectively logging in Uno applications.
 
 ## Quick Start
@@ -17,6 +18,7 @@ logger.warning("Resource running low", extra={"resource": "memory", "available":
 ```
 
 ## Table of Contents
+
 1. [Architecture](architecture.md)
 2. [Configuration](configuration.md)
 3. [Usage Patterns](usage_patterns.md)
@@ -27,6 +29,7 @@ logger.warning("Resource running low", extra={"resource": "memory", "available":
 8. [Troubleshooting](troubleshooting.md)
 
 ## Core Principles
+
 - **Consistency**: Provide a consistent logging interface across all components
 - **Structured**: Support for structured logging with contextual information
 - **Configurable**: Flexible configuration options for different environments

@@ -1,9 +1,11 @@
 # Structured Logging
 
 ## Overview
+
 Structured logging is a pattern that treats log entries as structured data rather than plain text, making logs more consistent, queryable, and machine-readable. The Uno logging system provides built-in support for structured logging.
 
 ## Benefits of Structured Logging
+
 - **Consistency**: Enforces consistent log formats
 - **Searchability**: Makes logs easier to search and filter
 - **Analysis**: Enables advanced log analysis and correlation
@@ -12,6 +14,7 @@ Structured logging is a pattern that treats log entries as structured data rathe
 ## Using Structured Logging
 
 ### Basic Structure
+
 All logs in Uno should include the following basic structure:
 
 ```python
@@ -25,6 +28,7 @@ logger.info("Message describing what happened",
 The `extra` parameter accepts a dictionary of key-value pairs that will be included in the structured log output.
 
 ### Standard Context Fields
+
 The Uno logging system automatically adds these context fields to all logs:
 
 - `timestamp`: ISO-8601 formatted timestamp
@@ -41,6 +45,7 @@ The Uno logging system automatically adds these context fields to all logs:
 ### Example Structured Log Output
 
 JSON format:
+
 ```json
 {
   "timestamp": "2023-10-15T14:23:45.123Z",
@@ -61,6 +66,7 @@ JSON format:
 ## Best Practices
 
 ### Use Semantic Field Names
+
 Choose field names that clearly describe their content:
 
 ```python
@@ -72,6 +78,7 @@ logger.info("User created", extra={"user_id": user_id, "created_by": created_by}
 ```
 
 ### Use Consistent Field Names
+
 Use the same field name for the same type of information across all logs:
 
 ```python
@@ -82,6 +89,7 @@ logger.info("User deleted", extra={"user_id": "123"})
 ```
 
 ### Use Appropriate Data Types
+
 Use appropriate data types for field values:
 
 ```python
@@ -96,6 +104,7 @@ logger.info("Order processed", extra={
 ```
 
 ### Don't Log Sensitive Information
+
 Never include sensitive information in logs:
 
 ```python
@@ -109,6 +118,7 @@ logger.info("User login attempt", extra={"username": username})
 ## Advanced Structured Logging
 
 ### Context Managers
+
 Use context managers to add consistent context to all logs within a block:
 
 ```python
@@ -122,6 +132,7 @@ with logging_context(order_id="ORD-123", user_id="USER-456"):
 ```
 
 ### Custom Log Processors
+
 Create custom log processors to add computed fields:
 
 ```python
@@ -136,6 +147,7 @@ register_log_processor(add_performance_metrics)
 ```
 
 ### Nested Structures
+
 For complex data, use nested structures:
 
 ```python
@@ -157,6 +169,7 @@ logger.info("Order processed", extra={
 ## Integration with Log Management Systems
 
 ### ELK Stack (Elasticsearch, Logstash, Kibana)
+
 JSON formatted logs can be directly indexed by Elasticsearch:
 
 ```python
@@ -175,6 +188,7 @@ configure_logging(
 ```
 
 ### Datadog Integration
+
 For Datadog-specific fields:
 
 ```python
@@ -187,6 +201,7 @@ logger.info("API request processed", extra={
 ```
 
 ### New Relic Integration
+
 For New Relic-specific structure:
 
 ```python
