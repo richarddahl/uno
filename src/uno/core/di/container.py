@@ -8,7 +8,6 @@ This module implements a hierarchical dependency injection container that suppor
 different scopes for services, such as singleton (application), request, and transient.
 """
 
-from uno.core.logging.logger import get_logger
 import contextlib
 import inspect
 import logging

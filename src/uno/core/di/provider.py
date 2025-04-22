@@ -9,7 +9,6 @@ to provide enhanced dependency injection functionality, including proper scoping
 automatic dependency resolution, and improved lifecycle management.
 """
 
-from uno.core.logging.logger import get_logger
 import logging
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar, overload
@@ -26,8 +25,8 @@ from uno.core.di.interfaces import (
     ConfigProtocol,
     DatabaseProviderProtocol,
     DBManagerProtocol,
-    EventBusProtocol,
     DTOManagerProtocol,
+    EventBusProtocol,
     SQLEmitterFactoryProtocol,
     SQLExecutionProtocol,
 )
@@ -68,6 +67,8 @@ class ServiceProvider:
         Args:
             logger: Optional logger for diagnostic information
         """
+        from uno.core.logging.logger import get_logger
+
         self._logger = logger or get_logger("uno.services")
         self._initialized = False
         self._base_services = ServiceCollection()
@@ -490,18 +491,40 @@ class ServiceProvider:
         return factory.create_rag_service(vector_search)
 
 
-# Global service provider instance
-_service_provider = ServiceProvider()
+import threading
 
+# Thread-safe global singleton pattern for ServiceProvider
+_service_provider: ServiceProvider | None = None
+_service_provider_lock = threading.Lock()
 
 def get_service_provider() -> ServiceProvider:
     """
-    Get the global service provider instance.
+    Get the global service provider instance (thread-safe singleton).
 
     Returns:
         The service provider instance
     """
+    global _service_provider
+    if _service_provider is None:
+        with _service_provider_lock:
+            if _service_provider is None:
+                _service_provider = ServiceProvider()
     return _service_provider
+
+# Generic thread-safe singleton pattern for any class (for future use)
+def get_singleton(cls, *args, **kwargs):
+    """
+    Generic thread-safe singleton factory for any class.
+    Usage: instance = get_singleton(MyClass, ...)
+    """
+    if not hasattr(cls, "_singleton_instance"):
+        cls._singleton_lock = threading.Lock()
+        cls._singleton_instance = None
+    if cls._singleton_instance is None:
+        with cls._singleton_lock:
+            if cls._singleton_instance is None:
+                cls._singleton_instance = cls(*args, **kwargs)
+    return cls._singleton_instance
 
 
 def register_singleton(service_type: type[T], instance: T) -> None:
@@ -594,6 +617,8 @@ async def configure_base_services() -> None:
     services.add_singleton(ConfigProtocol, UnoConfig)
 
     # Register logger
+    from uno.core.logging.logger import get_logger
+
     services.add_singleton(logging.Logger, lambda: get_logger("uno"))
 
     # Register database provider
@@ -612,9 +637,7 @@ async def configure_base_services() -> None:
     )
 
     # Create and register database provider
-    db_provider = DatabaseProvider(
-        connection_config, logger=get_logger("uno.database")
-    )
+    db_provider = DatabaseProvider(connection_config, logger=get_logger("uno.database"))
     services.add_instance(DatabaseProvider, db_provider)
     services.add_instance(DatabaseProviderProtocol, db_provider)
 
@@ -682,9 +705,7 @@ async def configure_base_services() -> None:
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
-        get_logger("uno.services").debug(
-            f"Vector search provider not available: {e}"
-        )
+        get_logger("uno.services").debug(f"Vector search provider not available: {e}")
         pass
 
     # Register queries provider

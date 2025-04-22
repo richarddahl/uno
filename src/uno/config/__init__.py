@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 #
 # SPDX-License-Identifier: MIT
-
-from uno.core.di import ServiceCollection, ServiceProvider
+from uno.core.di.container import ServiceCollection
 
 from .api import APIConfig, api_config
 from .application import ApplicationConfig, application_config
@@ -23,5 +22,8 @@ services.add_singleton(LoggingConfig, logging_config)
 services.add_singleton(SecurityConfig, security_config)
 services.add_singleton(VectorSearchConfig, vector_search_config)
 
-provider = ServiceProvider()
-provider.configure_services(services)
+
+def get_config_provider():
+    from uno.core.di.provider import get_service_provider
+
+    return get_service_provider()

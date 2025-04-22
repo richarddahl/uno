@@ -4,11 +4,9 @@ Centralized logger abstraction for Uno framework.
 Wraps Python's standard logging, loads config from uno.config, and exposes a DI-friendly logger.
 """
 
-from uno.core.logging.logger import get_logger
 import logging
 import sys
 from functools import lru_cache
-from logging import Logger
 
 from uno.config.logging import logging_config
 
@@ -52,7 +50,7 @@ def configure_root_logger():
 
 
 @lru_cache(maxsize=16)
-def get_logger(name: str | None = None) -> Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger instance (optionally by name)."""
     configure_root_logger()
-    return get_logger(name or "uno")
+    return logging.getLogger(name or "uno")
