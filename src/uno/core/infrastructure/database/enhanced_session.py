@@ -11,6 +11,7 @@ This module extends the base session management with:
 - Resource cleanup on task cancellation
 """
 
+from uno.core.logging.logger import get_logger
 from typing import (
     Optional,
     AsyncIterator,
@@ -91,7 +92,7 @@ class EnhancedAsyncSessionFactory(DatabaseSessionFactoryProtocol):
         self.session_limiter = session_limiter or Limiter(
             max_concurrent=20, name="db_session_limiter"
         )
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self._session_locks: dict[str, AsyncLock] = {}
         self._sessionmakers: dict[str, async_sessionmaker] = {}
         self._scoped_sessions: dict[str, async_scoped_session] = {}
@@ -370,7 +371,7 @@ class EnhancedAsyncSessionContext(DatabaseSessionContextProtocol):
         self.db_host = db_host
         self.db_port = db_port
         self.factory = factory or EnhancedAsyncSessionFactory(logger=logger)
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.scoped = scoped
         self.timeout_seconds = timeout_seconds
         self.kwargs = kwargs
@@ -565,7 +566,7 @@ class SessionOperationGroup:
             logger: Optional logger instance
         """
         self.name = name or f"session_op_group_{id(self):x}"
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.task_group = TaskGroup(name=self.name, logger=self.logger)
         self.context_group = AsyncContextGroup()
         self.exit_stack = AsyncExitStack()

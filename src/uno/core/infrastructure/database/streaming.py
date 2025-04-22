@@ -8,6 +8,7 @@ This module provides utilities for streaming large query results from the databa
 without loading everything into memory at once.
 """
 
+from uno.core.logging.logger import get_logger
 from typing import (
     TypeVar,
     Generic,
@@ -100,7 +101,7 @@ class StreamingCursor(Generic[T]):
         self.chunk_size = chunk_size
         self.timeout_seconds = timeout_seconds
         self.transform_fn = transform_fn
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Cursor state
         self._cursor = None

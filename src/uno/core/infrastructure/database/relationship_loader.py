@@ -14,6 +14,7 @@ Features include:
 - Optimized query generation
 """
 
+from uno.core.logging.logger import get_logger
 from typing import (
     Any,
     Dict,
@@ -120,7 +121,7 @@ class RelationshipCache:
             logger: Optional logger for diagnostic output
         """
         self.config = config or RelationshipCacheConfig()
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Use the provided query cache or create a new one
         self.query_cache = query_cache or QueryCache()
@@ -375,7 +376,7 @@ class RelationshipLoader:
             cache_config: Optional cache configuration
         """
         self.model_class = model_class
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Get relationship metadata
         self.relationships = self._get_relationships()

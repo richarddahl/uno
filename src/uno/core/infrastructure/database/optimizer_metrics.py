@@ -5,6 +5,7 @@
 Metrics collection and monitoring for the query optimizer.
 
 This module provides tools to collect, aggregate, and visualize metrics
+from uno.core.logging.logger import get_logger
 from the query optimizer for performance monitoring and improvement tracking.
 """
 
@@ -199,7 +200,7 @@ class OptimizerMetricsCollector:
             logger: Optional logger instance
         """
         self.metrics_manager = metrics_manager
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Metrics snapshots
         self._snapshots: list[OptimizerMetricsSnapshot] = []

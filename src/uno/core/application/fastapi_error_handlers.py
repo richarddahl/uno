@@ -13,6 +13,7 @@ appropriate HTTP responses with correct status codes.
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
+from uno.core.logging.logger import get_logger
 import logging
 import traceback
 from collections.abc import Callable
@@ -27,7 +28,7 @@ from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, Framew
 from uno.core.errors import ValidationError as UnoValidationError
 
 # Setup logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False) -> None:
@@ -286,7 +287,7 @@ class ErrorHandlingMiddleware:
         self.app = app
         self.include_tracebacks = include_tracebacks
         self.log_level = log_level
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
     async def __call__(self, scope, receive, send):
         """

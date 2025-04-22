@@ -8,6 +8,7 @@ This module provides a centralized access point for database connections,
 supporting both synchronous and asynchronous access patterns.
 """
 
+from uno.core.logging.logger import get_logger
 import logging
 from typing import Optional, AsyncContextManager, ContextManager, Dict, Any
 from contextlib import asynccontextmanager, contextmanager
@@ -45,7 +46,7 @@ class DatabaseProvider:
             logger: Optional logger instance
         """
         self.config = config
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Engine instances - lazy initialized
         self._async_engine: Optional[AsyncEngine] = None

@@ -11,6 +11,7 @@ This module extends the base async database engine with:
 - Enhanced connection retry logic
 """
 
+from uno.core.logging.logger import get_logger
 from typing import Optional, AsyncIterator, TypeVar, Callable, Any, List
 import logging
 import asyncio
@@ -111,7 +112,7 @@ async def connect_with_retry(
     """
     # Use provided factory or create a new one
     engine_factory = factory or EnhancedAsyncEngineFactory(logger=logger)
-    log = logger or logging.getLogger(__name__)
+    log = logger or get_logger(__name__)
 
     # Get or create the connection lock for this config
     conn_lock = engine_factory.get_connection_lock(config)
@@ -237,7 +238,7 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
         self.factory = factory or EnhancedAsyncEngineFactory(logger=logger)
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.connection: Optional[AsyncConnection] = None
         self.engine: Optional[AsyncEngine] = None
 
@@ -370,7 +371,7 @@ class DatabaseOperationGroup:
             logger: Optional logger instance
         """
         self.name = name or f"db_op_group_{id(self):x}"
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.task_group = TaskGroup(name=self.name, logger=self.logger)
         self.context_group = AsyncContextGroup()
         self.exit_stack = AsyncExitStack()

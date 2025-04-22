@@ -4,6 +4,7 @@
 
 """SQL observers for monitoring and logging SQL operations."""
 
+from uno.core.logging.logger import get_logger
 import logging
 from typing import List, Protocol
 
@@ -106,7 +107,7 @@ class LoggingSQLObserver(BaseObserver):
         Args:
             logger: Logger to use for logging (defaults to module logger)
         """
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
     def on_sql_generated(self, source: str, statements: list[SQLStatement]) -> None:
         """Log SQL statement generation.

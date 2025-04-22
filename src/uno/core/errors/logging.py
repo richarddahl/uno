@@ -9,6 +9,7 @@ This module provides utilities for structured logging with
 contextual information and integration with the error handling system.
 """
 
+from uno.core.logging.logger import get_logger
 import functools
 import inspect
 import json
@@ -169,7 +170,7 @@ def configure_logging(config: LogConfig = None) -> None:
     """
     config = config or LogConfig()
 
-    root_logger = logging.getLogger()
+    root_logger = get_logger()
     root_logger.setLevel(getattr(logging, config.level))
 
     # Remove any existing handlers
@@ -220,7 +221,7 @@ def get_logger(name: str) -> logging.LoggerAdapter:
     Returns:
         A logger adapter that includes context
     """
-    logger = logging.getLogger(name)
+    logger = get_logger(name)
     return StructuredLogAdapter(logger, {})
 
 

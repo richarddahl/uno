@@ -8,6 +8,7 @@ This script is designed to run when a PostgreSQL container starts up.
 It ensures all required extensions are enabled in the database.
 """
 
+from uno.core.logging.logger import get_logger
 import os
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
@@ -47,7 +48,7 @@ def init_database(
     """
     # Set up logging
     setup_logging()
-    logger = logging.getLogger("db_init")
+    logger = get_logger("db_init")
 
     # Get username and database name from environment if not provided
     if db_user is None:

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+from uno.core.logging.logger import get_logger
 from typing import Optional
 import logging
 from logging import Logger
@@ -30,7 +31,7 @@ class DatabaseFactory:
 
     def __init__(self, logger: Optional[Logger] = None):
         """Initialize all component factories."""
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Initialize specialized factories
         self.sync_engine_factory = SyncEngineFactory(logger=self.logger)

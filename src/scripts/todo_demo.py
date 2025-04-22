@@ -5,6 +5,7 @@
 """
 Demo script to showcase the TodoList bounded context.
 """
+from uno.core.logging.logger import get_logger
 import asyncio
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
@@ -34,7 +35,7 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def run_demo():

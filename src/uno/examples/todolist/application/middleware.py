@@ -5,6 +5,7 @@
 Middleware for the TodoList bounded context.
 """
 
+from uno.core.logging.logger import get_logger
 import logging
 from typing import Any, Callable, TypeVar
 
@@ -13,7 +14,7 @@ from uno.core.application.queries import Query
 
 T = TypeVar("T")  # Return type
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def logging_middleware(request: Command | Query, next_handler: Callable) -> Any:

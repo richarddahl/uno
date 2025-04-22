@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
+from uno.core.logging.logger import get_logger
 import time
 from typing import Optional, Iterator
 import contextlib
@@ -126,7 +127,7 @@ def sync_connection(
 
     # Use provided factory or create a new one
     engine_factory = factory or SyncEngineFactory(logger=logger)
-    log = logger or logging.getLogger(__name__)
+    log = logger or get_logger(__name__)
 
     attempt = 0
     engine = None

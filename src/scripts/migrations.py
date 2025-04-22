@@ -30,6 +30,7 @@ Uno Migration Commands:
     check [--repair]: Check migrations for consistency issues
 """
 
+from uno.core.logging.logger import get_logger
 import os
 import sys
 import argparse
@@ -43,7 +44,7 @@ from alembic.config import Config
 from alembic import command
 
 # Initialize a logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")

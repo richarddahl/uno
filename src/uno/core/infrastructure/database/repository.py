@@ -8,6 +8,7 @@ This module provides a unified repository base that can be used
 with or without UnoObj in the Uno framework.
 """
 
+from uno.core.logging.logger import get_logger
 from typing import (
     TypeVar,
     Generic,
@@ -60,7 +61,7 @@ class UnoBaseRepository(Generic[ModelT]):
         """
         self.session = session
         self.model_class = model_class
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
     async def get(self, id: str) -> Optional[ModelT]:
         """

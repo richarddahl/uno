@@ -15,6 +15,7 @@ Features:
 - Support for both raw SQL and ORM queries
 """
 
+from uno.core.logging.logger import get_logger
 from typing import (
     Any,
     Dict,
@@ -471,7 +472,7 @@ class QueryCache:
             logger: Optional logger instance
         """
         self.config = config or QueryCacheConfig()
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Memory cache storage
         self._cache: dict[str, CachedResult[Any]] = {}

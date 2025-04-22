@@ -15,6 +15,7 @@ Features:
 - Different connection strategies for different workloads
 """
 
+from uno.core.logging.logger import get_logger
 from typing import Optional, AsyncIterator, Dict, Any, List, Type, TypeVar, cast
 import logging
 import contextlib
@@ -110,7 +111,7 @@ class EnhancedPooledSessionFactory(EnhancedAsyncSessionFactory):
 
         self.session_pool_config = session_pool_config or SessionPoolConfig()
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Session cache for reuse
         self._session_cache = AsyncCache[str, async_sessionmaker](
@@ -463,7 +464,7 @@ class EnhancedPooledSessionOperationGroup:
             session_pool_config: Configuration for the session pool
         """
         self.name = name or f"pooled_session_op_group_{id(self):x}"
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.session_pool_config = session_pool_config or SessionPoolConfig()
 
         # Task group for parallel operations

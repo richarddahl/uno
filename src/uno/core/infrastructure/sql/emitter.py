@@ -4,6 +4,7 @@
 
 """Base class and protocols for SQL emitters."""
 
+from uno.core.logging.logger import get_logger
 import time
 import logging
 from typing import Dict, List, Optional, Protocol, ClassVar, Type
@@ -95,7 +96,7 @@ class SQLEmitter(BaseModel):
     config: BaseModel = uno_settings
 
     # Logger for this emitter
-    logger: logging.Logger = logging.getLogger(__name__)
+    logger: logging.Logger = get_logger(__name__)
 
     # Engine factory for creating connections
     engine_factory: Optional[SyncEngineFactory] = None

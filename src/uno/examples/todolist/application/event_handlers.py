@@ -5,6 +5,7 @@
 Event handlers for the TodoList bounded context.
 """
 
+from uno.core.logging.logger import get_logger
 import logging
 from datetime import datetime
 
@@ -14,7 +15,7 @@ from uno.examples.todolist.domain.models import (
     TodoItemCancelledEvent,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def handle_todo_created(event: TodoItemCreatedEvent) -> None:

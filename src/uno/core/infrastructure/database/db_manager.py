@@ -8,6 +8,7 @@ This module provides functionality for managing database schemas,
 including DDL operations and migrations.
 """
 
+from uno.core.logging.logger import get_logger
 import logging
 from typing import Optional, List, Dict, Any, Callable, ContextManager
 from contextlib import contextmanager
@@ -39,7 +40,7 @@ class DBManager:
             logger: Optional logger instance
         """
         self.get_connection = connection_provider
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
     def execute_ddl(self, ddl: str) -> None:
         """

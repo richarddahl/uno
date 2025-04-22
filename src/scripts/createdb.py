@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
+from uno.core.logging.logger import get_logger
 import logging
 from contextlib import contextmanager
 
@@ -22,7 +23,7 @@ from uno.meta.sqlconfigs import MetaTypeSQLConfig
 from uno.infrastructure.database.config import ConnectionConfig
 
 # Initialize a logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")

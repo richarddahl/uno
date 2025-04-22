@@ -3,6 +3,7 @@
 # uno framework
 """Alembic environment script for Uno database migrations."""
 
+from uno.core.logging.logger import get_logger
 import os
 import sys
 import logging
@@ -27,7 +28,7 @@ import uno.values.models  # noqa: F401
 import uno.workflows.models  # noqa: F401
 
 # Setup logging - Alembic's default logging might be too verbose
-logger = logging.getLogger("alembic.env")
+logger = get_logger("alembic.env")
 
 # Load any application models if APP_PATH is defined
 if uno_settings.APP_PATH:

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
+from uno.core.logging.logger import get_logger
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -65,7 +66,7 @@ async def async_connection(
 
     # Use provided factory or create a new one
     engine_factory = factory or AsyncEngineFactory(logger=logger)
-    log = logger or logging.getLogger(__name__)
+    log = logger or get_logger(__name__)
 
     attempt = 0
     engine = None

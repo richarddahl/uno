@@ -1,3 +1,4 @@
+from uno.core.logging.logger import get_logger
 from typing import Optional, AsyncIterator
 import contextlib
 import logging
@@ -107,7 +108,7 @@ async def async_connection(
 
     # Use provided factory or create a new one
     engine_factory = factory or AsyncEngineFactory(logger=logger)
-    log = logger or logging.getLogger(__name__)
+    log = logger or get_logger(__name__)
 
     attempt = 0
     engine = None

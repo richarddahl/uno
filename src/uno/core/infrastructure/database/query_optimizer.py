@@ -16,6 +16,7 @@ Features:
 - Query execution monitoring
 """
 
+from uno.core.logging.logger import get_logger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Type, cast
 import asyncio
 import dataclasses
@@ -399,7 +400,7 @@ class QueryOptimizer:
         self.session = session
         self.engine = engine
         self.config = config or OptimizationConfig()
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
 
         # Query statistics
         self._query_stats: dict[str, QueryStatistics] = {}

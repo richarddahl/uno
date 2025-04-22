@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+from uno.core.logging.logger import get_logger
 from typing import Optional, AsyncIterator, Dict, Any, AsyncContextManager
 import contextlib
 import logging
@@ -40,7 +41,7 @@ class AsyncSessionFactory(DatabaseSessionFactoryProtocol):
     ):
         """Initialize the session factory."""
         self.engine_factory = engine_factory or AsyncEngineFactory(logger=logger)
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self._sessionmakers: dict[str, async_sessionmaker] = {}
         self._scoped_sessions: dict[str, async_scoped_session] = {}
 
@@ -136,7 +137,7 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
         self.db_host = db_host
         self.db_port = db_port
         self.factory = factory or AsyncSessionFactory(logger=logger)
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger(__name__)
         self.scoped = scoped
         self.kwargs = kwargs
         self.session: Optional[DatabaseSessionProtocol] = None
