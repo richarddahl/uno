@@ -5,7 +5,7 @@
 Scoped dependency injection container for Uno framework.
 
 This module implements a hierarchical dependency injection container that supports
-different scopes for services, such as singleton (application), request, and transient.
+different scopes for services, such as singleton (application), scoped, and transient.
 """
 
 import contextlib
@@ -64,23 +64,19 @@ class ServiceResolver:
     """
 
     def __init__(self, logger: logging.Logger | None = None):
-        if logger is None:
-            from uno.core.logging.logger import get_logger
-
-            self._logger = get_logger("uno.di")
-        else:
-            self._logger = logger
         """
         Initialize the service resolver.
 
         Args:
             logger: Optional logger for diagnostic information
         """
+        from uno.core.logging.logger import get_logger
+
+        self._logger = logger or get_logger("uno.di")
         self._registrations: dict[type, ServiceRegistration] = {}
         self._singletons: dict[type, Any] = {}
         self._scoped_instances: dict[str, dict[type, Any]] = {}
         self._current_scope: str | None = None
-        self._logger = logger or get_logger("uno.di")
 
     def register(
         self,
@@ -145,12 +141,9 @@ class ServiceResolver:
             KeyError: If the service type is not registered
             ValueError: If a scoped service is requested outside a scope
         """
-        # Check if there's a registration for this type
-        if service_type not in self._registrations:
-            self._logger.error(f"No registration found for {service_type.__name__}")
-            raise KeyError(f"No registration found for {service_type.__name__}")
-
-        registration = self._registrations[service_type]
+        registration = self._registrations.get(service_type)
+        if not registration:
+            raise KeyError(f"Service {service_type.__name__} is not registered.")
 
         # Handle singletons
         if registration.scope == ServiceScope.SINGLETON:
@@ -217,8 +210,10 @@ class ServiceResolver:
             # Try to resolve this parameter as a dependency
             param_type = param.annotation
             if param_type is not param.empty and param_type is not Any:
-                with contextlib.suppress(KeyError, ValueError):
+                try:
                     params[param_name] = self.resolve(param_type)
+                except (KeyError, ValueError):
+                    pass  # If we can't resolve it, leave it for the constructor to handle
 
         # Create the instance
         return impl(**params)  # type: ignore
@@ -252,23 +247,15 @@ class ServiceResolver:
                 instances = self._scoped_instances[scope_id]
                 # Dispose any resources that need disposing
                 for instance in instances.values():
-                    import inspect
-
-                    if hasattr(instance, "dispose_async") and callable(
-                        instance.dispose_async
-                    ):
-                        self._logger.warning(
-                            f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal. Use an async scope for proper disposal."
-                        )
-                    elif hasattr(instance, "dispose") and callable(instance.dispose):
+                    if hasattr(instance, "dispose") and callable(instance.dispose):
                         try:
                             dispose_method = instance.dispose
-                            if inspect.iscoroutinefunction(dispose_method):
-                                self._logger.warning(
-                                    f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal. Use an async scope for proper disposal."
-                                )
-                            else:
+                            if not inspect.iscoroutinefunction(dispose_method):
                                 dispose_method()
+                            else:
+                                self._logger.warning(
+                                    f"Service {type(instance).__name__} has async dispose method, which cannot be awaited in sync scope. Skipping disposal."
+                                )
                         except Exception as e:
                             self._logger.warning(f"Error disposing service: {e}")
 
@@ -316,8 +303,6 @@ class ServiceResolver:
                         except Exception as e:
                             self._logger.warning(f"Error disposing async service: {e}")
                     elif hasattr(instance, "dispose") and callable(instance.dispose):
-                        import inspect
-
                         try:
                             dispose_method = instance.dispose
                             if inspect.iscoroutinefunction(dispose_method):
@@ -457,132 +442,3 @@ class ServiceCollection:
             resolver.register_instance(service_type, instance)
 
         return resolver
-
-
-class ServiceContainer:
-    """
-    Singleton container for dependency injection.
-
-    This class provides centralized access to the service resolver
-    while avoiding the use of global variables.
-    """
-
-    _instance: ServiceResolver | None = None
-
-    @classmethod
-    def initialize(
-        cls,
-        services: ServiceCollection | None = None,
-        logger: logging.Logger | None = None,
-    ) -> ServiceResolver:
-        """
-        Initialize the container.
-
-        Args:
-            services: Optional service collection to build the container from
-            logger: Optional logger for diagnostic information
-
-        Returns:
-            The initialized service resolver
-        """
-        cls._instance = services.build(logger) if services else ServiceResolver(logger)
-        return cls._instance
-
-    @classmethod
-    def get(cls) -> ServiceResolver:
-        """
-        Get the container instance.
-
-        Returns:
-            The service resolver
-
-        Raises:
-            RuntimeError: If the container has not been initialized
-        """
-        if cls._instance is None:
-            raise RuntimeError(
-                "Container has not been initialized. Call ServiceContainer.initialize first"
-            )
-        return cls._instance
-
-    @classmethod
-    def resolve(cls, service_type: type[T]) -> T:
-        """
-        Resolve a service from the container.
-
-        Args:
-            service_type: The type of service to resolve
-
-        Returns:
-            An instance of the requested service
-
-        Raises:
-            RuntimeError: If the container has not been initialized
-        """
-        return cls.get().resolve(service_type)
-
-    @classmethod
-    @contextmanager
-    def create_scope(cls, scope_id: str | None = None) -> Generator[ServiceResolver]:
-        """
-        Create a service scope.
-
-        Args:
-            scope_id: Optional scope identifier
-
-        Yields:
-            The service resolver with the active scope
-
-        Raises:
-            RuntimeError: If the container has not been initialized
-        """
-        with cls.get().create_scope(scope_id) as scope:
-            yield scope
-
-    @classmethod
-    @asynccontextmanager
-    async def create_async_scope(
-        cls, scope_id: str | None = None
-    ) -> AsyncGenerator[ServiceResolver]:
-        """
-        Create an async service scope.
-
-        Args:
-            scope_id: Optional scope identifier
-
-        Yields:
-            The service resolver with the active scope
-
-        Raises:
-            RuntimeError: If the container has not been initialized
-        """
-        async with cls.get().create_async_scope(scope_id) as scope:
-            yield scope
-
-
-# Module-level convenience functions for backward compatibility
-def initialize_container(
-    services: ServiceCollection, logger: logging.Logger | None = None
-) -> ServiceResolver:
-    """Alias for ServiceContainer.initialize."""
-    return ServiceContainer.initialize(services, logger)
-
-
-def get_container() -> ServiceResolver:
-    """Alias for ServiceContainer.get."""
-    return ServiceContainer.get()
-
-
-def get_service(service_type: type[T]) -> T:
-    """Alias for ServiceContainer.resolve."""
-    return ServiceContainer.resolve(service_type)
-
-
-def create_scope(scope_id: str | None = None):
-    """Alias for ServiceContainer.create_scope."""
-    return ServiceContainer.create_scope(scope_id)
-
-
-def create_async_scope(scope_id: str | None = None):
-    """Alias for ServiceContainer.create_async_scope."""
-    return ServiceContainer.create_async_scope(scope_id)

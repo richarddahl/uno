@@ -1117,22 +1117,15 @@ def _get_cache_manager() -> QueryCacheManager:
     Returns:
         QueryCacheManager instance
     """
-    from uno.core.di.provider import get_service, register_singleton
+    from uno.core.di.provider import get_service_provider
 
+    provider = get_service_provider()
     try:
-        # Try to get from DI system first
-        return get_service(QueryCacheManager)
+        return provider.get_service(QueryCacheManager)
     except Exception:
         # Fall back to singleton pattern temporarily
         manager = QueryCacheManager.get_instance()
-
-        # Register with DI system for future use
-        try:
-            register_singleton(QueryCacheManager, manager)
-        except Exception:
-            # Ignore errors if DI system is not initialized
-            pass
-
+        # Optionally, you may want to register this instance with the provider if needed
         return manager
 
 

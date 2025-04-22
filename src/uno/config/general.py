@@ -32,6 +32,7 @@ class Dev(GeneralConfig):
 
 
 class Test(GeneralConfig):
+    SITE_NAME: str = "Uno Test Site"  # Default for tests
     model_config = TestSettingsConfigDict
 
 

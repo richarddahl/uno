@@ -2,15 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
-import sys
-import importlib
 import decimal
-
+import importlib
+import sys
+from datetime import date, datetime, timedelta
 from typing import Any
-from datetime import datetime, timedelta, date
+
 from babel import dates, numbers
 
-from uno.settings import uno_settings
+from uno.config import GeneralConfig
 
 
 def import_from_path(module_name, file_path):
@@ -53,9 +53,11 @@ def date_to_string(date: date | None) -> str | None:
     return dates.format_date(date, format="medium", locale="en_US") if date else None
 
 
-def datetime_to_string(datetime: datetime | None) -> str | None:
+def datetime_to_string(
+    datetime: datetime | None, general_config: GeneralConfig
+) -> str | None:
     return (
-        dates.format_datetime(datetime, format="medium", locale=config.LOCALE)
+        dates.format_datetime(datetime, format="medium", locale=general_config.LOCALE)
         if datetime
         else None
     )
