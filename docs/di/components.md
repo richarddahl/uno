@@ -1,236 +1,340 @@
-# Dependency Injection Core Components
+# Uno Framework DI Components Reference
 
-This document details the core components of the Uno framework's dependency injection system.
+This document provides a detailed reference of the key components in the Uno Framework's dependency injection system. Each component is explained with its purpose, methods, and usage examples.
 
 ## ServiceCollection
 
-`ServiceCollection` provides a fluent interface for configuring service registrations before building the container.
+`ServiceCollection` provides a fluent API for configuring service registrations. It's the primary configuration point for the DI system.
 
-### Key Methods
+### Methods
 
 | Method | Description |
 |--------|-------------|
 | `add_singleton(service_type, implementation=None, **params)` | Register a singleton service |
-| `add_instance(service_type, instance)` | Register an existing instance as a singleton |
 | `add_scoped(service_type, implementation=None, **params)` | Register a scoped service |
 | `add_transient(service_type, implementation=None, **params)` | Register a transient service |
-| `add_factory(service_type, factory_func)` | Register a factory function for creating service instances |
-| `add_lazy(service_type, implementation=None, **params)` | Register a lazily-initialized service |
-| `build(logger=None)` | Build a `ServiceResolver` from the collection |
+| `add_instance(service_type, instance)` | Register an existing instance as a singleton |
+| `build(logger=None)` | Build a ServiceResolver with the configured services |
 
 ### Example
 
 ```python
-from uno.core.di import ServiceCollection
-from myapp.services import UserService, UserServiceImpl, DatabaseService
-
 services = ServiceCollection()
-services.add_singleton(DatabaseService)
-services.add_scoped(UserService, UserServiceImpl)
-services.add_transient(EmailSender)
-services.add_factory(ComplexService, lambda sp: ComplexService(
-    sp.resolve(Dependency1),
-    config_value="custom_value"
-))
-```
 
-## ServiceScope
+# Register a singleton with the same implementation type
+services.add_singleton(Logger)
 
-`ServiceScope` is an enum that defines the lifetime of registered services.
+# Register a singleton with a specific implementation
+services.add_singleton(LoggerProtocol, ConsoleLogger)
 
-```python
-class ServiceScope(Enum):
-    """Service lifetime scopes for dependency injection."""
-    SINGLETON = auto()  # One instance per container
-    SCOPED = auto()     # One instance per scope (e.g., request)
-    TRANSIENT = auto()  # New instance each time
+# Register with constructor parameters
+services.add_singleton(
+    ConfigService, 
+    config_path="settings.json", 
+    environment="production"
+)
+
+# Register an existing instance
+logger = ConsoleLogger()
+services.add_instance(LoggerProtocol, logger)
+
+# Build a resolver
+resolver = services.build()
 ```
 
 ## ServiceRegistration
 
 `ServiceRegistration` holds the configuration for how a service should be resolved, including its implementation type or factory, scope, and initialization parameters.
 
+### Properties
+
+| Property | Description |
+|----------|-------------|
+| `implementation` | The implementation type or factory function |
+| `scope` | The service lifetime scope (ServiceScope enum) |
+| `params` | Parameters to pass to the constructor/factory |
+
+### Usage
+
+This class is typically used internally by the ServiceCollection and ServiceResolver, but can be created directly if needed:
+
 ```python
-ServiceRegistration(
-    implementation: type[T] | Callable[..., T],
-    scope: ServiceScope = ServiceScope.SINGLETON,
-    params: dict[str, Any] | None = None,
-    is_factory: bool = False,
-    is_lazy: bool = False,
+from uno.core.di.container import ServiceRegistration, ServiceScope
+
+# Create a registration for a singleton service
+registration = ServiceRegistration(
+    implementation=ConsoleLogger,
+    scope=ServiceScope.SINGLETON,
+    params={"log_level": "INFO"}
 )
+```
+
+## ServiceScope
+
+`ServiceScope` is an enum that defines the lifetime of registered services.
+
+### Values
+
+| Value | Description |
+|-------|-------------|
+| `SINGLETON` | One instance per container, shared across the application |
+| `SCOPED` | One instance per scope (e.g., per request), created when first requested in a scope |
+| `TRANSIENT` | New instance each time the service is resolved |
+
+### Example
+
+```python
+from uno.core.di.container import ServiceScope
+
+# Register services with different scopes
+services.add_singleton(LoggerProtocol, ConsoleLogger)  # Default is SINGLETON
+services.add_scoped(DatabaseProtocol, PostgresDatabase)  # SCOPED
+services.add_transient(EmailSender)  # TRANSIENT
 ```
 
 ## ServiceResolver
 
-`ServiceResolver` is responsible for resolving services based on their registrations, including handling dependencies and maintaining instance caches for different scopes.
+`ServiceResolver` is the core resolution engine that manages service instances and dependencies. It handles the creation of singleton, scoped, and transient instances, and provides scope management.
 
-### Key Methods
+### Methods
 
 | Method | Description |
 |--------|-------------|
-| `register(service_type, implementation, scope, params=None)` | Register a service |
-| `register_instance(service_type, instance)` | Register an existing instance |
-| `register_factory(service_type, factory_func, scope=ServiceScope.SINGLETON)` | Register a factory function |
-| `register_lazy(service_type, implementation, scope, params=None)` | Register a lazily-initialized service |
+| `register(service_type, implementation, scope=ServiceScope.SINGLETON, params=None)` | Register a service |
+| `register_instance(service_type, instance)` | Register an existing instance as a singleton |
 | `resolve(service_type)` | Resolve a service instance |
-| `resolve_lazy(service_type)` | Resolve a lazy reference to a service |
-| `create_scope(scope_id=None)` | Create a service scope (context manager) |
-| `create_async_scope(scope_id=None)` | Create an async service scope (async context manager) |
+| `create_scope(scope_id=None)` | Create a synchronous service scope |
+| `create_async_scope(scope_id=None)` | Create an asynchronous service scope |
 
 ### Example
 
 ```python
-resolver = ServiceResolver()
-resolver.register(UserService, UserServiceImpl, ServiceScope.SCOPED)
+# Resolve a singleton service
+logger = resolver.resolve(Logger)
 
-# Resolve a service
-user_service = resolver.resolve(UserService)
-
-# Resolve a lazy service
-lazy_service = resolver.resolve_lazy(ExpensiveService)
-# Later when needed
-actual_service = lazy_service.value
-
-# Create a scope
-with resolver.create_scope() as scoped_resolver:
-    scoped_service = scoped_resolver.resolve(ScopedService)
-```
-
-## ServiceContainer
-
-`ServiceContainer` provides centralized access to the service resolver while avoiding the use of global variables.
-
-### Key Methods
-
-| Method | Description |
-|--------|-------------|
-| `initialize(services=None, logger=None)` | Initialize the container |
-| `get()` | Get the container instance |
-| `resolve(service_type)` | Resolve a service from the container |
-| `resolve_lazy(service_type)` | Resolve a lazy reference to a service |
-| `create_scope(scope_id=None)` | Create a service scope |
-| `create_async_scope(scope_id=None)` | Create an async service scope |
-| `add_middleware(middleware)` | Add resolution middleware |
-
-### Example
-
-```python
-from uno.core.di import ServiceContainer, ServiceCollection
-
-# Initialize
-services = ServiceCollection()
-# ... configure services
-ServiceContainer.initialize(services)
-
-# Resolve
-user_service = ServiceContainer.resolve(UserService)
-
-# Lazy resolution
-lazy_service = ServiceContainer.resolve_lazy(ExpensiveService)
-
-# Create scope
-with ServiceContainer.create_scope() as scope:
-    scoped_service = scope.resolve(ScopedService)
-
+# Using scopes for scoped services
+with resolver.create_scope() as scope:
+    db = scope.resolve(DatabaseConnection)
+    # db is scoped to this context
+    
 # Async scope
-async with ServiceContainer.create_async_scope() as scope:
-    db = await scope.resolve_async(AsyncDatabase)
+async with resolver.create_async_scope() as scope:
+    db = scope.resolve(DatabaseConnection)
+    # Async disposal happens automatically
 ```
 
 ## ServiceProvider
 
-`ServiceProvider` provides a high-level API for managing services, including initialization and shutdown.
+`ServiceProvider` is a global access point and lifecycle manager for services. It wraps the service resolver and provides additional functionality for extensions and lifecycle management.
 
-### Key Methods
+### Methods
 
 | Method | Description |
 |--------|-------------|
-| `configure_services(configure_fn)` | Configure services using a callback |
+| `configure_services(services)` | Configure the base services |
+| `register_extension(name, services)` | Register a service extension |
+| `register_lifecycle_service(service_type)` | Register a service that requires lifecycle management |
+| `is_initialized()` | Check if the provider has been initialized |
 | `initialize()` | Initialize the provider and all registered services |
-| `dispose()` | Dispose all registered services |
-| `get_service(service_type)` | Get a service from the provider |
-| `get_service_lazy(service_type)` | Get a lazy reference to a service |
-| `create_scope(scope_id=None)` | Create a service scope |
-| `create_async_scope(scope_id=None)` | Create an async service scope |
+| `shutdown()` | Shut down the provider and dispose all services |
+| `get_service(service_type)` | Get a service by its type |
+| Convenience methods | `get_config()`, `get_db_provider()`, etc. |
 
 ### Example
 
 ```python
-from uno.core.di import ServiceProvider
+from uno.core.di import get_service_provider, initialize_services, shutdown_services
 
-provider = ServiceProvider()
+# Get the provider singleton
+provider = get_service_provider()
 
 # Configure services
-def configure(services):
-    services.add_singleton(ConfigService)
-    services.add_scoped(UserService)
-    services.add_factory(ComplexService, lambda sp: ComplexService(
-        sp.resolve(Dependency1),
-        environment=app_config.environment
-    ))
-    
-provider.configure_services(configure)
+provider.configure_services(services)
 
 # Initialize
-await provider.initialize()
+await initialize_services()
 
-# Get a service
-config = provider.get_service(ConfigService)
+# Get services
+logger = provider.get_service(Logger)
+config = provider.get_config()
 
-# Get a lazy service
-lazy_service = provider.get_service_lazy(ExpensiveService)
-
-# Create a scope
-async with provider.create_async_scope() as scope:
-    user_service = scope.resolve(UserService)
-
-# Dispose (cleanup)
-await provider.dispose()
+# Shutdown
+await shutdown_services()
 ```
 
-## Disposable Interface
+## ServiceLifecycle
 
-Services that need to clean up resources should implement the `Disposable` interface:
+`ServiceLifecycle` is an interface for services that need custom initialization and disposal.
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `initialize()` | Initialize the service asynchronously |
+| `dispose()` | Dispose the service asynchronously |
+
+### Example
 
 ```python
-from uno.core.di import Disposable
+from uno.core.di.provider import ServiceLifecycle
 
-class DatabaseConnection(Disposable):
-    def __init__(self, connection_string):
-        self.connection = create_connection(connection_string)
-    
-    def dispose(self) -> None:
-        self.connection.close()
-    
-    async def dispose_async(self) -> None:
-        await self.connection.close_async()
+class DatabaseService(ServiceLifecycle):
+    def __init__(self, config):
+        self.config = config
+        self.pool = None
+        
+    async def initialize(self) -> None:
+        # Initialize resources
+        self.pool = await create_connection_pool(self.config.get_connection_string())
+        
+    async def dispose(self) -> None:
+        # Clean up resources
+        if self.pool:
+            await self.pool.close()
+
+# Register the service
+services.add_singleton(DatabaseService)
+
+# Register for lifecycle management
+provider.register_lifecycle_service(DatabaseService)
 ```
 
-## Module-Level Functions
+## Global Functions
 
-The DI system also provides module-level convenience functions for direct access:
+The DI system provides several global functions for convenience:
 
-| Function | Description |
-|----------|-------------|
-| `initialize_container(services, logger=None)` | Initialize the container |
-| `get_container()` | Get the container instance |
-| `get_service(service_type)` | Resolve a service from the container |
-| `get_service_lazy(service_type)` | Get a lazy reference to a service |
-| `create_scope(scope_id=None)` | Create a service scope |
-| `create_async_scope(scope_id=None)` | Create an async service scope |
+### get_service_provider()
 
-## Protocol Interfaces
+Returns the global service provider singleton instance.
 
-The `interfaces.py` module defines Protocol classes that provide interfaces for various components in the framework, enabling dependency injection and improved testability. These include:
+```python
+from uno.core.di import get_service_provider
 
-- `ConfigProtocol` - Interface for configuration providers
-- `RepositoryProtocol` - Interface for data repositories
-- `DatabaseProviderProtocol` - Interface for database providers
-- `DBManagerProtocol` - Interface for database managers
-- `ServiceProtocol` - Interface for service classes
-- `DomainRepositoryProtocol` - Interface for domain repositories
-- `DomainServiceProtocol` - Interface for domain services
-- `EventBusProtocol` - Interface for event buses
-- And many more
+provider = get_service_provider()
+```
 
-These Protocol classes define contracts that implementations must adhere to, allowing you to swap implementations without changing client code.
+### initialize_services()
+
+Initializes all services, including base services and extensions.
+
+```python
+from uno.core.di import initialize_services
+
+async def startup():
+    await initialize_services()
+```
+
+### shutdown_services()
+
+Shuts down all services, disposing resources in the reverse order of initialization.
+
+```python
+from uno.core.di import shutdown_services
+
+async def cleanup():
+    await shutdown_services()
+```
+
+### register_singleton()
+
+Registers a singleton instance directly with the global service provider.
+
+```python
+from uno.core.di import register_singleton
+
+result = register_singleton(LoggerProtocol, console_logger)
+if result.is_error():
+    print(f"Failed to register: {result.error}")
+```
+
+## Discovery Utilities
+
+The DI system includes utilities for discovering and registering services automatically:
+
+### framework_service Decorator
+
+```python
+from uno.core.di.decorators import framework_service
+from uno.core.di.container import ServiceScope
+
+@framework_service(service_type=RepositoryProtocol, scope=ServiceScope.SCOPED)
+class UserRepository:
+    def __init__(self, db_provider):
+        self.db_provider = db_provider
+```
+
+### discover_services Function
+
+```python
+from uno.core.di.discovery import discover_services
+
+# Find all services in a package
+services = discover_services("myapp.features")
+```
+
+### register_services_in_package Function
+
+```python
+from uno.core.di.discovery import register_services_in_package
+
+# Register all services in a package
+register_services_in_package("myapp.features", provider)
+```
+
+### scan_directory_for_services Function
+
+```python
+from uno.core.di.discovery import scan_directory_for_services
+
+# Scan a directory for packages containing services
+scan_directory_for_services("/path/to/modules", "myapp.plugins", provider)
+```
+
+## Advanced Configuration
+
+### Dependency Resolution with Constructor Parameters
+
+```python
+# Register with explicit params
+services.add_singleton(
+    UserService,
+    db_provider=custom_db_provider,
+    logger=custom_logger
+)
+
+# Automatic dependency resolution
+services.add_singleton(UserService)  # Dependencies resolved from constructor types
+```
+
+### Extension Registration
+
+```python
+# Create extension services
+auth_services = ServiceCollection()
+auth_services.add_singleton(AuthManager)
+auth_services.add_scoped(UserContext)
+
+# Register with the provider
+provider.register_extension("auth", auth_services)
+```
+
+### Protocol-Based Service Resolution
+
+```python
+from typing import Protocol
+
+class EmailServiceProtocol(Protocol):
+    def send(self, to: str, subject: str, body: str) -> bool: ...
+
+class SMTPEmailService:
+    def send(self, to: str, subject: str, body: str) -> bool:
+        # Implementation
+        return True
+
+# Register using the protocol
+services.add_singleton(EmailServiceProtocol, SMTPEmailService)
+
+# Resolve using the protocol
+email_service = provider.get_service(EmailServiceProtocol)
+email_service.send("user@example.com", "Hello", "Message body")
+```
