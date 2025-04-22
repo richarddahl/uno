@@ -7,22 +7,23 @@ TodoList bounded context initialization.
 
 from uno.core.application.commands import CommandBus
 from uno.core.application.queries import QueryBus
-from uno.core.domain.core import DomainEventDispatcher
-from uno.database.session import get_async_session
+from uno.core.application.services import DomainEventDispatcher
 
+# from uno.database.session import get_async_session
 from uno.examples.todolist.application.commands import (
-    CreateTodoItemCommand,
-    CompleteTodoItemCommand,
     CancelTodoItemCommand,
+    CompleteTodoItemCommand,
+    CreateTodoItemCommand,
 )
-from uno.examples.todolist.application.queries import (
-    GetTodoItemQuery,
-    ListTodoItemsQuery,
+from uno.examples.todolist.application.event_handlers import (
+    handle_todo_cancelled,
+    handle_todo_completed,
+    handle_todo_created,
 )
 from uno.examples.todolist.application.handlers import (
-    CreateTodoItemHandler,
-    CompleteTodoItemHandler,
     CancelTodoItemHandler,
+    CompleteTodoItemHandler,
+    CreateTodoItemHandler,
     GetTodoItemHandler,
     ListTodoItemsHandler,
 )
@@ -30,20 +31,20 @@ from uno.examples.todolist.application.middleware import (
     logging_middleware,
     validation_middleware,
 )
-from uno.examples.todolist.application.event_handlers import (
-    handle_todo_created,
-    handle_todo_completed,
-    handle_todo_cancelled,
+from uno.examples.todolist.application.queries import (
+    GetTodoItemQuery,
+    ListTodoItemsQuery,
 )
 from uno.examples.todolist.domain.models import (
-    TodoItemCreatedEvent,
-    TodoItemCompletedEvent,
     TodoItemCancelledEvent,
+    TodoItemCompletedEvent,
+    TodoItemCreatedEvent,
 )
 from uno.examples.todolist.infrastructure.repositories import TodoItemRepository
 
 
 async def register_handlers():
+    return
     """Register all command, query, and event handlers."""
     # Get a session
     session = await get_async_session()

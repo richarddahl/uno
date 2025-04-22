@@ -50,7 +50,7 @@ class QueryBus:
         cls._middleware.append(middleware)
 
     @classmethod
-    async def dispatch(cls, query: Query) -> Result[Any, ValueError]:
+    async def dispatch(cls, query: Query) -> Result[Any]:
         """Dispatch a query to its registered handler, returning a Failure if no handler is registered."""
         query_type = type(query)
 

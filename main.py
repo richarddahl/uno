@@ -2,91 +2,43 @@
 #
 # SPDX-License-Identifier: MIT
 
-import importlib
+
 import logging
-from logging.config import dictConfig
-
-# Configure logging first
-logging_config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "standard": {
-            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "level": "INFO",
-            "formatter": "standard",
-            "stream": "ext://sys.stdout",
-        },
-        "file": {
-            "class": "logging.FileHandler",
-            "level": "DEBUG",
-            "formatter": "standard",
-            "filename": "uno.log",
-            "mode": "a",
-        },
-    },
-    "loggers": {
-        "uno": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-}
-dictConfig(logging_config)
-logger = logging.getLogger("uno")
-
-from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-
-# Import error handling utilities
-from uno.core.application.fastapi_error_handlers import (
-    setup_error_handlers,
-    ErrorHandlingMiddleware,
-)
-
-from uno.settings import uno_settings
-
-# Import the service provider, but don't use it yet
-from uno.core.di.provider import get_service_provider
-
-# Import the app, but we need to redefine it with our lifespan
-from uno.application.fastapi.apidef import app as api_app
-from uno.core.feature_factory import FeatureFactory
 
 # Add modern lifespan event handlers for FastAPI
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+# Import the app, but we need to redefine it with our lifespan
+from uno import config
+from uno.application.apidef import app as api_app
+
+# Import error handling utilities
+from uno.core.application.fastapi_error_handlers import setup_error_handlers
+
+# Import the service provider, but don't use it yet
+from uno.core.di.provider import get_service_provider, initialize_services
+from uno.examples.todolist import initialize_todolist
+
 # Add to your existing imports
 from uno.examples.todolist.api.routes import router as todo_router
-from uno.examples.todolist import initialize_todolist
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI application."""
+
     try:
         # === STARTUP ===
-        logger.info("Starting application initialization")
-
-        # Initialize the modern dependency injection system
-        from uno.core.di.provider import initialize_services
-
         await initialize_services()
+        provider = get_service_provider()
+        logger = provider.get_service(logging.Logger)
+        logger.info("Starting application initialization")
         logger.info("Modern DI Service Provider initialized")
 
         # Register services using automatic discovery (optional)
@@ -129,14 +81,6 @@ async def lifespan(app: FastAPI):
             except AttributeError as e:
                 logger.debug(f"{feat} domain_endpoints missing router: {e}")
 
-        # Example domain endpoints using modern dependency injection
-        # try:
-        #     from uno.domain.api_example import router as example_router
-        #     api_app.include_router(example_router)
-        #     logger.info("Example domain router included")
-        # except ImportError:
-        #     logger.debug("Example domain router not available")
-
         # Include error handling example endpoints
         try:
             from uno.core.errors.examples import router as error_examples_router
@@ -148,7 +92,7 @@ async def lifespan(app: FastAPI):
 
         # Set up error handlers for FastAPI
         logger.info("Setting up error handlers")
-        setup_error_handlers(api_app, include_tracebacks=uno_settings.debug)
+        setup_error_handlers(api_app, include_tracebacks=config.debug)
         logger.info("Error handlers setup complete")
 
         # Add the TodoList routes

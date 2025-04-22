@@ -11,10 +11,11 @@ domain objects and infrastructure services.
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
-from typing import Generic, TypeVar, List, Optional, Type, Dict, Any, Callable
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar
 
-from uno.core.domain.core import AggregateRoot, DomainEvent, T_ID
-from uno.database.repositories import SQLAlchemyRepository
+from uno.core.domain.core import T_ID, AggregateRoot, DomainEvent
+from uno.core.domain.repository import Repository
 
 T = TypeVar("T", bound=AggregateRoot)
 
@@ -43,11 +44,12 @@ class DomainEventDispatcher:
 class ApplicationService(Generic[T, T_ID]):
     """Base class for application services."""
 
-    def __init__(self, repository: SQLAlchemyRepository[T, T_ID]):
+    # def __init__(self, repository: Repository[T, T_ID]):
+    def __init__(self, repository: Repository[T]):
         """Initialize the service with a repository."""
         self.repository = repository
 
-    async def get_by_id(self, id: T_ID) -> Optional[T]:
+    async def get_by_id(self, id: T_ID) -> T | None:
         """Get an aggregate by ID."""
         return await self.repository.get_by_id(id)
 
@@ -62,7 +64,7 @@ class ApplicationService(Generic[T, T_ID]):
         await self._dispatch_domain_events(aggregate)
         return result
 
-    async def update(self, id: T_ID, data: dict[str, Any]) -> Optional[T]:
+    async def update(self, id: T_ID, data: dict[str, Any]) -> T | None:
         """Update an existing aggregate."""
         aggregate = await self.repository.get_by_id(id)
         if not aggregate:

@@ -9,13 +9,11 @@ approach in the Uno framework, including entities, value objects, aggregates, an
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import (
     Any,
     Generic,
     TypeVar,
-    list,
-    set,
 )
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -34,7 +32,7 @@ class DomainEvent(BaseModel):
 
     event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     event_type: str = Field(default="domain_event")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DomainEvent":
@@ -83,8 +81,8 @@ class Entity(BaseModel, Generic[T_ID]):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: T_ID = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
     deleted_at: datetime | None = None
 
     def __eq__(self, other):
@@ -100,7 +98,7 @@ class Entity(BaseModel, Generic[T_ID]):
         """Update the updated_at field whenever the entity is modified."""
         # Only set updated_at for existing entities that are being modified
         if values.get("id") and values.get("created_at"):
-            values["updated_at"] = datetime.now(timezone.utc)
+            values["updated_at"] = datetime.now(datetime.UTC)
         return values
 
     # Python 3.13 compatibility methods for dataclasses
@@ -119,24 +117,18 @@ class Entity(BaseModel, Generic[T_ID]):
                 continue  # Field already exists
 
             # Handle dictionary fields
-            if (
-                field_value == dict
-                or isinstance(field_value, type)
-                and issubclass(field_value, dict)
+            if field_value is dict or (
+                isinstance(field_value, type) and issubclass(field_value, dict)
             ):
                 setattr(self, field_name, {})
             # Handle list fields
-            elif (
-                field_value == list
-                or isinstance(field_value, type)
-                and issubclass(field_value, list)
+            elif field_value is list or (
+                isinstance(field_value, type) and issubclass(field_value, list)
             ):
                 setattr(self, field_name, [])
             # Handle set fields
-            elif (
-                field_value == Set
-                or isinstance(field_value, type)
-                and issubclass(field_value, Set)
+            elif field_value is set or (
+                isinstance(field_value, type) and issubclass(field_value, set)
             ):
                 setattr(self, field_name, set())
 
@@ -161,7 +153,7 @@ class AggregateRoot(Entity[T_ID]):
     # Add type annotations to mark class attributes
     # These can be used to hold instance attributes that should be properly initialized
     _events: list[DomainEvent]
-    _child_entities: Set[Entity]
+    _child_entities: set[Entity]
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -225,7 +217,7 @@ class AggregateRoot(Entity[T_ID]):
             self._child_entities = set()
         self._child_entities.add(entity)
 
-    def get_child_entities(self) -> Set[Entity]:
+    def get_child_entities(self) -> set[Entity]:
         """
         Get all child entities of this aggregate root.
 
