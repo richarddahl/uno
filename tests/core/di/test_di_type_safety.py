@@ -36,10 +36,9 @@ from typing import get_type_hints
 print("[TEST DEBUG] get_type_hints(A.__init__):", get_type_hints(A.__init__, globalns=globals(), localns=locals()))
 print("[TEST DEBUG] get_type_hints(B.__init__):", get_type_hints(B.__init__, globalns=globals(), localns=locals()))
 try:
-    if 'NeedsNamed' in globals():
-        print("[TEST DEBUG] get_type_hints(NeedsNamed.__init__):", get_type_hints(NeedsNamed.__init__, globalns=globals(), localns=locals()))
-    else:
-        print("[TEST DEBUG] NeedsNamed is not defined.")
+    print("[TEST DEBUG] get_type_hints(NeedsNamed.__init__):", get_type_hints(NeedsNamed.__init__, globalns=globals(), localns=locals()))
+except NameError:
+    print("[TEST DEBUG] NeedsNamed is not defined.")
 except Exception as e:
     print(f"[TEST DEBUG] get_type_hints(NeedsNamed.__init__) failed: {e}")
 
