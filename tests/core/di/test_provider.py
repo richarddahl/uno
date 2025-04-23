@@ -93,8 +93,11 @@ async def test_scoped_service_raises_outside_scope():
     services.add_scoped(FakeService)
     provider.configure_services(services)
     await provider.initialize()
-    with pytest.raises(FrameworkError):
-        provider.get_service(FakeService)
+    result = provider.get_service(FakeService)
+    from uno.core.errors.result import Failure
+    from uno.core.errors.definitions import ScopeError
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, ScopeError)
 
 
 @pytest.mark.asyncio
@@ -105,7 +108,10 @@ async def test_scoped_service_resolves_inside_scope():
     provider.configure_services(services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
-        s = scope.get_service(FakeService)
+        result = scope.get_service(FakeService)
+        from uno.core.errors.result import Success
+        assert isinstance(result, Success)
+        s = result.value
         assert isinstance(s, FakeService)
 
 
@@ -116,11 +122,18 @@ async def test_transient_service_resolves_anywhere():
     services.add_transient(SimpleService)
     provider.configure_services(services)
     await provider.initialize()
-    s1 = provider.get_service(SimpleService)
-    s2 = provider.get_service(SimpleService)
+    r1 = provider.get_service(SimpleService)
+    r2 = provider.get_service(SimpleService)
+    from uno.core.errors.result import Success
+    assert isinstance(r1, Success)
+    assert isinstance(r2, Success)
+    s1 = r1.value
+    s2 = r2.value
     assert s1 is not s2
     async with await provider.create_scope() as scope:
-        s3 = scope.get_service(SimpleService)
+        r3 = scope.get_service(SimpleService)
+        assert isinstance(r3, Success)
+        s3 = r3.value
         assert isinstance(s3, SimpleService)
 
 
@@ -132,7 +145,10 @@ async def test_shutdown_disposes_services_in_reverse_order():
     provider.configure_services(services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
-        s: FakeService = scope.get_service(FakeService)
+        r = scope.get_service(FakeService)
+        from uno.core.errors.result import Success
+        assert isinstance(r, Success)
+        s: FakeService = r.value
         assert isinstance(s, FakeService)
     # No shutdown assertion since scope is unsupported
 
@@ -144,12 +160,19 @@ async def test_resolve_singleton_service():
     services.add_singleton(SimpleService)
     provider.configure_services(services)
     await provider.initialize()
-    s1 = provider.get_service(SimpleService)
-    s2 = provider.get_service(SimpleService)
+    r1 = provider.get_service(SimpleService)
+    r2 = provider.get_service(SimpleService)
+    from uno.core.errors.result import Success
+    assert isinstance(r1, Success)
+    assert isinstance(r2, Success)
+    s1 = r1.value
+    s2 = r2.value
     assert s1 is s2
     # Should also work inside a scope
     async with await provider.create_scope() as scope:
-        s3 = scope.get_service(SimpleService)
+        r3 = scope.get_service(SimpleService)
+        assert isinstance(r3, Success)
+        s3 = r3.value
         assert s3 is s1
 
 

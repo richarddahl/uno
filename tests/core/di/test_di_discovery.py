@@ -45,6 +45,9 @@ def test_discover_services_registers_service():
     services = discover_services("fake_module")
     # The service should be registered as singleton
     resolver = services.build()
-    instance = resolver.resolve(dummy_service)
+    result = resolver.resolve(dummy_service)
+    from uno.core.errors.result import Success
+    assert isinstance(result, Success)
+    instance = result.value
     assert isinstance(instance, dummy_service)
     assert instance.hello() == "world"

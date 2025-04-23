@@ -28,15 +28,20 @@ class Bar:
 def test_register_and_resolve_type_safe():
     resolver = _ServiceResolver()
     resolver.register(IFoo, Foo)
-    # Should raise FrameworkError due to missing required parameters
-    with pytest.raises(FrameworkError):
-        resolver.resolve(IFoo)
+    result = resolver.resolve(IFoo)
+    from uno.core.errors.result import Failure
+    from uno.core.errors.definitions import MissingParameterError
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, MissingParameterError)
 
 
 def test_register_wrong_type_raises():
     resolver = _ServiceResolver()
-    with pytest.raises(ServiceRegistrationError):
-        resolver.register(IFoo, Bar)
+    result = resolver.register(IFoo, Bar)
+    from uno.core.errors.result import Failure
+    from uno.core.errors.definitions import ServiceRegistrationError
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, ServiceRegistrationError)
 
 
 def test_register_factory_wrong_return_type_raises():
@@ -45,8 +50,11 @@ def test_register_factory_wrong_return_type_raises():
     def factory() -> Bar:
         return Bar()
 
-    with pytest.raises(ServiceRegistrationError):
-        resolver.register(IFoo, factory)
+    result = resolver.register(IFoo, factory)
+    from uno.core.errors.result import Failure
+    from uno.core.errors.definitions import ServiceRegistrationError
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, ServiceRegistrationError)
 
 
 def test_register_protocol_structural_check():
@@ -66,10 +74,14 @@ def test_register_protocol_structural_check():
 
     resolver = _ServiceResolver()
     # Should succeed
-    resolver.register(Proto, Impl)
+    result_ok = resolver.register(Proto, Impl)
+    from uno.core.errors.result import Success, Failure
+    from uno.core.errors.definitions import ServiceRegistrationError
+    assert isinstance(result_ok, Success)
     # Should fail
-    with pytest.raises(ServiceRegistrationError):
-        resolver.register(Proto, WrongImpl)
+    result_fail = resolver.register(Proto, WrongImpl)
+    assert isinstance(result_fail, Failure)
+    assert isinstance(result_fail.error, ServiceRegistrationError)
 
 
 def test_register_factory_correct_return_type():
@@ -102,5 +114,8 @@ def test_circular_dependency_raises():
     resolver.register(A, A)
     resolver.register(B, B)
     # Simulate circular dependency resolution
-    with pytest.raises(CircularDependencyError):
-        resolver.resolve(A)
+    result = resolver.resolve(A)
+    from uno.core.errors.result import Failure
+    from uno.core.errors.definitions import CircularDependencyError
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, CircularDependencyError)

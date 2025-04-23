@@ -17,9 +17,12 @@ def test_resolution_path_caching_speed():
     services = ServiceCollection()
     services.add_singleton(FastService)
     resolver = services.build()
-    f1 = resolver.resolve(FastService)
-    f2 = resolver.resolve(FastService)
-    assert f1 is f2  # Should always be the same singleton instance
+    r1 = resolver.resolve(FastService)
+    r2 = resolver.resolve(FastService)
+    from uno.core.errors.result import Success
+    assert isinstance(r1, Success)
+    assert isinstance(r2, Success)
+    assert r1.value is r2.value  # Should always be the same singleton instance
 
 def test_prewarm_singletons_eagerly_instantiates():
     services = ServiceCollection()

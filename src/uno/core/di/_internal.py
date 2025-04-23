@@ -9,7 +9,17 @@ import inspect
 import logging
 import typing
 from typing import Any, Generic, TypeVar
-from uno.core.errors.base import FrameworkError, ErrorCode
+from uno.core.errors.result import Success, Failure
+from uno.core.errors.definitions import (
+    ServiceNotFoundError,
+    ServiceRegistrationError,
+    CircularDependencyError,
+    DependencyResolutionError,
+    ScopeError,
+    ExtraParameterError,
+    MissingParameterError,
+    FactoryError,
+)
 from .service_scope import ServiceScope
 
 T = TypeVar("T")
@@ -34,14 +44,6 @@ class ServiceRegistration(Generic[T]):
         self.scope = scope
         self.params = params or {}
 
-class CircularDependencyError(FrameworkError):
-    """Raised when a circular dependency is detected during service resolution."""
-    pass
-
-class ServiceRegistrationError(FrameworkError):
-    """Raised for errors during service registration."""
-    pass
-
 class _ServiceResolver:
     """
     INTERNAL USE ONLY.
@@ -60,48 +62,42 @@ class _ServiceResolver:
     def register(self, service_type, implementation, scope=ServiceScope.SINGLETON, params=None):
         """
         Register a service type with implementation, scope, and optional params.
-        Raises ServiceRegistrationError if the implementation is not compatible with the service_type.
+        Returns Success(None) or Failure(ServiceRegistrationError).
         """
         if params is None:
             params = {}
-        # Type/protocol check logic
         import inspect
         from typing import get_type_hints, Protocol
-        # Check if service_type is a Protocol
         is_protocol = hasattr(service_type, '_is_protocol') and service_type._is_protocol
         if is_protocol:
-            # Structural check: implementation must have all protocol methods
             missing = []
             for attr in dir(service_type):
                 if not attr.startswith('_') and callable(getattr(service_type, attr, None)):
                     if not hasattr(implementation, attr):
                         missing.append(attr)
             if missing:
-                raise ServiceRegistrationError(
-                    f"Implementation {implementation} does not implement protocol {service_type.__name__}: missing {missing}",
-                    "SERVICE_REGISTRATION_PROTOCOL_MISMATCH"
-                )
+                return Failure(ServiceRegistrationError(
+                    f"Implementation {implementation} does not implement protocol {service_type.__name__}: missing {missing}"
+                ))
         elif inspect.isclass(service_type) and inspect.isclass(implementation):
             if not issubclass(implementation, service_type):
-                raise ServiceRegistrationError(
-                    f"Implementation {implementation} is not a subclass of {service_type}",
-                    "SERVICE_REGISTRATION_TYPE_MISMATCH"
-                )
+                return Failure(ServiceRegistrationError(
+                    f"Implementation {implementation} is not a subclass of {service_type}"
+                ))
         elif callable(implementation):
-            # Factory: try to check return type if possible
             hints = get_type_hints(implementation)
             return_hint = hints.get('return')
             if return_hint and inspect.isclass(service_type) and not issubclass(return_hint, service_type):
-                raise ServiceRegistrationError(
-                    f"Factory {implementation} does not return {service_type}",
-                    "SERVICE_REGISTRATION_FACTORY_RETURN_TYPE_MISMATCH"
-                )
+                return Failure(ServiceRegistrationError(
+                    f"Factory {implementation} does not return {service_type}"
+                ))
         self._registrations[service_type] = ServiceRegistration(implementation, scope, params)
         self._logger.debug(f"Registered {service_type.__name__} as {implementation} with scope {scope}")
-        # Clear singleton cache for this type if it exists
         if service_type in self._singletons:
             del self._singletons[service_type]
             self._logger.debug(f"Cleared singleton cache for {service_type.__name__}")
+        return Success(None)
+
 
     def prewarm_singletons(self):
         """
@@ -128,28 +124,29 @@ class _ServiceResolver:
         service_type: type,
         scope: Any = None,
         _resolving: set[type] | None = None,
-    ) -> Any:
+    ):
         """
         Resolve a service by type, optionally within a scope.
+        Returns Success(instance) or Failure(error).
         """
         if _resolving is None:
             _resolving = set()
         import logging
         logging.debug(f"RESOLVE: Checking {service_type} (id={id(service_type)}) in _resolving: {[f'{t} (id={id(t)})' for t in _resolving]}")
         if service_type in _resolving:
-            raise CircularDependencyError(
+            return Failure(CircularDependencyError(
                 f"Circular dependency detected for {service_type.__name__}",
-                ErrorCode.DEPENDENCY_ERROR,
-            )
+            ))
         _resolving.add(service_type)
         try:
-            registration = self._get_registration_or_error(service_type)
-            if registration.scope == ServiceScope.SINGLETON:
+            reg_result = self._get_registration_or_error(service_type)
+            if isinstance(reg_result, Failure):
+                return reg_result
+            registration = reg_result.value
+            if getattr(registration, "scope", None) == ServiceScope.SINGLETON:
                 return self._resolve_singleton(service_type, registration, _resolving)
-            elif registration.scope == ServiceScope.SCOPED:
-                return self._resolve_scoped(
-                    service_type, registration, scope, _resolving
-                )
+            elif getattr(registration, "scope", None) == ServiceScope.SCOPED:
+                return self._resolve_scoped(service_type, registration, scope, _resolving)
             else:
                 return self._resolve_transient(registration, _resolving)
         finally:
@@ -159,34 +156,36 @@ class _ServiceResolver:
     def _get_registration_or_error(self, service_type):
         registration = self._registrations.get(service_type)
         if not registration:
-            raise FrameworkError(
-                f"Service {service_type.__name__} is not registered",
-                error_code=ErrorCode.DEPENDENCY_ERROR,
-            )
-        return registration
+            return Failure(ServiceNotFoundError(str(service_type)))
+        return Success(registration)
+
 
     def _resolve_singleton(self, service_type, registration, _resolving):
-        if service_type not in self._singletons:
-            instance = self._create_instance(registration, _resolving=_resolving)
-            instance = self._maybe_initialize_async(instance)
-            self._singletons[service_type] = instance
-        return self._singletons[service_type]
+        if service_type in self._singletons:
+            return Success(self._singletons[service_type])
+        instance_result = self._create_instance(registration, _resolving=_resolving)
+        if isinstance(instance_result, Failure):
+            return instance_result
+        self._singletons[service_type] = instance_result.value
+        return Success(instance_result.value)
+
 
     def _resolve_scoped(self, service_type, registration, scope, _resolving):
         if scope is None:
-            raise FrameworkError(
-                f"Cannot resolve scoped service {service_type.__name__} outside of a scope",
-                error_code=ErrorCode.DEPENDENCY_ERROR,
-            )
+            return Failure(ScopeError(f"Cannot resolve scoped service {service_type.__name__} outside of a scope"))
         if service_type not in scope._instances:
-            instance = self._create_instance(registration, _resolving=_resolving)
+            instance_result = self._create_instance(registration, _resolving=_resolving)
+            if isinstance(instance_result, Failure):
+                return instance_result
+            instance = instance_result.value
             instance = self._maybe_initialize_async(instance)
             scope._instances[service_type] = instance
-        return scope._instances[service_type]
+        return Success(scope._instances[service_type])
+
 
     def _resolve_transient(self, registration, _resolving):
-        instance = self._create_instance(registration, _resolving=_resolving)
-        return self._maybe_initialize_async(instance)
+        return self._create_instance(registration, _resolving=_resolving)
+
 
     def _maybe_initialize_async(self, instance):
         """
@@ -198,26 +197,42 @@ class _ServiceResolver:
             initialize()
         return instance
 
+
     def _create_instance(
         self, registration: ServiceRegistration, _resolving: set[type] | None = None
-    ) -> Any:
+    ):
         impl = registration.implementation
         params = registration.params or {}
 
         if isinstance(impl, type):
-            return self._create_type_instance(impl, params, _resolving)
+            result = self._create_type_instance(impl, params, _resolving)
+            return result
         elif callable(impl):
-            return impl(**params)
+            try:
+                return Success(impl(**params))
+            except Exception as e:
+                return Failure(FactoryError(str(impl), reason=str(e)))
         else:
-            return impl
+            return Success(impl)
+
 
     def _create_type_instance(self, impl, params, _resolving):
         sig, ctor_params, missing, extra = self._inspect_constructor_params(impl, params)
         if missing:
-            self._resolve_missing_params(missing, sig, self._get_constructor_type_hints(impl), params, _resolving)
-        self._resolve_still_missing_params(sig, ctor_params, impl, params, _resolving)
-        resolved_params = self._build_resolved_params(ctor_params, params, _resolving)
-        return impl(**resolved_params)
+            missing_result = self._resolve_missing_params(missing, sig, self._get_constructor_type_hints(impl), params, _resolving)
+            if isinstance(missing_result, Failure):
+                return missing_result
+        still_missing_result = self._resolve_still_missing_params(sig, ctor_params, impl, params, _resolving)
+        if isinstance(still_missing_result, Failure):
+            return still_missing_result
+        params_result = self._build_resolved_params(ctor_params, params, _resolving)
+        if isinstance(params_result, Failure):
+            return params_result
+        try:
+            return Success(impl(**params_result.value))
+        except Exception as e:
+            return Failure(FactoryError(str(impl), reason=str(e)))
+
 
     def _resolve_still_missing_params(self, sig, ctor_params, impl, params, _resolving):
         ctor_params_names = [p.name for p in ctor_params]
@@ -226,7 +241,7 @@ class _ServiceResolver:
             if p not in params and sig.parameters[p].default is sig.parameters[p].empty
         ]
         if not still_missing:
-            return
+            return Success(None)
         type_hints = self._get_constructor_type_hints_safe(impl)
         globalns, localns = self._get_eval_namespaces(impl)
         for p in still_missing:
@@ -234,17 +249,17 @@ class _ServiceResolver:
             param_type = self._eval_forward_ref(param_type, globalns, localns, impl)
             registered_type = self._find_registered_type(param_type, impl)
             if registered_type is not None:
-                self._resolve_param_dependency(p, registered_type, impl, params, _resolving)
-        # After attempting to resolve all, check again for missing
+                dep_result = self._resolve_param_dependency(p, registered_type, impl, params, _resolving)
+                if isinstance(dep_result, Failure):
+                    return dep_result
         still_missing_final = [
             p for p in ctor_params_names
             if p not in params and sig.parameters[p].default is sig.parameters[p].empty
         ]
         if still_missing_final:
-            raise FrameworkError(
-                f"Missing required parameters {still_missing_final} for {impl.__name__}",
-                error_code=ErrorCode.DEPENDENCY_ERROR,
-            )
+            return Failure(MissingParameterError(impl.__name__, missing_params=still_missing_final))
+        return Success(None)
+
 
     def _get_constructor_type_hints_safe(self, impl):
         import typing
@@ -253,14 +268,17 @@ class _ServiceResolver:
         except Exception:
             return {}
 
+
     def _get_eval_namespaces(self, impl):
         import sys
         globalns = impl.__init__.__globals__
         localns = sys.modules[impl.__module__].__dict__ if hasattr(impl, '__module__') else globalns
         return globalns, localns
 
+
     def _get_param_type(self, param_name, sig, type_hints):
         return type_hints.get(param_name, sig.parameters[param_name].annotation)
+
 
     def _eval_forward_ref(self, param_type, globalns, localns, impl):
         if isinstance(param_type, str):
@@ -276,6 +294,7 @@ class _ServiceResolver:
                         return t
         return param_type
 
+
     def _find_registered_type(self, param_type, impl):
         import inspect
         def _is_same_type(a, b):
@@ -290,21 +309,25 @@ class _ServiceResolver:
                     return t
         return None
 
+
     def _resolve_param_dependency(self, param_name, registered_type, impl, params, _resolving):
         if _resolving is not None:
             if registered_type in _resolving:
-                raise CircularDependencyError(
+                return Failure(CircularDependencyError(
                     f"Circular dependency detected for {registered_type.__name__}",
-                    ErrorCode.DEPENDENCY_ERROR,
-                )
+                ))
             import logging
             logging.debug(f"PARAM: About to resolve {registered_type} (id={id(registered_type)}) for param '{param_name}' in {impl} (id={id(impl)}), _resolving={[f'{t} (id={id(t)})' for t in _resolving]}")
             _resolving.add(registered_type)
             try:
-                params[param_name] = self.resolve(registered_type, _resolving=_resolving)
+                result = self.resolve(registered_type, _resolving=_resolving)
+                if isinstance(result, Failure):
+                    return result
+                params[param_name] = result.value
             finally:
                 _resolving.remove(registered_type)
                 logging.debug(f"PARAM: After resolving {registered_type} (id={id(registered_type)}), _resolving={[f'{t} (id={id(t)})' for t in _resolving]}")
+        return Success(None)
 
 
     def _build_resolved_params(self, ctor_params, params, _resolving):
@@ -320,21 +343,17 @@ class _ServiceResolver:
                 and p.annotation in self._registrations
             ):
                 if p.annotation in _resolving:
-                    raise CircularDependencyError(
-                        f"Circular dependency detected for {p.annotation.__name__}",
-                        ErrorCode.DEPENDENCY_ERROR,
-                    )
-                resolved_params[p.name] = self.resolve(
-                    p.annotation, _resolving=_resolving
-                )
+                    return Failure(CircularDependencyError(p.annotation.__name__))
+                result = self.resolve(p.annotation, _resolving=_resolving)
+                if isinstance(result, Failure):
+                    return result
+                resolved_params[p.name] = result.value
             else:
                 extra.append(p.name)
         if extra:
-            raise FrameworkError(
-                f"Extra parameters {extra} provided for {ctor_params[0].__class__.__name__ if ctor_params else 'unknown'}",
-                error_code=ErrorCode.DEPENDENCY_ERROR,
-            )
-        return resolved_params
+            return Failure(ExtraParameterError(ctor_params[0].__class__.__name__ if ctor_params else 'unknown', extra_params=extra))
+        return Success(resolved_params)
+
 
 
     def _inspect_constructor_params(self, impl, params):

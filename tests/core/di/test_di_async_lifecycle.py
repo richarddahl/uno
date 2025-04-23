@@ -21,6 +21,9 @@ async def test_async_lifecycle():
     services.add_singleton(AsyncService)
     provider.configure_services(services)
     await provider.initialize()
-    instance = provider.get_service(AsyncService)
+    result = provider.get_service(AsyncService)
+    from uno.core.errors.result import Success
+    assert isinstance(result, Success)
+    instance = result.value
     await instance.initialize()
     assert hasattr(instance, 'initialized') and instance.initialized

@@ -4,8 +4,6 @@
 """
 Consolidated error definitions for the Uno framework.
 
-This module gathers all FrameworkError subclasses in one place,
-removing duplication across core_errors.py, security.py, and validation.py.
 """
 
 from collections.abc import Callable
@@ -47,6 +45,140 @@ class CoreErrorCode:
 # -----------------------------------------------------------------------------
 # Core error classes
 # -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Dependency Injection (DI) error codes
+# -----------------------------------------------------------------------------
+
+
+class DIErrorCode:
+    """Error codes for Dependency Injection system."""
+
+    SERVICE_NOT_FOUND = "DI-1001"
+    SERVICE_REGISTRATION_FAILED = "DI-1002"
+    CIRCULAR_DEPENDENCY = "DI-1003"
+    DEPENDENCY_RESOLUTION_FAILED = "DI-1004"
+    SCOPE_ERROR = "DI-1005"
+    EXTRA_PARAMETER = "DI-1006"
+    MISSING_PARAMETER = "DI-1007"
+    FACTORY_ERROR = "DI-1008"
+
+
+# -----------------------------------------------------------------------------
+# Dependency Injection (DI) error classes
+# -----------------------------------------------------------------------------
+
+
+class ServiceNotFoundError(FrameworkError):
+    """Raised when a requested service is not registered in the DI container."""
+
+    def __init__(self, service_type: str, **context: Any):
+        super().__init__(
+            message=f"Service '{service_type}' is not registered.",
+            error_code=DIErrorCode.SERVICE_NOT_FOUND,
+            service_type=service_type,
+            **context,
+        )
+
+
+class ServiceRegistrationError(FrameworkError):
+    """Raised when a service registration is invalid or incompatible."""
+
+    def __init__(self, message: str, **context: Any):
+        super().__init__(
+            message=message,
+            error_code=DIErrorCode.SERVICE_REGISTRATION_FAILED,
+            **context,
+        )
+
+
+class CircularDependencyError(FrameworkError):
+    """Raised when a circular dependency is detected during DI resolution."""
+
+    def __init__(self, service_type: str, **context: Any):
+        super().__init__(
+            message=f"Circular dependency detected for '{service_type}'.",
+            error_code=DIErrorCode.CIRCULAR_DEPENDENCY,
+            service_type=service_type,
+            **context,
+        )
+
+
+class DependencyResolutionError(FrameworkError):
+    """Raised when a dependency cannot be resolved in the DI container."""
+
+    def __init__(self, service_type: str, reason: str, **context: Any):
+        super().__init__(
+            message=f"Failed to resolve dependency '{service_type}': {reason}",
+            error_code=DIErrorCode.DEPENDENCY_RESOLUTION_FAILED,
+            service_type=service_type,
+            reason=reason,
+            **context,
+        )
+
+
+class ScopeError(FrameworkError):
+    """Raised when there is an error related to DI service scopes."""
+
+    def __init__(self, message: str, **context: Any):
+        super().__init__(
+            message=message,
+            error_code=DIErrorCode.SCOPE_ERROR,
+            **context,
+        )
+
+
+class ExtraParameterError(FrameworkError):
+    """Raised when extra parameters are provided to a DI service constructor."""
+
+    def __init__(self, service_type: str, extra_params: list[str], **context: Any):
+        super().__init__(
+            message=f"Extra parameters {extra_params} provided for '{service_type}'.",
+            error_code=DIErrorCode.EXTRA_PARAMETER,
+            service_type=service_type,
+            extra_params=extra_params,
+            **context,
+        )
+
+
+class MissingParameterError(FrameworkError):
+    """Raised when required parameters are missing for a DI service constructor."""
+
+    def __init__(self, service_type: str, missing_params: list[str], **context: Any):
+        super().__init__(
+            message=f"Missing required parameters {missing_params} for '{service_type}'.",
+            error_code=DIErrorCode.MISSING_PARAMETER,
+            service_type=service_type,
+            missing_params=missing_params,
+            **context,
+        )
+
+
+class FactoryError(FrameworkError):
+    """Raised when a DI factory callable fails to produce a service instance."""
+
+    def __init__(self, service_type: str, reason: str, **context: Any):
+        super().__init__(
+            message=f"Failed to create instance for '{service_type}' via factory: {reason}",
+            error_code=DIErrorCode.FACTORY_ERROR,
+            service_type=service_type,
+            reason=reason,
+            **context,
+        )
+
+
+# -----------------------------------------------------------------------------
+# DI error catalog (for documentation and reference)
+# -----------------------------------------------------------------------------
+
+# DIErrorCode.SERVICE_NOT_FOUND: ServiceNotFoundError
+# DIErrorCode.SERVICE_REGISTRATION_FAILED: ServiceRegistrationError
+# DIErrorCode.CIRCULAR_DEPENDENCY: CircularDependencyError
+# DIErrorCode.DEPENDENCY_RESOLUTION_FAILED: DependencyResolutionError
+# DIErrorCode.SCOPE_ERROR: ScopeError
+# DIErrorCode.EXTRA_PARAMETER: ExtraParameterError
+# DIErrorCode.MISSING_PARAMETER: MissingParameterError
+# DIErrorCode.FACTORY_ERROR: FactoryError
 
 
 class ConfigNotFoundError(FrameworkError):
