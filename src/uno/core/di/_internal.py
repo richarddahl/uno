@@ -66,7 +66,7 @@ class ServiceRegistration(Generic[T]):
 class _ServiceResolver:
     # ... (existing code)
 
-    def __init__(self, registrations: dict[tuple[type, str | None], ServiceRegistration], instances: dict[tuple[type, str | None], Any] | None = None, auto_register: bool = False):
+    def __init__(self, registrations: dict[type, ServiceRegistration], instances: dict[type, Any] | None = None, auto_register: bool = False):
         """
         Initialize the service resolver.
         
@@ -78,8 +78,8 @@ class _ServiceResolver:
         self._registrations = registrations
         self._auto_register = auto_register
         # Initialize singletons cache with pre-registered instances
-        self._singletons: dict[tuple[type, str | None], Any] = instances.copy() if instances else {}
-        self._resolution_cache: dict[tuple[type, str | None], tuple] = {}
+        self._singletons: dict[type, Any] = instances.copy() if instances else {}
+        self._resolution_cache: dict[type, tuple] = {}
         self._logger = get_logger(__name__)
 
     def _is_concrete_type(self, t: type) -> bool:
@@ -125,7 +125,7 @@ class _ServiceResolver:
         Returns:
             Success with the registration or Failure with an error
         """
-        key = (service_type, name)
+        key = service_type
         if key not in self._registrations:
             # Try to auto-register the type if it's concrete and not abstract
             if self._auto_register:
@@ -197,23 +197,22 @@ class _ServiceResolver:
                 return Failure(ServiceRegistrationError(f"Implementation must be a type or callable, got {type(implementation)}"))
 
             registration = ServiceRegistration(implementation, scope)
-            key = (service_type, None)
+            key = service_type
             self._registrations[key] = registration
             return Success(registration)
         except Exception as e:
             return Failure(ServiceRegistrationError(f"Failed to register service: {str(e)}", reason=str(e)))
 
-    def register_instance(self, key, instance):
+    def register_instance(self, service_type, instance):
         """
         Register an instance for a service type.
         
         Args:
-            key: The key (type, name) tuple
+            service_type: The type of service
             instance: The service instance
         """
-        service_type, name = key
         self._logger.debug(f"Registered instance of {service_type.__name__}")
-        self._singletons[key] = instance
+        self._singletons[service_type] = instance
 
     """
     INTERNAL USE ONLY.
@@ -228,14 +227,11 @@ class _ServiceResolver:
         Pre-warm all singleton services by resolving them.
         """
         for key in list(self._registrations.keys()):
-            if not isinstance(key, tuple):
-                continue
-            
             registration = self._registrations[key]
             if registration.scope == ServiceScope.SINGLETON:
-                service_type, name = key
+                service_type = key
                 try:
-                    result = self.resolve(service_type, name)
+                    result = self.resolve(service_type)
                     if isinstance(result, Failure):
                         self._logger.error(
                             f"Failed to prewarm singleton {service_type.__name__}: {result.error}"
@@ -248,18 +244,16 @@ class _ServiceResolver:
     def resolve(
         self,
         service_type: type,
-        name: str | None = None,
         _resolving: set[type] | None = None,
         scope=None,
     ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
-        print(f"[TEST DEBUG] _ServiceResolver.resolve: service_type={service_type}, name={name}")
+        print(f"[TEST DEBUG] _ServiceResolver.resolve: service_type={service_type}")
         print(f"[TEST DEBUG] _ServiceResolver registrations keys: {list(self._registrations.keys())}")
         """
         Resolve a service instance.
         
         Args:
             service_type: The type of service to resolve
-            name: Optional name for named services
             _resolving: Set of currently resolving types
             scope: Optional scope for scoped services
             
@@ -276,7 +270,7 @@ class _ServiceResolver:
         
         try:
             _resolving.add(service_type)
-            result = self._get_registration_or_error(service_type, name)
+            result = self._get_registration_or_error(service_type)
             if isinstance(result, Failure):
                 return result
             
@@ -299,13 +293,12 @@ class _ServiceResolver:
         finally:
             _resolving.discard(service_type)
 
-    def get(self, service_type: type[T], name: str | None = None) -> T:
+    def get(self, service_type: type[T]) -> T:
         """
         Get a service instance.
         
         Args:
             service_type: The type of service to get
-            name: Optional name for named services
             
         Returns:
             The service instance
@@ -313,16 +306,15 @@ class _ServiceResolver:
         Raises:
             ServiceNotFoundError: If the service cannot be resolved
         """
-        result = self._get_registration_or_error(service_type, name)
+        result = self._get_registration_or_error(service_type)
         if isinstance(result, Failure):
             raise ServiceRegistrationError(result.error.message)
             
         registration = result.value
         
         # Check if we have a cached instance for singletons
-        key = (service_type, name)
-        if key in self._singletons:
-            return self._singletons[key]
+        if service_type in self._singletons:
+            return self._singletons[service_type]
             
         # Create the instance
         result = self._create_instance(registration)
@@ -332,7 +324,7 @@ class _ServiceResolver:
         
         # Cache singleton instances
         if registration.scope == ServiceScope.SINGLETON:
-            self._singletons[key] = instance
+            self._singletons[service_type] = instance
             
         return instance
 
@@ -361,7 +353,7 @@ class _ServiceResolver:
                 return registration.implementation()
                 
             # Get constructor parameters
-            constructor = service_type.__init__
+            constructor = registration.implementation.__init__
             sig = inspect.signature(constructor)
             params = sig.parameters
             
@@ -375,22 +367,14 @@ class _ServiceResolver:
                 if annotation == inspect.Parameter.empty:
                     continue
                     
-                # Handle annotated types for named services
-                if hasattr(annotation, '__metadata__'):
-                    metadata = annotation.__metadata__
-                    if len(metadata) > 0 and isinstance(metadata[0], str):
-                        name = metadata[0]
-                        dependencies[param_name] = self.get(annotation.__origin__, name)
-                        continue
-                        
                 # Try to resolve the dependency
                 dependencies[param_name] = self.get(annotation)
                 
             # Create the instance
-            return service_type(**dependencies)
+            return registration.implementation(**dependencies)
             
         except Exception as e:
-            raise ServiceResolutionError(f"Failed to create instance of {service_type.__name__}: {str(e)}") from e
+            raise ServiceResolutionError(f"Failed to create instance of {registration.implementation.__name__}: {str(e)}") from e
 
     def _handle_registration_failure(self, service_type, reg_result):
         """
@@ -441,14 +425,13 @@ class _ServiceResolver:
             return Failure(FactoryError(f"Failed to instantiate {service_type}: {e}"))
 
     def _resolve_singleton(self, service_type, registration, _resolving):
-        key = (service_type, registration.name if hasattr(registration, 'name') else None) # Assuming registration might have name
-        if key not in self._singletons:
+        if service_type not in self._singletons:
             # Use registration.implementation (which should be a type)
-            result = self._create_instance(registration.implementation, _resolving)
+            result = self._create_instance(registration)
             if isinstance(result, Failure):
                 return result
-            self._singletons[key] = result.value
-        return Success(self._singletons[key])
+            self._singletons[service_type] = result.value
+        return Success(self._singletons[service_type])
 
     def _resolve_scoped(self, service_type, registration, scope, _resolving):
         """
@@ -469,16 +452,15 @@ class _ServiceResolver:
         if not hasattr(scope, "_instances"):
             scope._instances = {}
             
-        key = (service_type, None)
-        if key in scope._instances:
-            return Success(scope._instances[key])
+        if service_type in scope._instances:
+            return Success(scope._instances[service_type])
             
-        instance_result = self._create_instance(registration.implementation)
+        instance_result = self._create_instance(registration)
         if isinstance(instance_result, Failure):
             return instance_result
             
         instance = self._maybe_initialize_async(instance_result.value)
-        scope._instances[key] = instance
+        scope._instances[service_type] = instance
         return Success(instance)
 
     def _maybe_initialize_async(self, instance):
@@ -552,7 +534,7 @@ class _ServiceResolver:
                 _resolving is not None
                 and p.annotation != inspect._empty
                 and isinstance(p.annotation, type)
-                and (p.annotation, None) in self._registrations
+                and p.annotation in self._registrations
             ):
                 if p.annotation in _resolving:
                     return Failure(CircularDependencyError(p.annotation.__name__))
@@ -659,6 +641,74 @@ class _ServiceResolver:
                 reason=str(e)
             ))
 
+    def _get_resolution_plan(self, t: type) -> tuple[inspect.Signature, list[inspect.Parameter]]:
+        """
+        Get the resolution plan for a type.
+        """
+        sig = inspect.signature(t)
+        return sig, list(sig.parameters.values())
+
+    def _get_constructor_type_hints_safe(self, t: type) -> dict[str, Any]:
+        """
+        Get type hints for a constructor safely.
+        """
+        try:
+            return get_type_hints(t.__init__)
+        except Exception:
+            return {}
+
+    def _get_eval_namespaces(self, t: type) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Get namespaces for evaluating type hints.
+        """
+        globalns = sys.modules[t.__module__].__dict__
+        localns = t.__dict__
+        return globalns, localns
+
+    def _get_param_type(
+        self, param_name: str, sig: inspect.Signature, type_hints: dict[str, Any]
+    ) -> type | None:
+        """
+        Get the type of a parameter.
+        """
+        param = sig.parameters.get(param_name)
+        if param is None:
+            return None
+        
+        param_type = type_hints.get(param_name)
+        if param_type is None:
+            return None
+        
+        return param_type
+
+    def _eval_forward_ref(
+        self, t: type, globalns: dict[str, Any], localns: dict[str, Any], impl: type
+    ) -> type:
+        """
+        Evaluate a forward reference type.
+        """
+        if isinstance(t, str):
+            try:
+                return eval(t, globalns, localns)
+            except Exception:
+                return t
+        return t
+
+    def _find_registered_type(self, t: type, impl: type) -> type | None:
+        """
+        Find a registered type that matches the given type.
+        """
+        if t in self._registrations:
+            return t
+        
+        # Check if the type is a protocol and find an implementation
+        if hasattr(t, '_is_protocol'):
+            for registered_type in self._registrations:
+                if issubclass(registered_type, t):
+                    return registered_type
+        
+        return None
+
     def _resolve_by_lifetime(
         self,
         service_type: type,
@@ -666,23 +716,17 @@ class _ServiceResolver:
         scope=None,
         _resolving: set[type] | None = None,
     ):
-        print(f"[TEST DEBUG] _resolve_by_lifetime: service_type={service_type}, scope={registration.scope}")
         scope = scope or getattr(self, "_scope", None)
         if registration.scope == ServiceScope.SINGLETON:
-            key = (service_type, None)
-            if key not in self._singletons:
-                print(f"[TEST DEBUG] Creating singleton instance for {service_type}")
+            if service_type not in self._singletons:
                 result = self._create_instance(registration, _resolving)
-                print(f"[TEST DEBUG] Singleton creation result: {result}")
                 if isinstance(result, Success):
-                    self._singletons[key] = result.value
+                    self._singletons[service_type] = result.value
                 else:
                     return result
-            return Success(self._singletons[key])
+            return Success(self._singletons[service_type])
         elif registration.scope == ServiceScope.TRANSIENT:
-            print(f"[TEST DEBUG] Creating transient instance for {service_type}")
             result = self._create_instance(registration, _resolving)
-            print(f"[TEST DEBUG] Transient creation result: {result}")
             if isinstance(result, Failure):
                 return result
             return Success(result.value)
@@ -690,9 +734,7 @@ class _ServiceResolver:
             if scope is None:
                 return Failure(ScopeError("No active scope for scoped service"))
             if service_type not in scope._instances:
-                print(f"[TEST DEBUG] Creating scoped instance for {service_type}")
                 result = self._create_instance(registration, _resolving)
-                print(f"[TEST DEBUG] Scoped creation result: {result}")
                 if isinstance(result, Success):
                     scope._instances[service_type] = result.value
                 else:
@@ -710,14 +752,13 @@ class _ServiceResolver:
         """
         Resolve a singleton service.
         """
-        key = (service_type, registration.name if hasattr(registration, 'name') else None) # Assuming registration might have name
-        if key not in self._singletons:
+        if service_type not in self._singletons:
             # Use registration.implementation (which should be a type)
-            result = self._create_instance(registration.implementation, _resolving)
+            result = self._create_instance(registration, _resolving)
             if isinstance(result, Failure):
                 return result
-            self._singletons[key] = result.value
-        return Success(self._singletons[key])
+            self._singletons[service_type] = result.value
+        return Success(self._singletons[service_type])
 
     def _resolve_scoped(
         self,
@@ -735,16 +776,15 @@ class _ServiceResolver:
         if not hasattr(scope, "_instances"):
             scope._instances = {}
             
-        key = (service_type, None)
-        if key in scope._instances:
-            return Success(scope._instances[key])
+        if service_type in scope._instances:
+            return Success(scope._instances[service_type])
             
-        instance_result = self._create_instance(registration.implementation)
+        instance_result = self._create_instance(registration)
         if isinstance(instance_result, Failure):
             return instance_result
             
         instance = self._maybe_initialize_async(instance_result.value)
-        scope._instances[key] = instance
+        scope._instances[service_type] = instance
         return Success(instance)
 
     def _resolve_transient(
@@ -755,7 +795,7 @@ class _ServiceResolver:
         """
         Resolve a transient service.
         """
-        return self._create_instance(registration.implementation, _resolving)
+        return self._create_instance(registration, _resolving)
 
     def _create_instance(
         self,
@@ -873,71 +913,3 @@ class _ServiceResolver:
                 f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
                 reason=str(e)
             ))
-
-    def _get_resolution_plan(self, t: type) -> tuple[inspect.Signature, list[inspect.Parameter]]:
-        """
-        Get the resolution plan for a type.
-        """
-        sig = inspect.signature(t)
-        return sig, list(sig.parameters.values())
-
-    def _get_constructor_type_hints_safe(self, t: type) -> dict[str, Any]:
-        """
-        Get type hints for a constructor safely.
-        """
-        try:
-            return get_type_hints(t.__init__)
-        except Exception:
-            return {}
-
-    def _get_eval_namespaces(self, t: type) -> tuple[dict[str, Any], dict[str, Any]]:
-        """
-        Get namespaces for evaluating type hints.
-        """
-        globalns = sys.modules[t.__module__].__dict__
-        localns = t.__dict__
-        return globalns, localns
-
-    def _get_param_type(
-        self, param_name: str, sig: inspect.Signature, type_hints: dict[str, Any]
-    ) -> type | None:
-        """
-        Get the type of a parameter.
-        """
-        param = sig.parameters.get(param_name)
-        if param is None:
-            return None
-        
-        param_type = type_hints.get(param_name)
-        if param_type is None:
-            return None
-        
-        return param_type
-
-    def _eval_forward_ref(
-        self, t: type, globalns: dict[str, Any], localns: dict[str, Any], impl: type
-    ) -> type:
-        """
-        Evaluate a forward reference type.
-        """
-        if isinstance(t, str):
-            try:
-                return eval(t, globalns, localns)
-            except Exception:
-                return t
-        return t
-
-    def _find_registered_type(self, t: type, impl: type) -> type | None:
-        """
-        Find a registered type that matches the given type.
-        """
-        if t in self._registrations:
-            return t
-        
-        # Check if the type is a protocol and find an implementation
-        if hasattr(t, '_is_protocol'):
-            for registered_type in self._registrations:
-                if issubclass(registered_type[0], t):
-                    return registered_type[0]
-        
-        return None

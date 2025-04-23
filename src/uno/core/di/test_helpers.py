@@ -68,7 +68,7 @@ class TestDI:
         provider = provider if provider is not None else TestDI.create_test_provider()
         services = ServiceCollection()
         services.add_instance(
-            GeneralConfig, GeneralConfig(SITE_NAME=site_name), name="test"
+            GeneralConfig, GeneralConfig(SITE_NAME=site_name)
         )
         provider.configure_services(services)
         return provider
@@ -98,96 +98,64 @@ class TestDI:
         Reset global DI state between tests (if using global provider).
         """
         from uno.core.di.provider import _service_provider
+        
+        if _service_provider:
+            _service_provider._base_services._instances.clear()
+            _service_provider._base_services._registrations.clear()
 
-        with contextlib.suppress(Exception):
-            _service_provider = None
+    @staticmethod
+    def register_mock(provider: ServiceProvider, service_type: type, mock_instance: Any) -> None:
+        """
+        Register a mock instance for a service type.
+        
+        Args:
+            provider (ServiceProvider): The service provider
+            service_type (type): The service type to register
+            mock_instance (Any): The mock instance to register
+        """
+        provider._base_services.add_instance(service_type, mock_instance)
 
     @staticmethod
     @contextlib.contextmanager
-    def override_service(
-        provider: ServiceProvider, service_type: type, implementation_or_instance: Any
-    ) -> Iterator[None]:
+    def override_service(provider: ServiceProvider, service_type: type, override_instance: Any) -> Iterator[None]:
         """
-        Context manager to temporarily override a service registration or instance for a test (sync).
-        Restores the original registration/instance after exiting the context.
+        Context manager to temporarily override a service with a different instance.
+        
+        Args:
+            provider (ServiceProvider): The service provider
+            service_type (type): The service type to override
+            override_instance (Any): The instance to use during the override
         """
-        from uno.core.di._internal import ServiceRegistration
-        from uno.core.di.container import ServiceScope
-
-        orig_reg = provider._base_services._registrations.get(service_type)
-        orig_inst = provider._base_services._instances.get((service_type, None))
+        original_instance = provider._base_services._instances.get(service_type)
+        provider._base_services.add_instance(service_type, override_instance)
         try:
-            if callable(implementation_or_instance):
-                provider._base_services._registrations[service_type] = (
-                    ServiceRegistration(
-                        implementation_or_instance, ServiceScope.SINGLETON
-                    )
-                )
-                provider._base_services._instances.pop((service_type, None), None)
-            else:
-                provider._base_services._registrations[service_type] = (
-                    ServiceRegistration(
-                        type(implementation_or_instance), ServiceScope.SINGLETON
-                    )
-                )
-                provider._base_services._instances[(service_type, None)] = (
-                    implementation_or_instance
-                )
             yield
         finally:
-            # Restore registration
-            if orig_reg is not None:
-                provider._base_services._registrations[service_type] = orig_reg
+            if original_instance is not None:
+                provider._base_services.add_instance(service_type, original_instance)
             else:
-                provider._base_services._registrations.pop(service_type, None)
-            # Restore instance
-            if orig_inst is not None:
-                provider._base_services._instances[(service_type, None)] = orig_inst
-            else:
-                provider._base_services._instances.pop((service_type, None), None)
+                del provider._base_services._instances[service_type]
 
     @staticmethod
     @contextlib.asynccontextmanager
-    async def async_override_service(
-        provider: ServiceProvider, service_type: type, implementation_or_instance: Any
-    ) -> AsyncIterator[None]:
+    async def async_override_service(provider: ServiceProvider, service_type: type, override_instance: Any) -> AsyncIterator[None]:
         """
-        Async context manager to temporarily override a service registration or instance for a test (async).
+        Async context manager to temporarily override a service with a different instance.
+        
+        Args:
+            provider (ServiceProvider): The service provider
+            service_type (type): The service type to override
+            override_instance (Any): The instance to use during the override
         """
-        orig_reg = provider._base_services._registrations.get(service_type)
-        orig_inst = provider._base_services._instances.get((service_type, None))
+        original_instance = provider._base_services._instances.get(service_type)
+        provider._base_services.add_instance(service_type, override_instance)
         try:
-            if callable(implementation_or_instance):
-                provider._base_services.add_singleton(
-                    service_type, implementation_or_instance
-                )
-                provider._base_services._instances.pop((service_type, None), None)
-            else:
-                provider._base_services.add_instance(
-                    service_type, implementation_or_instance
-                )
-                provider._base_services._instances[(service_type, None)] = (
-                    implementation_or_instance
-                )
             yield
         finally:
-            if orig_reg is not None:
-                provider._base_services._registrations[service_type] = orig_reg
+            if original_instance is not None:
+                provider._base_services.add_instance(service_type, original_instance)
             else:
-                provider._base_services._registrations.pop(service_type, None)
-            if orig_inst is not None:
-                provider._base_services._instances[(service_type, None)] = orig_inst
-            else:
-                provider._base_services._instances.pop((service_type, None), None)
-
-    @staticmethod
-    def register_mock(
-        provider: ServiceProvider, service_type: type, mock_instance: Any
-    ) -> None:
-        """
-        Register a mock or test double as a singleton for the test.
-        """
-        provider._base_services.add_instance(service_type, mock_instance)
+                del provider._base_services._instances[service_type]
 
     @staticmethod
     @contextlib.contextmanager
@@ -203,35 +171,18 @@ class TestDI:
             with TestDI.batch_override_services(provider, {A: a_mock, B: b_mock}):
                 ...
         """
-        orig_regs = {}
         orig_insts = {}
         try:
             for service_type, impl in overrides.items():
-                orig_regs[service_type] = provider._base_services._registrations.get(
-                    service_type
-                )
-                orig_insts[service_type] = provider._base_services._instances.get(
-                    service_type
-                )
-                if callable(impl):
-                    provider._base_services.add_singleton(service_type, impl)
-                else:
-                    provider._base_services.add_instance(service_type, impl)
+                orig_insts[service_type] = provider._base_services._instances.get(service_type)
+                provider._base_services.add_instance(service_type, impl)
             yield
         finally:
             for service_type in overrides:
-                if orig_regs[service_type] is not None:
-                    provider._base_services._registrations[service_type] = orig_regs[
-                        service_type
-                    ]
-                else:
-                    provider._base_services._registrations.pop(service_type, None)
                 if orig_insts[service_type] is not None:
-                    provider._base_services._instances[service_type] = orig_insts[
-                        service_type
-                    ]
+                    provider._base_services.add_instance(service_type, orig_insts[service_type])
                 else:
-                    provider._base_services._instances.pop(service_type, None)
+                    del provider._base_services._instances[service_type]
 
     @staticmethod
     def teardown_provider(provider: ServiceProvider) -> None:

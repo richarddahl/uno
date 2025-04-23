@@ -28,26 +28,8 @@ def test_initialize_test_provider_sets_env(monkeypatch):
     assert isinstance(provider, ServiceProvider)
     assert provider._base_services is not None
     assert provider._initialized is False
-    assert provider._base_services._instances
-    assert provider._base_services._instances.get is not None
+    assert provider._base_services._instances is not None
     assert provider._base_services._registrations is not None
-    assert provider._base_services._registrations.get is not None
-    assert provider._base_services._instances
-    assert provider._base_services._instances.get is not None
-    assert provider._base_services._registrations is not None
-    assert provider._base_services._registrations.get is not None
-    assert provider._base_services._instances
-    assert provider._base_services._instances.get is not None
-    assert provider._base_services._registrations is not None
-    assert provider._base_services._registrations.get is not None
-    assert provider._base_services._instances
-    assert provider._base_services._instances.get is not None
-    assert provider._base_services._registrations is not None
-    assert provider._base_services._registrations.get is not None
-    assert provider._base_services._instances
-    assert provider._base_services._instances.get is not None
-    assert provider._base_services._registrations is not None
-    assert provider._base_services._registrations.get is not None
 
 @pytest.mark.asyncio
 async def test_setup_test_services_and_override_service():
@@ -55,16 +37,16 @@ async def test_setup_test_services_and_override_service():
     dummy = Dummy()
     # Register mock
     TestDI.register_mock(provider, Dummy, dummy)
-    assert (Dummy, None) in provider._base_services._instances
-    assert provider._base_services._instances[(Dummy, None)] is dummy
+    assert Dummy in provider._base_services._instances
+    assert provider._base_services._instances[Dummy] is dummy
     # Test override_service context manager
     dummy2 = Dummy2()
     with TestDI.override_service(provider, Dummy, dummy2):
-        assert (Dummy, None) in provider._base_services._instances
-        assert provider._base_services._instances[(Dummy, None)] is dummy2
+        assert Dummy in provider._base_services._instances
+        assert provider._base_services._instances[Dummy] is dummy2
     # After context, should revert to dummy
-    assert (Dummy, None) in provider._base_services._instances
-    assert provider._base_services._instances[(Dummy, None)] is dummy
+    assert Dummy in provider._base_services._instances
+    assert provider._base_services._instances[Dummy] is dummy
 
 
 import pytest
@@ -83,13 +65,13 @@ async def test_async_override_service():
     dummy1 = Dummy()
     dummy2 = Dummy()
     TestDI.register_mock(provider, Dummy, dummy1)
-    assert (Dummy, None) in provider._base_services._instances
-    assert provider._base_services._instances[(Dummy, None)] is dummy1
+    assert Dummy in provider._base_services._instances
+    assert provider._base_services._instances[Dummy] is dummy1
     async with TestDI.async_override_service(provider, Dummy, dummy2):
-        assert (Dummy, None) in provider._base_services._instances
-        assert provider._base_services._instances[(Dummy, None)] is dummy2
-    assert (Dummy, None) in provider._base_services._instances
-    assert provider._base_services._instances[(Dummy, None)] is dummy1
+        assert Dummy in provider._base_services._instances
+        assert provider._base_services._instances[Dummy] is dummy2
+    assert Dummy in provider._base_services._instances
+    assert provider._base_services._instances[Dummy] is dummy1
 
 @pytest.fixture
 def di_provider():
@@ -102,8 +84,8 @@ def test_di_provider_fixture(di_provider):
         pass
     dummy = Dummy()
     TestDI.register_mock(di_provider, Dummy, dummy)
-    assert (Dummy, None) in di_provider._base_services._instances
-    assert di_provider._base_services._instances[(Dummy, None)] is dummy
+    assert Dummy in di_provider._base_services._instances
+    assert di_provider._base_services._instances[Dummy] is dummy
 
 # ---
 # Best Practices and Usage Examples

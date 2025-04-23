@@ -26,8 +26,12 @@ services = ServiceCollection()
 
 # Register all config instances
 services.add_singleton(APIConfig, api_config)
+# Example: register a named config variant
+services.add_singleton(APIConfig, api_config, name="readonly")
 services.add_singleton(ApplicationConfig, application_config)
 services.add_singleton(DatabaseConfig, database_config)
+# Example: register a named config variant
+services.add_singleton(DatabaseConfig, database_config, name="readonly")
 services.add_singleton(GeneralConfig, general_config)
 services.add_singleton(JWTConfig, jwt_config)
 services.add_singleton(SecurityConfig, security_config)
