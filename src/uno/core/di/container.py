@@ -67,9 +67,40 @@ class ServiceCollection:
         return self
 
     def add_conditional(self, predicate, configure):
-        if predicate():
-            configure(self)
+        # Use a wrapper to attach the predicate as a 'condition' attribute
+        def conditional_register(sc):
+            original_add_singleton = sc.add_singleton
+            original_add_scoped = sc.add_scoped
+            original_add_transient = sc.add_transient
+
+            def wrap_add(kind):
+                def _wrap(service_type, implementation=None, **params):
+                    impl = implementation or service_type
+                    reg = ServiceRegistration(
+                        impl,
+                        getattr(ServiceScope, kind.upper()),
+                        params
+                    )
+                    reg.condition = predicate  # Attach the condition
+                    self._registrations[service_type] = reg
+                    return sc
+                return _wrap
+
+            sc.add_singleton = wrap_add('singleton')
+            sc.add_scoped = wrap_add('scoped')
+            sc.add_transient = wrap_add('transient')
+            try:
+                configure(sc)
+            finally:
+                sc.add_singleton = original_add_singleton
+                sc.add_scoped = original_add_scoped
+                sc.add_transient = original_add_transient
+
+        conditional_register(self)
         return self
+
+
+
 
     def add_validation(self, validation_fn):
         self._validations.append(validation_fn)

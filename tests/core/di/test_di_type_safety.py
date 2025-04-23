@@ -25,12 +25,18 @@ class Bar:
 
 def test_register_and_resolve_type_safe():
     resolver = _ServiceResolver()
-    resolver.register(IFoo, Foo)
+    print(f"Registering IFoo: id={id(IFoo)}, repr={repr(IFoo)}")
+    reg_result = resolver.register(IFoo, Foo)
+    from uno.core.errors.result import Success, Failure
+    if isinstance(reg_result, Failure):
+        print(f"Registration failed: {reg_result.error}")
+        assert False, f"Registration failed: {reg_result.error}"
+    print(f"resolver._registrations keys after register: {[f'id={id(k)}, repr={repr(k)}' for k in resolver._registrations.keys()]}")
+    print(f"Resolving IFoo: id={id(IFoo)}, repr={repr(IFoo)}")
     result = resolver.resolve(IFoo)
-    from uno.core.errors.definitions import MissingParameterError
-    from uno.core.errors.result import Failure
-    assert isinstance(result, Failure)
-    assert isinstance(result.error, MissingParameterError)
+    print(f"Result from resolve: {result}")
+    assert isinstance(result, Success)
+    assert isinstance(result.value, Foo)
 
 
 def test_register_wrong_type_raises():
