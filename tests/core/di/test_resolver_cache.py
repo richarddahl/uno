@@ -13,7 +13,7 @@ class MyService:
 async def test_resolution_cache_and_lazy_loading():
     services = ServiceCollection()
     services.add_singleton(MyDep)
-    services.add_singleton(MyService)
+    services.add_singleton(MyService, lambda: MyService(MyDep()))
     services.add_singleton(MyService)
     provider = ServiceProvider()
     provider.configure_services(services)

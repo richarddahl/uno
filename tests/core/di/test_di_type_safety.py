@@ -144,8 +144,8 @@ def test_circular_dependency_raises():
     """Test that resolving a circular dependency raises CircularDependencyError."""
     resolver = _ServiceResolver()
 
-    resolver.register(A, A)
-    resolver.register(B, B)
+    resolver.register(A, lambda: A(B()))
+    resolver.register(B, lambda: B(A()))
     resolver.register(A, A)
     resolver.register(B, B)
     # Simulate circular dependency resolution
@@ -233,7 +233,7 @@ def test_inject_named_via_annotated():
     resolver.register(
         (ServiceInterface, "my_name"), NamedService
     )  # Register named service
-    resolver.register(NeedsNamed, NeedsNamed)  # Register dependent class
+    resolver.register(NeedsNamed, lambda: NeedsNamed(NamedService()))  # Register dependent class
     resolver.register(NeedsNamed, NeedsNamed)  # Register dependent class
 
     result = resolver.resolve(NeedsNamed)
