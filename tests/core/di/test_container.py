@@ -15,10 +15,8 @@ class Bar:
 def test_add_conditional_true():
     services = ServiceCollection()
     services.add_conditional(lambda: True, lambda sc: sc.add_singleton(Bar))
-    print("[TEST DEBUG] registrations after add_conditional:", list(services._registrations.keys()))
     resolver = services.build()
     result = resolver.resolve(Bar)
-    print(f"[TEST DEBUG] resolver.resolve(Bar): {result}, type={type(result)}")
     from uno.core.errors.result import Success
 
     assert isinstance(result, Success)

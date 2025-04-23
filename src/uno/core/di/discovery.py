@@ -23,14 +23,16 @@ T = TypeVar("T")
 
 from uno.core.di.decorators import _global_service_registry
 
+
 def auto_register_services(service_collection: ServiceCollection):
     """
     Automatically register all services decorated with @framework_service.
     """
     import inspect
+
     for cls in _global_service_registry:
         # Skip abstract classes and protocols/interfaces
-        if inspect.isabstract(cls) or getattr(cls, '_is_protocol', False):
+        if inspect.isabstract(cls) or getattr(cls, "_is_protocol", False):
             continue
         service_type = getattr(cls, "__framework_service_type__", cls)
         scope = getattr(cls, "__framework_service_scope__", ServiceScope.SINGLETON)
@@ -65,6 +67,7 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
     from uno.core.di.provider import ServiceLifecycle
     from uno.core.errors.definitions import ServiceDiscoveryValidationError
     from uno.core.errors.result import Failure, Success
+
     try:
         from uno.core.di.interfaces import DomainServiceProtocol
     except ImportError:
@@ -79,12 +82,18 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
             if obj.__module__ != module.__name__:
                 continue
             # Skip builtins or likely non-service classes
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
             # Check if class is a likely service
-            is_lifecycle = ServiceLifecycle and issubclass(obj, ServiceLifecycle) and obj is not ServiceLifecycle
-            is_domain_service = DomainServiceProtocol and issubclass(obj, DomainServiceProtocol)
-            is_named_service = name.endswith('Service')
+            is_lifecycle = (
+                ServiceLifecycle
+                and issubclass(obj, ServiceLifecycle)
+                and obj is not ServiceLifecycle
+            )
+            is_domain_service = DomainServiceProtocol and issubclass(
+                obj, DomainServiceProtocol
+            )
+            is_named_service = name.endswith("Service")
             if not (is_lifecycle or is_domain_service or is_named_service):
                 continue
             # Check if registered (decorator or explicit)
@@ -97,11 +106,12 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
             warnings.append(msg)
             logger.warning(msg)
     if strict and warnings:
-        return Failure(ServiceDiscoveryValidationError(
-            "Service discovery validation failed: " + "\n".join(warnings)
-        ))
+        return Failure(
+            ServiceDiscoveryValidationError(
+                "Service discovery validation failed: " + "\n".join(warnings)
+            )
+        )
     return Success(warnings)
-
 
 
 def find_modules(package_name: str) -> Iterator[str]:
@@ -195,7 +205,6 @@ def discover_services(
             service_type = metadata["service_type"]
             scope = metadata["scope"]
 
-            print(f"[DISCOVERY DEBUG] Registering service: obj={obj}, service_type={service_type}, scope={scope}, key={(service_type, None)}")
             if scope == ServiceScope.SINGLETON:
                 service_collection.add_singleton(service_type, obj)
             elif scope == ServiceScope.SCOPED:

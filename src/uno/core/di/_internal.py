@@ -66,10 +66,15 @@ class ServiceRegistration(Generic[T]):
 class _ServiceResolver:
     # ... (existing code)
 
-    def __init__(self, registrations: dict[type, ServiceRegistration], instances: dict[type, Any] | None = None, auto_register: bool = False):
+    def __init__(
+        self,
+        registrations: dict[type, ServiceRegistration],
+        instances: dict[type, Any] | None = None,
+        auto_register: bool = False,
+    ):
         """
         Initialize the service resolver.
-        
+
         Args:
             registrations: Dictionary of service registrations
             instances: Dictionary of pre-registered instances (effectively singletons)
@@ -82,46 +87,14 @@ class _ServiceResolver:
         self._resolution_cache: dict[type, tuple] = {}
         self._logger = get_logger(__name__)
 
-    def _is_concrete_type(self, t: type) -> bool:
-        """
-        Check if a type is concrete and not abstract.
-        """
-        if not isinstance(t, type):
-            return False
-            
-        # Check if it's an interface/protocol
-        if hasattr(t, '_is_protocol'):
-            return False
-            
-        # Check if it's abstract
-        if inspect.isabstract(t):
-            return False
-            
-        # Check if it's a framework service
-        if hasattr(t, '__framework_service__') and getattr(t, '__framework_service__', False):
-            return True
-            
-        # Check if it has an __init__ method that can be called
-        if not hasattr(t, '__init__'):
-            return False
-            
-        # Check if it has any abstract methods
-        try:
-            if any(inspect.isabstractmethod(getattr(t, name)) for name in dir(t)):
-                return False
-        except Exception:
-            return False
-            
-        return True
-
     def _get_registration_or_error(self, service_type, name=None):
         """
         Get a service registration or return an error if not found or condition not met.
-        
+
         Args:
             service_type: The type of service to get
             name: Optional name for named services
-            
+
         Returns:
             Success with the registration or Failure with an error
         """
@@ -139,28 +112,50 @@ class _ServiceResolver:
                 for cls in _global_service_registry:
                     if getattr(cls, "__framework_service_type__", None) is service_type:
                         impl = cls
-                        scope = getattr(cls, "__framework_service_scope__", ServiceScope.TRANSIENT)
+                        scope = getattr(
+                            cls, "__framework_service_scope__", ServiceScope.TRANSIENT
+                        )
                         break
                 if impl is not None:
                     return self.register(service_type, impl, scope)
                 # Fallback: if the requested type itself is concrete and not abstract, register it as itself
                 if self._is_concrete_type(service_type):
                     scope = ServiceScope.TRANSIENT
-                    if hasattr(service_type, '__framework_service_scope__'):
-                        scope = getattr(service_type, '__framework_service_scope__', ServiceScope.TRANSIENT)
+                    if hasattr(service_type, "__framework_service_scope__"):
+                        scope = getattr(
+                            service_type,
+                            "__framework_service_scope__",
+                            ServiceScope.TRANSIENT,
+                        )
                     return self.register(service_type, service_type, scope)
-            return Failure(ServiceNotFoundError(f"No registration found for service {service_type.__name__}"))
-            
+            return Failure(
+                ServiceNotFoundError(
+                    f"No registration found for service {service_type.__name__}"
+                )
+            )
+
         registration = self._registrations[key]
         if registration.condition and not registration.condition():
-            return Failure(ServiceNotFoundError(f"Service condition not met for {service_type.__name__}"))
-            
+            return Failure(
+                ServiceNotFoundError(
+                    f"Service condition not met for {service_type.__name__}"
+                )
+            )
+
         return Success(registration)
 
-    def register(self, service_type: type[T], implementation: type[T] | None = None, scope: ServiceScope = ServiceScope.TRANSIENT) -> Success[ServiceRegistration[T], ServiceRegistrationError] | Failure[ServiceRegistration[T], ServiceRegistrationError]:
+    def register(
+        self,
+        service_type: type[T],
+        implementation: type[T] | None = None,
+        scope: ServiceScope = ServiceScope.TRANSIENT,
+    ) -> (
+        Success[ServiceRegistration[T], ServiceRegistrationError]
+        | Failure[ServiceRegistration[T], ServiceRegistrationError]
+    ):
         """
         Register a service with runtime type safety checks.
-        
+
         Args:
             service_type: The type of service to register
             implementation: The implementation type or factory
@@ -169,6 +164,7 @@ class _ServiceResolver:
             Success with the registration or Failure with an error
         """
         import inspect
+
         try:
             if implementation is None:
                 implementation = service_type
@@ -179,34 +175,66 @@ class _ServiceResolver:
                 return_type = sig.return_annotation
                 # If no return annotation, fail
                 if return_type is inspect.Signature.empty:
-                    return Failure(ServiceRegistrationError("Factory must have a return type annotation for DI type safety."))
+                    return Failure(
+                        ServiceRegistrationError(
+                            "Factory must have a return type annotation for DI type safety."
+                        )
+                    )
                 # Check that return type is compatible with service_type
-                if not (return_type is service_type or (isinstance(return_type, type) and issubclass(return_type, service_type))):
-                    return Failure(ServiceRegistrationError(f"Factory return type {return_type} does not match service type {service_type}"))
+                if not (
+                    return_type is service_type
+                    or (
+                        isinstance(return_type, type)
+                        and issubclass(return_type, service_type)
+                    )
+                ):
+                    return Failure(
+                        ServiceRegistrationError(
+                            f"Factory return type {return_type} does not match service type {service_type}"
+                        )
+                    )
             # If implementation is a type/class, check subclass/protocol compliance
             elif isinstance(implementation, type):
                 # If service_type is a protocol or ABC, check issubclass
-                if hasattr(service_type, '_is_protocol') or inspect.isabstract(service_type):
+                if hasattr(service_type, "_is_protocol") or inspect.isabstract(
+                    service_type
+                ):
                     if not issubclass(implementation, service_type):
-                        return Failure(ServiceRegistrationError(f"{implementation} does not implement protocol or abstract base {service_type}"))
+                        return Failure(
+                            ServiceRegistrationError(
+                                f"{implementation} does not implement protocol or abstract base {service_type}"
+                            )
+                        )
                 # Otherwise, check for normal subclassing
                 elif not issubclass(implementation, service_type):
-                    return Failure(ServiceRegistrationError(f"{implementation} is not a subclass of {service_type}"))
+                    return Failure(
+                        ServiceRegistrationError(
+                            f"{implementation} is not a subclass of {service_type}"
+                        )
+                    )
             else:
                 # If implementation is not a type or callable, fail
-                return Failure(ServiceRegistrationError(f"Implementation must be a type or callable, got {type(implementation)}"))
+                return Failure(
+                    ServiceRegistrationError(
+                        f"Implementation must be a type or callable, got {type(implementation)}"
+                    )
+                )
 
             registration = ServiceRegistration(implementation, scope)
             key = service_type
             self._registrations[key] = registration
             return Success(registration)
         except Exception as e:
-            return Failure(ServiceRegistrationError(f"Failed to register service: {str(e)}", reason=str(e)))
+            return Failure(
+                ServiceRegistrationError(
+                    f"Failed to register service: {str(e)}", reason=str(e)
+                )
+            )
 
     def register_instance(self, service_type, instance):
         """
         Register an instance for a service type.
-        
+
         Args:
             service_type: The type of service
             instance: The service instance
@@ -246,36 +274,42 @@ class _ServiceResolver:
         service_type: type,
         _resolving: set[type] | None = None,
         scope=None,
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
-        print(f"[TEST DEBUG] _ServiceResolver.resolve: service_type={service_type}")
-        print(f"[TEST DEBUG] _ServiceResolver registrations keys: {list(self._registrations.keys())}")
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a service instance.
-        
+
         Args:
             service_type: The type of service to resolve
             _resolving: Set of currently resolving types
             scope: Optional scope for scoped services
-            
+
         Returns:
             Success with the resolved instance or Failure with an error
         """
         if not isinstance(service_type, type):
-            return Failure(ServiceRegistrationError(f"Cannot resolve non-type: {service_type}"))
-            
+            return Failure(
+                ServiceRegistrationError(f"Cannot resolve non-type: {service_type}")
+            )
+
         if _resolving is None:
             _resolving = set()
         if service_type in _resolving:
-            return Failure(CircularDependencyError(f"Circular dependency detected for {service_type.__name__}"))
-        
+            return Failure(
+                CircularDependencyError(
+                    f"Circular dependency detected for {service_type.__name__}"
+                )
+            )
+
         try:
             _resolving.add(service_type)
             result = self._get_registration_or_error(service_type)
             if isinstance(result, Failure):
                 return result
-            
+
             registration = result.value
-            print(f"[TEST DEBUG] _ServiceResolver.resolve: registration for {service_type} = {registration}")
             if registration is None:
                 # Fallback: attempt to instantiate concrete, no-arg types for unregistered services
                 if self._is_concrete_type(service_type):
@@ -284,134 +318,168 @@ class _ServiceResolver:
                         return fallback_result
                     # If fallback fails, return the error
                     return fallback_result
-                return Failure(ServiceRegistrationError(f"Service {service_type.__name__} is not registered"))
-            
+                return Failure(
+                    ServiceRegistrationError(
+                        f"Service {service_type.__name__} is not registered"
+                    )
+                )
+
             if registration.condition and not registration.condition():
-                return Failure(ServiceNotFoundError(f"Service condition not met for {service_type.__name__}"))
-            
-            return self._resolve_by_lifetime(service_type, registration, scope, _resolving)
+                return Failure(
+                    ServiceNotFoundError(
+                        f"Service condition not met for {service_type.__name__}"
+                    )
+                )
+
+            return self._resolve_by_lifetime(
+                service_type, registration, scope, _resolving
+            )
         finally:
             _resolving.discard(service_type)
 
     def get(self, service_type: type[T]) -> T:
         """
         Get a service instance.
-        
+
         Args:
             service_type: The type of service to get
-            
+
         Returns:
             The service instance
-            
+
         Raises:
             ServiceNotFoundError: If the service cannot be resolved
         """
         result = self._get_registration_or_error(service_type)
         if isinstance(result, Failure):
             raise ServiceRegistrationError(result.error.message)
-            
+
         registration = result.value
-        
+
         # Check if we have a cached instance for singletons
         if service_type in self._singletons:
             return self._singletons[service_type]
-            
+
         # Create the instance
         result = self._create_instance(registration)
         if isinstance(result, Failure):
             raise ServiceRegistrationError(result.error.message)
         instance = result.value
-        
+
         # Cache singleton instances
         if registration.scope == ServiceScope.SINGLETON:
             self._singletons[service_type] = instance
-            
+
         return instance
 
     def _create_instance(self, registration: ServiceRegistration) -> T:
         """
         Create an instance of a service type.
-        
+
         Args:
             service_type: The type to instantiate
             registration: The service registration
-            
+
         Returns:
             The instantiated service
-            
+
         Raises:
             ServiceResolutionError: If the service cannot be instantiated
         """
-        if not hasattr(registration, 'implementation'):
-            return Failure(ServiceRegistrationError("Registration object is missing 'implementation' attribute"))
-        if isinstance(registration.implementation, type) and inspect.isabstract(registration.implementation):
-            return Failure(ServiceRegistrationError(f"Cannot instantiate abstract type: {registration.implementation.__name__}"))
-        
+        if not hasattr(registration, "implementation"):
+            return Failure(
+                ServiceRegistrationError(
+                    "Registration object is missing 'implementation' attribute"
+                )
+            )
+        if isinstance(registration.implementation, type) and inspect.isabstract(
+            registration.implementation
+        ):
+            return Failure(
+                ServiceRegistrationError(
+                    f"Cannot instantiate abstract type: {registration.implementation.__name__}"
+                )
+            )
+
         try:
             # Handle factory functions
-            if callable(registration.implementation) and not isinstance(registration.implementation, type):
+            if callable(registration.implementation) and not isinstance(
+                registration.implementation, type
+            ):
                 return registration.implementation()
-                
+
             # Get constructor parameters
             constructor = registration.implementation.__init__
             sig = inspect.signature(constructor)
             params = sig.parameters
-            
+
             # Resolve constructor dependencies
             dependencies = {}
             for param_name, param in params.items():
                 if param_name == "self":
                     continue
-                    
+
                 annotation = param.annotation
                 if annotation == inspect.Parameter.empty:
                     continue
-                    
+
                 # Try to resolve the dependency
                 dependencies[param_name] = self.get(annotation)
-                
+
             # Create the instance
             return registration.implementation(**dependencies)
-            
+
         except Exception as e:
-            raise ServiceResolutionError(f"Failed to create instance of {registration.implementation.__name__}: {str(e)}") from e
+            raise ServiceResolutionError(
+                f"Failed to create instance of {registration.implementation.__name__}: {str(e)}"
+            ) from e
 
     def _handle_registration_failure(self, service_type, reg_result):
         """
         Handle what to do when registration lookup fails (conditional, abstract, fallback, etc).
-        
+
         Args:
             service_type: The type of service
             reg_result: The registration result
-            
+
         Returns:
             Success or Failure with appropriate error
         """
         if isinstance(reg_result, Failure):
             return reg_result
-            
+
         registration = reg_result.value
         if registration.condition and not registration.condition():
-            return Failure(ServiceRegistrationError(f"Service condition not met for {service_type.__name__}"))
-            
+            return Failure(
+                ServiceRegistrationError(
+                    f"Service condition not met for {service_type.__name__}"
+                )
+            )
+
         return Success(None)
 
     def _try_fallback_instantiation(self, service_type):
         """
         Attempt to instantiate a concrete, user-defined type if not registered at all.
-        
+
         Args:
             service_type: The type of service
-            
+
         Returns:
             Success with the instance or Failure with an error
         """
         if not isinstance(service_type, type):
-            return Failure(ServiceRegistrationError(f"Cannot instantiate non-type: {service_type}"))
-            
+            return Failure(
+                ServiceRegistrationError(f"Cannot instantiate non-type: {service_type}")
+            )
+
         if service_type.__module__ == "builtins":
-            return Failure(ServiceRegistrationError(f"Cannot instantiate built-in type: {service_type}"))
-            
+            return Failure(
+                ServiceRegistrationError(
+                    f"Cannot instantiate built-in type: {service_type}"
+                )
+            )
+
         try:
             instance = service_type()
             return Success(instance)
@@ -421,7 +489,13 @@ class _ServiceResolver:
             if self._is_abstract_or_protocol(service_type) or (
                 "missing" in error_str and "parameter" in error_str
             ):
-                return Failure(MissingParameterError(service_type.__name__, ["unknown"], reason=f"Cannot resolve parameter for {service_type.__name__}"))
+                return Failure(
+                    MissingParameterError(
+                        service_type.__name__,
+                        ["unknown"],
+                        reason=f"Cannot resolve parameter for {service_type.__name__}",
+                    )
+                )
             return Failure(FactoryError(f"Failed to instantiate {service_type}: {e}"))
 
     def _resolve_singleton(self, service_type, registration, _resolving):
@@ -436,29 +510,29 @@ class _ServiceResolver:
     def _resolve_scoped(self, service_type, registration, scope, _resolving):
         """
         Resolve a scoped service.
-        
+
         Args:
             service_type: The type of service to resolve
             registration: The service registration
             scope: The scope object
             _resolving: Set of currently resolving types
-            
+
         Returns:
             Success with the service instance or Failure with an error
         """
         if scope is None:
             return Failure(ScopeError(f"No active scope for {service_type}"))
-            
+
         if not hasattr(scope, "_instances"):
             scope._instances = {}
-            
+
         if service_type in scope._instances:
             return Success(scope._instances[service_type])
-            
+
         instance_result = self._create_instance(registration)
         if isinstance(instance_result, Failure):
             return instance_result
-            
+
         instance = self._maybe_initialize_async(instance_result.value)
         scope._instances[service_type] = instance
         return Success(instance)
@@ -477,7 +551,7 @@ class _ServiceResolver:
         """
         Check if a type is abstract or a protocol.
         """
-        return inspect.isabstract(t) or hasattr(t, '_is_protocol')
+        return inspect.isabstract(t) or hasattr(t, "_is_protocol")
 
     def _is_concrete_type(self, t: type) -> bool:
         """
@@ -485,44 +559,53 @@ class _ServiceResolver:
         """
         if not isinstance(t, type):
             return False
-            
+
         # Check if it's an interface/protocol
-        if hasattr(t, '_is_protocol'):
+        if hasattr(t, "_is_protocol"):
             return False
-            
+
         # Check if it's abstract
         if inspect.isabstract(t):
             return False
-            
+
         # Check if it's a framework service
-        if hasattr(t, '__framework_service__') and getattr(t, '__framework_service__', False):
+        if hasattr(t, "__framework_service__") and getattr(
+            t, "__framework_service__", False
+        ):
             return True
-            
+
         # Check if it has an __init__ method that can be called
-        if not hasattr(t, '__init__'):
+        if not hasattr(t, "__init__"):
             return False
-            
+
         # Check if it has any abstract methods
         try:
             if any(inspect.isabstractmethod(getattr(t, name)) for name in dir(t)):
                 return False
         except Exception:
             return False
-            
+
         return True
 
     def _try_instantiate_impl(self, impl, params):
-        print(f"[TEST DEBUG] _try_instantiate_impl: impl={impl}, params={params}")
         try:
             instance = impl(**params)
-            print(f"[TEST DEBUG] _try_instantiate_impl: SUCCESS instance={instance}")
             return Success(instance)
         except Exception as e:
-            print(f"[TEST DEBUG] _try_instantiate_impl: EXCEPTION {e}")
             error_str = str(e)
-            if self._is_abstract_or_protocol(impl) or ("missing" in error_str and "parameter" in error_str):
-                return Failure(MissingParameterError(impl.__name__, ["unknown"], reason=f"Cannot resolve parameter for {impl.__name__}"))
-            return Failure(FactoryError(f"Failed to instantiate {impl.__name__}: {error_str}"))
+            if self._is_abstract_or_protocol(impl) or (
+                "missing" in error_str and "parameter" in error_str
+            ):
+                return Failure(
+                    MissingParameterError(
+                        impl.__name__,
+                        ["unknown"],
+                        reason=f"Cannot resolve parameter for {impl.__name__}",
+                    )
+                )
+            return Failure(
+                FactoryError(f"Failed to instantiate {impl.__name__}: {error_str}")
+            )
 
     def _build_resolved_params(self, ctor_params, params, _resolving):
         resolved_params = {}
@@ -616,17 +699,20 @@ class _ServiceResolver:
 
     def _resolve_param_dependency(
         self, param_name, registered_type, impl, params, _resolving
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a parameter dependency.
-        
+
         Args:
             param_name: Name of the parameter
             registered_type: The type to resolve
             impl: The implementation type
             params: Existing parameters
             _resolving: Set of currently resolving types
-            
+
         Returns:
             Success with the resolved value or Failure with an error
         """
@@ -636,12 +722,16 @@ class _ServiceResolver:
                 return result
             return Success(result.value)
         except Exception as e:
-            return Failure(ServiceRegistrationError(
-                f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
-                reason=str(e)
-            ))
+            return Failure(
+                ServiceRegistrationError(
+                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
+                    reason=str(e),
+                )
+            )
 
-    def _get_resolution_plan(self, t: type) -> tuple[inspect.Signature, list[inspect.Parameter]]:
+    def _get_resolution_plan(
+        self, t: type
+    ) -> tuple[inspect.Signature, list[inspect.Parameter]]:
         """
         Get the resolution plan for a type.
         """
@@ -674,11 +764,11 @@ class _ServiceResolver:
         param = sig.parameters.get(param_name)
         if param is None:
             return None
-        
+
         param_type = type_hints.get(param_name)
         if param_type is None:
             return None
-        
+
         return param_type
 
     def _eval_forward_ref(
@@ -700,13 +790,13 @@ class _ServiceResolver:
         """
         if t in self._registrations:
             return t
-        
+
         # Check if the type is a protocol and find an implementation
-        if hasattr(t, '_is_protocol'):
+        if hasattr(t, "_is_protocol"):
             for registered_type in self._registrations:
                 if issubclass(registered_type, t):
                     return registered_type
-        
+
         return None
 
     def _resolve_by_lifetime(
@@ -741,14 +831,19 @@ class _ServiceResolver:
                     return result
             return Success(scope._instances[service_type])
         else:
-            return Failure(ServiceRegistrationError(f"Unknown service scope: {registration.scope}"))
+            return Failure(
+                ServiceRegistrationError(f"Unknown service scope: {registration.scope}")
+            )
 
     def _resolve_singleton(
         self,
         service_type: type,
         registration: ServiceRegistration,
         _resolving: set[type],
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a singleton service.
         """
@@ -766,23 +861,30 @@ class _ServiceResolver:
         registration: ServiceRegistration,
         scope: Any,
         _resolving: set[type],
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a scoped service.
         """
         if scope is None:
-            return Failure(ServiceRegistrationError(f"Cannot resolve scoped service {service_type.__name__} outside of scope"))
-            
+            return Failure(
+                ServiceRegistrationError(
+                    f"Cannot resolve scoped service {service_type.__name__} outside of scope"
+                )
+            )
+
         if not hasattr(scope, "_instances"):
             scope._instances = {}
-            
+
         if service_type in scope._instances:
             return Success(scope._instances[service_type])
-            
+
         instance_result = self._create_instance(registration)
         if isinstance(instance_result, Failure):
             return instance_result
-            
+
         instance = self._maybe_initialize_async(instance_result.value)
         scope._instances[service_type] = instance
         return Success(instance)
@@ -791,7 +893,10 @@ class _ServiceResolver:
         self,
         registration: ServiceRegistration,
         _resolving: set[type],
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a transient service.
         """
@@ -801,53 +906,69 @@ class _ServiceResolver:
         self,
         registration: ServiceRegistration,
         _resolving: set[type] | None = None,
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Create an instance of a type using its constructor.
-        
+
         Args:
             registration: The service registration
             _resolving: Set of currently resolving types
-            
+
         Returns:
             Success with the instance or Failure with an error
         """
-        print(f"[TEST DEBUG] _create_instance: registration={registration}, type={type(registration)}")
-        print(f"[TEST DEBUG] registration.__dict__ = {getattr(registration, '__dict__', str(registration))}")
-        if not hasattr(registration, 'implementation'):
-            print("[TEST DEBUG] registration is missing 'implementation' attribute!")
-            return Failure(ServiceRegistrationError("Registration object is missing 'implementation' attribute"))
-        if isinstance(registration.implementation, type) and inspect.isabstract(registration.implementation):
-            return Failure(ServiceRegistrationError(f"Cannot instantiate abstract type: {registration.implementation.__name__}"))
-        
+        if not hasattr(registration, "implementation"):
+            return Failure(
+                ServiceRegistrationError(
+                    "Registration object is missing 'implementation' attribute"
+                )
+            )
+        if isinstance(registration.implementation, type) and inspect.isabstract(
+            registration.implementation
+        ):
+            return Failure(
+                ServiceRegistrationError(
+                    f"Cannot instantiate abstract type: {registration.implementation.__name__}"
+                )
+            )
+
         # Regular type
         try:
-            result = self._resolve_missing_params(registration.implementation, registration.params, _resolving)
+            result = self._resolve_missing_params(
+                registration.implementation, registration.params, _resolving
+            )
             if isinstance(result, Failure):
                 return result
             params = result.value
             instance = registration.implementation(**params)
             return Success(instance)
         except Exception as e:
-            return Failure(ServiceRegistrationError(
-                f"Failed to create instance: {str(e)}",
-                reason=str(e)
-            ))
+            return Failure(
+                ServiceRegistrationError(
+                    f"Failed to create instance: {str(e)}", reason=str(e)
+                )
+            )
 
     def _resolve_missing_params(
         self,
         impl: type,
         params: dict[str, Any],
         _resolving: set[type],
-    ) -> Success[dict[str, Any], ServiceRegistrationError | CircularDependencyError] | Failure[dict[str, Any], ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[dict[str, Any], ServiceRegistrationError | CircularDependencyError]
+        | Failure[dict[str, Any], ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve missing parameters for a type.
-        
+
         Args:
             impl: The implementation type
             params: Existing parameters
             _resolving: Set of currently resolving types
-            
+
         Returns:
             Success with updated params or Failure with error
         """
@@ -858,7 +979,10 @@ class _ServiceResolver:
         resolved_params = params.copy() if params else {}
         for param in ctor_params:
             # Skip *args and **kwargs
-            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
                 continue
             param_name = param.name
             if param_name in resolved_params:
@@ -866,17 +990,31 @@ class _ServiceResolver:
 
             param_type = self._get_param_type(param_name, sig, type_hints)
             if param_type is None:
-                return Failure(MissingParameterError(impl.__name__, [param_name], reason=f"Cannot resolve parameter '{param_name}' for {impl.__name__}"))
+                return Failure(
+                    MissingParameterError(
+                        impl.__name__,
+                        [param_name],
+                        reason=f"Cannot resolve parameter '{param_name}' for {impl.__name__}",
+                    )
+                )
 
             param_type = self._eval_forward_ref(param_type, globalns, localns, impl)
 
             # Detect circular dependency
             if param_type in _resolving:
-                return Failure(CircularDependencyError(f"Circular dependency detected for type '{param_type.__name__}' while resolving parameter '{param_name}' of {impl.__name__}"))
+                return Failure(
+                    CircularDependencyError(
+                        f"Circular dependency detected for type '{param_type.__name__}' while resolving parameter '{param_name}' of {impl.__name__}"
+                    )
+                )
 
             registered_type = self._find_registered_type(param_type, impl)
             if registered_type is None:
-                return Failure(ServiceRegistrationError(f"Cannot resolve parameter '{param_name}' of type {param_type}"))
+                return Failure(
+                    ServiceRegistrationError(
+                        f"Cannot resolve parameter '{param_name}' of type {param_type}"
+                    )
+                )
 
             result = self._resolve_param_dependency(
                 param_name, registered_type, impl, resolved_params, _resolving
@@ -889,17 +1027,20 @@ class _ServiceResolver:
 
     def _resolve_param_dependency(
         self, param_name, registered_type, impl, params, _resolving
-    ) -> Success[T, ServiceRegistrationError | CircularDependencyError] | Failure[T, ServiceRegistrationError | CircularDependencyError]:
+    ) -> (
+        Success[T, ServiceRegistrationError | CircularDependencyError]
+        | Failure[T, ServiceRegistrationError | CircularDependencyError]
+    ):
         """
         Resolve a parameter dependency.
-        
+
         Args:
             param_name: Name of the parameter
             registered_type: The type to resolve
             impl: The implementation type
             params: Existing parameters
             _resolving: Set of currently resolving types
-            
+
         Returns:
             Success with the resolved value or Failure with an error
         """
@@ -909,7 +1050,9 @@ class _ServiceResolver:
                 return result
             return Success(result.value)
         except Exception as e:
-            return Failure(ServiceRegistrationError(
-                f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
-                reason=str(e)
-            ))
+            return Failure(
+                ServiceRegistrationError(
+                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
+                    reason=str(e),
+                )
+            )

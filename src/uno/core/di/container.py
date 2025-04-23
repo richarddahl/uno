@@ -48,9 +48,6 @@ class ServiceCollection:
         env_flag = os.environ.get("UNO_DI_AUTO_REGISTER", "false").lower() == "true"
         self._auto_register = auto_register if auto_register is not None else env_flag
         self._auto_register_packages = auto_register_packages or []
-        print(
-            f"[TEST DEBUG] ServiceCollection.__init__: UNO_DI_AUTO_REGISTER={os.environ.get('UNO_DI_AUTO_REGISTER')}, self._auto_register={self._auto_register}"
-        )
 
     def enable_auto_registration(self, packages=None):
         """Enable auto-registration for the given packages (or existing config)."""
@@ -60,9 +57,6 @@ class ServiceCollection:
         return self
 
     def _run_auto_registration(self):
-        print(
-            f"[TEST DEBUG] _run_auto_registration: self._auto_register={self._auto_register}"
-        )
         if self._auto_register:
             from uno.core.di import discovery
 
@@ -146,7 +140,7 @@ class ServiceCollection:
         resolver = (resolver_class or self._resolver_class)(
             registrations=self._registrations,
             instances=self._instances,
-            auto_register=self._auto_register
+            auto_register=self._auto_register,
         )
 
         # Run validations

@@ -1,16 +1,14 @@
-import os
 import pytest
+
 from uno.core.di.container import ServiceCollection
-from uno.core.di.discovery import auto_register_services
+from uno.core.di.service_scope import ServiceScope
 
 
 @pytest.fixture(autouse=True)
 def reset_global_service_registry():
     from uno.core.di.decorators import _global_service_registry
-    print("[TEST DEBUG] _global_service_registry before test:", [cls.__name__ for cls in _global_service_registry])
+
     # Always start with a clean global service registry and register FakeService
-    from uno.core.di.decorators import _global_service_registry
-    from uno.core.di.service_scope import ServiceScope
 
     # Remove any lingering FakeService
     if FakeService in _global_service_registry:
@@ -22,7 +20,6 @@ def reset_global_service_registry():
     FakeService.__framework_service_name__ = None
     FakeService.__framework_service_version__ = None
     FakeService.__framework_service__ = True
-    print("[TEST DEBUG] _global_service_registry after append:", [cls.__name__ for cls in _global_service_registry])
     yield
     # Clean up after test
     if FakeService in _global_service_registry:
@@ -44,7 +41,6 @@ def test_auto_register_env(monkeypatch):
     provider = services.build()
     # Should be auto-registered
     instance = provider.get(IFakeService)
-    print(f"[TEST DEBUG] test_auto_register_env: instance={instance}, type={type(instance)}")
     assert isinstance(instance, FakeService)
 
 
