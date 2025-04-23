@@ -40,7 +40,7 @@ class HasToDict(Protocol):
     def to_dict(self) -> dict[str, Any]: ...
 
 
-class Result(Generic[T], ABC):
+class Result(Generic[T, E], ABC):
     """Abstract base class for Result monad."""
 
     @property
@@ -52,10 +52,10 @@ class Result(Generic[T], ABC):
     def is_failure(self) -> bool: ...
 
     @abstractmethod
-    def map(self, func: Callable[[T], U]) -> "Result[U]": ...
+    def map(self, func: Callable[[T], U]) -> "Result[U, E]": ...
 
     @abstractmethod
-    def flat_map(self, func: Callable[[T], "Result[U]"]) -> "Result[U]": ...
+    def flat_map(self, func: Callable[[T], "Result[U, E]"]) -> "Result[U, E]": ...
 
     @abstractmethod
     def unwrap(self) -> T: ...
@@ -64,14 +64,14 @@ class Result(Generic[T], ABC):
     def unwrap_or(self, default: T) -> T: ...
 
     @abstractmethod
-    def unwrap_or_else(self, func: Callable[[Exception], T]) -> T: ...
+    def unwrap_or_else(self, func: Callable[[E], T]) -> T: ...
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
-class Success(Result[T], Generic[T]):
+class Success(Result[T, E], Generic[T, E]):
     """
     Represents a successful result with a value.
 
@@ -96,7 +96,7 @@ class Success(Result[T], Generic[T]):
         """Get the error if the result is a failure."""
         return None
 
-    def map(self, func: Callable[[T], U]) -> "Result[U]":
+    def map(self, func: Callable[[T], U]) -> "Result[U, E]":
         """
         Map the value of a successful result.
 
@@ -109,9 +109,9 @@ class Success(Result[T], Generic[T]):
         try:
             return Success(func(self.value))
         except Exception as e:
-            return Failure(e)
+            return Failure(cast("E", e))  # Cast captured exception to E
 
-    def flat_map(self, func: Callable[[T], "Result[U]"]) -> "Result[U]":
+    def flat_map(self, func: Callable[[T], "Result[U, E]"]) -> "Result[U, E]":
         """
         Apply a function that returns a Result to the value of a successful result.
 
@@ -124,9 +124,9 @@ class Success(Result[T], Generic[T]):
         try:
             return func(self.value)
         except Exception as e:
-            return Failure(e)
+            return Failure(cast("E", e))  # Cast captured exception to E
 
-    def on_success(self, func: Callable[[T], Any]) -> "Success[T]":
+    def on_success(self, func: Callable[[T], Any]) -> "Success[T, E]":
         """
         Execute a function with the value if the result is successful.
 
@@ -140,7 +140,7 @@ class Success(Result[T], Generic[T]):
             func(self.value)
         return self
 
-    def on_failure(self, func: Callable[[Exception], Any]) -> "Success[T]":
+    def on_failure(self, func: Callable[[E], Any]) -> "Success[T, E]":
         """
         Execute a function with the error if the result is a failure.
 
@@ -178,7 +178,7 @@ class Success(Result[T], Generic[T]):
         """
         return self.value
 
-    def unwrap_or_else(self, func: Callable[[Exception], T]) -> T:
+    def unwrap_or_else(self, func: Callable[[E], T]) -> T:
         """
         Unwrap a result, computing a default value from the error if it's a failure.
 
@@ -214,7 +214,7 @@ class Success(Result[T], Generic[T]):
 
 
 @dataclass(frozen=True)
-class Failure(Result[T], Generic[T]):
+class Failure(Result[T, E], Generic[T, E]):
     """
     Represents a failed result with an error.
 
@@ -223,7 +223,7 @@ class Failure(Result[T], Generic[T]):
         traceback: The traceback at the time of failure (optional)
     """
 
-    error: Exception
+    error: E
     traceback: str | None = None
 
     def __post_init__(self) -> None:
@@ -247,7 +247,7 @@ class Failure(Result[T], Generic[T]):
         """Get the value if the result is successful."""
         return None
 
-    def map(self, func: Callable[[T], U]) -> "Failure[U]":
+    def map(self, func: Callable[[T], U]) -> "Result[U, E]":
         """
         Map the value of a successful result.
 
@@ -257,10 +257,10 @@ class Failure(Result[T], Generic[T]):
         Returns:
             The original Failure
         """
-        # For type correctness, we need to cast to Failure[U]
-        return cast("Failure[U]", self)
+        # No-op for Failure, return self typed for U, E
+        return cast("Failure[U, E]", self)
 
-    def flat_map(self, func: Callable[[T], "Result[U]"]) -> "Failure[U]":
+    def flat_map(self, func: Callable[[T], "Result[U, E]"]) -> "Result[U, E]":
         """
         Apply a function that returns a Result to the value of a successful result.
 
@@ -270,10 +270,10 @@ class Failure(Result[T], Generic[T]):
         Returns:
             The original Failure
         """
-        # For type correctness, we need to cast to Failure[U]
-        return cast("Failure[U]", self)
+        # No-op for Failure, return self typed for U, E
+        return cast("Failure[U, E]", self)
 
-    def on_success(self, func: Callable[[T], Any]) -> "Failure[T]":
+    def on_success(self, func: Callable[[T], Any]) -> "Failure[T, E]":
         """
         Execute a function with the value if the result is successful.
 
@@ -286,7 +286,7 @@ class Failure(Result[T], Generic[T]):
         # No-op for Failure
         return self
 
-    def on_failure(self, func: Callable[[Exception], Any]) -> "Failure[T]":
+    def on_failure(self, func: Callable[[E], Any]) -> "Failure[T, E]":
         """
         Execute a function with the error if the result is a failure.
 
@@ -322,7 +322,7 @@ class Failure(Result[T], Generic[T]):
         """
         return default
 
-    def unwrap_or_else(self, func: Callable[[Exception], T]) -> T:
+    def unwrap_or_else(self, func: Callable[[E], T]) -> T:
         """
         Unwrap a result, computing a default value from the error if it's a failure.
 
@@ -367,7 +367,7 @@ class Failure(Result[T], Generic[T]):
         return f"Failure({self.error!r})"
 
 
-def of(value: T) -> Result[T]:
+def of(value: T) -> Success[T, Any]:  # Error type is effectively 'Any' here
     """
     Create a successful result with a value.
 
@@ -380,7 +380,7 @@ def of(value: T) -> Result[T]:
     return Success(value)
 
 
-def failure(error: Exception) -> Result[T]:
+def failure(error: E) -> Failure[Any, E]:  # Value type is effectively 'Any' here
     """
     Create a failed result with an error.
 
@@ -393,7 +393,7 @@ def failure(error: Exception) -> Result[T]:
     return Failure(error)
 
 
-def from_exception(func: Callable[..., T]) -> Callable[..., Result[T]]:
+def from_exception(func: Callable[..., T]) -> Callable[..., Result[T, Exception]]:
     """
     Decorator to convert a function that might raise exceptions to one that returns a Result.
 
@@ -405,7 +405,7 @@ def from_exception(func: Callable[..., T]) -> Callable[..., Result[T]]:
     """
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Result[T]:
+    def wrapper(*args: Any, **kwargs: Any) -> Result[T, Exception]:
         try:
             return Success(func(*args, **kwargs))
         except Exception as e:
@@ -414,7 +414,7 @@ def from_exception(func: Callable[..., T]) -> Callable[..., Result[T]]:
     return wrapper
 
 
-async def from_awaitable(awaitable: Any) -> Result[T]:
+async def from_awaitable(awaitable: Any) -> Result[T, Exception]:
     """
     Convert an awaitable that might raise exceptions to a Result.
 
@@ -430,7 +430,7 @@ async def from_awaitable(awaitable: Any) -> Result[T]:
         return Failure(e)
 
 
-def combine(results: list[Result[T]]) -> Result[list[T]]:
+def combine(results: list[Result[T, E]]) -> Result[list[T], E]:
     """
     Combine multiple Results into a single Result.
 
@@ -444,13 +444,14 @@ def combine(results: list[Result[T]]) -> Result[list[T]]:
     values: list[T] = []
     for result in results:
         if result.is_failure:
-            return cast("Failure[list[T]]", result)
+            # The failure carries its specific error type E
+            return cast("Failure[list[T], E]", result)
         if result.value is not None:  # Check for None to satisfy type checker
             values.append(result.value)
     return Success(values)
 
 
-def combine_dict(results: dict[str, Result[T]]) -> Result[dict[str, T]]:
+def combine_dict(results: dict[str, Result[T, E]]) -> Result[dict[str, T], E]:
     """
     Combine multiple Results in a dictionary into a single Result.
 
@@ -464,7 +465,8 @@ def combine_dict(results: dict[str, Result[T]]) -> Result[dict[str, T]]:
     values: dict[str, T] = {}
     for key, result in results.items():
         if result.is_failure:
-            return cast("Failure[dict[str, T]]", result)
+            # The failure carries its specific error type E
+            return cast("Failure[dict[str, T], E]", result)
         if result.value is not None:  # Check for None to satisfy type checker
             values[key] = result.value
     return Success(values)

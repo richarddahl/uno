@@ -21,6 +21,36 @@ from uno.core.di.provider import ServiceProvider, get_service_provider
 
 T = TypeVar("T")
 
+from uno.core.di.decorators import _global_service_registry
+
+def auto_register_services(service_collection: ServiceCollection):
+    """
+    Automatically register all services decorated with @framework_service.
+    """
+    import inspect
+    for cls in _global_service_registry:
+        # Skip abstract classes and protocols/interfaces
+        if inspect.isabstract(cls) or getattr(cls, '_is_protocol', False):
+            continue
+        service_type = getattr(cls, "__framework_service_type__", cls)
+        scope = getattr(cls, "__framework_service_scope__", ServiceScope.SINGLETON)
+        name = getattr(cls, "__framework_service_name__", None)
+        version = getattr(cls, "__framework_service_version__", None)
+        key = (service_type, name) if name else service_type
+        # Only register if not already explicitly registered
+        if key not in getattr(service_collection, "_registrations", {}):
+            # Always register interface (if present) to implementation (cls)
+            if hasattr(cls, "__framework_service_type__"):
+                reg_type = cls.__framework_service_type__
+            else:
+                reg_type = cls
+            if scope == ServiceScope.SINGLETON:
+                service_collection.add_singleton(reg_type, cls, name=name)
+            elif scope == ServiceScope.SCOPED:
+                service_collection.add_scoped(reg_type, cls, name=name)
+            elif scope == ServiceScope.TRANSIENT:
+                service_collection.add_transient(reg_type, cls, name=name)
+
 
 def validate_service_discovery(modules, service_collection, logger=None, strict=False):
     """
@@ -165,6 +195,7 @@ def discover_services(
             service_type = metadata["service_type"]
             scope = metadata["scope"]
 
+            print(f"[DISCOVERY DEBUG] Registering service: obj={obj}, service_type={service_type}, scope={scope}, key={(service_type, None)}")
             if scope == ServiceScope.SINGLETON:
                 service_collection.add_singleton(service_type, obj)
             elif scope == ServiceScope.SCOPED:

@@ -1,51 +1,45 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
-"""
-Dependencies module for Uno framework.
 
-This module provides a modern dependency injection system
-to improve testability, maintainability, and decoupling of components.
+from typing import TypeVar
 
-The module offers a decorator-based approach to dependency management
-with proper scope handling and automatic discovery of injectable services.
-
-API Clarity:
-- Only the symbols in __all__ are considered public and stable for end-users.
-- Internal helpers/classes (e.g., _ServiceResolver, ServiceRegistration) are for advanced/extensibility use only and are NOT considered public API.
-- For performance tuning (such as prewarming singletons), see ServiceProvider.prewarm_singletons().
-- For advanced usage and performance notes, see the documentation in provider.py and container.py.
-"""
-
-# UNO DI Public API: Only the symbols in __all__ are considered stable/public.
-# Internal helpers/classes (e.g., _ServiceResolver, ServiceRegistration) are not for typical end-user code.
-# ServiceRegistration is imported for advanced/extensibility use, but not included in __all__.
-
-from uno.core.di.container import (
-    ServiceCollection,
-    ServiceRegistration,  # advanced/extensibility only; not public API
-    ServiceScope,
-)
-from uno.core.di.provider import (
+# Import internal types needed for type hints or advanced usage, if any
+# Public API symbols for uno.core.di
+from .container import ServiceCollection
+from .provider import (
     ServiceLifecycle,
     ServiceProvider,
     get_service_provider,
     initialize_services,
     shutdown_services,
 )
+from .service_scope import ServiceScope
+
+# Define a public alias for the InjectMarker
+
+# Internal use only: advanced/extensibility classes
+from ._internal import ServiceRegistration
+
+ProviderT = TypeVar("ProviderT")
+
 
 """
-Uno Dependency Injection (DI) public API.
+Scoped dependency injection container for Uno framework.
 
-This module exposes the main DI interfaces for end-users:
-- ServiceProvider: The main DI service provider
-- ServiceCollection: For registering services
+Public API:
+- ServiceCollection: Main API for registering services
 - ServiceScope: Enum for service lifetimes
-- ServiceLifecycle: Protocol for lifecycle-aware services
-- get_service_provider, initialize_services, shutdown_services: DI lifecycle helpers
+- Inject: Marker for use with Annotated to specify named/optional dependencies.
+- ServiceProvider: Interface for resolving services.
+- ServiceLifecycle: Protocol for services with startup/shutdown hooks.
+- get_service_provider: Function to get the root service provider.
+- initialize_services: Function to trigger eager initialization.
+- shutdown_services: Function to call shutdown hooks on services.
 
 Internal/advanced classes are not exposed here.
 """
+
 
 __all__ = [
     "ServiceCollection",
@@ -56,3 +50,16 @@ __all__ = [
     "initialize_services",
     "shutdown_services",
 ]
+
+
+def __getattr__(name: str) -> object:
+    # Check if the name exists in the module's explicitly exported symbols
+    # or is intended to be public (e.g., not starting with an underscore
+    # if __all__ is not rigorously maintained).
+    # For simplicity here, we rely on globals() which includes imports.
+    if name in globals() and (name in __all__ or not name.startswith("_")):
+        return globals()[name]
+    else:
+        # Raise AttributeError for non-existent attributes to work correctly
+        # with hasattr() and other introspection tools.
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

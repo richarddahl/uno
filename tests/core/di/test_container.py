@@ -4,7 +4,6 @@
 # See docs/di_testing.md for DI test patterns and best practices
 
 
-
 from uno.core.di.container import ServiceCollection
 
 
@@ -12,14 +11,19 @@ class Bar:
     def __init__(self):
         self.msg = "bar"
 
+
 def test_add_conditional_true():
     services = ServiceCollection()
     services.add_conditional(lambda: True, lambda sc: sc.add_singleton(Bar))
+    print("[TEST DEBUG] registrations after add_conditional:", list(services._registrations.keys()))
     resolver = services.build()
     result = resolver.resolve(Bar)
+    print(f"[TEST DEBUG] resolver.resolve(Bar): {result}, type={type(result)}")
     from uno.core.errors.result import Success
+
     assert isinstance(result, Success)
     assert result.value.msg == "bar"
+
 
 def test_add_conditional_false():
     services = ServiceCollection()
@@ -28,6 +32,7 @@ def test_add_conditional_false():
     result = resolver.resolve(Bar)
     from uno.core.errors.definitions import ServiceNotFoundError
     from uno.core.errors.result import Failure
+
     assert isinstance(result, Failure)
     assert isinstance(result.error, ServiceNotFoundError)
 
@@ -39,6 +44,7 @@ def test_add_validation_passes():
     resolver = services.build()
     result = resolver.resolve(Foo)
     from uno.core.errors.result import Success
+
     assert isinstance(result, Success)
     assert result.value.value == 42
 
@@ -55,6 +61,7 @@ def test_singleton_lifetime():
     r1 = resolver.resolve(Foo)
     r2 = resolver.resolve(Foo)
     from uno.core.errors.result import Success
+
     assert isinstance(r1, Success)
     assert isinstance(r2, Success)
     assert r1.value is r2.value
@@ -67,6 +74,7 @@ def test_transient_lifetime():
     r1 = resolver.resolve(Foo)
     r2 = resolver.resolve(Foo)
     from uno.core.errors.result import Success
+
     assert isinstance(r1, Success)
     assert isinstance(r2, Success)
     assert r1.value is not r2.value
@@ -79,5 +87,6 @@ def test_scoped_lifetime_outside_scope_raises():
     result = resolver.resolve(Foo)
     from uno.core.errors.definitions import ScopeError
     from uno.core.errors.result import Failure
+
     assert isinstance(result, Failure)
     assert isinstance(result.error, ScopeError)

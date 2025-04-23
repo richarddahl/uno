@@ -24,7 +24,7 @@ from uno.core.di.interfaces import (
 )
 from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
-from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Failure, Result, Success
 
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
@@ -130,7 +130,7 @@ class ServiceProvider:
 
     def configure_services(
         self, services: ServiceCollection
-    ) -> Success[None] | Failure[FrameworkError]:
+    ) -> Result[None, FrameworkError]:
         """
         Configure the base services.
 
@@ -150,7 +150,7 @@ class ServiceProvider:
         self._base_services = services
         return Success(None)
 
-    def register_extension(self, name: str, services: ServiceCollection) -> Success[None] | Failure[FrameworkError]:
+    def register_extension(self, name: str, services: ServiceCollection) -> Result[None, FrameworkError]:
         """
         Register a service extension.
 
@@ -379,16 +379,15 @@ class ServiceProvider:
 
         Returns:
             An instance of the requested service
-
-        Raises:
-            FrameworkError: If the service provider is not initialized
         """
         if not self._initialized:
-            raise FrameworkError("Service provider is not initialized")
+            from uno.core.errors.result import Failure
+            return Failure(FrameworkError("Service provider is not initialized"))
         from .scope import Scope
 
         scope = Scope.get_current_scope()
-        return self._resolver.resolve(service_type, scope=scope)
+        result = self._resolver.resolve(service_type, scope=scope)
+        return result
 
     # All scope-related APIs and legacy logic have been removed.
     # ServiceProvider only exposes high-level APIs and delegates to _ServiceResolver for resolution.
@@ -576,7 +575,7 @@ def get_singleton(cls, *args, **kwargs):
 
 def register_singleton(
     service_type: type[T], instance: T
-) -> Success[None] | Failure[FrameworkError]:
+) -> Result[None, FrameworkError]:
     """
     Register a singleton instance in the container.
 

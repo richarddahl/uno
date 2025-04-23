@@ -62,20 +62,24 @@ class DIErrorCode:
     EXTRA_PARAMETER = "DI-1006"
     MISSING_PARAMETER = "DI-1007"
     FACTORY_ERROR = "DI-1008"
+    SERVICE_RESOLUTION_FAILED = "DI-1009"
 
 
 # -----------------------------------------------------------------------------
 # Dependency Injection (DI) error classes
 # -----------------------------------------------------------------------------
 
+
 class ServiceDiscoveryValidationError(FrameworkError):
     """Raised when DI service discovery validation fails."""
+
     def __init__(self, message: str, **context: Any):
         super().__init__(
             message=message,
             error_code=DIErrorCode.SERVICE_REGISTRATION_FAILED,
             **context,
         )
+
 
 class ServiceNotFoundError(FrameworkError):
     """Raised when a requested service is not registered in the DI container."""
@@ -175,6 +179,17 @@ class FactoryError(FrameworkError):
         )
 
 
+class ServiceResolutionError(FrameworkError):
+    """Raised when a service cannot be resolved in the DI container."""
+
+    def __init__(self, message: str, **context: Any):
+        super().__init__(
+            message=message,
+            error_code=DIErrorCode.SERVICE_RESOLUTION_FAILED,
+            **context,
+        )
+
+
 # -----------------------------------------------------------------------------
 # DI error catalog (for documentation and reference)
 # -----------------------------------------------------------------------------
@@ -187,6 +202,7 @@ class FactoryError(FrameworkError):
 # DIErrorCode.EXTRA_PARAMETER: ExtraParameterError
 # DIErrorCode.MISSING_PARAMETER: MissingParameterError
 # DIErrorCode.FACTORY_ERROR: FactoryError
+# DIErrorCode.SERVICE_RESOLUTION_FAILED: ServiceResolutionError
 
 
 class ConfigNotFoundError(FrameworkError):

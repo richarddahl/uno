@@ -34,22 +34,29 @@ def test_framework_service_decorator_sets_attributes():
 
 
 def test_discover_services_registers_service():
+    import sys
     dummy_service = make_dummy_service()
     # Create a fake module and inject the service
     module = types.ModuleType("fake_module")
     module.DummyService = dummy_service
-    # Patch find_modules to return our fake module name
-    import uno.core.di.discovery as discovery_mod
+    # Add the fake module to sys.modules
+    sys.modules["fake_module"] = module
+    try:
+        # Patch find_modules to return our fake module name
+        import uno.core.di.discovery as discovery_mod
 
-    discovery_mod.importlib.import_module = lambda name: module
-    discovery_mod.find_modules = lambda name: ["fake_module"]
-    # Run discovery
-    services = discover_services("fake_module")
-    # The service should be registered as singleton
-    resolver = services.build()
-    result = resolver.resolve(dummy_service)
-    from uno.core.errors.result import Success
-    assert isinstance(result, Success)
-    instance = result.value
-    assert isinstance(instance, dummy_service)
-    assert instance.hello() == "world"
+        discovery_mod.importlib.import_module = lambda name: module
+        discovery_mod.find_modules = lambda name: ["fake_module"]
+        # Run discovery
+        services = discover_services("fake_module")
+        # The service should be registered as singleton
+        resolver = services.build()
+        result = resolver.resolve(dummy_service)
+        from uno.core.errors.result import Success
+        assert isinstance(result, Success)
+        instance = result.value
+        assert isinstance(instance, dummy_service)
+        assert instance.hello() == "world"
+    finally:
+        # Clean up sys.modules
+        del sys.modules["fake_module"]
