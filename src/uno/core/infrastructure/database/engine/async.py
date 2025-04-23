@@ -1,17 +1,18 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
-from uno.core.logging.logger import get_logger
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncIterator, Any
+from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from uno.infrastructure.database.engine.factory import AsyncEngineFactory
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.factory import AsyncEngineFactory
 from uno.settings import uno_settings
 
 
@@ -21,9 +22,9 @@ async def async_connection(
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
-    config: Optional[ConnectionConfig] = None,
+    config: ConnectionConfig | None = None,
     isolation_level: str = "AUTOCOMMIT",
-    factory: Optional[AsyncEngineFactory] = None,
+    factory: AsyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: int = 2,
     logger: logging.Logger | None = None,

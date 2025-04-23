@@ -11,35 +11,33 @@ This module extends the enhanced async database engine with:
 - Resource registry integration
 """
 
-from typing import Optional, AsyncIterator, TypeVar, Dict, Any, List, cast
-import logging
 import asyncio
+import logging
+from collections.abc import AsyncIterator
+from typing import Any, TypeVar, cast
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.enhanced_async import (
-    EnhancedAsyncEngineFactory,
-    AsyncConnectionContext,
-)
-from uno.infrastructure.database.resources import (
-    ConnectionPool,
-    CircuitBreaker,
-    ResourceRegistry,
-    get_resource_registry,
-)
-from uno.core.async_utils import (
-    timeout,
-    AsyncLock,
-    Limiter,
-)
 from uno.core.async_integration import (
     cancellable,
     retry,
 )
-from uno.settings import uno_settings
-
+from uno.core.async_utils import (
+    AsyncLock,
+    timeout,
+)
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.enhanced_async import (
+    AsyncConnectionContext,
+    EnhancedAsyncEngineFactory,
+)
+from uno.infrastructure.database.resources import (
+    CircuitBreaker,
+    ConnectionPool,
+    ResourceRegistry,
+    get_resource_registry,
+)
 
 T = TypeVar("T")
 
@@ -56,7 +54,7 @@ class PooledAsyncEngineFactory(EnhancedAsyncEngineFactory):
 
     def __init__(
         self,
-        resource_registry: Optional[ResourceRegistry] = None,
+        resource_registry: ResourceRegistry | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -121,7 +119,7 @@ class PooledAsyncEngineFactory(EnhancedAsyncEngineFactory):
                             return True
                 except Exception as e:
                     self.logger.warning(
-                        f"Engine validation failed for {conn_key}: {str(e)}"
+                        f"Engine validation failed for {conn_key}: {e!s}"
                     )
                     return False
 
@@ -250,7 +248,7 @@ class PooledAsyncEngineFactory(EnhancedAsyncEngineFactory):
             try:
                 await pool.close()
             except Exception as e:
-                self.logger.warning(f"Error closing engine pool: {str(e)}")
+                self.logger.warning(f"Error closing engine pool: {e!s}")
 
         # No need to close circuit breakers as they don't have resources
 
@@ -275,9 +273,9 @@ class PooledAsyncConnectionContext(AsyncConnectionContext):
         db_user_pw: str | None = None,
         db_driver: str | None = None,
         db_port: int | None = None,
-        config: Optional[ConnectionConfig] = None,
+        config: ConnectionConfig | None = None,
         isolation_level: str = "AUTOCOMMIT",
-        factory: Optional[PooledAsyncEngineFactory] = None,
+        factory: PooledAsyncEngineFactory | None = None,
         pool_size: int = 10,
         min_size: int = 2,
         logger: logging.Logger | None = None,
@@ -319,7 +317,7 @@ class PooledAsyncConnectionContext(AsyncConnectionContext):
         # Store additional parameters
         self.pool_size = pool_size
         self.min_size = min_size
-        self.engine_pool: Optional[ConnectionPool[AsyncEngine]] = None
+        self.engine_pool: ConnectionPool[AsyncEngine] | None = None
 
     async def __aenter__(self) -> AsyncConnection:
         """
@@ -332,7 +330,7 @@ class PooledAsyncConnectionContext(AsyncConnectionContext):
             Exception: If connection acquisition fails
         """
         # Get the engine factory
-        engine_factory = cast(PooledAsyncEngineFactory, self.factory)
+        engine_factory = cast("PooledAsyncEngineFactory", self.factory)
 
         try:
             # Get the engine pool
@@ -378,7 +376,7 @@ class PooledAsyncConnectionContext(AsyncConnectionContext):
             try:
                 await self.connection.close()
             except Exception as e:
-                self.logger.warning(f"Error closing connection: {str(e)}")
+                self.logger.warning(f"Error closing connection: {e!s}")
             finally:
                 self.connection = None
 
@@ -387,7 +385,7 @@ class PooledAsyncConnectionContext(AsyncConnectionContext):
             try:
                 await self.engine_pool.release(self.engine)
             except Exception as e:
-                self.logger.warning(f"Error returning engine to pool: {str(e)}")
+                self.logger.warning(f"Error returning engine to pool: {e!s}")
             finally:
                 self.engine = None
 
@@ -399,9 +397,9 @@ async def pooled_async_connection(
     db_user_pw: str | None = None,
     db_driver: str | None = None,
     db_port: int | None = None,
-    config: Optional[ConnectionConfig] = None,
+    config: ConnectionConfig | None = None,
     isolation_level: str = "AUTOCOMMIT",
-    factory: Optional[PooledAsyncEngineFactory] = None,
+    factory: PooledAsyncEngineFactory | None = None,
     pool_size: int = 10,
     min_size: int = 2,
     logger: logging.Logger | None = None,

@@ -16,23 +16,21 @@ Features:
 - Query execution monitoring
 """
 
-from uno.core.logging.logger import get_logger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Type, cast
-import asyncio
-import dataclasses
 import enum
 import json
 import logging
 import re
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
-from sqlalchemy import text, select, inspect, Table, Column, func
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, AsyncConnection
-from sqlalchemy.sql import Select, Executable
-from sqlalchemy.orm import DeclarativeMeta, joinedload, selectinload
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.sql import Executable
 
-from uno.core.errors.result import Result as OpResult, Success, Failure
+from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Result as OpResult
+from uno.core.logging.logger import get_logger
 
 
 class QueryComplexity(enum.Enum):
@@ -101,7 +99,7 @@ class QueryPlan:
 
     # Metrics
     total_cost: float = 0.0
-    execution_time: Optional[float] = None
+    execution_time: float | None = None
 
     @property
     def has_sequential_scans(self) -> bool:
@@ -144,11 +142,11 @@ class IndexRecommendation:
 
     # Context
     query_pattern: str | None = None
-    estimated_improvement: Optional[float] = None
+    estimated_improvement: float | None = None
 
     # Status
     implemented: bool = False
-    implementation_time: Optional[float] = None
+    implementation_time: float | None = None
 
     # Creation SQL
     _creation_sql: str | None = None
@@ -217,8 +215,8 @@ class QueryRewrite:
     rewrite_type: str
 
     # Improvement metrics
-    estimated_improvement: Optional[float] = None
-    actual_improvement: Optional[float] = None
+    estimated_improvement: float | None = None
+    actual_improvement: float | None = None
 
     # Context
     reason: str | None = None
@@ -255,8 +253,8 @@ class QueryStatistics:
     # Execution stats
     execution_count: int = 0
     total_execution_time: float = 0.0
-    min_execution_time: Optional[float] = None
-    max_execution_time: Optional[float] = None
+    min_execution_time: float | None = None
+    max_execution_time: float | None = None
 
     # Result stats
     avg_result_size: float = 0.0
@@ -266,7 +264,7 @@ class QueryStatistics:
     last_seen: float = field(default_factory=time.time)
 
     # Query plan
-    latest_plan: Optional[QueryPlan] = None
+    latest_plan: QueryPlan | None = None
 
     def record_execution(self, execution_time: float, result_size: int) -> None:
         """
@@ -383,9 +381,9 @@ class QueryOptimizer:
 
     def __init__(
         self,
-        session: Optional[AsyncSession] = None,
-        engine: Optional[AsyncEngine] = None,
-        config: Optional[OptimizationConfig] = None,
+        session: AsyncSession | None = None,
+        engine: AsyncEngine | None = None,
+        config: OptimizationConfig | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -417,8 +415,8 @@ class QueryOptimizer:
 
     async def analyze_query(
         self,
-        query: Union[str, Executable],
-        params: Optional[dict[str, Any]] = None,
+        query: str | Executable,
+        params: dict[str, Any] | None = None,
     ) -> QueryPlan:
         """
         Analyze a query and extract its execution plan.
@@ -777,8 +775,8 @@ class QueryOptimizer:
 
     async def rewrite_query(
         self,
-        query: Union[str, Executable],
-        params: Optional[dict[str, Any]] = None,
+        query: str | Executable,
+        params: dict[str, Any] | None = None,
     ) -> OpResult[QueryRewrite]:
         """
         Rewrite a query for better performance.
@@ -1041,8 +1039,8 @@ class QueryOptimizer:
 
     async def execute_optimized_query(
         self,
-        query: Union[str, Executable],
-        params: Optional[dict[str, Any]] = None,
+        query: str | Executable,
+        params: dict[str, Any] | None = None,
     ) -> Any:
         """
         Execute a query with optimization.
@@ -1288,7 +1286,7 @@ class QueryOptimizer:
         return dict(self._query_stats)
 
     def get_slow_queries(
-        self, threshold: Optional[float] = None
+        self, threshold: float | None = None
     ) -> list[QueryStatistics]:
         """
         Get statistics for slow queries.
@@ -1314,7 +1312,7 @@ class QueryOptimizer:
         return slow_queries
 
     def get_frequent_queries(
-        self, min_frequency: Optional[float] = None
+        self, min_frequency: float | None = None
     ) -> list[QueryStatistics]:
         """
         Get statistics for frequently executed queries.
@@ -1409,12 +1407,12 @@ class QueryOptimizer:
 
 
 async def optimize_query(
-    query: Union[str, Executable],
-    params: Optional[dict[str, Any]] = None,
-    session: Optional[AsyncSession] = None,
-    engine: Optional[AsyncEngine] = None,
-    config: Optional[OptimizationConfig] = None,
-) -> Tuple[Union[str, Executable], Optional[list[IndexRecommendation]]]:
+    query: str | Executable,
+    params: dict[str, Any] | None = None,
+    session: AsyncSession | None = None,
+    engine: AsyncEngine | None = None,
+    config: OptimizationConfig | None = None,
+) -> tuple[str | Executable, list[IndexRecommendation] | None]:
     """
     Optimize a query and provide recommendations.
 
@@ -1460,7 +1458,7 @@ async def optimize_query(
 
 
 def optimized_query(
-    config: Optional[OptimizationConfig] = None,
+    config: OptimizationConfig | None = None,
 ):
     """
     Decorator to optimize a query function.

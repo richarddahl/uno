@@ -10,35 +10,16 @@ SQLAlchemy models, and data transfer objects (DTOs) used in the Uno framework.
 """
 
 from typing import (
-    Dict,
-    Type,
-    Optional,
     Any,
-    Set,
     TypeVar,
     cast,
-    get_origin,
-    get_args,
-    List,
 )
-import inspect
-from collections.abc import Mapping
 
-from pydantic import BaseModel, create_model, Field
+from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.ext.declarative import DeclarativeMeta
 
-from uno.schema.errors import (
-    SchemaErrorCode,
-    SchemaNotFoundError,
-    SchemaInvalidError,
-    SchemaFieldMissingError,
-    SchemaFieldTypeMismatchError,
-    SchemaConversionError,
-)
-from uno.dto.dto import UnoDTO, DTOConfig, PaginatedListDTO
 from uno.core.errors.base import FrameworkError
-
+from uno.dto.dto import DTOConfig, UnoDTO
 
 # Type variables for improved type safety
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -56,7 +37,7 @@ class DTOManager:
     - Managing DTO registrations for API documentation
     """
 
-    def __init__(self, dto_configs: Optional[dict[str, DTOConfig]] = None):
+    def __init__(self, dto_configs: dict[str, DTOConfig] | None = None):
         """
         Initialize the DTO manager.
 
@@ -120,7 +101,7 @@ class DTOManager:
             self.create_dto(dto_name, model)
         return self.dtos
 
-    def get_dto(self, dto_name: str) -> Optional[type[UnoDTO]]:
+    def get_dto(self, dto_name: str) -> type[UnoDTO] | None:
         """
         Get a DTO by name.
 
@@ -196,7 +177,7 @@ class DTOManager:
         )
 
         # Cast to ensure the type system recognizes it correctly
-        typed_list_dto = cast(type[UnoDTO], list_dto)
+        typed_list_dto = cast("type[UnoDTO]", list_dto)
 
         # Store the created DTO
         self.dtos[dto_name] = typed_list_dto
@@ -230,7 +211,7 @@ class DTOManager:
             f"{model.__name__}DTO", __base__=UnoDTO, **fields
         )
 
-        return cast(type[UnoDTO], dto)
+        return cast("type[UnoDTO]", dto)
 
     def _get_python_type_for_column(self, column: Any) -> type[Any]:
         """
@@ -297,7 +278,7 @@ class DTOManager:
 
 
 # Global DTO manager instance
-_dto_manager: Optional[DTOManager] = None
+_dto_manager: DTOManager | None = None
 
 
 def get_dto_manager() -> DTOManager:

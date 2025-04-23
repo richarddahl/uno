@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+# See docs/di_testing.md for DI test patterns and best practices
+
 
 def test_di_public_api_surface():
-    import uno.core.di as di
+    from uno.core import di
     # Only these should be public
     assert hasattr(di, "ServiceCollection")
     assert hasattr(di, "ServiceProvider")

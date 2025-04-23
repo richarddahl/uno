@@ -1,6 +1,8 @@
 import pytest
-from uno.core.di.provider import ServiceProvider, ServiceLifecycle
-from uno.core.di.container import ServiceCollection, ServiceScope
+
+from uno.core.di.container import ServiceCollection
+from uno.core.di.provider import ServiceLifecycle, ServiceProvider
+
 
 class DummyLifecycleService(ServiceLifecycle):
     def __init__(self):

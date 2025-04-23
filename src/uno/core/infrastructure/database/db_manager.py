@@ -8,14 +8,13 @@ This module provides functionality for managing database schemas,
 including DDL operations and migrations.
 """
 
-from uno.core.logging.logger import get_logger
 import logging
-from typing import Optional, List, Dict, Any, Callable, ContextManager
-from contextlib import contextmanager
+from collections.abc import Callable
+from typing import Any, ContextManager
 
 import psycopg
-from sqlalchemy import text
 
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 
 

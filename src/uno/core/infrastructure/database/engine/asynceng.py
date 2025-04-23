@@ -1,19 +1,15 @@
-from uno.core.logging.logger import get_logger
-from typing import Optional, AsyncIterator
-import contextlib
-import logging
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import asyncio
-
+import contextlib
+from collections.abc import AsyncIterator
 from logging import Logger
 
-
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection
 from sqlalchemy import URL
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.base import EngineFactory
 
@@ -84,12 +80,12 @@ async def async_connection(
     db_user_pw: str | None = None,
     db_driver: str | None = None,
     db_port: int | None = None,
-    config: Optional[ConnectionConfig] = None,
+    config: ConnectionConfig | None = None,
     isolation_level: str = "AUTOCOMMIT",
-    factory: Optional[AsyncEngineFactory] = None,
+    factory: AsyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: int = 2,
-    logger: Optional[Logger] = None,
+    logger: Logger | None = None,
     **kwargs,
 ) -> AsyncIterator[AsyncConnection]:
     """Context manager for asynchronous database connections."""

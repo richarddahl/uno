@@ -9,8 +9,9 @@ This module defines error types, error codes, and error catalog entries
 specific to the SQL functionality.
 """
 
-from typing import Any, Dict, List, Optional, Union
-from uno.core.errors.base import FrameworkError, ErrorCategory, ErrorSeverity
+from typing import Any
+
+from uno.core.errors.base import ErrorCategory, ErrorSeverity, FrameworkError
 from uno.core.errors.catalog import register_error
 
 

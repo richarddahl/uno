@@ -4,11 +4,10 @@
 
 """SQL emitters for triggers and trigger functions."""
 
-from typing import List
 
+from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 
 
 class RecordUserAuditFunction(SQLEmitter):

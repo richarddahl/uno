@@ -9,17 +9,18 @@ import inspect
 import logging
 import typing
 from typing import Any, Generic, TypeVar
-from uno.core.errors.result import Success, Failure
+
 from uno.core.errors.definitions import (
+    CircularDependencyError,
+    ExtraParameterError,
+    FactoryError,
+    MissingParameterError,
+    ScopeError,
     ServiceNotFoundError,
     ServiceRegistrationError,
-    CircularDependencyError,
-    DependencyResolutionError,
-    ScopeError,
-    ExtraParameterError,
-    MissingParameterError,
-    FactoryError,
 )
+from uno.core.errors.result import Failure, Success
+
 from .service_scope import ServiceScope
 
 T = TypeVar("T")
@@ -67,7 +68,7 @@ class _ServiceResolver:
         if params is None:
             params = {}
         import inspect
-        from typing import get_type_hints, Protocol
+        from typing import get_type_hints
         is_protocol = hasattr(service_type, '_is_protocol') and service_type._is_protocol
         if is_protocol:
             missing = []

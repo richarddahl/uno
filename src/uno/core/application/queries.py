@@ -9,9 +9,11 @@ which formalizes data retrieval operations as explicit query objects.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Dict, Any, Callable, List, Optional
-from uno.core.errors.result import Result, Failure
+from typing import Any, Generic, TypeVar
+
+from uno.core.errors.result import Failure, Result
 
 T = TypeVar("T")  # Query result type
 Q = TypeVar("Q")  # Query type

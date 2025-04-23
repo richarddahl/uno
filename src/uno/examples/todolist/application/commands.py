@@ -7,7 +7,6 @@ Commands for the TodoList bounded context.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 from uno.core.application.commands import Command
 from uno.examples.todolist.domain.models import TodoPriority
@@ -20,7 +19,7 @@ class CreateTodoItemCommand(Command):
     title: str
     description: str | None = None
     priority: TodoPriority = TodoPriority.MEDIUM
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
 
 
 @dataclass

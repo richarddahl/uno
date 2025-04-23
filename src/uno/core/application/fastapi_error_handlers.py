@@ -25,8 +25,6 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from uno.core.errors.base import ErrorCategory, ErrorCode, ErrorSeverity, FrameworkError
-from uno.core.errors import ValidationError as UnoValidationError
-
 
 
 def setup_error_handlers(app: FastAPI, include_tracebacks: bool = False, logger: logging.Logger = None) -> None:

@@ -5,12 +5,12 @@
 TodoList domain model - example implementation using the Uno DDD framework.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import List, Optional
+
 from pydantic import Field
 
-from uno.core.domain.core import AggregateRoot, ValueObject, DomainEvent
+from uno.core.domain.core import AggregateRoot, DomainEvent
 
 
 class TodoPriority(Enum):
@@ -57,8 +57,8 @@ class TodoItem(AggregateRoot[str]):
     description: str | None = None
     status: TodoStatus = Field(default=TodoStatus.PENDING)
     priority: TodoPriority = Field(default=TodoPriority.MEDIUM)
-    due_date: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    due_date: datetime | None = None
+    completed_at: datetime | None = None
 
     @classmethod
     def create(
@@ -66,7 +66,7 @@ class TodoItem(AggregateRoot[str]):
         title: str,
         description: str | None = None,
         priority: TodoPriority = TodoPriority.MEDIUM,
-        due_date: Optional[datetime] = None,
+        due_date: datetime | None = None,
     ) -> "TodoItem":
         """Create a new todo item."""
         todo = cls(
@@ -84,7 +84,7 @@ class TodoItem(AggregateRoot[str]):
             return  # Already completed
 
         self.status = TodoStatus.COMPLETED
-        self.completed_at = datetime.now(timezone.utc)
+        self.completed_at = datetime.now(UTC)
 
         # Add completed event
         self.add_event(

@@ -9,8 +9,9 @@ This module defines error types, error codes, and error catalog entries
 specific to the database functionality.
 """
 
-from typing import Any, Dict, List, Optional, Union, Type
-from uno.core.errors.base import FrameworkError, ErrorCategory, ErrorSeverity
+from typing import Any
+
+from uno.core.errors.base import ErrorCategory, ErrorSeverity, FrameworkError
 from uno.core.errors.catalog import register_error
 
 
@@ -93,7 +94,7 @@ class DatabaseConnectionTimeoutError(FrameworkError):
 
     def __init__(
         self,
-        timeout_seconds: Union[int, float],
+        timeout_seconds: int | float,
         database: str | None = None,
         message: str | None = None,
         **context: Any,
@@ -119,7 +120,7 @@ class DatabaseConnectionPoolExhaustedError(FrameworkError):
     def __init__(
         self,
         pool_size: int,
-        wait_seconds: Optional[Union[int, float]] = None,
+        wait_seconds: int | float | None = None,
         message: str | None = None,
         **context: Any,
     ):
@@ -166,7 +167,7 @@ class DatabaseQueryTimeoutError(FrameworkError):
 
     def __init__(
         self,
-        timeout_seconds: Union[int, float],
+        timeout_seconds: int | float,
         query: str | None = None,
         message: str | None = None,
         **context: Any,
@@ -280,7 +281,7 @@ class DatabaseUniqueViolationError(FrameworkError):
         self,
         constraint_name: str,
         table_name: str | None = None,
-        column_names: Optional[list[str]] = None,
+        column_names: list[str] | None = None,
         message: str | None = None,
         **context: Any,
     ):

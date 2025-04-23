@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 class ServiceScope(Enum):
     """
     Service lifetime scopes for dependency injection.

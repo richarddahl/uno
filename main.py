@@ -148,8 +148,6 @@ configure_fastapi(api_app)
 # )
 
 # Example of an endpoint using the new dependency injection system
-from uno.core.di.decorators import inject_params
-from uno.core.di.interfaces import ConfigProtocol
 
 
 @api_app.get("/app", response_class=HTMLResponse, tags=["0KUI"])

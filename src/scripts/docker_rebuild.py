@@ -10,16 +10,15 @@ This module provides tools for:
 - Managing Docker environment for development and testing
 """
 
+import argparse
 import os
-import sys
-import time
+
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import subprocess
-import argparse
+import sys
+import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, Tuple
 
 
 class DockerRebuildError(Exception):
@@ -29,11 +28,11 @@ class DockerRebuildError(Exception):
 
 
 def run_command(
-    command: Union[str, list[str]],
+    command: str | list[str],
     check: bool = True,
     shell: bool = True,
     capture_output: bool = False,
-    env: Optional[dict[str, str]] = None,
+    env: dict[str, str] | None = None,
     cwd: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
@@ -137,7 +136,7 @@ def prompt_yes_no(question: str, default: bool = False) -> bool:
 
 def rebuild_containers(
     env: str = "dev",
-    clear_data: Optional[bool] = None,
+    clear_data: bool | None = None,
     no_cache: bool = True,
     non_interactive: bool = False,
 ) -> bool:
@@ -215,11 +214,11 @@ def rebuild_containers(
 
         return True
     except DockerRebuildError as e:
-        print(f"\n===== REBUILD FAILED =====")
+        print("\n===== REBUILD FAILED =====")
         print(f"Error: {e}")
         return False
     except Exception as e:
-        print(f"\n===== REBUILD FAILED =====")
+        print("\n===== REBUILD FAILED =====")
         print(f"Unexpected error: {e}")
         return False
 

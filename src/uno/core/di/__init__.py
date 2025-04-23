@@ -34,6 +34,19 @@ from uno.core.di.provider import (
     shutdown_services,
 )
 
+"""
+Uno Dependency Injection (DI) public API.
+
+This module exposes the main DI interfaces for end-users:
+- ServiceProvider: The main DI service provider
+- ServiceCollection: For registering services
+- ServiceScope: Enum for service lifetimes
+- ServiceLifecycle: Protocol for lifecycle-aware services
+- get_service_provider, initialize_services, shutdown_services: DI lifecycle helpers
+
+Internal/advanced classes are not exposed here.
+"""
+
 __all__ = [
     "ServiceCollection",
     "ServiceLifecycle",

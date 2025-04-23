@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
-from uno.core.logging.logger import get_logger
 from abc import ABC, abstractmethod
-from typing import Dict, Callable, TypeVar, Generic, Optional
-import logging
+from collections.abc import Callable
 from logging import Logger
+from typing import Generic, TypeVar
 
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 
 # Type for connection callback functions
@@ -21,8 +21,8 @@ class EngineFactory(Generic[E, C], ABC):
 
     def __init__(
         self,
-        logger: Optional[Logger] = None,
-        config: Optional[ConnectionConfig] = None,
+        logger: Logger | None = None,
+        config: ConnectionConfig | None = None,
     ):
         """Initialize the engine factory."""
         self.logger = logger or get_logger(__name__)

@@ -10,18 +10,17 @@ and their relationships using the DOT graph functionality.
 """
 import argparse
 import os
+
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import sys
-from pathlib import Path
-import tempfile
 import webbrowser
+from pathlib import Path
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from uno.core.domain.context_definitions import get_dot_graph, analyze_dependencies
+from uno.core.domain.context_definitions import analyze_dependencies, get_dot_graph
 
 
 def save_graph(output_path: str, view: bool = False, format: str = "png") -> None:

@@ -5,23 +5,22 @@
 Command and query handlers for the TodoList bounded context.
 """
 
-from typing import List, Optional
+from typing import Optional
 
 from uno.core.application.commands import CommandHandler
 from uno.core.application.queries import QueryHandler
-from uno.examples.todolist.domain.models import TodoItem
-from uno.examples.todolist.infrastructure.repositories import TodoItemRepository
+from uno.core.errors.result import Failure, Success
 from uno.examples.todolist.application.commands import (
-    CreateTodoItemCommand,
-    CompleteTodoItemCommand,
     CancelTodoItemCommand,
+    CompleteTodoItemCommand,
+    CreateTodoItemCommand,
 )
 from uno.examples.todolist.application.queries import (
     GetTodoItemQuery,
     ListTodoItemsQuery,
 )
-
-from uno.core.errors.result import Success, Failure
+from uno.examples.todolist.domain.models import TodoItem
+from uno.examples.todolist.infrastructure.repositories import TodoItemRepository
 
 
 class CreateTodoItemHandler(CommandHandler[CreateTodoItemCommand, TodoItem]):
@@ -84,7 +83,7 @@ class GetTodoItemHandler(QueryHandler[GetTodoItemQuery, Optional[TodoItem]]):
     def __init__(self, repository: TodoItemRepository):
         self.repository = repository
 
-    async def handle(self, query: GetTodoItemQuery) -> Optional[TodoItem]:
+    async def handle(self, query: GetTodoItemQuery) -> TodoItem | None:
         """Handle the get todo item query."""
         return await self.repository.get_by_id(query.todo_id)
 

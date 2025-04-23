@@ -2,16 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
-from uno.core.logging.logger import get_logger
-import time
-from typing import Optional, Iterator
 import contextlib
-import logging
+import time
+from collections.abc import Iterator
 from logging import Logger
 
-from sqlalchemy import create_engine, URL, Engine, Connection
+from sqlalchemy import URL, Connection, Engine, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.base import EngineFactory
 from uno.settings import uno_settings
@@ -82,12 +81,12 @@ def sync_connection(
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
     db_role: str = f"{uno_settings.DB_NAME}_login",
-    config: Optional[ConnectionConfig] = None,
+    config: ConnectionConfig | None = None,
     isolation_level: str = "AUTOCOMMIT",
-    factory: Optional[SyncEngineFactory] = None,
+    factory: SyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: int = 2,
-    logger: Optional[Logger] = None,
+    logger: Logger | None = None,
     **kwargs,
 ) -> Iterator[Connection]:
     """

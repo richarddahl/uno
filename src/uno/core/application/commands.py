@@ -9,8 +9,9 @@ which formalizes application use cases as explicit command objects.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Dict, Any, Type, Callable, List, Optional
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")  # Command result type
 C = TypeVar("C")  # Command type

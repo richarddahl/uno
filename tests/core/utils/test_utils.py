@@ -4,8 +4,10 @@ import decimal
 from datetime import date, datetime, timedelta
 
 import pytest
+
 from uno.config.general import GeneralConfig
 from uno.core import utils
+
 
 @pytest.fixture
 def general_config():

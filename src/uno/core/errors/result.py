@@ -210,7 +210,7 @@ class Success(Result[T], Generic[T]):
 
     def __repr__(self) -> str:
         """Detailed string representation of a successful result."""
-        return f"Success({repr(self.value)})"
+        return f"Success({self.value!r})"
 
 
 @dataclass(frozen=True)
@@ -258,7 +258,7 @@ class Failure(Result[T], Generic[T]):
             The original Failure
         """
         # For type correctness, we need to cast to Failure[U]
-        return cast(Failure[U], self)
+        return cast("Failure[U]", self)
 
     def flat_map(self, func: Callable[[T], "Result[U]"]) -> "Failure[U]":
         """
@@ -271,7 +271,7 @@ class Failure(Result[T], Generic[T]):
             The original Failure
         """
         # For type correctness, we need to cast to Failure[U]
-        return cast(Failure[U], self)
+        return cast("Failure[U]", self)
 
     def on_success(self, func: Callable[[T], Any]) -> "Failure[T]":
         """
@@ -364,7 +364,7 @@ class Failure(Result[T], Generic[T]):
 
     def __repr__(self) -> str:
         """Detailed string representation of a failed result."""
-        return f"Failure({repr(self.error)})"
+        return f"Failure({self.error!r})"
 
 
 def of(value: T) -> Result[T]:
@@ -444,7 +444,7 @@ def combine(results: list[Result[T]]) -> Result[list[T]]:
     values: list[T] = []
     for result in results:
         if result.is_failure:
-            return cast(Failure[list[T]], result)
+            return cast("Failure[list[T]]", result)
         if result.value is not None:  # Check for None to satisfy type checker
             values.append(result.value)
     return Success(values)
@@ -464,7 +464,7 @@ def combine_dict(results: dict[str, Result[T]]) -> Result[dict[str, T]]:
     values: dict[str, T] = {}
     for key, result in results.items():
         if result.is_failure:
-            return cast(Failure[dict[str, T]], result)
+            return cast("Failure[dict[str, T]]", result)
         if result.value is not None:  # Check for None to satisfy type checker
             values[key] = result.value
     return Success(values)

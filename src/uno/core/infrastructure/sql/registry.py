@@ -4,21 +4,11 @@
 
 """Registry for SQL configuration classes."""
 
-import logging
-from typing import Dict, Type, List, Optional
 
 from sqlalchemy.engine import Connection
-from sqlalchemy.exc import SQLAlchemyError
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.sql.errors import (
-    SQLErrorCode,
-    SQLRegistryClassNotFoundError,
-    SQLRegistryClassAlreadyExistsError,
-    SQLExecutionError,
-    SQLConfigError,
-)
 
 
 class SQLConfigRegistry:
@@ -56,7 +46,7 @@ class SQLConfigRegistry:
         cls._registry[config_class.__name__] = config_class
 
     @classmethod
-    def get(cls, name: str) -> Optional[type["SQLConfig"]]:
+    def get(cls, name: str) -> type["SQLConfig"] | None:
         """Get a SQLConfig class by name.
 
         Args:
@@ -79,9 +69,9 @@ class SQLConfigRegistry:
     @classmethod
     def emit_all(
         cls,
-        connection: Optional[Connection] = None,
-        engine_factory: Optional[SyncEngineFactory] = None,
-        config: Optional[ConnectionConfig] = None,
+        connection: Connection | None = None,
+        engine_factory: SyncEngineFactory | None = None,
+        config: ConnectionConfig | None = None,
         exclude: list[str] = None,
     ) -> None:
         """Emit SQL for all registered SQLConfig classes.

@@ -5,28 +5,28 @@
 """
 Demo script to showcase the TodoList bounded context.
 """
-from uno.core.logging.logger import get_logger
 import asyncio
+import logging
+
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import sys
 from pathlib import Path
-import logging
+
+from uno.core.logging.logger import get_logger
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from uno.examples.todolist import initialize_todolist
-from uno.examples.todolist.domain.models import TodoPriority
-from uno.examples.todolist.application.commands import (
-    CreateTodoItemCommand,
-    CompleteTodoItemCommand,
-)
 from uno.core.application.commands import CommandBus
-from uno.examples.todolist.application.queries import ListTodoItemsQuery
 from uno.core.application.queries import QueryBus
-
+from uno.examples.todolist import initialize_todolist
+from uno.examples.todolist.application.commands import (
+    CompleteTodoItemCommand,
+    CreateTodoItemCommand,
+)
+from uno.examples.todolist.application.queries import ListTodoItemsQuery
+from uno.examples.todolist.domain.models import TodoPriority
 
 # Configure logging
 logging.basicConfig(

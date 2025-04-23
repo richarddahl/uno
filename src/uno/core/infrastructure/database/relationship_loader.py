@@ -14,42 +14,24 @@ Features include:
 - Optimized query generation
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    Callable,
-)
-import asyncio
 import functools
 import hashlib
-import json
 import logging
-import time
 from dataclasses import dataclass, field
-
-from sqlalchemy import select, and_, or_, not_, join, outerjoin
-from sqlalchemy.orm import joinedload, selectinload, lazyload, load_only
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from uno.infrastructure.database.enhanced_session import enhanced_async_session
-from uno.core.errors import ObjectNotFoundError, OperationFailedError
-from uno.infrastructure.database.errors import (
-    DatabaseErrorCode,
-    DatabaseResourceNotFoundError,
-    DatabaseOperationalError,
+from typing import (
+    Any,
+    TypeVar,
 )
-from uno.infrastructure.database.query_cache import QueryCache, cached, CachedResult
-from uno.core.errors.result import Result as OpResult, Success, Failure
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, lazyload, selectinload
+
+from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Result as OpResult
+from uno.core.logging.logger import get_logger
+from uno.infrastructure.database.enhanced_session import enhanced_async_session
+from uno.infrastructure.database.query_cache import QueryCache
 
 T = TypeVar("T")
 
@@ -108,8 +90,8 @@ class RelationshipCache:
 
     def __init__(
         self,
-        config: Optional[RelationshipCacheConfig] = None,
-        query_cache: Optional[QueryCache] = None,
+        config: RelationshipCacheConfig | None = None,
+        query_cache: QueryCache | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -363,8 +345,8 @@ class RelationshipLoader:
         self,
         model_class: type[Any],
         logger=None,
-        cache: Optional[RelationshipCache] = None,
-        cache_config: Optional[RelationshipCacheConfig] = None,
+        cache: RelationshipCache | None = None,
+        cache_config: RelationshipCacheConfig | None = None,
     ):
         """
         Initialize the relationship loader.
@@ -393,14 +375,13 @@ class RelationshipLoader:
         """
         # Try to get explicitly defined relationships
         if hasattr(self.model_class, "__relationships__"):
-            return getattr(self.model_class, "__relationships__")
+            return self.model_class.__relationships__
 
         # Try to get from SQLAlchemy metadata
         relationships = {}
 
         try:
             from sqlalchemy.orm import class_mapper
-            from sqlalchemy.orm.properties import RelationshipProperty
 
             mapper = class_mapper(self.model_class)
 
@@ -423,7 +404,7 @@ class RelationshipLoader:
     def apply_relationship_options(
         self,
         query,
-        load_relations: Optional[Union[bool, list[str]]],
+        load_relations: bool | list[str] | None,
         strategy: str = "select",
     ):
         """
@@ -477,8 +458,8 @@ class RelationshipLoader:
     async def load_relationships(
         self,
         entity: Any,
-        load_relations: Optional[Union[bool, list[str]]],
-        session: Optional[AsyncSession] = None,
+        load_relations: bool | list[str] | None,
+        session: AsyncSession | None = None,
     ) -> Any:
         """
         Load relationships for a single entity.
@@ -510,8 +491,8 @@ class RelationshipLoader:
     async def load_relationships_batch(
         self,
         entities: list[Any],
-        load_relations: Optional[Union[bool, list[str]]],
-        session: Optional[AsyncSession] = None,
+        load_relations: bool | list[str] | None,
+        session: AsyncSession | None = None,
     ) -> list[Any]:
         """
         Load relationships for multiple entities in batch.
@@ -617,7 +598,7 @@ class RelationshipLoader:
                             else:
                                 # Cache miss, query the database
                                 query = select(target_class).where(
-                                    getattr(target_class, "id") == fk_value
+                                    target_class.id == fk_value
                                 )
                                 result = await session.execute(query)
                                 related_entity = result.scalar_one_or_none()
@@ -734,7 +715,7 @@ class RelationshipLoader:
                     db_entities = {}  # fk_value -> related_entity
                     if db_query_fk_values:
                         query = select(target_class).where(
-                            getattr(target_class, "id").in_(db_query_fk_values)
+                            target_class.id.in_(db_query_fk_values)
                         )
                         result = await session.execute(query)
                         fetched_entities = result.scalars().all()
@@ -1052,78 +1033,77 @@ class LazyRelationship:
 
                     # Get the loaded relationship value
                     self._value = getattr(loaded_entity, self.relation_name)
-            else:
-                # Try to load from cache first
-                if not rel_meta["is_collection"]:
-                    # To-one relationship
-                    fk_field = f"{self.relation_name}_id"
-                    if hasattr(self.entity, fk_field):
-                        fk_value = getattr(self.entity, fk_field)
-                        if fk_value:
-                            target_class = rel_meta["target_type"]
+            # Try to load from cache first
+            elif not rel_meta["is_collection"]:
+                # To-one relationship
+                fk_field = f"{self.relation_name}_id"
+                if hasattr(self.entity, fk_field):
+                    fk_value = getattr(self.entity, fk_field)
+                    if fk_value:
+                        target_class = rel_meta["target_type"]
 
-                            # Try to get from cache
-                            cache_result = await loader.cache.get_to_one(
-                                self.entity, self.relation_name, target_class, fk_value
-                            )
+                        # Try to get from cache
+                        cache_result = await loader.cache.get_to_one(
+                            self.entity, self.relation_name, target_class, fk_value
+                        )
 
-                            if cache_result.is_success:
-                                # Use cached value
-                                self._value = cache_result.value
-                            else:
-                                # Cache miss, load from database
-                                async with enhanced_async_session() as session:
-                                    query = select(target_class).where(
-                                        getattr(target_class, "id") == fk_value
-                                    )
-                                    result = await session.execute(query)
-                                    related_entity = result.scalar_one_or_none()
-
-                                    if related_entity:
-                                        self._value = related_entity
-
-                                        # Store in cache for future use
-                                        await loader.cache.store_to_one(
-                                            self.entity,
-                                            self.relation_name,
-                                            related_entity,
-                                        )
-                else:
-                    # To-many relationship
-                    target_class = rel_meta["target_type"]
-
-                    # Try to get from cache
-                    cache_result = await loader.cache.get_to_many(
-                        self.entity, self.relation_name, target_class
-                    )
-
-                    if cache_result.is_success:
-                        # Use cached value
-                        self._value = cache_result.value
-                    else:
-                        # Cache miss, load from database
-                        async with enhanced_async_session() as session:
-                            fk_field = (
-                                rel_meta.get("foreign_key")
-                                or f"{self.entity.__class__.__name__.lower()}_id"
-                            )
-
-                            if hasattr(target_class, fk_field):
+                        if cache_result.is_success:
+                            # Use cached value
+                            self._value = cache_result.value
+                        else:
+                            # Cache miss, load from database
+                            async with enhanced_async_session() as session:
                                 query = select(target_class).where(
-                                    getattr(target_class, fk_field) == self.entity.id
+                                    target_class.id == fk_value
                                 )
                                 result = await session.execute(query)
-                                related_entities = result.scalars().all()
+                                related_entity = result.scalar_one_or_none()
 
-                                self._value = related_entities
+                                if related_entity:
+                                    self._value = related_entity
 
-                                # Store in cache for future use (if not empty)
-                                if related_entities:
-                                    await loader.cache.store_to_many(
+                                    # Store in cache for future use
+                                    await loader.cache.store_to_one(
                                         self.entity,
                                         self.relation_name,
-                                        related_entities,
+                                        related_entity,
                                     )
+            else:
+                # To-many relationship
+                target_class = rel_meta["target_type"]
+
+                # Try to get from cache
+                cache_result = await loader.cache.get_to_many(
+                    self.entity, self.relation_name, target_class
+                )
+
+                if cache_result.is_success:
+                    # Use cached value
+                    self._value = cache_result.value
+                else:
+                    # Cache miss, load from database
+                    async with enhanced_async_session() as session:
+                        fk_field = (
+                            rel_meta.get("foreign_key")
+                            or f"{self.entity.__class__.__name__.lower()}_id"
+                        )
+
+                        if hasattr(target_class, fk_field):
+                            query = select(target_class).where(
+                                getattr(target_class, fk_field) == self.entity.id
+                            )
+                            result = await session.execute(query)
+                            related_entities = result.scalars().all()
+
+                            self._value = related_entities
+
+                            # Store in cache for future use (if not empty)
+                            if related_entities:
+                                await loader.cache.store_to_many(
+                                    self.entity,
+                                    self.relation_name,
+                                    related_entities,
+                                )
 
             # Update the entity
             setattr(self.entity, self.attr_name, self._value)

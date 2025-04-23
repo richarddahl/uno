@@ -5,7 +5,7 @@
 """Configuration for SQL generation and execution."""
 
 import logging
-from typing import List, Optional, Type, ClassVar
+from typing import ClassVar
 
 from pydantic import BaseModel
 from sqlalchemy import Table
@@ -14,10 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.sql.errors import SQLConfigError, SQLConfigInvalidError, SQLExecutionError
-
-from uno.sql.registry import SQLConfigRegistry
 from uno.sql.emitter import SQLEmitter
+from uno.sql.registry import SQLConfigRegistry
 
 
 class SQLConfig(BaseModel):
@@ -39,13 +37,13 @@ class SQLConfig(BaseModel):
     default_emitters: ClassVar[list[type[SQLEmitter]]] = []
 
     # The table for which SQL is being generated
-    table: ClassVar[Optional[Table]] = None
+    table: ClassVar[Table | None] = None
 
     # Connection configuration
-    connection_config: Optional[ConnectionConfig] = None
+    connection_config: ConnectionConfig | None = None
 
     # Engine factory for creating connections
-    engine_factory: Optional[SyncEngineFactory] = None
+    engine_factory: SyncEngineFactory | None = None
 
     # Emitter instances
     emitters: list[SQLEmitter] = []
@@ -84,7 +82,7 @@ class SQLConfig(BaseModel):
                 for emitter_cls in self.__class__.default_emitters
             ]
 
-    def emit_sql(self, connection: Optional[Connection] = None) -> None:
+    def emit_sql(self, connection: Connection | None = None) -> None:
         """Emit SQL for all registered emitters.
 
         Args:

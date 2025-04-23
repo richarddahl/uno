@@ -1,27 +1,28 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
-from uno.core.logging.logger import get_logger
-from typing import Optional, AsyncIterator, Dict, Any, AsyncContextManager
 import contextlib
 import logging
+from asyncio import current_task
+from collections.abc import AsyncIterator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    async_scoped_session,
     AsyncEngine,
+    AsyncSession,
+    async_scoped_session,
+    async_sessionmaker,
 )
-from asyncio import current_task
 
+from uno.core.logging.logger import get_logger
+from uno.core.protocols import (
+    DatabaseSessionContextProtocol,
+    DatabaseSessionFactoryProtocol,
+    DatabaseSessionProtocol,
+)
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 from uno.settings import uno_settings
-from uno.core.protocols import (
-    DatabaseSessionProtocol,
-    DatabaseSessionFactoryProtocol,
-    DatabaseSessionContextProtocol,
-)
 
 
 class AsyncSessionFactory(DatabaseSessionFactoryProtocol):
@@ -36,7 +37,7 @@ class AsyncSessionFactory(DatabaseSessionFactoryProtocol):
 
     def __init__(
         self,
-        engine_factory: Optional[AsyncEngineFactory] = None,
+        engine_factory: AsyncEngineFactory | None = None,
         logger: logging.Logger | None = None,
     ):
         """Initialize the session factory."""
@@ -124,7 +125,7 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
-        factory: Optional[DatabaseSessionFactoryProtocol] = None,
+        factory: DatabaseSessionFactoryProtocol | None = None,
         logger: logging.Logger | None = None,
         scoped: bool = False,
         **kwargs: Any,
@@ -140,7 +141,7 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
         self.logger = logger or get_logger(__name__)
         self.scoped = scoped
         self.kwargs = kwargs
-        self.session: Optional[DatabaseSessionProtocol] = None
+        self.session: DatabaseSessionProtocol | None = None
 
     async def __aenter__(self) -> DatabaseSessionProtocol:
         """Enter the async context, returning a database session."""
@@ -180,7 +181,7 @@ async def async_session(
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
-    factory: Optional[DatabaseSessionFactoryProtocol] = None,
+    factory: DatabaseSessionFactoryProtocol | None = None,
     logger: logging.Logger | None = None,
     scoped: bool = False,
     **kwargs,

@@ -9,15 +9,15 @@ common database operations.
 """
 
 from uno.sql.emitters.grants import AlterGrants
-from uno.sql.emitters.triggers import InsertMetaRecordTrigger, RecordUserAuditFunction
 from uno.sql.emitters.table import TableMergeFunction
-from uno.sql.emitters.vector import VectorSQLEmitter, VectorIntegrationEmitter
+from uno.sql.emitters.triggers import InsertMetaRecordTrigger, RecordUserAuditFunction
+from uno.sql.emitters.vector import VectorIntegrationEmitter, VectorSQLEmitter
 
 __all__ = [
     "AlterGrants",
     "InsertMetaRecordTrigger",
     "RecordUserAuditFunction",
     "TableMergeFunction",
-    "VectorSQLEmitter",
     "VectorIntegrationEmitter",
+    "VectorSQLEmitter",
 ]

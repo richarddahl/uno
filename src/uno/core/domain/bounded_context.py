@@ -9,9 +9,9 @@ in the domain model. Bounded contexts are a central pattern in Domain-Driven Des
 that establish explicit boundaries between different parts of the domain model.
 """
 
-from enum import Enum, auto
-from typing import Dict, List, Set, Optional, NamedTuple, Any
 from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any
 
 
 class ContextRelationType(Enum):
@@ -55,7 +55,7 @@ class BoundedContext:
     responsibility: str
     ubiquitous_language: dict[str, str] = field(default_factory=dict)
     team: str | None = None
-    dependencies: Set[str] = field(default_factory=set)
+    dependencies: set[str] = field(default_factory=set)
     is_core_domain: bool = False
 
     def add_term(self, term: str, definition: str) -> None:
@@ -134,7 +134,7 @@ class ContextMap:
         # Update dependencies
         self._contexts[relation.source_context].add_dependency(relation.target_context)
 
-    def get_context(self, name: str) -> Optional[BoundedContext]:
+    def get_context(self, name: str) -> BoundedContext | None:
         """
         Get a bounded context by name.
 
@@ -146,7 +146,7 @@ class ContextMap:
         """
         return self._contexts.get(name)
 
-    def get_relation(self, source: str, target: str) -> Optional[ContextRelation]:
+    def get_relation(self, source: str, target: str) -> ContextRelation | None:
         """
         Get the relationship between two contexts.
 
@@ -223,7 +223,7 @@ class ContextMap:
                     result["circular_dependencies"].append((context.name, dep))
 
         # Find most depended on contexts
-        dependency_counts = {name: 0 for name in self._contexts}
+        dependency_counts = dict.fromkeys(self._contexts, 0)
         for context in self._contexts.values():
             for dep in context.dependencies:
                 if dep in dependency_counts:

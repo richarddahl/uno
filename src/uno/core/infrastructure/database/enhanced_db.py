@@ -11,40 +11,31 @@ This module extends the base database operations with:
 - Resource cleanup on task cancellation
 """
 
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Type,
     TypeVar,
-    Union,
-    cast,
-    Callable,
-    Awaitable,
 )
-import logging
-import asyncio
-import contextlib
 
-from sqlalchemy import select, insert, update, delete, func
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uno.infrastructure.database.enhanced_session import (
-    EnhancedAsyncSessionFactory,
-    enhanced_async_session,
-    SessionOperationGroup,
-)
 from uno.core.async_integration import (
-    cancellable,
-    timeout_handler,
-    retry,
     AsyncBatcher,
     AsyncCache,
+    cancellable,
+    retry,
+    timeout_handler,
 )
-from uno.core.async_utils import TaskGroup, timeout
-from uno.model import Model
 from uno.infrastructure.database.db import UnoDb
+from uno.infrastructure.database.enhanced_session import (
+    EnhancedAsyncSessionFactory,
+    SessionOperationGroup,
+    enhanced_async_session,
+)
+from uno.model import Model
 
 T = TypeVar("T", bound=Model)
 R = TypeVar("R")
@@ -63,7 +54,7 @@ class EnhancedUnoDb(UnoDb):
 
     def __init__(
         self,
-        session_factory: Optional[EnhancedAsyncSessionFactory] = None,
+        session_factory: EnhancedAsyncSessionFactory | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -108,7 +99,7 @@ class EnhancedUnoDb(UnoDb):
         model_class: type[T],
         id: str,
         use_cache: bool = False,
-    ) -> Optional[T]:
+    ) -> T | None:
         """
         Get a model instance by ID with enhanced async handling.
 
@@ -132,7 +123,7 @@ class EnhancedUnoDb(UnoDb):
         else:
             return await self._fetch_model(model_class, id)
 
-    async def _fetch_model(self, model_class: type[T], id: str) -> Optional[T]:
+    async def _fetch_model(self, model_class: type[T], id: str) -> T | None:
         """
         Fetch a model from the database.
 
@@ -163,7 +154,7 @@ class EnhancedUnoDb(UnoDb):
         criteria: dict[str, Any],
         limit: int | None = None,
         offset: int | None = None,
-        order_by: Optional[list[Any]] = None,
+        order_by: list[Any] | None = None,
         use_cache: bool = False,
     ) -> list[T]:
         """
@@ -184,7 +175,7 @@ class EnhancedUnoDb(UnoDb):
             # Create cache key
             cache_key = (
                 f"filter:{model_class.__name__}:"
-                f"{repr(criteria)}:{limit}:{offset}:{repr(order_by)}"
+                f"{criteria!r}:{limit}:{offset}:{order_by!r}"
             )
 
             # Get from cache or fetch
@@ -205,7 +196,7 @@ class EnhancedUnoDb(UnoDb):
         criteria: dict[str, Any],
         limit: int | None = None,
         offset: int | None = None,
-        order_by: Optional[list[Any]] = None,
+        order_by: list[Any] | None = None,
     ) -> list[T]:
         """
         Fetch filtered models from the database.

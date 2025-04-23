@@ -8,25 +8,20 @@ This module provides specialized optimization strategies that leverage
 PostgreSQL-specific features for improved performance.
 """
 
-from typing import Dict, Any, List, Optional, Union, Tuple, Set
 import re
-import json
-import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, AsyncConnection
-from sqlalchemy.sql import Select, Executable
 
-from uno.core.errors.result import Result as OpResult, Success, Failure
+from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Result as OpResult
 from uno.infrastructure.database.query_optimizer import (
-    QueryComplexity,
-    OptimizationLevel,
-    IndexType,
-    QueryPlan,
     IndexRecommendation,
-    QueryRewrite,
+    IndexType,
     QueryOptimizer,
+    QueryPlan,
+    QueryRewrite,
 )
 
 
@@ -160,7 +155,7 @@ class PgOptimizationStrategies:
             return Failure("Either session or engine must be provided")
 
         try:
-            stats_sql = f"""
+            stats_sql = """
             SELECT
                 pg_class.relname AS table_name,
                 pg_class.reltuples::bigint AS row_estimate,
@@ -178,7 +173,7 @@ class PgOptimizationStrategies:
             """
 
             # Column statistics
-            col_stats_sql = f"""
+            col_stats_sql = """
             SELECT
                 pg_attribute.attname AS column_name,
                 pg_stats.n_distinct AS distinct_values,

@@ -171,7 +171,7 @@ class DTOConfig(BaseModel):
         )
 
         # Cast to ensure the type system recognizes the return value correctly
-        return cast(type[UnoDTO], dto_cls)
+        return cast("type[UnoDTO]", dto_cls)
 
 
 # Generic list DTO for pagination

@@ -109,7 +109,6 @@ def test_validation_error():
 
 
 # --- Async Error Context (basic test) ---
-import asyncio
 
 
 @pytest.mark.asyncio

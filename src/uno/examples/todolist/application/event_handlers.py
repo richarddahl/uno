@@ -7,14 +7,12 @@ Event handlers for the TodoList bounded context.
 
 # from uno.core.logging.logger import get_logger  # Removed for DI-based injection
 import logging
-from datetime import datetime
 
 from uno.examples.todolist.domain.models import (
-    TodoItemCreatedEvent,
-    TodoItemCompletedEvent,
     TodoItemCancelledEvent,
+    TodoItemCompletedEvent,
+    TodoItemCreatedEvent,
 )
-
 
 
 async def handle_todo_created(event: TodoItemCreatedEvent, logger: logging.Logger) -> None:

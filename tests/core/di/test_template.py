@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
+# See docs/di_testing.md for DI test patterns and best practices
+
+import pytest
+from uno.core.di.test_helpers import di_provider, TestDI
+
+# Example: Isolated provider per test
+def test_example_isolated(di_provider):
+    # di_provider is a fresh ServiceProvider for this test
+    ...
+
+# Example: Temporary override (sync)
+def test_example_override(di_provider):
+    mock = object()
+    with TestDI.override_service(di_provider, str, mock):
+        # str resolves to mock within this block
+        ...
+
+# Example: Batch override
+def test_example_batch_override(di_provider):
+    overrides = {str: object(), int: 123}
+    with TestDI.batch_override_services(di_provider, overrides):
+        ...
+
+# Example: Register mock
+def test_example_register_mock(di_provider):
+    TestDI.register_mock(di_provider, str, "mocked string")
+    ...
+
+# Example: Async override
+@pytest.mark.asyncio
+async def test_example_async_override(di_provider):
+    mock = object()
+    async with TestDI.async_override_service(di_provider, str, mock):
+        ...
+
+# Example: Teardown (manual)
+def test_example_teardown(di_provider):
+    TestDI.teardown_provider(di_provider)
+    ...
+
+# Example: Reset DI state (if using globals)
+def test_example_reset_state():
+    TestDI.reset_di_state()
+    ...

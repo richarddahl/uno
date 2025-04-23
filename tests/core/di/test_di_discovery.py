@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+# See docs/di_testing.md for DI test patterns and best practices
+
 
 import types
 

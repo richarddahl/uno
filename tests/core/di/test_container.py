@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+# See docs/di_testing.md for DI test patterns and best practices
 
-import pytest
+
 
 from uno.core.di.container import ServiceCollection
-from uno.core.errors.base import FrameworkError
+
 
 class Bar:
     def __init__(self):
@@ -25,8 +26,8 @@ def test_add_conditional_false():
     services.add_conditional(lambda: False, lambda sc: sc.add_singleton(Bar))
     resolver = services.build()
     result = resolver.resolve(Bar)
-    from uno.core.errors.result import Failure
     from uno.core.errors.definitions import ServiceNotFoundError
+    from uno.core.errors.result import Failure
     assert isinstance(result, Failure)
     assert isinstance(result.error, ServiceNotFoundError)
 
@@ -76,7 +77,7 @@ def test_scoped_lifetime_outside_scope_raises():
     services.add_scoped(Foo)
     resolver = services.build()
     result = resolver.resolve(Foo)
-    from uno.core.errors.result import Failure
     from uno.core.errors.definitions import ScopeError
+    from uno.core.errors.result import Failure
     assert isinstance(result, Failure)
     assert isinstance(result.error, ScopeError)

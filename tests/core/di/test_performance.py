@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: MIT
 # uno framework
 import time
+
 from uno.core.di.container import ServiceCollection
+
 
 class FastService:
     def __init__(self):

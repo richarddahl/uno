@@ -8,43 +8,25 @@ This module provides utilities for managing resources with proper lifecycle
 management, including connection pooling, circuit breakers, and cleanup.
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    TypeVar,
-    Generic,
-    Dict,
-    List,
-    Any,
-    Optional,
-    Callable,
-    Awaitable,
-    Union,
-    cast,
-)
 import asyncio
+import contextlib
 import logging
 import time
-import contextlib
-import functools
-from datetime import datetime, timedelta
+from collections.abc import Awaitable, Callable
 from enum import Enum
+from typing import (
+    Any,
+    Generic,
+    TypeVar,
+    cast,
+)
 
 from uno.core.async_utils import (
-    AsyncLock,
     AsyncEvent,
-    AsyncSemaphore,
-    TaskGroup,
+    AsyncLock,
     timeout,
-    AsyncContextGroup,
-    AsyncExitStack,
 )
-from uno.core.async_integration import (
-    cancellable,
-    retry,
-    timeout_handler,
-    AsyncResourcePool,
-)
-
+from uno.core.logging.logger import get_logger
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -78,7 +60,7 @@ class CircuitBreaker:
         failure_threshold: int = 5,
         recovery_timeout: float = 30.0,
         half_open_max_calls: int = 1,
-        exception_types: Optional[list[type]] = None,
+        exception_types: list[type] | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -102,7 +84,7 @@ class CircuitBreaker:
         # Initial state
         self._state = CircuitState.CLOSED
         self._failure_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._successful_calls = 0
         self._lock = AsyncLock()
         self._state_change_event = AsyncEvent()
@@ -110,7 +92,7 @@ class CircuitBreaker:
         # Metrics
         self._total_failures = 0
         self._total_successes = 0
-        self._last_state_change_time: Optional[float] = None
+        self._last_state_change_time: float | None = None
 
     @property
     def state(self) -> CircuitState:
@@ -191,7 +173,7 @@ class CircuitBreaker:
 
             return result
 
-        except tuple(self.exception_types) as e:
+        except tuple(self.exception_types):
             # Record failure
             await self._record_failure()
 
@@ -300,7 +282,7 @@ class ConnectionPool(Generic[T]):
         name: str,
         factory: Callable[[], Awaitable[T]],
         close_func: Callable[[T], Awaitable[None]],
-        validate_func: Optional[Callable[[T], Awaitable[bool]]] = None,
+        validate_func: Callable[[T], Awaitable[bool]] | None = None,
         max_size: int = 10,
         min_size: int = 0,
         max_idle: int = 2,
@@ -344,8 +326,8 @@ class ConnectionPool(Generic[T]):
         self._closed = False
 
         # Tasks
-        self._maintenance_task: Optional[asyncio.Task] = None
-        self._validation_task: Optional[asyncio.Task] = None
+        self._maintenance_task: asyncio.Task | None = None
+        self._validation_task: asyncio.Task | None = None
 
         # Metrics
         self._created_connections = 0
@@ -382,7 +364,7 @@ class ConnectionPool(Generic[T]):
                     )
                 except Exception as e:
                     self.logger.error(
-                        f"Error creating initial connection in pool {self.name}: {str(e)}"
+                        f"Error creating initial connection in pool {self.name}: {e!s}"
                     )
 
         # Start maintenance task
@@ -414,7 +396,7 @@ class ConnectionPool(Generic[T]):
         except Exception as e:
             self._connection_errors += 1
             self.logger.error(
-                f"Error creating connection in pool {self.name}: {str(e)}"
+                f"Error creating connection in pool {self.name}: {e!s}"
             )
             raise
 
@@ -431,7 +413,7 @@ class ConnectionPool(Generic[T]):
             self.logger.debug(f"Closed connection in pool {self.name}")
         except Exception as e:
             self.logger.warning(
-                f"Error closing connection in pool {self.name}: {str(e)}"
+                f"Error closing connection in pool {self.name}: {e!s}"
             )
 
     async def _validate_connection(self, connection: T) -> bool:
@@ -452,7 +434,7 @@ class ConnectionPool(Generic[T]):
         except Exception as e:
             self._validation_failures += 1
             self.logger.warning(
-                f"Error validating connection in pool {self.name}: {str(e)}"
+                f"Error validating connection in pool {self.name}: {e!s}"
             )
             return False
 
@@ -479,7 +461,7 @@ class ConnectionPool(Generic[T]):
                     conn_info = available[0]
                     conn_info["in_use"] = True
                     conn_info["last_used"] = time.time()
-                    return cast(T, conn_info["connection"])
+                    return cast("T", conn_info["connection"])
 
                 # If pool is not at max size, create a new connection
                 if len(self._connections) < self.max_size:
@@ -502,7 +484,7 @@ class ConnectionPool(Generic[T]):
 
                     except Exception as e:
                         self.logger.error(
-                            f"Failed to create connection in pool {self.name}: {str(e)}"
+                            f"Failed to create connection in pool {self.name}: {e!s}"
                         )
                         # If we can't create a connection, wait and try again
                         await asyncio.sleep(self.retry_backoff)
@@ -514,7 +496,7 @@ class ConnectionPool(Generic[T]):
             # Wait for a connection to become available
             try:
                 await asyncio.wait_for(self._connection_available.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Check if pool is closed
                 if self._closed:
                     raise RuntimeError(f"Connection pool {self.name} is closed")
@@ -568,7 +550,7 @@ class ConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Error in maintenance task for pool {self.name}: {str(e)}",
+                f"Error in maintenance task for pool {self.name}: {e!s}",
                 exc_info=True,
             )
 
@@ -647,7 +629,7 @@ class ConnectionPool(Generic[T]):
 
             except Exception as e:
                 self.logger.error(
-                    f"Failed to create connection during maintenance for pool {self.name}: {str(e)}"
+                    f"Failed to create connection during maintenance for pool {self.name}: {e!s}"
                 )
 
     async def _validation_loop(self) -> None:
@@ -669,7 +651,7 @@ class ConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Error in validation task for pool {self.name}: {str(e)}",
+                f"Error in validation task for pool {self.name}: {e!s}",
                 exc_info=True,
             )
 
@@ -855,7 +837,7 @@ class ResourceRegistry:
                 try:
                     await resource.close()
                 except Exception as e:
-                    self.logger.warning(f"Error closing resource '{name}': {str(e)}")
+                    self.logger.warning(f"Error closing resource '{name}': {e!s}")
 
     async def get(self, name: str) -> Any:
         """
@@ -902,7 +884,7 @@ class ResourceRegistry:
                     await resource.close()
                     self.logger.debug(f"Closed resource: {name}")
                 except Exception as e:
-                    self.logger.warning(f"Error closing resource '{name}': {str(e)}")
+                    self.logger.warning(f"Error closing resource '{name}': {e!s}")
 
         self.logger.info(
             f"Resource registry closed ({len(resources_to_close)} resources)"
@@ -932,7 +914,7 @@ class ResourceRegistry:
                     metrics[name] = resource.get_metrics()
                 except Exception as e:
                     self.logger.warning(
-                        f"Error getting metrics for resource '{name}': {str(e)}"
+                        f"Error getting metrics for resource '{name}': {e!s}"
                     )
                     metrics[name] = {"error": str(e)}
             else:
@@ -1032,9 +1014,9 @@ class BackgroundTask:
         self.restart_delay = restart_delay
         self.logger = logger or get_logger(__name__)
 
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._restart_count = 0
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._stop_event = AsyncEvent()
         self._stopped = False
 
@@ -1082,7 +1064,7 @@ class BackgroundTask:
 
             except Exception as e:
                 self.logger.error(
-                    f"Error in background task {self.name}: {str(e)}", exc_info=True
+                    f"Error in background task {self.name}: {e!s}", exc_info=True
                 )
 
                 # Check if we should restart
@@ -1113,7 +1095,7 @@ class BackgroundTask:
                         if self._stop_event.is_set():
                             break
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Restart delay elapsed, continue with the loop
                     pass
 
@@ -1134,7 +1116,7 @@ class BackgroundTask:
                 pass
             except Exception as e:
                 self.logger.warning(
-                    f"Error while stopping background task {self.name}: {str(e)}"
+                    f"Error while stopping background task {self.name}: {e!s}"
                 )
 
         self.logger.debug(f"Stopped background task: {self.name}")

@@ -5,18 +5,10 @@
 """SQL emitters for database-level operations."""
 
 import logging
-from typing import List, Optional
-import os
 
+from uno.core.errors import FrameworkError
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.errors import (
-    SQLErrorCode,
-    SQLEmitterError,
-    SQLExecutionError,
-    SQLConfigError,
-)
-from uno.core.errors import FrameworkError
 
 
 class CreateRolesAndDatabase(SQLEmitter):
@@ -293,7 +285,7 @@ class CreatePGULID(SQLEmitter):
             db_schema = self.config.DB_SCHEMA
             uno_root = self.config.UNO_ROOT
 
-            with open(f"{uno_root}/uno/sql/pgulid.sql", "r") as file:
+            with open(f"{uno_root}/uno/sql/pgulid.sql") as file:
                 pgulid_sql = file.read()
 
             # Format the SQL with the schema name

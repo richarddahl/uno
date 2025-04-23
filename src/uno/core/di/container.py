@@ -4,16 +4,18 @@
 """
 Scoped dependency injection container for Uno framework.
 
-This module implements a hierarchical dependency injection container that supports
-different scopes for services, such as singleton (application), scoped, and transient.
+Public API:
+- ServiceCollection: Main API for registering services
+- ServiceScope: Enum for service lifetimes
+- ServiceFactory: Protocol for service factories
+
+Internal/advanced classes (ServiceRegistration, _ServiceResolver) are not part of the public API.
 """
 
 from typing import Any, Protocol, TypeVar
 
-from ._internal import (
-    ServiceRegistration,  # advanced/extensibility only
-    _ServiceResolver,  # advanced/extensibility only
-)
+# Internal use only: advanced/extensibility classes
+from ._internal import ServiceRegistration, _ServiceResolver
 from .service_scope import ServiceScope
 
 T = TypeVar("T")

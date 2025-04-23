@@ -2,9 +2,11 @@
 Tests for Uno DI: async lifecycle and initialization
 """
 import asyncio
+
 import pytest
+from uno.core.di.test_helpers import di_provider
 from uno.core.di.container import ServiceCollection
-from uno.core.di.test_helpers import TestDI
+
 
 class AsyncService:
     def __init__(self):
@@ -15,13 +17,17 @@ class AsyncService:
         self.initialized = True
 
 @pytest.mark.asyncio
-async def test_async_lifecycle():
-    provider = TestDI.create_test_provider()
+async def test_async_lifecycle(di_provider):
+   # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# uno framework
+# See docs/di_testing.md for DI test patterns and best practices
+
     services = ServiceCollection()
     services.add_singleton(AsyncService)
-    provider.configure_services(services)
-    await provider.initialize()
-    result = provider.get_service(AsyncService)
+    di_provider.configure_services(services)
+    await di_provider.initialize()
+    result = di_provider.get_service(AsyncService)
     from uno.core.errors.result import Success
     assert isinstance(result, Success)
     instance = result.value

@@ -8,47 +8,28 @@ This module provides utilities for streaming large query results from the databa
 without loading everything into memory at once.
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    TypeVar,
-    Generic,
-    Dict,
-    Any,
-    Optional,
-    List,
-    Set,
-    Callable,
-    Awaitable,
-    Union,
-    cast,
-    Tuple,
-    Iterator,
-    AsyncIterator,
-    AsyncGenerator,
-)
 import asyncio
+import contextlib
 import logging
 import time
-import contextlib
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from enum import Enum
-from datetime import datetime, timedelta
+from typing import (
+    Any,
+    Generic,
+    TypeVar,
+)
 
-from sqlalchemy import select, text, Row
-from sqlalchemy.orm import Session
+from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uno.infrastructure.database.enhanced_session import enhanced_async_session
-from uno.infrastructure.database.pooled_session import pooled_async_session
 from uno.core.async_utils import (
-    AsyncLock,
     TaskGroup,
     timeout,
 )
-from uno.core.async_integration import (
-    cancellable,
-    retry,
-)
-
+from uno.core.logging.logger import get_logger
+from uno.infrastructure.database.enhanced_session import enhanced_async_session
+from uno.infrastructure.database.pooled_session import pooled_async_session
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -81,8 +62,8 @@ class StreamingCursor(Generic[T]):
         session: AsyncSession,
         query: Any,
         chunk_size: int = 1000,
-        timeout_seconds: Optional[float] = None,
-        transform_fn: Optional[Callable[[Row], T]] = None,
+        timeout_seconds: float | None = None,
+        transform_fn: Callable[[Row], T] | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -182,7 +163,7 @@ class StreamingCursor(Generic[T]):
         """
         return self._row_count
 
-    async def fetchone(self) -> Optional[T]:
+    async def fetchone(self) -> T | None:
         """
         Fetch one row from the cursor.
 
@@ -295,7 +276,7 @@ class ResultIterator(Generic[T]):
     def __init__(
         self,
         results: Any,
-        transform_fn: Optional[Callable[[Row], T]] = None,
+        transform_fn: Callable[[Row], T] | None = None,
     ):
         """
         Initialize the result iterator.
@@ -361,7 +342,7 @@ class ResultChunk(Generic[T]):
         chunk_index: int,
         total_chunks: int | None = None,
         is_last_chunk: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """
         Initialize the result chunk.
@@ -411,9 +392,9 @@ async def stream_query(
     query: Any,
     mode: StreamingMode = StreamingMode.CURSOR,
     chunk_size: int = 1000,
-    transform_fn: Optional[Callable[[Row], T]] = None,
-    session: Optional[AsyncSession] = None,
-    timeout_seconds: Optional[float] = None,
+    transform_fn: Callable[[Row], T] | None = None,
+    session: AsyncSession | None = None,
+    timeout_seconds: float | None = None,
     use_pooled_session: bool = True,
     logger: logging.Logger | None = None,
 ) -> AsyncIterator[AsyncIterator[T]]:
@@ -469,7 +450,7 @@ async def stream_query(
                 result = await session.execute(query)
 
             # Create async generator
-            async def result_generator() -> AsyncGenerator[T, None]:
+            async def result_generator() -> AsyncGenerator[T]:
                 while True:
                     # Fetch a batch
                     batch = await result.fetchmany(chunk_size)
@@ -495,7 +476,7 @@ async def stream_query(
                 result = await session.execute(query)
 
             # Create async generator for chunks
-            async def chunk_generator() -> AsyncGenerator[ResultChunk[T], None]:
+            async def chunk_generator() -> AsyncGenerator[ResultChunk[T]]:
                 chunk_index = 0
 
                 while True:
@@ -555,11 +536,11 @@ async def stream_query(
 async def stream_process(
     query: Any,
     process_fn: Callable[[T], Awaitable[R]],
-    transform_fn: Optional[Callable[[Row], T]] = None,
+    transform_fn: Callable[[Row], T] | None = None,
     chunk_size: int = 1000,
     concurrency: int = 10,
-    session: Optional[AsyncSession] = None,
-    timeout_seconds: Optional[float] = None,
+    session: AsyncSession | None = None,
+    timeout_seconds: float | None = None,
     use_pooled_session: bool = True,
     logger: logging.Logger | None = None,
 ) -> list[R]:
@@ -635,11 +616,11 @@ async def stream_process(
 async def stream_parallel(
     query: Any,
     parallel_fn: Callable[[list[T]], Awaitable[list[R]]],
-    transform_fn: Optional[Callable[[Row], T]] = None,
+    transform_fn: Callable[[Row], T] | None = None,
     chunk_size: int = 1000,
     concurrency: int = 5,
-    session: Optional[AsyncSession] = None,
-    timeout_seconds: Optional[float] = None,
+    session: AsyncSession | None = None,
+    timeout_seconds: float | None = None,
     use_pooled_session: bool = True,
     logger: logging.Logger | None = None,
 ) -> list[R]:

@@ -25,9 +25,16 @@ T = TypeVar("T")
 def validate_service_discovery(modules, service_collection, logger=None, strict=False):
     """
     Warn if likely service classes are not registered for DI.
+
+    Returns:
+        Success(list_of_warning_messages) if no strict error, or
+        Failure(ServiceDiscoveryValidationError) if strict and warnings exist.
     """
     import inspect
+
     from uno.core.di.provider import ServiceLifecycle
+    from uno.core.errors.definitions import ServiceDiscoveryValidationError
+    from uno.core.errors.result import Failure, Success
     try:
         from uno.core.di.interfaces import DomainServiceProtocol
     except ImportError:
@@ -60,7 +67,11 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
             warnings.append(msg)
             logger.warning(msg)
     if strict and warnings:
-        raise RuntimeError("Service discovery validation failed: " + "\n".join(warnings))
+        return Failure(ServiceDiscoveryValidationError(
+            "Service discovery validation failed: " + "\n".join(warnings)
+        ))
+    return Success(warnings)
+
 
 
 def find_modules(package_name: str) -> Iterator[str]:

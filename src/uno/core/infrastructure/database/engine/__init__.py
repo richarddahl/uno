@@ -2,23 +2,25 @@
 #
 # SPDX-License-Identifier: MIT
 
-from uno.core.logging.logger import get_logger
-from typing import Optional
 import logging
 from logging import Logger
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncEngine
+
+from uno.core.logging.logger import get_logger
+from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 
 # Import engine-specific modules
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 
 # Use string type annotations for session imports to break circular dependencies
 __all__ = [
+    "AsyncEngine",
+    "AsyncEngineFactory",
     "DatabaseFactory",
     "SyncEngineFactory",
     "sync_connection",
-    "AsyncEngineFactory",
-    "AsyncEngine",
 ]
 
 
@@ -29,7 +31,7 @@ class DatabaseFactory:
     Provides central access to sync and async database functionality.
     """
 
-    def __init__(self, logger: Optional[Logger] = None):
+    def __init__(self, logger: Logger | None = None):
         """Initialize all component factories."""
         self.logger = logger or get_logger(__name__)
 

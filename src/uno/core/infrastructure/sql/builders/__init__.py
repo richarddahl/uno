@@ -12,13 +12,13 @@ with proper validation and formatting.
 """
 
 from uno.sql.builders.function import SQLFunctionBuilder
-from uno.sql.builders.trigger import SQLTriggerBuilder
 from uno.sql.builders.index import SQLIndexBuilder
+from uno.sql.builders.trigger import SQLTriggerBuilder
 
 # Defines the public API of the module, specifying the symbols that will be
 # exported when `from module import *` is used.
 __all__ = [
     "SQLFunctionBuilder",
-    "SQLTriggerBuilder",
     "SQLIndexBuilder",
+    "SQLTriggerBuilder",
 ]

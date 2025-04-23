@@ -13,10 +13,10 @@ from collections.abc import AsyncIterator
 from contextlib import AbstractContextManager
 from typing import (
     Any,
+    Generic,
     Protocol,
     TypeVar,
     runtime_checkable,
-    Generic,
 )
 
 import asyncpg

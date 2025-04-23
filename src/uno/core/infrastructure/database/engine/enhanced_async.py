@@ -11,25 +11,26 @@ This module extends the base async database engine with:
 - Enhanced connection retry logic
 """
 
-from uno.core.logging.logger import get_logger
-from typing import Optional, AsyncIterator, TypeVar, Callable, Any, List
-import logging
 import asyncio
+import logging
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager
+from typing import Any, TypeVar
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 from uno.core.async_utils import (
-    TaskGroup,
-    AsyncLock,
-    Limiter,
-    timeout,
     AsyncContextGroup,
     AsyncExitStack,
+    AsyncLock,
+    Limiter,
+    TaskGroup,
+    timeout,
 )
+from uno.core.logging.logger import get_logger
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 
 T = TypeVar("T")
 
@@ -46,7 +47,7 @@ class EnhancedAsyncEngineFactory(AsyncEngineFactory):
 
     def __init__(
         self,
-        connection_limiter: Optional[Limiter] = None,
+        connection_limiter: Limiter | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -87,7 +88,7 @@ class EnhancedAsyncEngineFactory(AsyncEngineFactory):
 
 async def connect_with_retry(
     config: ConnectionConfig,
-    factory: Optional[EnhancedAsyncEngineFactory] = None,
+    factory: EnhancedAsyncEngineFactory | None = None,
     max_retries: int = 3,
     base_retry_delay: float = 1.0,
     isolation_level: str = "AUTOCOMMIT",
@@ -153,7 +154,7 @@ async def connect_with_retry(
                     # Return the open connection
                     return connection
 
-                except (SQLAlchemyError, asyncio.TimeoutError) as e:
+                except (TimeoutError, SQLAlchemyError) as e:
                     last_error = e
                     attempt += 1
 
@@ -177,13 +178,13 @@ async def connect_with_retry(
 
                         log.warning(
                             f"Database connection attempt {attempt}/{max_retries} "
-                            f"failed. Retrying in {delay:.2f}s... Error: {str(e)}"
+                            f"failed. Retrying in {delay:.2f}s... Error: {e!s}"
                         )
                         await asyncio.sleep(delay)
                     else:
                         log.error(
                             f"Failed to connect after {max_retries} attempts. "
-                            f"Last error: {str(e)}"
+                            f"Last error: {e!s}"
                         )
 
     # If we've exhausted all attempts, raise the last error
@@ -212,9 +213,9 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
         db_user_pw: str | None = None,
         db_driver: str | None = None,
         db_port: int | None = None,
-        config: Optional[ConnectionConfig] = None,
+        config: ConnectionConfig | None = None,
         isolation_level: str = "AUTOCOMMIT",
-        factory: Optional[EnhancedAsyncEngineFactory] = None,
+        factory: EnhancedAsyncEngineFactory | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         logger: logging.Logger | None = None,
@@ -239,8 +240,8 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.logger = logger or get_logger(__name__)
-        self.connection: Optional[AsyncConnection] = None
-        self.engine: Optional[AsyncEngine] = None
+        self.connection: AsyncConnection | None = None
+        self.engine: AsyncEngine | None = None
 
     async def __aenter__(self) -> AsyncConnection:
         """Enter the async context, returning a database connection."""
@@ -272,7 +273,7 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
             try:
                 await self.connection.close()
             except Exception as e:
-                self.logger.warning(f"Error closing connection: {str(e)}")
+                self.logger.warning(f"Error closing connection: {e!s}")
             finally:
                 self.connection = None
 
@@ -281,7 +282,7 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
             try:
                 await self.engine.dispose()
             except Exception as e:
-                self.logger.warning(f"Error disposing engine: {str(e)}")
+                self.logger.warning(f"Error disposing engine: {e!s}")
             finally:
                 self.engine = None
 
@@ -293,9 +294,9 @@ async def enhanced_async_connection(
     db_user_pw: str | None = None,
     db_driver: str | None = None,
     db_port: int | None = None,
-    config: Optional[ConnectionConfig] = None,
+    config: ConnectionConfig | None = None,
     isolation_level: str = "AUTOCOMMIT",
-    factory: Optional[EnhancedAsyncEngineFactory] = None,
+    factory: EnhancedAsyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: float = 1.0,
     logger: logging.Logger | None = None,

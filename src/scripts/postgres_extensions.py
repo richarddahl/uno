@@ -10,18 +10,15 @@ This module provides tools for:
 - Managing extension lifecycle
 """
 
+import argparse
 import os
+import platform
+import subprocess
+
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import sys
 import tempfile
-import shutil
-import subprocess
-import argparse
-import platform
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, Tuple
 
 
 class ExtensionManagerError(Exception):
@@ -31,11 +28,11 @@ class ExtensionManagerError(Exception):
 
 
 def run_command(
-    command: Union[str, list[str]],
+    command: str | list[str],
     check: bool = True,
     shell: bool = True,
     capture_output: bool = False,
-    env: Optional[dict[str, str]] = None,
+    env: dict[str, str] | None = None,
     cwd: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
@@ -324,11 +321,11 @@ def install_extensions(sudo_required: bool = True) -> bool:
 
             return True
     except ExtensionManagerError as e:
-        print(f"\n===== PostgreSQL Extensions Installation Failed =====")
+        print("\n===== PostgreSQL Extensions Installation Failed =====")
         print(f"Error: {e}")
         return False
     except Exception as e:
-        print(f"\n===== PostgreSQL Extensions Installation Failed =====")
+        print("\n===== PostgreSQL Extensions Installation Failed =====")
         print(f"Unexpected error: {e}")
         return False
 

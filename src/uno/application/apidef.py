@@ -5,7 +5,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-
 tags_metadata = [
     {
         "name": "0KUI",

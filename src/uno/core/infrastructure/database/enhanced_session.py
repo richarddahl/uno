@@ -11,51 +11,42 @@ This module extends the base session management with:
 - Resource cleanup on task cancellation
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    Optional,
-    AsyncIterator,
-    Dict,
-    Any,
-    List,
-    TypeVar,
-    Generic,
-    Type,
-    cast,
-)
 import contextlib
 import logging
+from asyncio import current_task
+from collections.abc import AsyncIterator
+from typing import (
+    Any,
+    TypeVar,
+    cast,
+)
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    async_sessionmaker,
     async_scoped_session,
+    async_sessionmaker,
 )
-from sqlalchemy.ext.asyncio.engine import AsyncEngine
-from sqlalchemy.ext.asyncio.session import _AsyncSessionContextManager
-from sqlalchemy.orm import sessionmaker
-from asyncio import current_task
 
+from uno.core.async_utils import (
+    AsyncContextGroup,
+    AsyncExitStack,
+    AsyncLock,
+    Limiter,
+    TaskGroup,
+    run_task,
+    timeout,
+)
+from uno.core.logging.logger import get_logger
+from uno.core.protocols import (
+    DatabaseSessionContextProtocol,
+    DatabaseSessionFactoryProtocol,
+    DatabaseSessionProtocol,
+)
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.enhanced_async import (
     EnhancedAsyncEngineFactory,
-    DatabaseOperationGroup,
 )
 from uno.settings import uno_settings
-from uno.core.protocols import (
-    DatabaseSessionProtocol,
-    DatabaseSessionFactoryProtocol,
-    DatabaseSessionContextProtocol,
-)
-from uno.core.async_utils import (
-    TaskGroup,
-    AsyncLock,
-    Limiter,
-    AsyncContextGroup,
-    AsyncExitStack,
-    timeout,
-    run_task,
-)
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -74,8 +65,8 @@ class EnhancedAsyncSessionFactory(DatabaseSessionFactoryProtocol):
 
     def __init__(
         self,
-        engine_factory: Optional[EnhancedAsyncEngineFactory] = None,
-        session_limiter: Optional[Limiter] = None,
+        engine_factory: EnhancedAsyncEngineFactory | None = None,
+        session_limiter: Limiter | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -319,7 +310,7 @@ class EnhancedAsyncSessionFactory(DatabaseSessionFactoryProtocol):
             await scoped_session.remove()
 
     async def get_active_session_count(
-        self, config: Optional[ConnectionConfig] = None
+        self, config: ConnectionConfig | None = None
     ) -> dict[str, int]:
         """
         Get the number of active sessions.
@@ -357,10 +348,10 @@ class EnhancedAsyncSessionContext(DatabaseSessionContextProtocol):
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
-        factory: Optional[DatabaseSessionFactoryProtocol] = None,
+        factory: DatabaseSessionFactoryProtocol | None = None,
         logger: logging.Logger | None = None,
         scoped: bool = False,
-        timeout_seconds: Optional[float] = None,
+        timeout_seconds: float | None = None,
         **kwargs: Any,
     ):
         """Initialize the enhanced async session context."""
@@ -375,7 +366,7 @@ class EnhancedAsyncSessionContext(DatabaseSessionContextProtocol):
         self.scoped = scoped
         self.timeout_seconds = timeout_seconds
         self.kwargs = kwargs
-        self.session: Optional[DatabaseSessionProtocol] = None
+        self.session: DatabaseSessionProtocol | None = None
         self.exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> DatabaseSessionProtocol:
@@ -443,10 +434,10 @@ async def enhanced_async_session(
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
-    factory: Optional[DatabaseSessionFactoryProtocol] = None,
+    factory: DatabaseSessionFactoryProtocol | None = None,
     logger: logging.Logger | None = None,
     scoped: bool = False,
-    timeout_seconds: Optional[float] = None,
+    timeout_seconds: float | None = None,
     **kwargs,
 ) -> AsyncIterator[DatabaseSessionProtocol]:
     """
@@ -494,7 +485,7 @@ def get_enhanced_session(
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
-    factory: Optional[DatabaseSessionFactoryProtocol] = None,
+    factory: DatabaseSessionFactoryProtocol | None = None,
     logger: logging.Logger | None = None,
     scoped: bool = False,
     **kwargs,
@@ -586,7 +577,7 @@ class SessionOperationGroup:
             try:
                 await session.close()
             except Exception as e:
-                self.logger.warning(f"Error closing session: {str(e)}")
+                self.logger.warning(f"Error closing session: {e!s}")
 
         # Clean up the exit stack
         await self.exit_stack.__aexit__(exc_type, exc_val, exc_tb)
@@ -599,7 +590,7 @@ class SessionOperationGroup:
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
-        factory: Optional[DatabaseSessionFactoryProtocol] = None,
+        factory: DatabaseSessionFactoryProtocol | None = None,
         **kwargs,
     ) -> AsyncSession:
         """
@@ -635,9 +626,9 @@ class SessionOperationGroup:
         session = await self.exit_stack.enter_async_context(session_context)
 
         # Store the session for cleanup
-        self.sessions.append(cast(AsyncSession, session))
+        self.sessions.append(cast("AsyncSession", session))
 
-        return cast(AsyncSession, session)
+        return cast("AsyncSession", session)
 
     async def run_operation(
         self,

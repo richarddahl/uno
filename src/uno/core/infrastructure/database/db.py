@@ -3,27 +3,23 @@
 # SPDX-License-Identifier: MIT
 
 import json
-from typing import Any, Callable, Optional, Type, TypeVar, List, Dict, Tuple, cast
+from typing import Any, TypeVar
 
-from psycopg import sql
 from asyncpg.exceptions import UniqueViolationError  # type: ignore
-
-from pydantic import BaseModel, ConfigDict
+from psycopg import sql
+from pydantic import BaseModel
 from sqlalchemy import (
-    select,
-    delete,
-    update,
-    text,
-    func,
     UniqueConstraint,
+    delete,
+    func,
+    select,
+    text,
 )
 from sqlalchemy.exc import IntegrityError
 
-
-from uno.core.errors.result import Result, Success, Failure
 from uno.core.protocols import (
-    DatabaseSessionContextProtocol,
     DatabaseRepository,
+    DatabaseSessionContextProtocol,
 )
 
 
@@ -38,14 +34,13 @@ class NotFoundException(Exception):
 # FilterParam has been moved to uno.core.types to avoid circular imports
 from uno.core.types import FilterParam
 
-
 T = TypeVar("T", bound=BaseModel)
 K = TypeVar("K")
 
 
 def UnoDBFactory(
     obj: BaseModel,
-    session_context_factory: Optional[type[DatabaseSessionContextProtocol]] = None,
+    session_context_factory: type[DatabaseSessionContextProtocol] | None = None,
 ) -> type[DatabaseRepository[T, K, Any, dict[str, Any], Any]]:
     """
     Factory function that creates a UnoDB class implementing the DatabaseRepository protocol.
@@ -150,7 +145,7 @@ def UnoDBFactory(
         async def create(
             cls,
             schema: T,
-        ) -> Tuple[T, bool]:
+        ) -> tuple[T, bool]:
             try:
                 session_context = SessionContextClass()
                 async with session_context as session:
@@ -197,7 +192,7 @@ def UnoDBFactory(
                 raise FrameworkError(f"Unknown error occurred: {e}") from e
 
         @classmethod
-        async def get(cls, select_related=None, **kwargs: Any) -> Optional[T]:
+        async def get(cls, select_related=None, **kwargs: Any) -> T | None:
             """
             Get a record from the database with optional relationship loading.
 
@@ -304,7 +299,7 @@ def UnoDBFactory(
 
         @classmethod
         async def filter(
-            cls, filters: Optional[FilterParam] = None, select_related=None
+            cls, filters: FilterParam | None = None, select_related=None
         ) -> list[T]:
             """
             Filter records with optional relationship loading.

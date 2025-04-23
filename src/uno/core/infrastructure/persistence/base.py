@@ -13,27 +13,27 @@ a common base class with appropriate type annotations.
 import datetime
 import decimal
 import enum
-from typing import Annotated, Any, Optional, Type, TypeVar
+from typing import Annotated, TypeVar
 
 from sqlalchemy import MetaData
-from sqlalchemy.orm import registry, DeclarativeBase
-from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
     BIGINT,
-    TIMESTAMP,
-    DATE,
-    TIME,
-    VARCHAR,
-    ENUM,
     BOOLEAN,
-    NUMERIC,
-    INTERVAL,
-    UUID,
-    JSONB,
     BYTEA,
+    DATE,
+    ENUM,
+    INTERVAL,
+    JSONB,
+    NUMERIC,
     TEXT,
+    TIME,
+    TIMESTAMP,
+    UUID,
+    VARCHAR,
 )
+from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, registry
 
 from uno.settings import uno_settings
 
@@ -86,7 +86,7 @@ class MetadataFactory:
 
     @staticmethod
     def create_metadata(
-        schema: str | None = None, naming_convention: Optional[dict] = None
+        schema: str | None = None, naming_convention: dict | None = None
     ) -> MetaData:
         """
         Create a new SQLAlchemy metadata instance with the specified schema and naming convention.

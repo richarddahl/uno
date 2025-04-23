@@ -8,51 +8,48 @@ This module extends the enhanced session management with connection pooling,
 health checking, and circuit breaker pattern.
 """
 
+import asyncio
+import contextlib
+import logging
+from collections.abc import AsyncIterator
 from typing import (
-    Optional,
-    AsyncIterator,
-    Dict,
     Any,
     TypeVar,
     cast,
 )
-import contextlib
-import logging
-import asyncio
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.pooled_async import PooledAsyncEngineFactory
-from uno.infrastructure.database.enhanced_session import (
-    EnhancedAsyncSessionFactory,
-    EnhancedAsyncSessionContext,
-    SessionOperationGroup,
-)
-from uno.settings import uno_settings
-from uno.core.protocols import (
-    DatabaseSessionProtocol,
-    DatabaseSessionFactoryProtocol,
+from uno.core.async_integration import (
+    AsyncCache,
+    cancellable,
+    retry,
 )
 from uno.core.async_utils import (
     AsyncLock,
     Limiter,
     timeout,
 )
-from uno.core.async_integration import (
-    AsyncCache,
-    cancellable,
-    retry,
+from uno.core.protocols import (
+    DatabaseSessionFactoryProtocol,
+    DatabaseSessionProtocol,
+)
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.infrastructure.database.engine.pooled_async import PooledAsyncEngineFactory
+from uno.infrastructure.database.enhanced_session import (
+    EnhancedAsyncSessionContext,
+    EnhancedAsyncSessionFactory,
+    SessionOperationGroup,
 )
 from uno.infrastructure.database.resources import (
     CircuitBreaker,
     ResourceRegistry,
     get_resource_registry,
 )
-
+from uno.settings import uno_settings
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -71,9 +68,9 @@ class PooledAsyncSessionFactory(EnhancedAsyncSessionFactory):
 
     def __init__(
         self,
-        engine_factory: Optional[PooledAsyncEngineFactory] = None,
-        session_limiter: Optional[Limiter] = None,
-        resource_registry: Optional[ResourceRegistry] = None,
+        engine_factory: PooledAsyncEngineFactory | None = None,
+        session_limiter: Limiter | None = None,
+        resource_registry: ResourceRegistry | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -170,7 +167,7 @@ class PooledAsyncSessionFactory(EnhancedAsyncSessionFactory):
         # Define a function to create the sessionmaker
         async def create_pooled_sessionmaker() -> async_sessionmaker:
             # Get the pooled engine factory
-            engine_factory = cast(PooledAsyncEngineFactory, self.engine_factory)
+            engine_factory = cast("PooledAsyncEngineFactory", self.engine_factory)
 
             # Get the engine pool
             await engine_factory.create_engine_pool(
@@ -300,10 +297,10 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
-        factory: Optional[DatabaseSessionFactoryProtocol] = None,
+        factory: DatabaseSessionFactoryProtocol | None = None,
         logger: logging.Logger | None = None,
         scoped: bool = False,
-        timeout_seconds: Optional[float] = None,
+        timeout_seconds: float | None = None,
         pool_size: int = 10,
         min_size: int = 2,
         **kwargs: Any,
@@ -409,10 +406,10 @@ async def pooled_async_session(
     db_role: str = f"{uno_settings.DB_NAME}_login",
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
-    factory: Optional[DatabaseSessionFactoryProtocol] = None,
+    factory: DatabaseSessionFactoryProtocol | None = None,
     logger: logging.Logger | None = None,
     scoped: bool = False,
-    timeout_seconds: Optional[float] = None,
+    timeout_seconds: float | None = None,
     pool_size: int = 10,
     min_size: int = 2,
     **kwargs,
@@ -474,7 +471,7 @@ class PooledSessionOperationGroup(SessionOperationGroup):
         db_role: str = f"{uno_settings.DB_NAME}_login",
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
-        factory: Optional[DatabaseSessionFactoryProtocol] = None,
+        factory: DatabaseSessionFactoryProtocol | None = None,
         pool_size: int = 10,
         min_size: int = 2,
         **kwargs,
@@ -516,6 +513,6 @@ class PooledSessionOperationGroup(SessionOperationGroup):
         session = await self.exit_stack.enter_async_context(session_context)
 
         # Store the session for cleanup
-        self.sessions.append(cast(AsyncSession, session))
+        self.sessions.append(cast("AsyncSession", session))
 
-        return cast(AsyncSession, session)
+        return cast("AsyncSession", session)

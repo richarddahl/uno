@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
 
 from uno.settings import uno_settings
 
@@ -25,7 +25,7 @@ class ConnectionConfig(BaseModel):
     pool_recycle: int | None = 90
 
     # Additional driver-specific arguments
-    connect_args: Optional[dict] = None
+    connect_args: dict | None = None
 
     model_config = ConfigDict(frozen=True)
 

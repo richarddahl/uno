@@ -5,29 +5,25 @@
 API routes for the TodoList bounded context.
 """
 
-from datetime import datetime
-from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 
 from uno.core.application.commands import CommandBus
 from uno.core.application.queries import QueryBus
+from uno.core.errors.result import Failure
+from uno.examples.todolist.api.schemas import (
+    CreateTodoRequest,
+    TodoItemResponse,
+)
 from uno.examples.todolist.application.commands import (
-    CreateTodoItemCommand,
-    CompleteTodoItemCommand,
     CancelTodoItemCommand,
+    CompleteTodoItemCommand,
+    CreateTodoItemCommand,
 )
 from uno.examples.todolist.application.queries import (
     GetTodoItemQuery,
     ListTodoItemsQuery,
 )
-from uno.examples.todolist.domain.models import TodoItem, TodoStatus, TodoPriority
-from uno.examples.todolist.api.schemas import (
-    CreateTodoRequest,
-    TodoItemResponse,
-    UpdateTodoRequest,
-)
-
-from uno.core.errors.result import Failure
+from uno.examples.todolist.domain.models import TodoPriority, TodoStatus
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -61,7 +57,7 @@ async def get_todo(todo_id: str):
 
 @router.get("/", response_model=list[TodoItemResponse])
 async def list_todos(
-    status: Optional[TodoStatus] = None, priority: Optional[TodoPriority] = None
+    status: TodoStatus | None = None, priority: TodoPriority | None = None
 ):
     """List todo items with optional filtering."""
     query = ListTodoItemsQuery(status=status, priority=priority)

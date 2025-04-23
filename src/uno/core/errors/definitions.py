@@ -68,6 +68,14 @@ class DIErrorCode:
 # Dependency Injection (DI) error classes
 # -----------------------------------------------------------------------------
 
+class ServiceDiscoveryValidationError(FrameworkError):
+    """Raised when DI service discovery validation fails."""
+    def __init__(self, message: str, **context: Any):
+        super().__init__(
+            message=message,
+            error_code=DIErrorCode.SERVICE_REGISTRATION_FAILED,
+            **context,
+        )
 
 class ServiceNotFoundError(FrameworkError):
     """Raised when a requested service is not registered in the DI container."""

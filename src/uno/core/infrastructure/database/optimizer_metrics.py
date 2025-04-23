@@ -9,39 +9,26 @@ from uno.core.logging.logger import get_logger
 from the query optimizer for performance monitoring and improvement tracking.
 """
 
-from typing import (
-    Dict,
-    Any,
-    List,
-    Optional,
-    Union,
-    Set,
-    Tuple,
-    TypeVar,
-    Generic,
-    Callable,
-)
-import time
-import json
-import logging
 import asyncio
-import datetime
+import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import statistics
 from functools import wraps
+from typing import (
+    Any,
+)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from uno.core.monitoring.metrics import MetricsRegistry as MetricsManager
+from uno.core.monitoring.metrics import MetricType
 from uno.infrastructure.database.query_optimizer import (
     QueryComplexity,
-    OptimizationLevel,
-    QueryPlan,
-    QueryStatistics,
-    OptimizationConfig,
     QueryOptimizer,
+    QueryStatistics,
 )
-from uno.core.monitoring.metrics import MetricsRegistry as MetricsManager, MetricType
 
 
 class MetricSource(Enum):
@@ -189,7 +176,7 @@ class OptimizerMetricsCollector:
 
     def __init__(
         self,
-        metrics_manager: Optional[MetricsManager] = None,
+        metrics_manager: MetricsManager | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -368,8 +355,8 @@ class OptimizerMetricsCollector:
 
     def get_snapshots(
         self,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None,
+        start_time: float | None = None,
+        end_time: float | None = None,
     ) -> list[OptimizerMetricsSnapshot]:
         """
         Get metrics snapshots for a time range.
@@ -394,7 +381,7 @@ class OptimizerMetricsCollector:
 
         return filtered_snapshots
 
-    def get_latest_snapshot(self) -> Optional[OptimizerMetricsSnapshot]:
+    def get_latest_snapshot(self) -> OptimizerMetricsSnapshot | None:
         """
         Get the latest metrics snapshot.
 
@@ -407,8 +394,8 @@ class OptimizerMetricsCollector:
 
     def generate_report(
         self,
-        optimizer: Optional[QueryOptimizer] = None,
-        time_range: Optional[Tuple[float, float]] = None,
+        optimizer: QueryOptimizer | None = None,
+        time_range: tuple[float, float] | None = None,
     ) -> dict[str, Any]:
         """
         Generate a metrics report.
@@ -618,7 +605,7 @@ def track_query_performance(
 
 def with_query_metrics(
     optimizer: QueryOptimizer,
-    metrics_collector: Optional[OptimizerMetricsCollector] = None,
+    metrics_collector: OptimizerMetricsCollector | None = None,
 ):
     """
     Decorator that collects metrics for a query function.
@@ -705,7 +692,7 @@ def set_metrics_collector(collector: OptimizerMetricsCollector) -> None:
 
 async def collect_optimizer_metrics(
     optimizer: QueryOptimizer,
-    metrics_collector: Optional[OptimizerMetricsCollector] = None,
+    metrics_collector: OptimizerMetricsCollector | None = None,
 ) -> OptimizerMetricsSnapshot:
     """
     Collect metrics from an optimizer instance.

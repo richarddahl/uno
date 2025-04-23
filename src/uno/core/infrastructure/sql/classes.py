@@ -12,13 +12,14 @@ modules.
 
 import warnings
 
+from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.sql.config import SQLConfig
+from uno.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
+from uno.sql.observers import LoggingSQLObserver, SQLObserver
+
 # Re-export from new modular structure
 from uno.sql.registry import SQLConfigRegistry
-from uno.sql.config import SQLConfig
-from uno.sql.emitter import SQLEmitter, SQLGenerator, SQLExecutor
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.observers import SQLObserver, LoggingSQLObserver
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 
 # Show deprecation warning
 warnings.warn(
@@ -29,15 +30,15 @@ warnings.warn(
 )
 
 __all__ = [
-    "SQLConfigRegistry",
+    "LoggingSQLObserver",
     "SQLConfig",
+    "SQLConfigRegistry",
     "SQLEmitter",
-    "SQLGenerator",
     "SQLExecutor",
+    "SQLFunctionBuilder",
+    "SQLGenerator",
+    "SQLObserver",
     "SQLStatement",
     "SQLStatementType",
-    "SQLObserver",
-    "LoggingSQLObserver",
-    "SQLFunctionBuilder",
     "SQLTriggerBuilder",
 ]

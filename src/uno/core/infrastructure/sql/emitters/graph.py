@@ -5,15 +5,14 @@
 """SQL emitters for graph database integration."""
 
 import textwrap
-from typing import List, Optional, ClassVar
-from typing_extensions import Self
+from typing import ClassVar, Self
 
-from pydantic import BaseModel, model_validator, computed_field, ConfigDict
-from sqlalchemy import Column, Table
+from pydantic import BaseModel, ConfigDict, model_validator
+from sqlalchemy import Column
 
+from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.utilities import snake_to_camel, snake_to_caps_snake
 
 
@@ -390,7 +389,7 @@ class Node(BaseModel):
     node_triggers: bool = True
     edges: list["Edge"] = []
     target_data_type: str
-    config: Optional[BaseModel] = None
+    config: BaseModel | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -566,13 +565,13 @@ class Node(BaseModel):
             return ""
 
         sql_str = textwrap.dedent(
-            f"""
+            """
             /*
             Match and detach delete node using its id.
             */
             SET LOCAL search_path TO ag_catalog;
             EXECUTE FORMAT('SELECT * FROM cypher(''graph'', $graph$
-                MATCH (v: {{id: %s}})
+                MATCH (v: {id: %s})
                 DETACH DELETE v
             $graph$) AS (e agtype);', OLD.id);
             """
@@ -616,9 +615,9 @@ class Edge(BaseModel):
     target_column: str
     target_node_label: str
     target_val_data_type: str
-    config: Optional[BaseModel] = None
+    config: BaseModel | None = None
 
-    def label_sql(self, config: Optional[BaseModel] = None) -> str:
+    def label_sql(self, config: BaseModel | None = None) -> str:
         """Generate SQL for creating an edge label if it does not exist.
 
         Args:

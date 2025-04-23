@@ -4,7 +4,6 @@
 
 """SQL index builder."""
 
-from typing import List, Optional
 
 
 class SQLIndexBuilder:

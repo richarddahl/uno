@@ -8,23 +8,22 @@ This module provides a centralized access point for database connections,
 supporting both synchronous and asynchronous access patterns.
 """
 
-from uno.core.logging.logger import get_logger
 import logging
-from typing import Optional, AsyncContextManager, ContextManager, Dict, Any
 from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncContextManager, ContextManager
 
 import asyncpg
 import psycopg
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
+    create_async_engine,
 )
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import create_engine, Engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.orm import Session, sessionmaker
 
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 
 
@@ -49,16 +48,16 @@ class DatabaseProvider:
         self.logger = logger or get_logger(__name__)
 
         # Engine instances - lazy initialized
-        self._async_engine: Optional[AsyncEngine] = None
-        self._sync_engine: Optional[Engine] = None
+        self._async_engine: AsyncEngine | None = None
+        self._sync_engine: Engine | None = None
 
         # Session factories - lazy initialized
-        self._async_session_factory: Optional[async_sessionmaker] = None
-        self._sync_session_factory: Optional[sessionmaker] = None
+        self._async_session_factory: async_sessionmaker | None = None
+        self._sync_session_factory: sessionmaker | None = None
 
         # Connection pools for direct access - lazy initialized
-        self._async_pool: Optional[asyncpg.Pool] = None
-        self._sync_pool: Optional[psycopg.Connection] = None
+        self._async_pool: asyncpg.Pool | None = None
+        self._sync_pool: psycopg.Connection | None = None
 
     def _get_async_engine(self) -> AsyncEngine:
         """
@@ -281,7 +280,7 @@ class DatabaseProvider:
                 await conn.execute("SELECT 1")
             return True
         except Exception as e:
-            self.logger.error(f"Database health check failed: {str(e)}")
+            self.logger.error(f"Database health check failed: {e!s}")
             return False
 
     async def close(self) -> None:

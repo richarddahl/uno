@@ -9,15 +9,13 @@ It also provides emitters for executing vector search operations like similarity
 hybrid vector-graph search.
 """
 
-import logging
-from typing import List, Optional, Dict, Any, Tuple, TypeVar, Generic, Protocol, Union
+from typing import Any, Protocol, TypeVar, Union
 
-from sqlalchemy.engine import Connection
 from sqlalchemy import text as sql_text
+from sqlalchemy.engine import Connection
 
-from uno.sql.emitter import SQLEmitter
 from uno.infrastructure.database.session import DatabaseSessionProtocol
-from uno.settings import uno_settings
+from uno.sql.emitter import SQLEmitter
 
 T = TypeVar("T")
 

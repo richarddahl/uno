@@ -5,9 +5,7 @@
 Database models for the TodoList bounded context.
 """
 
-from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, Enum
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, DateTime, Enum, String, Text
 
 from uno.database.base import Base
 from uno.examples.todolist.domain.models import TodoPriority, TodoStatus

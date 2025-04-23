@@ -8,15 +8,15 @@ This script is designed to run when a PostgreSQL container starts up.
 It ensures all required extensions are enabled in the database.
 """
 
-from uno.core.logging.logger import get_logger
-import os
-# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-# SPDX-License-Identifier: MIT
-
-import sys
 import argparse
 import logging
-from typing import List, Optional
+import os
+
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+import sys
+
+from uno.core.logging.logger import get_logger
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -31,7 +31,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 def init_database(
     db_user: str = None,
     db_name: str = None,
-    extensions: Optional[list[str]] = None,
+    extensions: list[str] | None = None,
     graph_name: str = "graph",
 ) -> int:
     """
@@ -104,7 +104,7 @@ def init_database(
         ]
 
         logger.info(f"Initializing PostgreSQL with extensions: {', '.join(extensions)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
         if result.returncode != 0:
             logger.error(f"Error initializing database: {result.stderr}")

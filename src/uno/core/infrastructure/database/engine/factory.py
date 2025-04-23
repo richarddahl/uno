@@ -8,9 +8,8 @@ This module provides a factory for creating SQLAlchemy engines
 with appropriate configuration.
 """
 
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.engine.url import URL
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from uno.infrastructure.database.config import ConnectionConfig
 

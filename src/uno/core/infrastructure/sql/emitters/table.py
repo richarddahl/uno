@@ -4,20 +4,11 @@
 
 """SQL emitters for table-level operations."""
 
-import logging
-from typing import List, Set
-from sqlalchemy import Table, Column, UniqueConstraint, PrimaryKeyConstraint
-from sqlalchemy.schema import ForeignKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint, UniqueConstraint
 
+from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder, SQLIndexBuilder
-from uno.sql.errors import (
-    SQLErrorCode,
-    SQLEmitterError,
-    SQLExecutionError,
-    SQLConfigError,
-)
 
 
 class InsertMetaRecordFunction(SQLEmitter):
@@ -545,7 +536,7 @@ class DefaultGroupTenant(SQLEmitter):
             return statements
 
         # Generate default group tenant function
-        function_body = f"""
+        function_body = """
         DECLARE
             tenant_id VARCHAR(26) := current_setting('rls_var.tenant_id', true);
         BEGIN
@@ -951,7 +942,7 @@ class TableMergeFunction(SQLEmitter):
         function_name = f"merge_{table_name}_record"
 
         # Get primary key columns
-        pk_columns: Set[str] = set()
+        pk_columns: set[str] = set()
         for constraint in self.table.constraints:
             if isinstance(constraint, PrimaryKeyConstraint):
                 pk_columns = {col.name for col in constraint.columns}

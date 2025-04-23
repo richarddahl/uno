@@ -30,18 +30,18 @@ Uno Migration Commands:
     check [--repair]: Check migrations for consistency issues
 """
 
-from uno.core.logging.logger import get_logger
-import os
-import sys
 import argparse
 import logging
-import subprocess
+import os
+import sys
 from pathlib import Path
 
-from uno.settings import uno_settings
-from uno.infrastructure.database.config import ConnectionConfig
-from alembic.config import Config
 from alembic import command
+from alembic.config import Config
+
+from uno.core.logging.logger import get_logger
+from uno.infrastructure.database.config import ConnectionConfig
+from uno.settings import uno_settings
 
 # Initialize a logger
 logger = get_logger(__name__)
@@ -93,8 +93,8 @@ def get_alembic_config() -> Config:
     config.set_main_option("script_location", str(migrations_dir))
 
     # Override SQLAlchemy URL if needed
-    from uno.settings import uno_settings
     from uno.infrastructure.database.config import ConnectionConfig
+    from uno.settings import uno_settings
 
     # Use login role (not admin) since login role has connect permission
     conn_config = ConnectionConfig(
@@ -476,7 +476,7 @@ def show_revisions() -> None:
     print("Available revisions:")
     for file in revision_files:
         # Extract revision info
-        with open(file, "r") as f:
+        with open(file) as f:
             content = f.read()
             revision_line = [
                 line for line in content.split("\n") if line.startswith("revision = ")

@@ -8,24 +8,19 @@ This module provides a unified repository base that can be used
 with or without UnoObj in the Uno framework.
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    TypeVar,
-    Generic,
-    Type,
-    Optional,
-    List,
-    Dict,
-    Any,
-    Tuple,
-    Union,
-    TYPE_CHECKING,
-)
 import logging
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    TypeVar,
+    Union,
+)
 
+from sqlalchemy import Result, delete, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, update, delete, text, Result, RowMapping
 
+from uno.core.logging.logger import get_logger
 from uno.model import Base
 
 # Forward references for type checking to avoid circular imports
@@ -63,7 +58,7 @@ class UnoBaseRepository(Generic[ModelT]):
         self.model_class = model_class
         self.logger = logger or get_logger(__name__)
 
-    async def get(self, id: str) -> Optional[ModelT]:
+    async def get(self, id: str) -> ModelT | None:
         """
         Get a model by ID.
 
@@ -79,8 +74,8 @@ class UnoBaseRepository(Generic[ModelT]):
 
     async def list(
         self,
-        filters: Optional[dict[str, Any]] = None,
-        order_by: Optional[list[str]] = None,
+        filters: dict[str, Any] | None = None,
+        order_by: list[str] | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[ModelT]:
@@ -140,7 +135,7 @@ class UnoBaseRepository(Generic[ModelT]):
         await self.session.commit()
         return result.scalars().first()
 
-    async def update(self, id: str, data: dict[str, Any]) -> Optional[ModelT]:
+    async def update(self, id: str, data: dict[str, Any]) -> ModelT | None:
         """
         Update an existing model.
 
@@ -189,7 +184,7 @@ class UnoBaseRepository(Generic[ModelT]):
         return True
 
     async def execute_query(
-        self, query: str, params: Optional[dict[str, Any]] = None
+        self, query: str, params: dict[str, Any] | None = None
     ) -> Result:
         """
         Execute a raw SQL query.
@@ -205,7 +200,7 @@ class UnoBaseRepository(Generic[ModelT]):
         result = await self.session.execute(stmt, params or {})
         return result
 
-    async def count(self, filters: Optional[dict[str, Any]] = None) -> int:
+    async def count(self, filters: dict[str, Any] | None = None) -> int:
         """
         Count models matching the given filters.
 

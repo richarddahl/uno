@@ -19,12 +19,12 @@ Options:
     --no-app    Set up the environment but don't start the application
 """
 
-import os
-import sys
-import time
 import argparse
 import logging
+import os
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 

@@ -6,6 +6,7 @@ import pytest
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceLifecycle, get_service_provider
 
+
 class CounterSingleton:
     def __init__(self):
         CounterSingleton.counter += 1
@@ -14,7 +15,6 @@ class CounterSingleton:
 class ErrorSingleton:
     def __init__(self):
         raise RuntimeError("Singleton error!")
-from uno.core.errors.base import FrameworkError
 
 @pytest.mark.asyncio
 async def test_provider_validation_hook_blocks_init():
@@ -94,8 +94,8 @@ async def test_scoped_service_raises_outside_scope():
     provider.configure_services(services)
     await provider.initialize()
     result = provider.get_service(FakeService)
-    from uno.core.errors.result import Failure
     from uno.core.errors.definitions import ScopeError
+    from uno.core.errors.result import Failure
     assert isinstance(result, Failure)
     assert isinstance(result.error, ScopeError)
 
@@ -177,6 +177,7 @@ async def test_resolve_singleton_service():
 
 
 import pytest
+
 
 def test_prewarm_singletons_instantiates_all_singletons():
     provider = get_service_provider()

@@ -4,7 +4,6 @@
 
 """SQL emitters for altering grants and permissions."""
 
-from typing import List
 
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType

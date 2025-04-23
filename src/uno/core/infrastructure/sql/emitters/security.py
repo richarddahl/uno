@@ -5,11 +5,10 @@
 """SQL emitters for security-related operations including Row-Level Security."""
 
 import textwrap
-from typing import List
 
+from uno.sql.builders import SQLFunctionBuilder
 from uno.sql.emitter import SQLEmitter
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder
 
 
 class RowLevelSecurity(SQLEmitter):
@@ -354,7 +353,7 @@ class CreateRLSFunctions(SQLEmitter):
         )
 
         # Generate permissible groups function SQL
-        function_body = """
+        function_body = f"""
         DECLARE
             user_id TEXT;
         BEGIN
@@ -367,9 +366,7 @@ class CreateRLSFunctions(SQLEmitter):
             JOIN {schema_name}.permission tp ON ugr.role_id = tp.id
             WHERE u.id = session_user_id AND tp.is_active = TRUE;
         END;
-        """.format(
-            schema_name=schema_name
-        )
+        """
 
         permissible_groups_sql = (
             SQLFunctionBuilder()

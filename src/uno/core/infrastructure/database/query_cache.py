@@ -15,42 +15,30 @@ Features:
 - Support for both raw SQL and ORM queries
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    Type,
-    TypeVar,
-    Generic,
-    cast,
-    Callable,
-)
-import asyncio
+import functools
 import hashlib
 import inspect
 import json
 import logging
+import pickle
 import time
-import functools
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import pickle
+from typing import (
+    Any,
+    Generic,
+    TypeVar,
+)
 
-from sqlalchemy import text, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.engine.result import Result
-from sqlalchemy.sql import Select, Executable
 from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.sql import Executable, Select
 
 from uno.core.async_integration import AsyncCache
-from uno.core.errors.result import Result as OpResult, Success, Failure
-from uno.settings import uno_settings
-
+from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Result as OpResult
+from uno.core.logging.logger import get_logger
 
 T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=DeclarativeMeta)
@@ -243,9 +231,9 @@ class QueryCacheKey:
 
     @staticmethod
     def hash_query(
-        query: Union[str, Executable],
-        params: Optional[dict[str, Any]] = None,
-        table_names: Optional[list[str]] = None,
+        query: str | Executable,
+        params: dict[str, Any] | None = None,
+        table_names: list[str] | None = None,
     ) -> str:
         """
         Generate a hash for a query.
@@ -291,7 +279,7 @@ class QueryCacheKey:
     @staticmethod
     def from_select(
         select_query: Select,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> str:
         """
         Generate a cache key from a SQLAlchemy select query.
@@ -329,8 +317,8 @@ class QueryCacheKey:
     @staticmethod
     def from_text(
         sql: str,
-        params: Optional[dict[str, Any]] = None,
-        table_names: Optional[list[str]] = None,
+        params: dict[str, Any] | None = None,
+        table_names: list[str] | None = None,
     ) -> str:
         """
         Generate a cache key from a SQL text query.
@@ -420,7 +408,7 @@ class CachedResult(Generic[T]):
     last_accessed: float = field(default_factory=time.time)
 
     # Dependencies
-    dependencies: Set[str] = field(default_factory=set)
+    dependencies: set[str] = field(default_factory=set)
 
     def update_access(self) -> None:
         """Update access metrics when result is accessed."""
@@ -461,7 +449,7 @@ class QueryCache:
 
     def __init__(
         self,
-        config: Optional[QueryCacheConfig] = None,
+        config: QueryCacheConfig | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -481,7 +469,7 @@ class QueryCache:
         self.stats = QueryCacheStats()
 
         # Dependency tracking
-        self._dependencies: dict[str, Set[str]] = {}  # table_name -> set of cache keys
+        self._dependencies: dict[str, set[str]] = {}  # table_name -> set of cache keys
 
         # Redis client (initialized lazily)
         self._redis_client = None
@@ -590,7 +578,7 @@ class QueryCache:
                     return Success(cached_result.get_value())
 
             except Exception as e:
-                self.logger.warning(f"Error accessing Redis cache: {str(e)}")
+                self.logger.warning(f"Error accessing Redis cache: {e!s}")
 
         # Record cache miss
         duration = time.time() - start_time
@@ -605,8 +593,8 @@ class QueryCache:
         self,
         key: str,
         value: Any,
-        ttl: Optional[float] = None,
-        dependencies: Optional[list[str]] = None,
+        ttl: float | None = None,
+        dependencies: list[str] | None = None,
         query_time: float = 0.0,
     ) -> None:
         """
@@ -675,7 +663,7 @@ class QueryCache:
                 )
 
             except Exception as e:
-                self.logger.warning(f"Error storing in Redis cache: {str(e)}")
+                self.logger.warning(f"Error storing in Redis cache: {e!s}")
 
         # Check if we need to evict entries
         if len(self._cache) > self.config.max_entries:
@@ -705,7 +693,7 @@ class QueryCache:
                 await redis_client.delete(redis_key)
 
             except Exception as e:
-                self.logger.warning(f"Error invalidating Redis cache: {str(e)}")
+                self.logger.warning(f"Error invalidating Redis cache: {e!s}")
 
     async def invalidate_by_table(self, table_name: str) -> None:
         """
@@ -760,7 +748,7 @@ class QueryCache:
 
             except Exception as e:
                 self.logger.warning(
-                    f"Error invalidating Redis cache by pattern: {str(e)}"
+                    f"Error invalidating Redis cache by pattern: {e!s}"
                 )
 
     async def clear(self) -> None:
@@ -783,7 +771,7 @@ class QueryCache:
                     await redis_client.delete(*all_redis_keys)
 
             except Exception as e:
-                self.logger.warning(f"Error clearing Redis cache: {str(e)}")
+                self.logger.warning(f"Error clearing Redis cache: {e!s}")
 
         # Reset statistics
         self.stats = QueryCacheStats()
@@ -839,10 +827,10 @@ class QueryCache:
 
 
 def cached(
-    ttl: Optional[float] = None,
-    dependencies: Optional[list[str]] = None,
-    key_builder: Optional[Callable[..., str]] = None,
-    cache_instance: Optional[QueryCache] = None,
+    ttl: float | None = None,
+    dependencies: list[str] | None = None,
+    key_builder: Callable[..., str] | None = None,
+    cache_instance: QueryCache | None = None,
 ):
     """
     Decorator to cache the results of a function.
@@ -901,9 +889,9 @@ def cached(
 
 
 def cached_query(
-    ttl: Optional[float] = None,
-    dependencies: Optional[list[str]] = None,
-    cache_instance: Optional[QueryCache] = None,
+    ttl: float | None = None,
+    dependencies: list[str] | None = None,
+    cache_instance: QueryCache | None = None,
 ):
     """
     Decorator to cache the results of a query function.
@@ -1013,7 +1001,7 @@ class QueryCacheManager:
     Provides centralized management of query caches.
     """
 
-    _default_cache: Optional[QueryCache] = None
+    _default_cache: QueryCache | None = None
     _named_caches: dict[str, QueryCache] = {}
 
     # Singleton instance (will be replaced with DI in the future)

@@ -10,8 +10,7 @@ automatic dependency resolution, and improved lifecycle management.
 """
 
 import logging
-from collections.abc import Callable, Awaitable
-from typing import Any, TypeVar, Protocol
+from typing import Any, Protocol, TypeVar
 
 from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
 from uno.core.di.interfaces import (
@@ -34,6 +33,7 @@ ResultT = TypeVar("ResultT")
 
 
 from typing import runtime_checkable
+
 
 @runtime_checkable
 class ServiceLifecycle(Protocol):

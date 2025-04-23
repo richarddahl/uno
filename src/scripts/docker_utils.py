@@ -11,16 +11,15 @@ This module provides utilities for:
 - Installing and configuring extensions
 """
 
+import argparse
 import os
-import sys
-import time
+
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
 import subprocess
-import argparse
+import sys
+import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, Tuple, Callable
 
 
 class DockerUtilsError(Exception):
@@ -30,11 +29,11 @@ class DockerUtilsError(Exception):
 
 
 def run_command(
-    command: Union[str, list[str]],
+    command: str | list[str],
     check: bool = True,
     shell: bool = True,
     capture_output: bool = False,
-    env: Optional[dict[str, str]] = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Run a shell command and handle errors.
@@ -273,7 +272,7 @@ def wait_for_postgres(
         time.sleep(delay)
         attempt += 1
 
-    print(f"PostgreSQL did not become ready in time. Check Docker logs:")
+    print("PostgreSQL did not become ready in time. Check Docker logs:")
     run_command(f"docker logs {container_name}")
     return False
 
@@ -406,12 +405,12 @@ def setup_test_environment(
 
         return True
     except DockerUtilsError as e:
-        print(f"\n===== Test Environment Setup Failed =====")
+        print("\n===== Test Environment Setup Failed =====")
         print(f"Error: {e}")
         print("\nFor troubleshooting, see docs/docker_setup.md")
         return False
     except Exception as e:
-        print(f"\n===== Test Environment Setup Failed =====")
+        print("\n===== Test Environment Setup Failed =====")
         print(f"Unexpected error: {e}")
         print("\nFor troubleshooting, see docs/docker_setup.md")
         return False

@@ -12,53 +12,40 @@ This module provides an enhanced connection pool with advanced features:
 - Connection pooling strategies for different workloads
 """
 
-from uno.core.logging.logger import get_logger
-from typing import (
-    TypeVar,
-    Generic,
-    Dict,
-    List,
-    Any,
-    Optional,
-    Callable,
-    Awaitable,
-    Union,
-    cast,
-    Set,
-    Tuple,
-)
 import asyncio
+import contextlib
 import logging
 import time
-import contextlib
 import uuid
-from enum import Enum
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from enum import Enum
+from typing import (
+    Any,
+    Generic,
+    TypeVar,
+)
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
-from sqlalchemy.exc import SQLAlchemyError, OperationalError, DisconnectionError
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from uno.core.async_integration import (
+    AsyncCache,
+    cancellable,
+    retry,
+)
+from uno.core.async_utils import (
+    AsyncLock,
+    TaskGroup,
+    timeout,
+)
+from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.resources import (
-    ConnectionPool,
     CircuitBreaker,
     ResourceRegistry,
     get_resource_registry,
-    managed_resource,
-)
-from uno.core.async_utils import (
-    timeout,
-    AsyncLock,
-    Limiter,
-    TaskGroup,
-)
-from uno.core.async_integration import (
-    cancellable,
-    retry,
-    AsyncCache,
 )
 from uno.settings import uno_settings
-
 
 T = TypeVar("T")
 
@@ -246,7 +233,7 @@ class PoolMetrics:
     circuit_breaker_resets: int = 0
 
     # Timing stats
-    last_scaling_time: Optional[float] = None
+    last_scaling_time: float | None = None
     max_wait_time: float = 0.0
 
     # Connection stats
@@ -351,7 +338,7 @@ class PoolMetrics:
         now = time.time()
         recent_samples = [
             load
-            for load, sample_time in zip(self.load_samples, self.load_sample_times)
+            for load, sample_time in zip(self.load_samples, self.load_sample_times, strict=False)
             if now - sample_time <= window
         ]
 
@@ -439,10 +426,10 @@ class EnhancedConnectionPool(Generic[T]):
         name: str,
         factory: Callable[[], Awaitable[T]],
         close_func: Callable[[T], Awaitable[None]],
-        validate_func: Optional[Callable[[T], Awaitable[bool]]] = None,
-        reset_func: Optional[Callable[[T], Awaitable[None]]] = None,
-        config: Optional[ConnectionPoolConfig] = None,
-        resource_registry: Optional[ResourceRegistry] = None,
+        validate_func: Callable[[T], Awaitable[bool]] | None = None,
+        reset_func: Callable[[T], Awaitable[None]] | None = None,
+        config: ConnectionPoolConfig | None = None,
+        resource_registry: ResourceRegistry | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -469,7 +456,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         # Connection storage
         self._connections: dict[str, dict[str, Any]] = {}
-        self._available_conn_ids: Set[str] = set()
+        self._available_conn_ids: set[str] = set()
         self._pending_acquisitions: int = 0
 
         # Synchronization
@@ -481,12 +468,12 @@ class EnhancedConnectionPool(Generic[T]):
         # State
         self._closed = False
         self._started = False
-        self._circuit_breaker: Optional[CircuitBreaker] = None
+        self._circuit_breaker: CircuitBreaker | None = None
 
         # Tasks
-        self._maintenance_task: Optional[asyncio.Task] = None
-        self._health_check_task: Optional[asyncio.Task] = None
-        self._stats_task: Optional[asyncio.Task] = None
+        self._maintenance_task: asyncio.Task | None = None
+        self._health_check_task: asyncio.Task | None = None
+        self._stats_task: asyncio.Task | None = None
 
         # Metrics
         self.metrics = PoolMetrics()
@@ -521,7 +508,7 @@ class EnhancedConnectionPool(Generic[T]):
             await self._initialize_connections()
         except Exception as e:
             self.logger.error(
-                f"Error initializing connections for pool {self.name}: {str(e)}"
+                f"Error initializing connections for pool {self.name}: {e!s}"
             )
             raise
 
@@ -655,7 +642,7 @@ class EnhancedConnectionPool(Generic[T]):
         except Exception as e:
             self.metrics.record_connection_error()
             self.logger.error(
-                f"Error creating connection for pool {self.name}: {str(e)}"
+                f"Error creating connection for pool {self.name}: {e!s}"
             )
             return None
 
@@ -678,7 +665,7 @@ class EnhancedConnectionPool(Generic[T]):
             except Exception as e:
                 self.metrics.record_connection_error()
                 self.logger.error(
-                    f"Error creating connection for pool {self.name} with circuit breaker: {str(e)}"
+                    f"Error creating connection for pool {self.name} with circuit breaker: {e!s}"
                 )
                 raise
 
@@ -717,7 +704,7 @@ class EnhancedConnectionPool(Generic[T]):
             try:
                 await self.close_func(connection)
             except Exception as e:
-                self.logger.warning(f"Error closing connection {conn_id}: {str(e)}")
+                self.logger.warning(f"Error closing connection {conn_id}: {e!s}")
 
     async def _validate_connection(self, conn_id: str) -> bool:
         """
@@ -770,7 +757,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         except Exception as e:
             self.metrics.record_validation_failure(conn_id)
-            self.logger.warning(f"Error validating connection {conn_id}: {str(e)}")
+            self.logger.warning(f"Error validating connection {conn_id}: {e!s}")
 
             # Update cache with failure
             await self._validation_cache.set(cache_key, False)
@@ -814,7 +801,7 @@ class EnhancedConnectionPool(Generic[T]):
             return True
 
         except Exception as e:
-            self.logger.warning(f"Error resetting connection {conn_id}: {str(e)}")
+            self.logger.warning(f"Error resetting connection {conn_id}: {e!s}")
             return False
 
     async def _health_check(self) -> bool:
@@ -840,7 +827,7 @@ class EnhancedConnectionPool(Generic[T]):
             await self.close_func(connection)
 
         except Exception as e:
-            self.logger.warning(f"Health check failed for pool {self.name}: {str(e)}")
+            self.logger.warning(f"Health check failed for pool {self.name}: {e!s}")
             healthy = False
 
         # Update metrics
@@ -880,7 +867,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error in maintenance loop for pool {self.name}: {str(e)}",
+                f"Unexpected error in maintenance loop for pool {self.name}: {e!s}",
                 exc_info=True,
             )
 
@@ -921,7 +908,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error in health check loop for pool {self.name}: {str(e)}",
+                f"Unexpected error in health check loop for pool {self.name}: {e!s}",
                 exc_info=True,
             )
 
@@ -966,7 +953,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Unexpected error in stats loop for pool {self.name}: {str(e)}",
+                f"Unexpected error in stats loop for pool {self.name}: {e!s}",
                 exc_info=True,
             )
 
@@ -1201,7 +1188,7 @@ class EnhancedConnectionPool(Generic[T]):
 
     @cancellable
     @retry(max_attempts=3, base_delay=0.2, max_delay=2.0)
-    async def acquire(self) -> Tuple[str, T]:
+    async def acquire(self) -> tuple[str, T]:
         """
         Acquire a connection from the pool.
 
@@ -1237,7 +1224,7 @@ class EnhancedConnectionPool(Generic[T]):
             async with self._pool_lock:
                 self._pending_acquisitions = max(0, self._pending_acquisitions - 1)
 
-    async def _try_acquire_connection(self) -> Tuple[str, T]:
+    async def _try_acquire_connection(self) -> tuple[str, T]:
         """
         Try to acquire a connection, with waiting if needed.
 
@@ -1255,7 +1242,7 @@ class EnhancedConnectionPool(Generic[T]):
         while not self._closed:
             # Check for timeout
             if time.time() - start_time > max_wait:
-                raise asyncio.TimeoutError(
+                raise TimeoutError(
                     f"Timeout waiting for connection from pool {self.name}"
                 )
 
@@ -1265,7 +1252,7 @@ class EnhancedConnectionPool(Generic[T]):
                     # Don't wait too long
                     async with timeout(1.0):
                         await self._maintenance_complete.wait()
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Continue anyway
                     pass
 
@@ -1323,7 +1310,7 @@ class EnhancedConnectionPool(Generic[T]):
                 # Use a reasonable timeout to avoid waiting forever
                 async with timeout(5.0):
                     await self._connection_available.wait()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Check if pool is closed
                 if self._closed:
                     raise RuntimeError(f"Connection pool {self.name} is closed")
@@ -1362,10 +1349,7 @@ class EnhancedConnectionPool(Generic[T]):
             # Determine if reset is needed based on strategy
             if self.reset_func:
                 # Always reset for LOW_LATENCY strategy
-                if self.config.strategy == ConnectionPoolStrategy.LOW_LATENCY:
-                    needs_reset = True
-                # For other strategies, reset after certain number of queries
-                elif (
+                if self.config.strategy == ConnectionPoolStrategy.LOW_LATENCY or (
                     conn_id in self.metrics.connection_metrics
                     and self.metrics.connection_metrics[conn_id].query_count > 100
                 ):
@@ -1422,7 +1406,7 @@ class EnhancedConnectionPool(Generic[T]):
 
         except Exception as e:
             self.logger.error(
-                f"Error in reset_and_return for connection {conn_id}: {str(e)}"
+                f"Error in reset_and_return for connection {conn_id}: {e!s}"
             )
 
             # Close the connection on error
@@ -1604,8 +1588,8 @@ class EnhancedAsyncEnginePool:
         self,
         name: str,
         config: ConnectionConfig,
-        pool_config: Optional[ConnectionPoolConfig] = None,
-        resource_registry: Optional[ResourceRegistry] = None,
+        pool_config: ConnectionPoolConfig | None = None,
+        resource_registry: ResourceRegistry | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -1625,7 +1609,7 @@ class EnhancedAsyncEnginePool:
         self.logger = logger or get_logger(__name__)
 
         # Create the connection pool
-        self.pool: Optional[EnhancedConnectionPool[AsyncEngine]] = None
+        self.pool: EnhancedConnectionPool[AsyncEngine] | None = None
 
     async def start(self) -> None:
         """
@@ -1670,7 +1654,7 @@ class EnhancedAsyncEnginePool:
                     await conn.execute("SELECT 1")
                     return True
             except Exception as e:
-                self.logger.warning(f"Engine validation failed: {str(e)}")
+                self.logger.warning(f"Engine validation failed: {e!s}")
                 return False
 
         # Create reset function
@@ -1774,7 +1758,7 @@ class EnhancedAsyncConnectionManager:
 
     def __init__(
         self,
-        resource_registry: Optional[ResourceRegistry] = None,
+        resource_registry: ResourceRegistry | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -1948,7 +1932,7 @@ class EnhancedAsyncConnectionManager:
 
 
 # Global connection manager
-_connection_manager: Optional[EnhancedAsyncConnectionManager] = None
+_connection_manager: EnhancedAsyncConnectionManager | None = None
 
 
 def get_connection_manager() -> EnhancedAsyncConnectionManager:

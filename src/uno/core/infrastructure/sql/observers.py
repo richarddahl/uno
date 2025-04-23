@@ -6,7 +6,7 @@
 
 # from uno.core.logging.logger import get_logger  # Removed for DI-based injection
 import logging
-from typing import List, Protocol
+from typing import Protocol
 
 from uno.sql.statement import SQLStatement
 

@@ -9,19 +9,20 @@ This module provides utilities for structured logging with
 contextual information and integration with the error handling system.
 """
 
-from uno.core.logging.logger import get_logger
+import contextvars
 import functools
 import inspect
 import json
 import logging
 import logging.config
 import sys
-import traceback
-import contextvars
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Type, Union, cast, Tuple
+from typing import Any
+
 from uno.core.errors.base import FrameworkError
+from uno.core.logging.logger import get_logger
 
 # Context variable for logging context
 _logging_context = contextvars.ContextVar[dict[str, Any]]("logging_context", default={})
@@ -57,7 +58,7 @@ class StructuredLogAdapter(logging.LoggerAdapter):
     This adapter enhances log messages with contextual information.
     """
 
-    def process(self, msg: str, kwargs: dict[str, Any]) -> Tuple[str, dict[str, Any]]:
+    def process(self, msg: str, kwargs: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         """
         Process the log message and inject context.
 
@@ -309,7 +310,7 @@ def with_logging_context(func: Callable) -> Callable:
         except Exception as e:
             # Log the exception with context
             logger = get_logger(func.__module__)
-            logger.exception(f"Exception in {func.__name__}: {str(e)}", exc_info=e)
+            logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
             raise
         finally:
             # Restore the previous context

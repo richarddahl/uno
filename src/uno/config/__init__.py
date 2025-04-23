@@ -90,4 +90,4 @@ def get_config(config_type: type[Any]) -> Any:
         else:
             raise RuntimeError("Service provider not initialized")
     except Exception as e:
-        raise ValueError(f"Configuration {config_type.__name__} not found: {str(e)}")
+        raise ValueError(f"Configuration {config_type.__name__} not found: {e!s}")

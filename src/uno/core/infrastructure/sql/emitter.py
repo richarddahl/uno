@@ -5,29 +5,20 @@
 """Base class and protocols for SQL emitters."""
 
 # from uno.core.logging.logger import get_logger  # Removed for DI-based injection
-import time
 import logging
-from typing import Dict, List, Optional, Protocol, ClassVar, Type
-from pydantic import BaseModel, model_validator
+import time
+from typing import ClassVar, Protocol
 
+from pydantic import BaseModel, model_validator
 from sqlalchemy import Table
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
-from sqlalchemy.exc import SQLAlchemyError
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
 from uno.settings import uno_settings
-from uno.sql.errors import (
-    SQLErrorCode,
-    SQLEmitterError,
-    SQLExecutionError,
-    SQLStatementError,
-    SQLSyntaxError,
-)
-
+from uno.sql.observers import BaseObserver, SQLObserver
 from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.observers import SQLObserver, BaseObserver
 
 # No additional imports needed
 
@@ -87,10 +78,10 @@ class SQLEmitter(BaseModel):
     ]
 
     # The table for which SQL is being generated
-    table: Optional[Table] = None
+    table: Table | None = None
 
     # Database configuration
-    connection_config: Optional[ConnectionConfig] = None
+    connection_config: ConnectionConfig | None = None
 
     # Configuration settings
     config: BaseModel = uno_settings
@@ -99,7 +90,7 @@ class SQLEmitter(BaseModel):
     logger: logging.Logger
 
     # Engine factory for creating connections
-    engine_factory: Optional[SyncEngineFactory] = None
+    engine_factory: SyncEngineFactory | None = None
 
     # Observers for SQL operations - using BaseObserver which is a concrete class
     observers: list[BaseObserver] = []
@@ -113,7 +104,7 @@ class SQLEmitter(BaseModel):
         super().__init__(logger=logger, **data)
 
     @model_validator(mode="before")
-    def initialize_connection_config(cls, values: Dict) -> Dict:
+    def initialize_connection_config(cls, values: dict) -> dict:
         """Initialize connection_config if not provided.
 
         Args:
@@ -204,7 +195,7 @@ class SQLEmitter(BaseModel):
 
     def emit_sql(
         self, connection: Connection, dry_run: bool = False
-    ) -> Optional[list[SQLStatement]]:
+    ) -> list[SQLStatement] | None:
         """Generate and optionally execute SQL statements.
 
         Args:
@@ -251,10 +242,10 @@ class SQLEmitter(BaseModel):
     def emit_with_connection(
         self,
         dry_run: bool = False,
-        factory: Optional[SyncEngineFactory] = None,
-        config: Optional[ConnectionConfig] = None,
+        factory: SyncEngineFactory | None = None,
+        config: ConnectionConfig | None = None,
         isolation_level: str = "AUTOCOMMIT",
-    ) -> Optional[list[SQLStatement]]:
+    ) -> list[SQLStatement] | None:
         """Execute SQL with a new connection from the factory.
 
         Args:
