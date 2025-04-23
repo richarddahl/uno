@@ -4,22 +4,19 @@
 
 from typing import TypeVar
 
+from uno.core.di._internal import ServiceRegistration
+
 # Import internal types needed for type hints or advanced usage, if any
 # Public API symbols for uno.core.di
-from .container import ServiceCollection
-from .provider import (
+from uno.core.di.container import ServiceCollection
+from uno.core.di.provider import (
     ServiceLifecycle,
     ServiceProvider,
     get_service_provider,
     initialize_services,
     shutdown_services,
 )
-from .service_scope import ServiceScope
-
-# Define a public alias for the InjectMarker
-
-# Internal use only: advanced/extensibility classes
-from ._internal import ServiceRegistration
+from uno.core.di.service_scope import ServiceScope
 
 ProviderT = TypeVar("ProviderT")
 

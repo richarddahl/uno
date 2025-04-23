@@ -10,7 +10,8 @@ automatic dependency resolution, and improved lifecycle management.
 """
 
 import logging
-from typing import Any, Protocol, TypeVar
+import threading
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
 from uno.core.di.interfaces import (
@@ -30,9 +31,6 @@ T = TypeVar("T")
 EntityT = TypeVar("EntityT")
 QueryT = TypeVar("QueryT")
 ResultT = TypeVar("ResultT")
-
-
-from typing import runtime_checkable
 
 
 @runtime_checkable
@@ -89,11 +87,13 @@ class ServiceProvider:
         from uno.core.di.provider import ServiceLifecycle
 
         # Collect all registered services from base and extensions
-        all_collections = [self._base_services] + list(self._extensions.values())
+        all_collections = [self._base_services, *list(self._extensions.values())]
         seen_types = set()
         for services in all_collections:
             # Access _registrations dict from ServiceCollection
-            for service_type, registration in getattr(services, '_registrations', {}).items():
+            for service_type, registration in getattr(
+                services, "_registrations", {}
+            ).items():
                 if (
                     isinstance(service_type, type)
                     and issubclass(service_type, ServiceLifecycle)
@@ -119,7 +119,7 @@ class ServiceProvider:
 
         Call this after configuring all services and before application startup.
         """
-        if hasattr(self, '_resolver') and self._resolver:
+        if hasattr(self, "_resolver") and self._resolver:
             self._resolver.prewarm_singletons()
 
     def is_initialized(self) -> bool:
@@ -150,7 +150,9 @@ class ServiceProvider:
         self._base_services = services
         return Success(None)
 
-    def register_extension(self, name: str, services: ServiceCollection) -> Result[None, FrameworkError]:
+    def register_extension(
+        self, name: str, services: ServiceCollection
+    ) -> Result[None, FrameworkError]:
         """
         Register a service extension.
 
@@ -196,7 +198,10 @@ class ServiceProvider:
             if hasattr(self, "_resolver")
             else None
         )
-        if registration is not None and getattr(registration, "scope", None) != ServiceScope.SINGLETON:
+        if (
+            registration is not None
+            and getattr(registration, "scope", None) != ServiceScope.SINGLETON
+        ):
             raise NotImplementedError(
                 f"Lifecycle services must be registered as singletons. {service_type.__name__} is registered as {getattr(registration, 'scope', 'unknown')}."
             )
@@ -257,9 +262,7 @@ class ServiceProvider:
                         continue
 
                     service = self._resolver.resolve(service_type)
-                    if hasattr(service, "initialize") and callable(
-                        service.initialize
-                    ):
+                    if hasattr(service, "initialize") and callable(service.initialize):
                         await service.initialize()
                     self._logger.debug(
                         f"Initialized lifecycle service: {service_type.__name__}"
@@ -324,7 +327,9 @@ class ServiceProvider:
                 try:
                     validation_fn(self._base_services)
                 except Exception as e:
-                    self._logger.error(f"Service configuration validation failed: {e!s}")
+                    self._logger.error(
+                        f"Service configuration validation failed: {e!s}"
+                    )
                     raise
 
             # Modern DI: Build the resolver from the base services
@@ -382,6 +387,7 @@ class ServiceProvider:
         """
         if not self._initialized:
             from uno.core.errors.result import Failure
+
             return Failure(FrameworkError("Service provider is not initialized"))
         from .scope import Scope
 
@@ -535,7 +541,6 @@ Provides the ServiceProvider class and related helpers for dependency injection 
 Manages service lifecycles, scopes, and global provider access for application and test contexts.
 """
 
-import threading
 
 # Thread-safe global singleton pattern for ServiceProvider
 _service_provider: ServiceProvider | None = None

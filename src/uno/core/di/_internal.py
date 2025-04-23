@@ -6,26 +6,24 @@ Nothing in this file is considered public API.
 """
 
 # Standard library
-import logging
 import inspect
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any, TypeVar, cast, get_type_hints, get_origin, get_args, Generic
-from typing_extensions import Annotated, TypeGuard
-from uno.core.errors.result import Success, Failure
+from typing import Any, Generic, TypeVar, get_type_hints
+
+from uno.core.di.service_scope import ServiceScope
 from uno.core.errors.definitions import (
     CircularDependencyError,
-    MissingParameterError,
-    ServiceRegistrationError,
-    ServiceNotFoundError,
-    ScopeError,
-    FactoryError,
     ExtraParameterError,
+    FactoryError,
+    MissingParameterError,
+    ScopeError,
+    ServiceNotFoundError,
+    ServiceRegistrationError,
     ServiceResolutionError,
 )
+from uno.core.errors.result import Failure, Success
 from uno.core.logging.logger import get_logger
-from uno.core.di.service_scope import ServiceScope
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -647,7 +645,8 @@ class _ServiceResolver:
             return {}
 
     def _get_eval_namespaces(self, impl):
-        import sys, builtins
+        import builtins
+        import sys
 
         init = getattr(impl, "__init__", None)
         # If __init__ is a wrapper_descriptor (i.e., not a Python function), fallback to module or builtins

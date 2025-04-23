@@ -17,11 +17,10 @@ from collections.abc import Iterator
 from typing import Any, TypeVar
 
 from uno.core.di.container import ServiceCollection, ServiceScope
+from uno.core.di.decorators import _global_service_registry
 from uno.core.di.provider import ServiceProvider, get_service_provider
 
 T = TypeVar("T")
-
-from uno.core.di.decorators import _global_service_registry
 
 
 def auto_register_services(service_collection: ServiceCollection):
@@ -37,7 +36,6 @@ def auto_register_services(service_collection: ServiceCollection):
         service_type = getattr(cls, "__framework_service_type__", cls)
         scope = getattr(cls, "__framework_service_scope__", ServiceScope.SINGLETON)
         name = getattr(cls, "__framework_service_name__", None)
-        version = getattr(cls, "__framework_service_version__", None)
         key = (service_type, name) if name else service_type
         # Only register if not already explicitly registered
         if key not in getattr(service_collection, "_registrations", {}):
@@ -47,11 +45,11 @@ def auto_register_services(service_collection: ServiceCollection):
             else:
                 reg_type = cls
             if scope == ServiceScope.SINGLETON:
-                service_collection.add_singleton(reg_type, cls, name=name)
+                service_collection.add_singleton(reg_type, cls)
             elif scope == ServiceScope.SCOPED:
-                service_collection.add_scoped(reg_type, cls, name=name)
+                service_collection.add_scoped(reg_type, cls)
             elif scope == ServiceScope.TRANSIENT:
-                service_collection.add_transient(reg_type, cls, name=name)
+                service_collection.add_transient(reg_type, cls)
 
 
 def validate_service_discovery(modules, service_collection, logger=None, strict=False):
@@ -69,9 +67,9 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
     from uno.core.errors.result import Failure, Success
 
     try:
-        from uno.core.di.interfaces import DomainServiceProtocol
+        from uno.core.di.interfaces import domain_service_protocol
     except ImportError:
-        DomainServiceProtocol = None
+        domain_service_protocol = None
 
     logger = logger or logging.getLogger("uno.discovery")
     registered_types = set(service_collection._registrations.keys())
@@ -90,8 +88,8 @@ def validate_service_discovery(modules, service_collection, logger=None, strict=
                 and issubclass(obj, ServiceLifecycle)
                 and obj is not ServiceLifecycle
             )
-            is_domain_service = DomainServiceProtocol and issubclass(
-                obj, DomainServiceProtocol
+            is_domain_service = domain_service_protocol and issubclass(
+                obj, domain_service_protocol
             )
             is_named_service = name.endswith("Service")
             if not (is_lifecycle or is_domain_service or is_named_service):

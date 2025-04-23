@@ -14,9 +14,8 @@ Internal/advanced classes (ServiceRegistration, _ServiceResolver) are not part o
 
 from typing import Any, Protocol, TypeVar
 
-# Internal use only: advanced/extensibility classes
-from ._internal import ServiceRegistration, _ServiceResolver
-from .service_scope import ServiceScope
+from uno.core.di._internal import ServiceRegistration, _ServiceResolver
+from uno.core.di.service_scope import ServiceScope
 
 T = TypeVar("T")
 ProviderT = TypeVar("ProviderT")
@@ -37,7 +36,7 @@ class ServiceCollection:
       - Explicit registrations always override auto-registrations.
     """
 
-    def __init__(self, auto_register=None, auto_register_packages=None):
+    def __init__(self, auto_register: bool = True, auto_register_packages: list[str] | None = None):
         import os
 
         self._registrations = {}
@@ -49,7 +48,7 @@ class ServiceCollection:
         self._auto_register = auto_register if auto_register is not None else env_flag
         self._auto_register_packages = auto_register_packages or []
 
-    def enable_auto_registration(self, packages=None):
+    def enable_auto_registration(self, packages: list[str] | None = None):
         """Enable auto-registration for the given packages (or existing config)."""
         self._auto_register = True
         if packages:
@@ -62,7 +61,7 @@ class ServiceCollection:
 
             if self._auto_register_packages:
                 for pkg in self._auto_register_packages:
-                    discovery.discover_services(pkg, self)
+                    discovery.register_services_in_package(pkg, self)
             else:
                 discovery.auto_register_services(self)
 
