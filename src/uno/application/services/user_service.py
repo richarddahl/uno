@@ -7,11 +7,12 @@ from uno.domain.repository import Repository
 from uno.domain.user import User
 
 
+from uno.core.di.inject import inject
+
 class UserService:
     """Application service for managing users."""
-    def __init__(self, repo: Repository[User], event_bus: IEventBus):
-        self._repo = repo
-        self._event_bus = event_bus
+    repo: Repository[User] = inject()
+    event_bus: IEventBus = inject()
 
     async def create_user(self, username: str, email: str) -> User:
         user = User(username=username, email=email)

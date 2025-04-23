@@ -23,11 +23,11 @@ from uno.examples.todolist.domain.models import TodoItem
 from uno.examples.todolist.infrastructure.repositories import TodoItemRepository
 
 
+from uno.core.di.inject import inject
+
 class CreateTodoItemHandler(CommandHandler[CreateTodoItemCommand, TodoItem]):
     """Handler for creating new todo items."""
-
-    def __init__(self, repository: TodoItemRepository):
-        self.repository = repository
+    repository: TodoItemRepository = inject()
 
     async def handle(self, command: CreateTodoItemCommand) -> TodoItem:
         """Handle the create todo item command."""
@@ -45,9 +45,7 @@ class CreateTodoItemHandler(CommandHandler[CreateTodoItemCommand, TodoItem]):
 
 class CompleteTodoItemHandler(CommandHandler[CompleteTodoItemCommand, TodoItem]):
     """Handler for completing todo items."""
-
-    def __init__(self, repository: TodoItemRepository):
-        self.repository = repository
+    repository: TodoItemRepository = inject()
 
     async def handle(self, command: CompleteTodoItemCommand) -> "Success[TodoItem] | Failure[ValueError]":
         """Handle the complete todo item command.
@@ -62,9 +60,7 @@ class CompleteTodoItemHandler(CommandHandler[CompleteTodoItemCommand, TodoItem])
 
 class CancelTodoItemHandler(CommandHandler[CancelTodoItemCommand, TodoItem]):
     """Handler for cancelling todo items."""
-
-    def __init__(self, repository: TodoItemRepository):
-        self.repository = repository
+    repository: TodoItemRepository = inject()
 
     async def handle(self, command: CancelTodoItemCommand) -> "Success[TodoItem] | Failure[ValueError]":
         """Handle the cancel todo item command.
@@ -79,9 +75,7 @@ class CancelTodoItemHandler(CommandHandler[CancelTodoItemCommand, TodoItem]):
 
 class GetTodoItemHandler(QueryHandler[GetTodoItemQuery, Optional[TodoItem]]):
     """Handler for retrieving a specific todo item."""
-
-    def __init__(self, repository: TodoItemRepository):
-        self.repository = repository
+    repository: TodoItemRepository = inject()
 
     async def handle(self, query: GetTodoItemQuery) -> TodoItem | None:
         """Handle the get todo item query."""
@@ -90,9 +84,7 @@ class GetTodoItemHandler(QueryHandler[GetTodoItemQuery, Optional[TodoItem]]):
 
 class ListTodoItemsHandler(QueryHandler[ListTodoItemsQuery, list[TodoItem]]):
     """Handler for listing todo items."""
-
-    def __init__(self, repository: TodoItemRepository):
-        self.repository = repository
+    repository: TodoItemRepository = inject()
 
     async def handle(self, query: ListTodoItemsQuery) -> list[TodoItem]:
         """Handle the list todo items query."""

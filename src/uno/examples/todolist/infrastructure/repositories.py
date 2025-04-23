@@ -13,11 +13,14 @@ from uno.examples.todolist.domain.models import TodoItem
 from uno.examples.todolist.infrastructure.database import TodoItemModel
 
 
+from uno.core.di.inject import inject
+
 class TodoItemRepository(Repository[TodoItem, str]):
     """Repository for TodoItem aggregates."""
+    session: AsyncSession = inject()
 
-    def __init__(self, session: AsyncSession):
-        super().__init__(session, TodoItem, TodoItemModel)
+    def __init__(self):
+        super().__init__(self.session, TodoItem, TodoItemModel)
 
     async def find_by_status(self, status) -> list[TodoItem]:
         """Find todo items by status."""
