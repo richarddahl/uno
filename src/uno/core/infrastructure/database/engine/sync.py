@@ -10,7 +10,7 @@ from logging import Logger
 from sqlalchemy import URL, Connection, Engine, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from uno.core.logging.logger import get_logger
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.base import EngineFactory
 from uno.settings import uno_settings

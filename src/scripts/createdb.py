@@ -3,7 +3,7 @@
 import logging
 from contextlib import contextmanager
 
-from uno.core.logging.logger import get_logger
+import logging
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.db_manager import (
     DBManager,  # Our new DBManager for DDL operations
@@ -27,12 +27,13 @@ from uno.sql.emitters.database import (
 from uno.sql.emitters.table import InsertMetaRecordFunction
 
 # Initialize a logger
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s")
 handler.setFormatter(formatter)
-logger.addHandler(handler)
+if not logger.hasHandlers():
+    logger.addHandler(handler)
 
 # Initialize the engine factory with the logger
 engine_factory = SyncEngineFactory(logger=logger)

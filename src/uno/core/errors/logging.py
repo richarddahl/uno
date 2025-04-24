@@ -170,7 +170,7 @@ def configure_logging(config: LogConfig = None) -> None:
     """
     config = config or LogConfig()
 
-    root_logger = get_logger()
+    root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, config.level))
 
     # Remove any existing handlers
@@ -208,22 +208,6 @@ def configure_logging(config: LogConfig = None) -> None:
         root_logger.addHandler(file_handler)
 
 
-def get_logger(name: str) -> logging.LoggerAdapter:
-    """
-    Get a logger with the given name.
-
-    This function returns a logger adapter that includes context
-    in log messages.
-
-    Args:
-        name: The name of the logger
-
-    Returns:
-        A logger adapter that includes context
-    """
-    from uno.core.logging.logger import get_logger as _core_get_logger
-    logger = _core_get_logger(name)
-    return StructuredLogAdapter(logger, {})
 
 
 def add_logging_context(**context: Any) -> None:
@@ -309,8 +293,8 @@ def with_logging_context(func: Callable) -> Callable:
             return func(*args, **kwargs)
         except Exception as e:
             # Log the exception with context
-            from uno.core.logging.logger import get_logger as _core_get_logger
-            logger = _core_get_logger(func.__module__)
+            logger = logging.getLogger(func.__module__)
+            logger = StructuredLogAdapter(logger, {})
             logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
             raise
         finally:

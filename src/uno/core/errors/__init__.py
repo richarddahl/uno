@@ -63,7 +63,6 @@ from uno.core.errors.logging import (
     add_logging_context,
     clear_logging_context,
     configure_logging,
-    get_logger,
     get_logging_context,
     with_logging_context,
 )
@@ -120,7 +119,7 @@ __all__ = [
     "validate_fields",
     # Logging
     "configure_logging",
-    "get_logger",
+
     "LogConfig",
     "with_logging_context",
     "add_logging_context",

@@ -83,7 +83,7 @@ class CircuitBreaker:
         self.recovery_timeout = recovery_timeout
         self.half_open_max_calls = half_open_max_calls
         self.exception_types = exception_types or [Exception]
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Initial state
         self._state = CircuitState.CLOSED
@@ -321,7 +321,7 @@ class ConnectionPool(Generic[T]):
         self.ttl = ttl
         self.validation_interval = validation_interval
         self.retry_backoff = retry_backoff
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Pool state
         self._connections: list[dict[str, Any]] = []
@@ -792,7 +792,7 @@ class ResourceRegistry:
         Args:
             logger_service: DI-injected LoggerService
         """
-        self.logger = logger_service.get_logger(__name__)
+        self.logger = logger_service.logging.getLogger(__name__)
         self._resources: dict[str, Any] = {}
         self._resource_lock = AsyncLock()
         self._closed = False
@@ -1016,7 +1016,7 @@ class BackgroundTask:
         self.restart_on_failure = restart_on_failure
         self.max_restarts = max_restarts
         self.restart_delay = restart_delay
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         self._task: asyncio.Task | None = None
         self._restart_count = 0

@@ -38,7 +38,7 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-from uno.core.logging.logger import get_logger
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.resources import (
     CircuitBreaker,
@@ -452,7 +452,7 @@ class EnhancedConnectionPool(Generic[T]):
         self.reset_func = reset_func
         self.config = config or ConnectionPoolConfig()
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Connection storage
         self._connections: dict[str, dict[str, Any]] = {}
@@ -1606,7 +1606,7 @@ class EnhancedAsyncEnginePool:
         self.config = config
         self.pool_config = pool_config or ConnectionPoolConfig()
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Create the connection pool
         self.pool: EnhancedConnectionPool[AsyncEngine] | None = None
@@ -1769,7 +1769,7 @@ class EnhancedAsyncConnectionManager:
             logger: Logger instance
         """
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Connection pools by name
         self._engine_pools: dict[str, EnhancedAsyncEnginePool] = {}

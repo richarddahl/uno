@@ -82,8 +82,8 @@ class _ServiceResolver:
         # Initialize singletons cache with pre-registered instances
         self._singletons: dict[type, Any] = instances.copy() if instances else {}
         self._resolution_cache: dict[type, tuple] = {}
-        from uno.core.logging.logger import get_logger as _core_get_logger
-        self._logger = _core_get_logger(__name__)
+        import logging
+        self._logger = logging.getLogger("uno.di.resolver")
 
     def _get_registration_or_error(self, service_type, name=None):
         """

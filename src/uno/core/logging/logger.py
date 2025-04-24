@@ -17,6 +17,8 @@ from uno.core.config.base import (
     TestSettingsConfigDict,
 )
 from uno.core.di.provider import ServiceLifecycle
+import uuid
+import contextvars
 
 # Type alias for logger
 Logger = logging.Logger
@@ -56,7 +58,11 @@ class LoggerService(ServiceLifecycle):
     """
     Dependency-injected singleton logging service for Uno.
     Handles logger configuration, lifecycle, and DI-friendly logger retrieval.
+    Provides robust trace/correlation/request ID propagation for observability.
     """
+
+    # Context variable for trace context (correlation/request/trace IDs)
+    _trace_context_var: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar("uno_trace_context", default={})
 
     def __init__(self, config: LoggingConfig | None = None) -> None:
         self._config: LoggingConfig = config or self._load_config()
@@ -84,6 +90,9 @@ class LoggerService(ServiceLifecycle):
         self._initialized = False
 
     def get_logger(self, name: str | None = None) -> Logger:
+        """
+        Returns a logger with the given name, supporting structured logging via the standard logging 'extra' argument.
+        """
         if not self._initialized:
             raise RuntimeError("LoggerService must be initialized before use.")
         logger_name = name or "uno"
@@ -91,15 +100,214 @@ class LoggerService(ServiceLifecycle):
             self._loggers[logger_name] = logging.getLogger(logger_name)
         return self._loggers[logger_name]
 
+    def get_child_logger(self, parent_name: str, child: str) -> Logger:
+        """
+        Returns a child logger with a dotted name (e.g., 'parent.child').
+        """
+        full_name = f"{parent_name}.{child}"
+        return self.get_logger(full_name)
+
+    def with_context(self, name: str | None = None, trace_context: dict[str, str] | None = None, **context: object) -> Logger:
+        """
+        Returns a logger that always injects the given context into log records.
+        If trace_context is not provided, uses the current trace context from contextvars (if any).
+        Usage:
+            logger = logger_service.with_context("my.module", user_id=123)
+            logger.info("Something happened")
+            # With trace context:
+            logger = logger_service.with_context(trace_context={"correlation_id": "abc-123"}, user_id=123)
+        """
+        base_logger = self.get_logger(name)
+        # Merge trace_context from contextvars if not provided
+        merged_context = dict(context)
+        if trace_context is None:
+            trace_context = self._trace_context_var.get({})
+        if trace_context:
+            merged_context.update(trace_context)
+        class ContextLogger(logging.LoggerAdapter):
+            def __init__(self, logger, extra):
+                super().__init__(logger, extra)
+            def process(self, msg, kwargs):
+                extra = kwargs.get("extra", {})
+                context = dict(self.extra)
+                context.update(extra.get("context", {}))
+                extra["context"] = context
+                kwargs["extra"] = extra
+                return msg, kwargs
+        return ContextLogger(base_logger, merged_context)
+
+    def structured_log(
+        self,
+        level: str,
+        msg: str,
+        name: str | None = None,
+        *,
+        error_context: dict[str, object] | None = None,
+        trace_context: dict[str, object] | None = None,
+        exc_info: Exception | tuple | None = None,
+        **context: object,
+    ) -> None:
+        """
+        Log a message at the given level with structured/context fields, error context, and trace context.
+        Always injects error context (exception info, error codes, stack traces, etc.) and trace/correlation IDs into log records.
+        If trace_context is not provided, uses the current trace context from contextvars (if any).
+        Example:
+            logger_service.structured_log(
+                'error',
+                'Failed to process request',
+                user_id=123,
+                error_context={'error_code': 'E123', 'details': 'Validation failed'},
+                trace_context={'correlation_id': 'abc-123', 'trace_id': 'xyz-789'},
+                exc_info=exception,
+            )
+        """
+        logger = self.get_logger(name)
+        log_method = getattr(logger, level.lower(), None)
+        if not callable(log_method):
+            raise ValueError(f"Invalid log level: {level}")
+        merged_context = dict(context)
+        # Always inject error_context and trace_context
+        if error_context:
+            merged_context.update(error_context)
+        # Use explicit trace_context if provided, else from contextvars
+        if trace_context is None:
+            trace_context = self._trace_context_var.get({})
+        if trace_context:
+            merged_context.update(trace_context)
+        # If exc_info is present, add structured exception info
+        if exc_info:
+            import traceback
+            if isinstance(exc_info, BaseException):
+                exc_type = type(exc_info).__name__
+                exc_message = str(exc_info)
+                tb = ''.join(traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__))
+            elif isinstance(exc_info, tuple):
+                exc_type = str(exc_info[0].__name__)
+                exc_message = str(exc_info[1])
+                tb = ''.join(traceback.format_exception(*exc_info))
+            else:
+                # exc_info=True: use sys.exc_info()
+                import sys
+                ei = sys.exc_info()
+                exc_type = str(ei[0].__name__) if ei[0] else None
+                exc_message = str(ei[1]) if ei[1] else None
+                tb = ''.join(traceback.format_exception(*ei)) if ei[0] else None
+            merged_context["exception_type"] = exc_type
+            merged_context["exception_message"] = exc_message
+            merged_context["exception_traceback"] = tb
+        log_method(msg, extra={"context": merged_context if merged_context else None}, exc_info=exc_info)
+
+    def _get_formatter(self) -> logging.Formatter:
+        """
+        Returns a formatter: JSON if config.JSON_FORMAT is True, otherwise standard formatter.
+        JSON: error/trace context fields are flattened at the top level.
+        Standard: error/trace context fields appended to the log message if present.
+        """
+        cfg = self._config
+        if cfg.JSON_FORMAT:
+            import json
+            class JsonFormatter(logging.Formatter):
+                def format(self, record: logging.LogRecord) -> str:
+                    base = {
+                        "timestamp": self.formatTime(record, cfg.DATE_FORMAT),
+                        "level": record.levelname,
+                        "logger": record.name,
+                        "message": record.getMessage(),
+                    }
+                    # Merge context fields if present
+                    if hasattr(record, "context") and isinstance(record.context, dict):
+                        base.update(record.context)
+                    # Remove None values for cleaner output
+                    base = {k: v for k, v in base.items() if v is not None}
+                    return json.dumps(base, default=str)
+            return JsonFormatter()
+        else:
+            class StandardFormatter(logging.Formatter):
+                def format(self, record: logging.LogRecord) -> str:
+                    msg = super().format(record)
+                    # If context has error/trace info, append as suffix
+                    if hasattr(record, "context") and isinstance(record.context, dict):
+                        context = record.context
+                        extras = []
+                        for key in ("error_code", "exception_type", "exception_message", "correlation_id", "trace_id", "request_id"):
+                            if key in context and context[key]:
+                                extras.append(f"{key}={context[key]}")
+                        if extras:
+                            msg = f"{msg} | {' '.join(extras)}"
+                    return msg
+            return StandardFormatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
+
+    def reload_config(self) -> None:
+        """
+        Re-apply the current logging config to all loggers and handlers at runtime.
+        Updates log level, handlers, and formatters for all managed loggers.
+        Call after updating config for dynamic, no-restart changes.
+        """
+        self._configure_root_logger()
+        cfg = self._config
+        formatter = self._get_formatter()
+        level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
+        for logger in self._loggers.values():
+            logger.setLevel(level)
+            # Remove all handlers
+            for h in list(logger.handlers):
+                logger.removeHandler(h)
+            # Add appropriate handlers (match root logger)
+            if cfg.CONSOLE_OUTPUT:
+                console_handler = logging.StreamHandler(sys.stdout)
+                console_handler.setFormatter(formatter)
+                logger.addHandler(console_handler)
+            if cfg.FILE_OUTPUT and cfg.FILE_PATH:
+                file_handler = logging.handlers.RotatingFileHandler(
+                    cfg.FILE_PATH,
+                    maxBytes=cfg.MAX_BYTES,
+                    backupCount=cfg.BACKUP_COUNT,
+                )
+                file_handler.setFormatter(formatter)
+                logger.addHandler(file_handler)
+            logger.propagate = cfg.PROPAGATE
+
+    def new_trace_context(self) -> dict[str, str]:
+        """
+        Generate a new trace context with a unique correlation_id (UUID4).
+        Returns: {"correlation_id": ...}
+        """
+        return {"correlation_id": str(uuid.uuid4())}
+
+    class trace_scope:
+        """
+        Context manager to set a trace context (correlation/request/trace ID) for the duration of a code block.
+        If no correlation_id is provided, a new one is generated.
+        Usage:
+            with logger_service.trace_scope():
+                logger_service.structured_log(...)
+        """
+        def __init__(self, logger_service: "LoggerService", correlation_id: str | None = None, trace_context: dict[str, str] | None = None):
+            self._logger_service = logger_service
+            if trace_context is not None:
+                self._trace_context = dict(trace_context)
+            else:
+                self._trace_context = {"correlation_id": correlation_id or str(uuid.uuid4())}
+            self._token = None
+        def __enter__(self):
+            self._token = self._logger_service._trace_context_var.set(self._trace_context)
+            return self._trace_context
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self._token is not None:
+                self._logger_service._trace_context_var.reset(self._token)
+
     def _configure_root_logger(self) -> None:
         cfg = self._config
         level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
         handlers = []
+        formatter = self._get_formatter()
+        # Clear all handlers from root logger to allow reconfiguration (important for tests!)
+        root_logger = logging.getLogger()
+        for h in list(root_logger.handlers):
+            root_logger.removeHandler(h)
         if cfg.CONSOLE_OUTPUT:
             console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(
-                logging.Formatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
-            )
+            console_handler.setFormatter(formatter)
             handlers.append(console_handler)
         if cfg.FILE_OUTPUT and cfg.FILE_PATH:
             file_handler = logging.handlers.RotatingFileHandler(
@@ -107,9 +315,7 @@ class LoggerService(ServiceLifecycle):
                 maxBytes=cfg.MAX_BYTES,
                 backupCount=cfg.BACKUP_COUNT,
             )
-            file_handler.setFormatter(
-                logging.Formatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
-            )
+            file_handler.setFormatter(formatter)
             handlers.append(file_handler)
         logging.basicConfig(
             level=level,
@@ -119,14 +325,3 @@ class LoggerService(ServiceLifecycle):
         )
 
 
-# For backward compatibility: create a default singleton instance (to be deprecated)
-logger_service = LoggerService()
-
-
-# This function can be used for legacy code, but DI should be preferred
-def get_logger(name: str | None = None) -> Logger:
-    if not logger_service._initialized:
-        import asyncio
-
-        asyncio.run(logger_service.initialize())
-    return logger_service.get_logger(name)

@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from uno.core.logging.logger import get_logger
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.factory import AsyncEngineFactory
 from uno.settings import uno_settings
@@ -67,7 +67,7 @@ async def async_connection(
 
     # Use provided factory or create a new one
     engine_factory = factory or AsyncEngineFactory(logger=logger)
-    log = logger or get_logger(__name__)
+    log = logger or logging.getLogger(__name__)
 
     attempt = 0
     engine = None

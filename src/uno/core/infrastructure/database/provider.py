@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session, sessionmaker
 
-from uno.core.logging.logger import get_logger
+
 from uno.infrastructure.database.config import ConnectionConfig
 
 
@@ -45,7 +45,7 @@ class DatabaseProvider:
             logger: Optional logger instance
         """
         self.config = config
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Engine instances - lazy initialized
         self._async_engine: AsyncEngine | None = None

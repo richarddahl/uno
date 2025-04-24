@@ -30,7 +30,7 @@ from sqlalchemy.sql import Executable
 
 from uno.core.errors.result import Failure, Success
 from uno.core.errors.result import Result as OpResult
-from uno.core.logging.logger import get_logger
+
 
 
 class QueryComplexity(enum.Enum):
@@ -398,7 +398,7 @@ class QueryOptimizer:
         self.session = session
         self.engine = engine
         self.config = config or OptimizationConfig()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Query statistics
         self._query_stats: dict[str, QueryStatistics] = {}

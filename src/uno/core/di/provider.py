@@ -69,9 +69,7 @@ class ServiceProvider:
         Args:
             logger: Optional logger for diagnostic information
         """
-        from uno.core.logging.logger import get_logger
-
-        self._logger = logger or get_logger("uno.services")
+        self._logger = logger or logging.getLogger("uno.services")
         self._initialized = False
         self._base_services = ServiceCollection()
         self._extensions: dict[str, ServiceCollection] = {}
@@ -698,7 +696,7 @@ async def configure_base_services() -> None:
     )
 
     # Create and register database provider
-    db_provider = DatabaseProvider(connection_config, logger=get_logger("uno.database"))
+    db_provider = DatabaseProvider(connection_config, logger=logging.getLogger("uno.database"))
     services.add_instance(DatabaseProvider, db_provider)
     services.add_instance(DatabaseProviderProtocol, db_provider)
 
@@ -709,7 +707,7 @@ async def configure_base_services() -> None:
         DBManagerProtocol,
         DBManager,
         connection_provider=db_provider.sync_connection,
-        logger=get_logger("uno.database"),
+        logger=logging.getLogger("uno.database"),
     )
 
     # Register SQL emitter factory
@@ -719,14 +717,14 @@ async def configure_base_services() -> None:
         SQLEmitterFactoryProtocol,
         SQLEmitterFactoryService,
         config=UnoConfig(),
-        logger=get_logger("uno.sql"),
+        logger=logging.getLogger("uno.sql"),
     )
 
     # Register SQL execution service
     from uno.sql.services import SQLExecutionService
 
     services.add_singleton(
-        SQLExecutionProtocol, SQLExecutionService, logger=get_logger("uno.sql")
+        SQLExecutionProtocol, SQLExecutionService, logger=logging.getLogger("uno.sql")
     )
 
     # Register schema manager
@@ -735,25 +733,25 @@ async def configure_base_services() -> None:
     services.add_singleton(
         DTOManagerProtocol,
         DTOManagerService,
-        logger=get_logger("uno.schema"),
+        logger=logging.getLogger("uno.schema"),
     )
 
     # Register event bus
     from uno.domain.events import EventBus, EventPublisher
 
-    event_bus = EventBus(logger=get_logger("uno.events"))
+    event_bus = EventBus(logger=logging.getLogger("uno.events"))
     services.add_instance(EventBus, event_bus)
     services.add_instance(EventBusProtocol, event_bus)
     services.add_instance(
         EventPublisher,
-        EventPublisher(event_bus, logger=get_logger("uno.events")),
+        EventPublisher(event_bus, logger=logging.getLogger("uno.events")),
     )
 
     # Register domain registry
     from uno.domain.factory import DomainRegistry
 
     services.add_singleton(
-        DomainRegistry, DomainRegistry, logger=get_logger("uno.domain")
+        DomainRegistry, DomainRegistry, logger=logging.getLogger("uno.domain")
     )
 
     # Configure the service provider
@@ -766,7 +764,7 @@ async def configure_base_services() -> None:
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
-        get_logger("uno.services").debug(f"Vector search provider not available: {e}")
+        logging.getLogger("uno.services").debug(f"Vector search provider not available: {e}")
         pass
 
     # Register queries provider
@@ -775,7 +773,7 @@ async def configure_base_services() -> None:
 
         provider.register_extension("queries", get_queries_provider())
     except (ImportError, AttributeError) as e:
-        get_logger("uno.services").debug(f"Queries provider not available: {e}")
+        logging.getLogger("uno.services").debug(f"Queries provider not available: {e}")
         pass
 
     # Register reports provider
@@ -784,5 +782,5 @@ async def configure_base_services() -> None:
 
         provider.register_extension("reports", get_reports_provider())
     except (ImportError, AttributeError) as e:
-        get_logger("uno.services").debug(f"Reports provider not available: {e}")
+        logging.getLogger("uno.services").debug(f"Reports provider not available: {e}")
         pass

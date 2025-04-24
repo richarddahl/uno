@@ -27,7 +27,7 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-from uno.core.logging.logger import get_logger
+
 from uno.infrastructure.database.enhanced_session import enhanced_async_session
 from uno.infrastructure.database.pooled_session import pooled_async_session
 
@@ -82,7 +82,7 @@ class StreamingCursor(Generic[T]):
         self.chunk_size = chunk_size
         self.timeout_seconds = timeout_seconds
         self.transform_fn = transform_fn
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
 
         # Cursor state
         self._cursor = None
