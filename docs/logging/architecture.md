@@ -6,9 +6,9 @@ The Uno logging system is built on top of Python's standard logging module with 
 
 ## Core Components
 
-### Logger Factory
+### Logger Factory and DI Integration
 
-The `get_logger` function serves as the primary entry point for obtaining logger instances. It ensures consistent configuration and behavior across all loggers in the application.
+The `get_logger` function serves as the primary entry point for obtaining logger instances. In Uno applications, logger instances are typically provided via the DI system, ensuring consistent configuration and making logger injection the preferred pattern for all services and components.
 
 ### Log Record Enhancers
 
@@ -43,8 +43,13 @@ Formatters control how log records are converted to output strings:
 ┌───────────────┐     ┌────────────────┐     ┌──────────────┐
 │ Application   │────▶│ Logger Factory │────▶│ Logger       │
 └───────────────┘     └────────────────┘     └──────────────┘
-                                                     │
-                                                     ▼
+      │
+      ▼
+┌───────────────┐
+│   DI System   │  (Injects loggers into services/components)
+└───────────────┘
+      │
+      ▼
 ┌───────────────┐     ┌────────────────┐     ┌──────────────┐
 │ Log Record    │◀────│ Log Filters    │◀────│ Log Record   │
 │ Enhancers     │     │                │     │              │
@@ -57,10 +62,13 @@ Formatters control how log records are converted to output strings:
                                              └──────────────┘
 ```
 
+> **Note:** The DI system is a central integration point for logger provisioning in Uno.
+
 ## Integration Points
 
 The logging system is integrated with:
 
+- **Dependency Injection (DI) system** for providing logger instances to all services and components
 - Configuration system for dynamic configuration
 - Context management for contextual logging
 - Error handling for automatic error logging

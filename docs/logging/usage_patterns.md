@@ -13,6 +13,26 @@ from uno.core.logging import get_logger
 logger = get_logger(__name__)
 ```
 
+## Injecting Loggers via DI (Preferred)
+
+For services/components managed by Uno's DI system, inject the logger as a dependency. This ensures consistent configuration and easier testing:
+
+```python
+import logging
+from uno.core.di import ServiceProvider
+
+class MyService:
+    def __init__(self, logger: logging.Logger):
+        self._logger = logger
+    def do_work(self) -> None:
+        self._logger.info("Work started")
+
+service_provider = ServiceProvider()
+my_service = service_provider.get_service(MyService)
+```
+
+> **See also:** [Main Logging Docs](index.md) and [Architecture](architecture.md)
+
 ### Using Log Levels Appropriately
 
 - **DEBUG**: Detailed information, typically useful only for diagnosing problems

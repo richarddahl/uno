@@ -9,13 +9,33 @@ The Uno logging system provides a unified approach to logging across all compone
 ```python
 from uno.core.logging import get_logger
 
-# Create a logger for your module
+# Create a logger for your module (direct usage)
 logger = get_logger(__name__)
 
 # Log messages at different levels
 logger.info("Application started")
 logger.warning("Resource running low", extra={"resource": "memory", "available": "10%"})
 ```
+
+### Logger Injection via Dependency Injection (DI)
+
+Uno's DI system automatically provides logger instances for your services and components. This is the preferred pattern for production Uno applications:
+
+```python
+import logging
+from uno.core.di import ServiceProvider
+
+class MyService:
+    def __init__(self, logger: logging.Logger):
+        self._logger = logger
+    def do_work(self) -> None:
+        self._logger.info("Work started")
+
+service_provider = ServiceProvider()
+my_service = service_provider.get_service(MyService)
+```
+
+> **See also:** [Usage Patterns](usage_patterns.md#injecting-loggers-via-di) and [Architecture](architecture.md#integration-points)
 
 ## Table of Contents
 
