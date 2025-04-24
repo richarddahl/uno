@@ -10,7 +10,7 @@ from typing import Any
 
 from babel import dates, numbers
 
-from uno.config import GeneralConfig
+from uno.core.config import GeneralConfig
 
 
 def import_from_path(module_name, file_path):

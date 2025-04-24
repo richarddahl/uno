@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from uno.config.general import GeneralConfig
+from uno.core.config.general import GeneralConfig
 from uno.core import utils
 
 
@@ -16,8 +16,6 @@ def general_config():
     """
     # Create and return an instance directly instead of using DI
     return GeneralConfig()
-
-
 
 
 class DummyModel:
@@ -34,8 +32,6 @@ def test_date_to_string():
     d = date(2023, 4, 22)
     assert utils.date_to_string(d) == "Apr 22, 2023"
     assert utils.date_to_string(None) is None
-
-
 
 
 def test_datetime_to_string(general_config):

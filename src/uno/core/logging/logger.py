@@ -1,7 +1,7 @@
 """
 Centralized logger abstraction for Uno framework.
 
-Wraps Python's standard logging, loads config from uno.config, and exposes a DI-friendly logger.
+Wraps Python's standard logging, loads config from uno.core.config, and exposes a DI-friendly logger.
 """
 
 import logging
@@ -11,7 +11,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 
-from uno.config.base import (
+from uno.core.config.base import (
     DevSettingsConfigDict,
     ProdSettingsConfigDict,
     TestSettingsConfigDict,

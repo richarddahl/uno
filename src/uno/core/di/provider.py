@@ -673,7 +673,7 @@ async def configure_base_services() -> None:
     services.add_singleton(ConfigProtocol, UnoConfig)
 
     # Register GeneralConfig
-    from uno.config.general import GeneralConfig
+    from uno.core.config.general import GeneralConfig
 
     services.add_singleton(GeneralConfig, GeneralConfig)
 

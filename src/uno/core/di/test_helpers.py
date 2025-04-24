@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from uno.config.general import GeneralConfig
+from uno.core.config.general import GeneralConfig
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider
 
@@ -67,9 +67,7 @@ class TestDI:
         os.environ["ENV"] = env
         provider = provider if provider is not None else TestDI.create_test_provider()
         services = ServiceCollection()
-        services.add_instance(
-            GeneralConfig, GeneralConfig(SITE_NAME=site_name)
-        )
+        services.add_instance(GeneralConfig, GeneralConfig(SITE_NAME=site_name))
         provider.configure_services(services)
         return provider
 
@@ -98,16 +96,18 @@ class TestDI:
         Reset global DI state between tests (if using global provider).
         """
         from uno.core.di.provider import _service_provider
-        
+
         if _service_provider:
             _service_provider._base_services._instances.clear()
             _service_provider._base_services._registrations.clear()
 
     @staticmethod
-    def register_mock(provider: ServiceProvider, service_type: type, mock_instance: Any) -> None:
+    def register_mock(
+        provider: ServiceProvider, service_type: type, mock_instance: Any
+    ) -> None:
         """
         Register a mock instance for a service type.
-        
+
         Args:
             provider (ServiceProvider): The service provider
             service_type (type): The service type to register
@@ -117,10 +117,12 @@ class TestDI:
 
     @staticmethod
     @contextlib.contextmanager
-    def override_service(provider: ServiceProvider, service_type: type, override_instance: Any) -> Iterator[None]:
+    def override_service(
+        provider: ServiceProvider, service_type: type, override_instance: Any
+    ) -> Iterator[None]:
         """
         Context manager to temporarily override a service with a different instance.
-        
+
         Args:
             provider (ServiceProvider): The service provider
             service_type (type): The service type to override
@@ -138,10 +140,12 @@ class TestDI:
 
     @staticmethod
     @contextlib.asynccontextmanager
-    async def async_override_service(provider: ServiceProvider, service_type: type, override_instance: Any) -> AsyncIterator[None]:
+    async def async_override_service(
+        provider: ServiceProvider, service_type: type, override_instance: Any
+    ) -> AsyncIterator[None]:
         """
         Async context manager to temporarily override a service with a different instance.
-        
+
         Args:
             provider (ServiceProvider): The service provider
             service_type (type): The service type to override
@@ -174,13 +178,17 @@ class TestDI:
         orig_insts = {}
         try:
             for service_type, impl in overrides.items():
-                orig_insts[service_type] = provider._base_services._instances.get(service_type)
+                orig_insts[service_type] = provider._base_services._instances.get(
+                    service_type
+                )
                 provider._base_services.add_instance(service_type, impl)
             yield
         finally:
             for service_type in overrides:
                 if orig_insts[service_type] is not None:
-                    provider._base_services.add_instance(service_type, orig_insts[service_type])
+                    provider._base_services.add_instance(
+                        service_type, orig_insts[service_type]
+                    )
                 else:
                     del provider._base_services._instances[service_type]
 

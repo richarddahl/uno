@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pytest
 
-from uno.config import services
-from uno.config.general import GeneralConfig
+from uno.core.config import services
+from uno.core.config.general import GeneralConfig
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider, get_service_provider
 
@@ -20,29 +20,29 @@ from uno.core.di.provider import ServiceProvider, get_service_provider
 def initialize_di():
     """
     Initialize the dependency injection system for tests.
-    
+
     This fixture ensures that all tests have access to a properly
     configured DI system with test-appropriate configuration values.
     """
     # Make sure we're in test environment
     os.environ["ENV"] = "test"
-    
+
     # Create a test config with required values
     config = GeneralConfig(SITE_NAME="Uno Test Site")
-    
+
     # Create service collection
     test_services = ServiceCollection()
     test_services.add_instance(GeneralConfig, config)
-    
+
     # Get the global provider and configure it
     provider = get_service_provider()
     provider._initialized = False  # Reset if it was previously initialized
     provider.configure_services(test_services)
     provider.configure_services(services)
-    
+
     # Not calling initialize() here since it's async and pytest fixture can't be async
     # Tests that need initialized services should use initialize_provider fixture
-    
+
     return provider
 
 
@@ -56,7 +56,7 @@ def service_collection():
 def service_provider():
     """
     Provide a clean service provider for tests.
-    
+
     This provider is not initialized yet. Use initialize_provider
     if you need an initialized provider.
     """
