@@ -17,14 +17,15 @@ from typing import (
     Union,
 )
 
-from sqlalchemy import Result, delete, insert, select, text, update
+from sqlalchemy import Result, delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import text
 
-from uno.core.logging.logger import get_logger
 from uno.model import Base
 
 # Forward references for type checking to avoid circular imports
 if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
     from uno.obj import UnoObj
 
 
@@ -44,7 +45,7 @@ class UnoBaseRepository(Generic[ModelT]):
         self,
         session: AsyncSession,
         model_class: type[ModelT],
-        logger: logging.Logger | None = None,
+        logger_service: "LoggerService",
     ):
         """
         Initialize the repository.
@@ -52,11 +53,11 @@ class UnoBaseRepository(Generic[ModelT]):
         Args:
             session: SQLAlchemy async session
             model_class: Model class this repository works with
-            logger: Optional logger instance
+            logger_service: DI-injected LoggerService
         """
         self.session = session
         self.model_class = model_class
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
     async def get(self, id: str) -> ModelT | None:
         """

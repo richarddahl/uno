@@ -10,6 +10,11 @@ management, including connection pooling, circuit breakers, and cleanup.
 
 import asyncio
 import contextlib
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -26,7 +31,6 @@ from uno.core.async_utils import (
     AsyncLock,
     timeout,
 )
-from uno.core.logging.logger import get_logger
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -781,14 +785,14 @@ class ResourceRegistry:
     like connection pools and circuit breakers.
     """
 
-    def __init__(self, logger: logging.Logger | None = None):
+    def __init__(self, logger_service: "LoggerService"):
         """
         Initialize the resource registry.
 
         Args:
-            logger: Optional logger instance
+            logger_service: DI-injected LoggerService
         """
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
         self._resources: dict[str, Any] = {}
         self._resource_lock = AsyncLock()
         self._closed = False

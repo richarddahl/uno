@@ -108,7 +108,7 @@ for request in stream_of_requests:
 Use efficient serialization for structured logging:
 
 ```python
-from uno.core.logging import configure_logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 # Configure for better JSON performance
 configure_logging(
@@ -125,7 +125,7 @@ configure_logging(
 For high-performance applications, use asynchronous logging:
 
 ```python
-from uno.core.logging import configure_logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 # Configure async logging
 configure_logging(
@@ -161,7 +161,7 @@ print(f"Average logging time: {results['avg_time_ms']}ms per log")
 Configure logging performance metrics:
 
 ```python
-from uno.core.logging import configure_logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 configure_logging(
     metrics_enabled=True,
@@ -181,7 +181,7 @@ This will expose metrics such as:
 Proper log rotation prevents logs from consuming too much disk space:
 
 ```python
-from uno.core.logging import configure_logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 configure_logging(
     handlers={
@@ -219,7 +219,7 @@ logger.info("Data processed", extra={
 Configure appropriate buffer sizes:
 
 ```python
-from uno.core.logging import configure_logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 configure_logging(
     buffer_size=10000,  # Maximum number of log records to buffer

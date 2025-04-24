@@ -3,19 +3,22 @@
 import asyncio
 import contextlib
 from collections.abc import AsyncIterator
-from logging import Logger
-
+from typing import TYPE_CHECKING
 from sqlalchemy import URL
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
-
-from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.base import EngineFactory
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
 
 class AsyncEngineFactory(EngineFactory[AsyncEngine, AsyncConnection]):
     """Factory for asynchronous database engines."""
+
+    def __init__(self, logger_service: "LoggerService"):
+        super().__init__(logger_service=logger_service)
 
     def create_engine(self, config: ConnectionConfig) -> AsyncEngine:
         """Create an asynchronous SQLAlchemy engine."""
@@ -75,6 +78,7 @@ class AsyncEngineFactory(EngineFactory[AsyncEngine, AsyncConnection]):
 @contextlib.asynccontextmanager
 async def async_connection(
     db_role: str,
+    logger_service: "LoggerService",
     db_name: str | None = None,
     db_host: str | None = None,
     db_user_pw: str | None = None,
@@ -85,7 +89,6 @@ async def async_connection(
     factory: AsyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: int = 2,
-    logger: Logger | None = None,
     **kwargs,
 ) -> AsyncIterator[AsyncConnection]:
     """Context manager for asynchronous database connections."""
@@ -103,8 +106,8 @@ async def async_connection(
         )
 
     # Use provided factory or create a new one
-    engine_factory = factory or AsyncEngineFactory(logger=logger)
-    log = logger or get_logger(__name__)
+    engine_factory = factory or AsyncEngineFactory(logger_service=logger_service)
+    log = logger_service.get_logger(__name__)
 
     attempt = 0
     engine = None

@@ -677,10 +677,10 @@ async def configure_base_services() -> None:
 
     services.add_singleton(GeneralConfig, GeneralConfig)
 
-    # Register logger
-    from uno.core.logging.logger import get_logger
+    # Register LoggerService as a singleton
+    from uno.core.logging.logger import LoggerService
 
-    services.add_singleton(logging.Logger, lambda: get_logger("uno"))
+    services.add_singleton(LoggerService, implementation=LoggerService)
 
     # Register database provider
     from uno.database.config import ConnectionConfig

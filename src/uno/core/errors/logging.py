@@ -22,7 +22,6 @@ from datetime import datetime
 from typing import Any
 
 from uno.core.errors.base import FrameworkError
-from uno.core.logging.logger import get_logger
 
 # Context variable for logging context
 _logging_context = contextvars.ContextVar[dict[str, Any]]("logging_context", default={})
@@ -222,7 +221,8 @@ def get_logger(name: str) -> logging.LoggerAdapter:
     Returns:
         A logger adapter that includes context
     """
-    logger = get_logger(name)
+    from uno.core.logging.logger import get_logger as _core_get_logger
+    logger = _core_get_logger(name)
     return StructuredLogAdapter(logger, {})
 
 
@@ -309,7 +309,8 @@ def with_logging_context(func: Callable) -> Callable:
             return func(*args, **kwargs)
         except Exception as e:
             # Log the exception with context
-            logger = get_logger(func.__module__)
+            from uno.core.logging.logger import get_logger as _core_get_logger
+            logger = _core_get_logger(func.__module__)
             logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
             raise
         finally:

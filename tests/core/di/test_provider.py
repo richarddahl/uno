@@ -186,7 +186,7 @@ def test_prewarm_singletons_instantiates_all_singletons():
     services.add_singleton(CounterSingleton)
     provider.configure_services(services)
     import asyncio
-    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    asyncio.run(provider.initialize())
     provider.prewarm_singletons()
     assert CounterSingleton.counter == 1
     # Second call should not increment
@@ -200,7 +200,7 @@ def test_prewarm_singletons_is_idempotent():
     services.add_singleton(CounterSingleton)
     provider.configure_services(services)
     import asyncio
-    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    asyncio.run(provider.initialize())
     provider.prewarm_singletons()
     provider.prewarm_singletons()
     provider.prewarm_singletons()
@@ -212,6 +212,6 @@ def test_prewarm_singletons_surfaces_errors():
     services.add_singleton(ErrorSingleton)
     provider.configure_services(services)
     import asyncio
-    asyncio.get_event_loop().run_until_complete(provider.initialize())
+    asyncio.run(provider.initialize())
     # Should not raise, but error is logged (cannot assert logs here)
     provider.prewarm_singletons()

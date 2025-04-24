@@ -11,10 +11,17 @@ The Uno logging system is highly configurable to support different environments,
 The following environment variables control logging behavior:
 
 - `UNO_LOG_LEVEL`: Sets the global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-- `UNO_LOG_FORMAT`: Sets the log format (TEXT, JSON, PRETTY)
-- `UNO_LOG_OUTPUT`: Sets where logs are sent (CONSOLE, FILE, BOTH)
-- `UNO_LOG_FILE`: Path to the log file when file logging is enabled
-- `UNO_LOG_INCLUDE_TIMESTAMP`: Whether to include timestamps (TRUE, FALSE)
+- `UNO_LOG_FORMAT`: Sets the log format string (e.g., '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+- `UNO_LOG_DATE_FORMAT`: Sets the date format string
+- `UNO_LOG_JSON_FORMAT`: Enable JSON log output (true/false)
+- `UNO_LOG_CONSOLE_OUTPUT`: Enable console output (true/false)
+- `UNO_LOG_FILE_OUTPUT`: Enable file output (true/false)
+- `UNO_LOG_FILE_PATH`: Path to the log file
+- `UNO_LOG_BACKUP_COUNT`: Number of backup log files
+- `UNO_LOG_MAX_BYTES`: Maximum size of log file in bytes
+- `UNO_LOG_PROPAGATE`: Enable log propagation (true/false)
+- `UNO_LOG_INCLUDE_LOGGER_CONTEXT`: Include logger context (true/false)
+- `UNO_LOG_INCLUDE_EXCEPTION_TRACEBACK`: Include exception tracebacks (true/false)
 
 ### Configuration File
 

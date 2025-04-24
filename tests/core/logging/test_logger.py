@@ -7,15 +7,19 @@ from unittest.mock import patch
 import pytest
 
 from uno.core.logging.logger import (
-    configure_root_logger,
     get_logger,
+    logger_service,
+    LoggingConfig,
 )
 
 
 @pytest.fixture(autouse=True)
-def clear_logger_cache():
-    get_logger.cache_clear()
-    configure_root_logger.cache_clear()
+def clear_logger_state():
+    # Reset the logger_service between tests
+    import asyncio
+    asyncio.run(logger_service.dispose())
+    # Re-initialize to default config for isolation
+    asyncio.run(logger_service.initialize())
 
 
 def test_singleton_logger():
@@ -37,11 +41,13 @@ def test_logger_has_correct_type():
     assert isinstance(logger, logging.Logger)
 
 
-def test_configure_root_logger_called_once():
-    with patch.object(logging, "basicConfig") as mock_basic_config:
-        get_logger()
-        get_logger()
-        mock_basic_config.assert_called_once()
+# The root logger is now configured by LoggerService.initialize().
+# The following test is not needed with the new DI-based setup, as initialization is explicit and idempotent.
+# def test_configure_root_logger_called_once():
+#     with patch.object(logging, "basicConfig") as mock_basic_config:
+#         get_logger()
+#         get_logger()
+#         mock_basic_config.assert_called_once()
 
 
 def test_logging_output_to_stream_with_caplog(caplog):
@@ -94,12 +100,16 @@ def test_logger_multiple_names():
 
 def test_logger_reconfiguration():
     logger = get_logger("uno")
-    from uno.core.logging.logger import logging_config
-
-    old_level = logging_config.LEVEL
-    logging_config.LEVEL = "DEBUG"
-    try:
-        logger2 = get_logger("uno")
-        assert logger is logger2
-    finally:
-        logging_config.LEVEL = old_level
+    old_config = logger_service._config
+    new_config = LoggingConfig(LEVEL="DEBUG")
+    import asyncio
+    # Dispose and re-initialize with new config
+    asyncio.run(logger_service.dispose())
+    logger_service._config = new_config
+    asyncio.run(logger_service.initialize())
+    logger2 = get_logger("uno")
+    assert logger is logger2
+    # Restore old config
+    asyncio.run(logger_service.dispose())
+    logger_service._config = old_config
+    asyncio.run(logger_service.initialize())

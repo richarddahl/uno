@@ -29,8 +29,12 @@ from sqlalchemy.ext.asyncio import (
 
 from uno.core.async_integration import AsyncCache, cancellable, retry
 from uno.core.async_utils import AsyncLock, TaskGroup, timeout
-from uno.core.logging.logger import get_logger
+from typing import TYPE_CHECKING
 from uno.core.protocols import DatabaseSessionFactoryProtocol, DatabaseSessionProtocol
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.enhanced_connection_pool import (
     ConnectionPoolConfig,
@@ -87,23 +91,24 @@ class EnhancedPooledSessionFactory(EnhancedAsyncSessionFactory):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         session_pool_config: SessionPoolConfig | None = None,
         resource_registry: ResourceRegistry | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the enhanced pooled session factory.
 
         Args:
+            logger_service: DI-injected LoggerService
             session_pool_config: Configuration for the session pool
             resource_registry: Optional resource registry
-            logger: Optional logger instance
         """
-        super().__init__(logger=logger)
+        super().__init__(logger_service=logger_service)
 
+        self.logger_service = logger_service
         self.session_pool_config = session_pool_config or SessionPoolConfig()
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
         # Session cache for reuse
         self._session_cache = AsyncCache[str, async_sessionmaker](
@@ -269,6 +274,7 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         db_driver: str = uno_settings.DB_ASYNC_DRIVER,
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
@@ -276,7 +282,6 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
         factory: DatabaseSessionFactoryProtocol | None = None,
-        logger: logging.Logger | None = None,
         scoped: bool = False,
         timeout_seconds: float | None = None,
         session_pool_config: SessionPoolConfig | None = None,
@@ -286,6 +291,7 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
         Initialize the enhanced pooled session context.
 
         Args:
+            logger_service: DI-injected LoggerService
             db_driver: Database driver
             db_name: Database name
             db_user_pw: Database password
@@ -293,7 +299,6 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
             db_host: Database host
             db_port: Database port
             factory: Optional session factory
-            logger: Optional logger
             scoped: Whether to use a scoped session
             timeout_seconds: Optional timeout for session operations
             session_pool_config: Configuration for the session pool
@@ -302,12 +307,13 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
         # Create a factory if not provided
         if factory is None:
             factory = EnhancedPooledSessionFactory(
+                logger_service=logger_service,
                 session_pool_config=session_pool_config,
-                logger=logger,
             )
 
         # Initialize parent class
         super().__init__(
+            logger_service=logger_service,
             db_driver=db_driver,
             db_name=db_name,
             db_user_pw=db_user_pw,
@@ -315,7 +321,6 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
             db_host=db_host,
             db_port=db_port,
             factory=factory,
-            logger=logger,
             scoped=scoped,
             timeout_seconds=timeout_seconds,
             **kwargs,
@@ -380,6 +385,7 @@ class EnhancedPooledSessionContext(EnhancedAsyncSessionContext):
 
 @contextlib.asynccontextmanager
 async def enhanced_pool_session(
+    logger_service: "LoggerService",
     db_driver: str = uno_settings.DB_ASYNC_DRIVER,
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
@@ -387,7 +393,6 @@ async def enhanced_pool_session(
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
     factory: DatabaseSessionFactoryProtocol | None = None,
-    logger: logging.Logger | None = None,
     scoped: bool = False,
     timeout_seconds: float | None = None,
     session_pool_config: SessionPoolConfig | None = None,
@@ -397,6 +402,7 @@ async def enhanced_pool_session(
     Context manager for enhanced pooled async sessions.
 
     Args:
+        logger_service: DI-injected LoggerService
         db_driver: Database driver
         db_name: Database name
         db_user_pw: Database password
@@ -404,10 +410,9 @@ async def enhanced_pool_session(
         db_host: Database host
         db_port: Database port
         factory: Optional session factory
-        logger: Optional logger
         scoped: Whether to use a scoped session
-        timeout_seconds: Optional timeout for session operations
-        session_pool_config: Configuration for the session pool
+        timeout_seconds: Optional timeout for session creation
+        session_pool_config: Optional session pool config
         **kwargs: Additional connection parameters
 
     Yields:
@@ -415,6 +420,7 @@ async def enhanced_pool_session(
     """
     # Use the enhanced pooled session context
     context = EnhancedPooledSessionContext(
+        logger_service=logger_service,
         db_driver=db_driver,
         db_name=db_name,
         db_user_pw=db_user_pw,
@@ -422,7 +428,6 @@ async def enhanced_pool_session(
         db_host=db_host,
         db_port=db_port,
         factory=factory,
-        logger=logger,
         scoped=scoped,
         timeout_seconds=timeout_seconds,
         session_pool_config=session_pool_config,

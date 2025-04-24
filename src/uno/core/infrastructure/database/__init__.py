@@ -10,11 +10,11 @@ This package provides database connectivity, ORM integration, and session manage
 
 # Import the enhanced connection pool components
 # Import database configuration
-from uno.infrastructure.database.config import ConnectionConfig
+from uno.core.infrastructure.database.config import ConnectionConfig
 
 # Import DB manager
-from uno.infrastructure.database.db_manager import DBManager
-from uno.infrastructure.database.enhanced_connection_pool import (
+from uno.core.infrastructure.database.db_manager import DBManager
+from uno.core.infrastructure.database.enhanced_connection_pool import (
     ConnectionPoolConfig,
     ConnectionPoolStrategy,
     EnhancedAsyncConnectionManager,
@@ -26,7 +26,7 @@ from uno.infrastructure.database.enhanced_connection_pool import (
 )
 
 # Import the enhanced pool session components
-from uno.infrastructure.database.enhanced_pool_session import (
+from uno.core.infrastructure.database.enhanced_pool_session import (
     EnhancedPooledSessionContext,
     EnhancedPooledSessionFactory,
     EnhancedPooledSessionOperationGroup,
@@ -35,7 +35,7 @@ from uno.infrastructure.database.enhanced_pool_session import (
 )
 
 # Import enhanced session utilities
-from uno.infrastructure.database.enhanced_session import (
+from uno.core.infrastructure.database.enhanced_session import (
     EnhancedAsyncSessionContext,
     EnhancedAsyncSessionFactory,
     SessionOperationGroup,
@@ -43,7 +43,7 @@ from uno.infrastructure.database.enhanced_session import (
 )
 
 # Import error types
-from uno.infrastructure.database.errors import (
+from uno.core.infrastructure.database.errors import (
     DatabaseColumnNotFoundError,
     DatabaseConfigError,
     DatabaseConnectionError,
@@ -70,7 +70,7 @@ from uno.infrastructure.database.errors import (
 )
 
 # Import optimizer metrics components
-from uno.infrastructure.database.optimizer_metrics import (
+from uno.core.infrastructure.database.optimizer_metrics import (
     OptimizerMetricsCollector,
     OptimizerMetricsMiddleware,
     OptimizerMetricsSnapshot,
@@ -82,7 +82,7 @@ from uno.infrastructure.database.optimizer_metrics import (
 )
 
 # Import PostgreSQL-specific optimizer components
-from uno.infrastructure.database.pg_optimizer_strategies import (
+from uno.core.infrastructure.database.pg_optimizer_strategies import (
     PgIndexRecommendation,
     PgOptimizationStrategies,
     PgQueryOptimizer,
@@ -91,7 +91,7 @@ from uno.infrastructure.database.pg_optimizer_strategies import (
 )
 
 # Import pooled session utilities
-from uno.infrastructure.database.pooled_session import (
+from uno.core.infrastructure.database.pooled_session import (
     PooledAsyncSessionContext,
     PooledAsyncSessionFactory,
     PooledSessionOperationGroup,
@@ -99,7 +99,7 @@ from uno.infrastructure.database.pooled_session import (
 )
 
 # Import query cache components
-from uno.infrastructure.database.query_cache import (
+from uno.core.infrastructure.database.query_cache import (
     CacheBackend,
     CachedResult,
     CacheStrategy,
@@ -115,7 +115,7 @@ from uno.infrastructure.database.query_cache import (
 )
 
 # Import query optimizer components
-from uno.infrastructure.database.query_optimizer import (
+from uno.core.infrastructure.database.query_optimizer import (
     IndexRecommendation,
     IndexType,
     OptimizationConfig,
@@ -130,7 +130,7 @@ from uno.infrastructure.database.query_optimizer import (
 )
 
 # Import base session utilities
-from uno.infrastructure.database.session import (
+from uno.core.infrastructure.database.session import (
     AsyncSessionContext,
     AsyncSessionFactory,
     async_session,
@@ -140,111 +140,100 @@ from uno.infrastructure.database.session import (
 register_database_errors()
 
 __all__ = [
-    # Enhanced connection pool
-    'ConnectionPoolConfig',
-    'ConnectionPoolStrategy',
-    'EnhancedConnectionPool',
-    'EnhancedAsyncEnginePool',
-    'EnhancedAsyncConnectionManager',
-    'get_connection_manager',
-    'enhanced_async_engine',
-    'enhanced_async_connection',
-    
-    # Enhanced pool session
-    'SessionPoolConfig',
-    'EnhancedPooledSessionFactory',
-    'EnhancedPooledSessionContext',
-    'enhanced_pool_session',
-    'EnhancedPooledSessionOperationGroup',
-    
+    "AsyncSessionContext",
     # Base session
-    'AsyncSessionFactory',
-    'AsyncSessionContext',
-    'async_session',
-    
-    # Enhanced session
-    'EnhancedAsyncSessionFactory',
-    'EnhancedAsyncSessionContext',
-    'enhanced_async_session',
-    'SessionOperationGroup',
-    
-    # Pooled session
-    'PooledAsyncSessionFactory',
-    'PooledAsyncSessionContext',
-    'pooled_async_session',
-    'PooledSessionOperationGroup',
-    
+    "AsyncSessionFactory",
     # Query cache
-    'CacheBackend',
-    'CacheStrategy',
-    'QueryCacheConfig',
-    'QueryCacheStats',
-    'QueryCacheKey',
-    'CachedResult',
-    'QueryCache',
-    'cached',
-    'cached_query',
-    'get_named_cache',
-    'set_default_cache',
-    'clear_all_caches',
-    
-    # Query optimizer
-    'QueryComplexity',
-    'OptimizationLevel',
-    'IndexType',
-    'QueryPlan',
-    'IndexRecommendation',
-    'QueryRewrite',
-    'QueryStatistics',
-    'OptimizationConfig',
-    'QueryOptimizer',
-    'optimize_query',
-    'optimized_query',
-    
-    # PostgreSQL specific optimizer
-    'PgIndexRecommendation',
-    'PgOptimizationStrategies',
-    'PgQueryOptimizer',
-    'add_pg_strategies',
-    'create_pg_optimizer',
-    
-    # Optimizer metrics
-    'OptimizerMetricsSnapshot',
-    'OptimizerMetricsCollector',
-    'OptimizerMetricsMiddleware',
-    'track_query_performance',
-    'with_query_metrics',
-    'get_metrics_collector',
-    'set_metrics_collector',
-    'collect_optimizer_metrics',
-    
+    "CacheBackend",
+    "CacheStrategy",
+    "CachedResult",
     # Configuration
-    'ConnectionConfig',
-    
+    "ConnectionConfig",
+    # Enhanced connection pool
+    "ConnectionPoolConfig",
+    "ConnectionPoolStrategy",
     # DB Manager
-    'DBManager',
-    
+    "DBManager",
+    "DatabaseColumnNotFoundError",
+    "DatabaseConfigError",
+    "DatabaseConnectionError",
+    "DatabaseConnectionPoolExhaustedError",
+    "DatabaseConnectionTimeoutError",
     # Error types
-    'DatabaseErrorCode',
-    'DatabaseConnectionError',
-    'DatabaseConnectionTimeoutError',
-    'DatabaseConnectionPoolExhaustedError',
-    'DatabaseQueryError',
-    'DatabaseQueryTimeoutError',
-    'DatabaseQuerySyntaxError',
-    'DatabaseTransactionError',
-    'DatabaseTransactionRollbackError',
-    'DatabaseTransactionConflictError',
-    'DatabaseIntegrityError',
-    'DatabaseUniqueViolationError',
-    'DatabaseForeignKeyViolationError',
-    'DatabaseResourceNotFoundError',
-    'DatabaseResourceAlreadyExistsError',
-    'DatabaseTableNotFoundError',
-    'DatabaseColumnNotFoundError',
-    'DatabaseSessionError',
-    'DatabaseSessionExpiredError',
-    'DatabaseConfigError',
-    'DatabaseOperationalError',
-    'DatabaseNotSupportedError',
+    "DatabaseErrorCode",
+    "DatabaseForeignKeyViolationError",
+    "DatabaseIntegrityError",
+    "DatabaseNotSupportedError",
+    "DatabaseOperationalError",
+    "DatabaseQueryError",
+    "DatabaseQuerySyntaxError",
+    "DatabaseQueryTimeoutError",
+    "DatabaseResourceAlreadyExistsError",
+    "DatabaseResourceNotFoundError",
+    "DatabaseSessionError",
+    "DatabaseSessionExpiredError",
+    "DatabaseTableNotFoundError",
+    "DatabaseTransactionConflictError",
+    "DatabaseTransactionError",
+    "DatabaseTransactionRollbackError",
+    "DatabaseUniqueViolationError",
+    "EnhancedAsyncConnectionManager",
+    "EnhancedAsyncEnginePool",
+    "EnhancedAsyncSessionContext",
+    # Enhanced session
+    "EnhancedAsyncSessionFactory",
+    "EnhancedConnectionPool",
+    "EnhancedPooledSessionContext",
+    "EnhancedPooledSessionFactory",
+    "EnhancedPooledSessionOperationGroup",
+    "IndexRecommendation",
+    "IndexType",
+    "OptimizationConfig",
+    "OptimizationLevel",
+    "OptimizerMetricsCollector",
+    "OptimizerMetricsMiddleware",
+    # Optimizer metrics
+    "OptimizerMetricsSnapshot",
+    # PostgreSQL specific optimizer
+    "PgIndexRecommendation",
+    "PgOptimizationStrategies",
+    "PgQueryOptimizer",
+    "PooledAsyncSessionContext",
+    # Pooled session
+    "PooledAsyncSessionFactory",
+    "PooledSessionOperationGroup",
+    "QueryCache",
+    "QueryCacheConfig",
+    "QueryCacheKey",
+    "QueryCacheStats",
+    # Query optimizer
+    "QueryComplexity",
+    "QueryOptimizer",
+    "QueryPlan",
+    "QueryRewrite",
+    "QueryStatistics",
+    "SessionOperationGroup",
+    # Enhanced pool session
+    "SessionPoolConfig",
+    "add_pg_strategies",
+    "async_session",
+    "cached",
+    "cached_query",
+    "clear_all_caches",
+    "collect_optimizer_metrics",
+    "create_pg_optimizer",
+    "enhanced_async_connection",
+    "enhanced_async_engine",
+    "enhanced_async_session",
+    "enhanced_pool_session",
+    "get_connection_manager",
+    "get_metrics_collector",
+    "get_named_cache",
+    "optimize_query",
+    "optimized_query",
+    "pooled_async_session",
+    "set_default_cache",
+    "set_metrics_collector",
+    "track_query_performance",
+    "with_query_metrics",
 ]

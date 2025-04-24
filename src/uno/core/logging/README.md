@@ -15,21 +15,30 @@ The Core Logging module provides a standardized logging framework for the Uno ap
 ## Basic Usage
 
 ```python
-from uno.core.logging import get_logger
+from uno.core.logging.logger import LoggerService
 
-# Create a logger for your module
+# Dependency-injected usage (recommended)
+logger_service = LoggerService()
+import asyncio; asyncio.run(logger_service.initialize())
+logger = logger_service.get_logger(__name__)
+
+logger.info("Hello from Uno!")
+
+# Legacy usage (not recommended, for compatibility only)
+from uno.core.logging.logger import get_logger
 logger = get_logger(__name__)
+logger.info("Hello from Uno!")
 
-# Log messages at different levels
-logger.debug("Detailed debug information")
-logger.info("General information about system operation")
-logger.warning("Warning about potential issues")
-logger.error("Error information when something fails")
-logger.critical("Critical error that requires immediate attention")
+# Structured/context logging
+logger.info("User login", extra={"user_id": "123", "ip_address": "192.168.1.1"})
 
-# Logging with context data
-logger.info("User login successful", extra={"user_id": "123", "ip_address": "192.168.1.1"})
-```
+# In tests (pytest):
+def test_logging_with_caplog(logger_service, caplog):
+    logger = logger_service.get_logger("my.module")
+    with caplog.at_level("INFO"):
+        logger.info("Test log message")
+    assert any("Test log message" in msg for msg in caplog.messages)
+
 
 ## Configuration
 
@@ -53,8 +62,8 @@ Logging configuration is managed through environment variables and Pydantic sett
 
 The logging system uses caching to optimize performance:
 
-- Logger instances are cached using `lru_cache` with a max size of 16
-- Root logger configuration is cached to avoid redundant setup
+- Logger instances are managed and cached internally by `LoggerService` for efficiency
+- Root logger configuration is initialized once per application lifecycle
 
 ## Advanced Usage
 

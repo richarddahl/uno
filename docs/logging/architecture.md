@@ -6,9 +6,19 @@ The Uno logging system is built on top of Python's standard logging module with 
 
 ## Core Components
 
-### Logger Factory and DI Integration
+### Logger Factory
 
-The `get_logger` function serves as the primary entry point for obtaining logger instances. In Uno applications, logger instances are typically provided via the DI system, ensuring consistent configuration and making logger injection the preferred pattern for all services and components.
+The `LoggerService` class, provided via dependency injection, is the primary entry point for obtaining logger instances. It ensures consistent configuration and behavior across all loggers in the application. Use DI to inject `LoggerService` into your services or scripts:
+
+```python
+from uno.core.logging.logger import LoggerService
+
+class MyService:
+    def __init__(self, logger_service: LoggerService):
+        self._logger = logger_service.get_logger(__name__)
+```
+
+The legacy `get_logger` function is available for backward compatibility but should not be used in new code.
 
 ### Log Record Enhancers
 
@@ -43,42 +53,35 @@ Formatters control how log records are converted to output strings:
 ┌───────────────┐     ┌────────────────┐     ┌──────────────┐
 │ Application   │────▶│ Logger Factory │────▶│ Logger       │
 └───────────────┘     └────────────────┘     └──────────────┘
-      │
-      ▼
-┌───────────────┐
-│   DI System   │  (Injects loggers into services/components)
-└───────────────┘
-      │
-      ▼
+                                                      │
+                                                      ▼
 ┌───────────────┐     ┌────────────────┐     ┌──────────────┐
 │ Log Record    │◀────│ Log Filters    │◀────│ Log Record   │
 │ Enhancers     │     │                │     │              │
 └───────────────┘     └────────────────┘     └──────────────┘
-       │                                             ▲
-       ▼                                             │
+        │                                             ▲
+        ▼                                             │
 ┌───────────────┐     ┌────────────────┐     ┌──────────────┐
 │ Formatters    │────▶│ Handlers       │────▶│ Output       │
 └───────────────┘     └────────────────┘     │ Destinations │
-                                             └──────────────┘
+                                              └──────────────┘
 ```
-
-> **Note:** The DI system is a central integration point for logger provisioning in Uno.
 
 ## Integration Points
 
 The logging system is integrated with:
 
-- **Dependency Injection (DI) system** for providing logger instances to all services and components
 - Configuration system for dynamic configuration
 - Context management for contextual logging
 - Error handling for automatic error logging
 - Performance monitoring for log-based metrics
 
-## Extension Points
+## Configuration System
 
-The logging system can be extended through:
+The logging system uses a hierarchical configuration system:
 
-- Custom log handlers
-- Custom formatters
-- Log record enhancers
-- Logging middleware components
+1. Environment variables (highest priority)
+2. Pydantic settings classes (Dev, Test, Prod)
+3. Default values defined in `LoggingConfig`
+
+The configuration is automatically loaded based on the `ENV` environment variable (defaults to "dev").

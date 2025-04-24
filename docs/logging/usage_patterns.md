@@ -1,37 +1,59 @@
 # Logging Usage Patterns
 
-## Basic Logging
+**LoggerService via DI is the recommended way to use logging in Uno. Legacy get_logger is fallback only.**
 
-### Getting a Logger
+This document demonstrates best practices for using Uno logging in your apps and packages.
 
-Always get a logger for your module using the `get_logger` function:
+## DI-First Logger Injection (Recommended)
 
-```python
-from uno.core.logging import get_logger
+### In Services
 
-# Use the module name as the logger name
-logger = get_logger(__name__)
-```
-
-## Injecting Loggers via DI (Preferred)
-
-For services/components managed by Uno's DI system, inject the logger as a dependency. This ensures consistent configuration and easier testing:
+Inject `LoggerService` via the constructor and use it to get a logger:
 
 ```python
-import logging
-from uno.core.di import ServiceProvider
+from uno.core.logging.logger import LoggerService
 
 class MyService:
-    def __init__(self, logger: logging.Logger):
-        self._logger = logger
-    def do_work(self) -> None:
-        self._logger.info("Work started")
+    def __init__(self, logger_service: LoggerService):
+        self._logger = logger_service.get_logger(__name__)
 
-service_provider = ServiceProvider()
-my_service = service_provider.get_service(MyService)
+    def do_something(self):
+        self._logger.info("Did something!")
 ```
 
-> **See also:** [Main Logging Docs](index.md) and [Architecture](architecture.md)
+### In Scripts
+
+```python
+from uno.core.logging.logger import LoggerService
+import asyncio
+
+logger_service = LoggerService()
+asyncio.run(logger_service.initialize())
+logger = logger_service.get_logger("my_script")
+logger.info("Script started")
+```
+
+### In Tests
+
+```python
+import pytest
+from uno.core.logging.logger import LoggerService
+
+@pytest.fixture
+def logger_service():
+    svc = LoggerService()
+    import asyncio; asyncio.run(svc.initialize())
+    yield svc
+    asyncio.run(svc.dispose())
+
+def test_logging(logger_service, caplog):
+    logger = logger_service.get_logger("test")
+    with caplog.at_level("INFO"):
+        logger.info("Test log")
+    assert any("Test log" in msg for msg in caplog.messages)
+```
+
+## Basic Logging
 
 ### Using Log Levels Appropriately
 
@@ -100,25 +122,23 @@ Use context managers to add consistent context to multiple log statements:
 ```python
 from uno.core.logging import logging_context
 
-# All logs within this block will have the specified context added
-with logging_context(request_id="abc-123", user_id="user-456"):
-    logger.info("Processing request")
-    # ... code that produces more logs ...
-    logger.info("Request completed")
+# Add context for a block of code
+with logging_context(user_id="123", request_id="req-456"):
+    logger.info("Operation started")
+    # ... more operations that will include the context
 ```
 
-### Function and Request Contexts
+### Decorators for Context
 
-Use decorators to add consistent context to all logs within a function:
+Use decorators to automatically add context to functions:
 
 ```python
-from uno.core.logging import with_logging_context
+from uno.core.logging import with_error_context
 
-@with_logging_context(component="payment_processor")
-def process_payment(order_id, amount):
-    logger.info("Starting payment processing", extra={"order_id": order_id, "amount": amount})
-    # ... payment processing code ...
-    logger.info("Payment processing completed")
+@with_error_context
+async def process_request(request_data):
+    logger.info("Processing request")
+    # ... processing logic
 ```
 
 ## Error Logging
@@ -140,53 +160,19 @@ except Exception as e:
                 extra={"data_id": data.id, "error_type": type(e).__name__})
 ```
 
-### Logging with Traceback Control
-
-Control traceback inclusion based on log level:
-
-```python
-from uno.core.logging import log_error
-
-# Logs at ERROR level with traceback, or WARNING level without traceback
-log_error(logger, "Operation partially failed", exception=exc, 
-          is_error=is_critical,  # If True, logs at ERROR level with traceback
-          extra={"operation": "data_sync"})
-```
-
 ## Performance Considerations
 
-### Expensive Operations in Logs
+### Check Log Levels First
 
-Use lazy evaluation for expensive operations:
+Always check if a log level is enabled before performing expensive operations:
 
 ```python
-# Bad - always generates the expensive string representation
-logger.debug("User data: " + str(user_data))
+# Bad - always evaluates the expensive operation
+logger.debug("User data: " + generate_detailed_report(user))
 
-# Good - only generates if debug is enabled
-logger.debug("User data: %s", user_data)
-
-# Better - explicitly check log level for very expensive operations
+# Good - only evaluates if debug is enabled
 if logger.isEnabledFor(logging.DEBUG):
-    detailed_data = generate_detailed_report(user_data)  # Expensive operation
-    logger.debug("Detailed report: %s", detailed_data)
-```
-
-### Batch Logging
-
-For high-frequency logs, consider batching:
-
-```python
-from uno.core.logging import BatchLogger
-
-batch_logger = BatchLogger(logger, max_batch_size=100, flush_interval_seconds=5)
-
-for item in large_dataset:
-    # These logs will be collected and sent in batches
-    batch_logger.info("Processed item", extra={"item_id": item.id})
-
-# Make sure to flush any remaining logs at the end
-batch_logger.flush()
+    logger.debug("User data: %s", generate_detailed_report(user))
 ```
 
 ## Integration with Application Features

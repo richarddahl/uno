@@ -11,7 +11,7 @@ The Uno logging system integrates with various monitoring and observability tool
 Uno's logging system automatically integrates with OpenTelemetry to correlate logs with traces:
 
 ```python
-from uno.core.logging import get_logger
+from uno.core.logging.logger import LoggerService
 from uno.core.tracing import get_tracer
 
 # Get a logger and tracer
@@ -288,7 +288,7 @@ configure_logging(
 Trace requests across microservices:
 
 ```python
-from uno.core.logging import get_logger
+from uno.core.logging.logger import LoggerService
 from uno.core.tracing import get_current_trace_context
 
 logger = get_logger(__name__)

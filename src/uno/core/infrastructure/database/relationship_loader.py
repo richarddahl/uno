@@ -16,7 +16,7 @@ Features include:
 
 import functools
 import hashlib
-import logging
+from uno.core.logging.logger import LoggerService
 from dataclasses import dataclass, field
 from typing import (
     Any,
@@ -29,7 +29,7 @@ from sqlalchemy.orm import joinedload, lazyload, selectinload
 
 from uno.core.errors.result import Failure, Success
 from uno.core.errors.result import Result as OpResult
-from uno.core.logging.logger import get_logger
+from uno.core.logging.logger import LoggerService
 from uno.infrastructure.database.enhanced_session import enhanced_async_session
 from uno.infrastructure.database.query_cache import QueryCache
 
@@ -90,9 +90,9 @@ class RelationshipCache:
 
     def __init__(
         self,
+        logger_service: LoggerService,
         config: RelationshipCacheConfig | None = None,
         query_cache: QueryCache | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the relationship cache.
@@ -103,7 +103,7 @@ class RelationshipCache:
             logger: Optional logger for diagnostic output
         """
         self.config = config or RelationshipCacheConfig()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
         # Use the provided query cache or create a new one
         self.query_cache = query_cache or QueryCache()
@@ -344,7 +344,7 @@ class RelationshipLoader:
     def __init__(
         self,
         model_class: type[Any],
-        logger=None,
+        logger_service: LoggerService,
         cache: RelationshipCache | None = None,
         cache_config: RelationshipCacheConfig | None = None,
     ):
@@ -358,13 +358,13 @@ class RelationshipLoader:
             cache_config: Optional cache configuration
         """
         self.model_class = model_class
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
         # Get relationship metadata
         self.relationships = self._get_relationships()
 
         # Initialize cache
-        self.cache = cache or RelationshipCache(config=cache_config, logger=self.logger)
+        self.cache = cache or RelationshipCache(logger_service=logger_service, config=cache_config)
 
     def _get_relationships(self) -> dict[str, dict[str, Any]]:
         """

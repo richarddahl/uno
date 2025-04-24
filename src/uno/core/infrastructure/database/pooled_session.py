@@ -10,33 +10,14 @@ health checking, and circuit breaker pattern.
 
 import asyncio
 import contextlib
-import logging
 from collections.abc import AsyncIterator
-from typing import (
-    Any,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from uno.core.async_integration import (
-    AsyncCache,
-    cancellable,
-    retry,
-)
-from uno.core.async_utils import (
-    AsyncLock,
-    Limiter,
-    timeout,
-)
-from uno.core.protocols import (
-    DatabaseSessionFactoryProtocol,
-    DatabaseSessionProtocol,
-)
+from uno.core.async_integration import AsyncCache, cancellable, retry
+from uno.core.async_utils import AsyncLock, Limiter, timeout
+from uno.core.protocols import DatabaseSessionFactoryProtocol, DatabaseSessionProtocol
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.pooled_async import PooledAsyncEngineFactory
 from uno.infrastructure.database.enhanced_session import (
@@ -44,12 +25,12 @@ from uno.infrastructure.database.enhanced_session import (
     EnhancedAsyncSessionFactory,
     SessionOperationGroup,
 )
-from uno.infrastructure.database.resources import (
-    CircuitBreaker,
-    ResourceRegistry,
-    get_resource_registry,
-)
+from uno.infrastructure.database.resources import CircuitBreaker, ResourceRegistry, get_resource_registry
 from uno.settings import uno_settings
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -68,28 +49,29 @@ class PooledAsyncSessionFactory(EnhancedAsyncSessionFactory):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         engine_factory: PooledAsyncEngineFactory | None = None,
         session_limiter: Limiter | None = None,
         resource_registry: ResourceRegistry | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the pooled async session factory.
 
         Args:
+            logger_service: DI-injected LoggerService
             engine_factory: Optional engine factory
             session_limiter: Optional limiter for controlling concurrent sessions
             resource_registry: Optional resource registry
-            logger: Optional logger instance
         """
-        # Initialize the parent class
+        logger = logger_service.get_logger(__name__)
         super().__init__(
             engine_factory=engine_factory or PooledAsyncEngineFactory(logger=logger),
             session_limiter=session_limiter,
-            logger=logger,
+            logger_service=logger_service,
         )
 
-        # Store additional attributes
+        self.logger_service = logger_service
+        self.logger = logger
         self.resource_registry = resource_registry or get_resource_registry()
         self._session_circuit_breakers: dict[str, CircuitBreaker] = {}
         self._registry_lock = AsyncLock()
@@ -291,6 +273,7 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         db_driver: str = uno_settings.DB_ASYNC_DRIVER,
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
@@ -298,7 +281,6 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
         factory: DatabaseSessionFactoryProtocol | None = None,
-        logger: logging.Logger | None = None,
         scoped: bool = False,
         timeout_seconds: float | None = None,
         pool_size: int = 10,
@@ -309,6 +291,7 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
         Initialize the pooled async session context.
 
         Args:
+            logger_service: DI-injected LoggerService
             db_driver: Database driver
             db_name: Database name
             db_user_pw: Database password
@@ -316,7 +299,6 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
             db_host: Database host
             db_port: Database port
             factory: Optional session factory
-            logger: Optional logger
             scoped: Whether to use a scoped session
             timeout_seconds: Optional timeout for session operations
             pool_size: Maximum pool size
@@ -400,6 +382,7 @@ class PooledAsyncSessionContext(EnhancedAsyncSessionContext):
 
 @contextlib.asynccontextmanager
 async def pooled_async_session(
+    logger_service: "LoggerService",
     db_driver: str = uno_settings.DB_ASYNC_DRIVER,
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
@@ -407,7 +390,6 @@ async def pooled_async_session(
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
     factory: DatabaseSessionFactoryProtocol | None = None,
-    logger: logging.Logger | None = None,
     scoped: bool = False,
     timeout_seconds: float | None = None,
     pool_size: int = 10,
@@ -418,6 +400,7 @@ async def pooled_async_session(
     Context manager for pooled asynchronous database sessions.
 
     Args:
+        logger_service: DI-injected LoggerService
         db_driver: Database driver
         db_name: Database name
         db_user_pw: Database password
@@ -425,7 +408,6 @@ async def pooled_async_session(
         db_host: Database host
         db_port: Database port
         factory: Optional session factory
-        logger: Optional logger
         scoped: Whether to use a scoped session
         timeout_seconds: Optional timeout for session operations
         pool_size: Maximum pool size
@@ -437,6 +419,7 @@ async def pooled_async_session(
     """
     # Use the pooled session context
     context = PooledAsyncSessionContext(
+        logger_service=logger_service,
         db_driver=db_driver,
         db_name=db_name,
         db_user_pw=db_user_pw,
@@ -444,7 +427,6 @@ async def pooled_async_session(
         db_host=db_host,
         db_port=db_port,
         factory=factory,
-        logger=logger,
         scoped=scoped,
         timeout_seconds=timeout_seconds,
         pool_size=pool_size,
@@ -465,6 +447,7 @@ class PooledSessionOperationGroup(SessionOperationGroup):
 
     async def create_session(
         self,
+        logger_service: "LoggerService",
         db_driver: str = uno_settings.DB_ASYNC_DRIVER,
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
@@ -480,6 +463,7 @@ class PooledSessionOperationGroup(SessionOperationGroup):
         Create a new session managed by this group.
 
         Args:
+            logger_service: DI-injected LoggerService
             db_driver: Database driver
             db_name: Database name
             db_user_pw: Database password
@@ -496,6 +480,7 @@ class PooledSessionOperationGroup(SessionOperationGroup):
         """
         # Create a new session
         session_context = PooledAsyncSessionContext(
+            logger_service=logger_service,
             db_driver=db_driver,
             db_name=db_name,
             db_user_pw=db_user_pw,
@@ -503,7 +488,6 @@ class PooledSessionOperationGroup(SessionOperationGroup):
             db_host=db_host,
             db_port=db_port,
             factory=factory,
-            logger=self.logger,
             pool_size=pool_size,
             min_size=min_size,
             **kwargs,

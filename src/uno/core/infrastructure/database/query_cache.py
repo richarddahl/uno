@@ -36,9 +36,13 @@ from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.sql import Executable, Select
 
 from uno.core.async_integration import AsyncCache
-from uno.core.errors.result import Failure, Success
-from uno.core.errors.result import Result as OpResult
-from uno.core.logging.logger import get_logger
+from uno.core.errors import Failure, Result, Success
+from uno.core.errors import Result as OpResult
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
 T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=DeclarativeMeta)
@@ -449,18 +453,18 @@ class QueryCache:
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         config: QueryCacheConfig | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the query cache.
 
         Args:
+            logger_service: DI-injected LoggerService
             config: Optional configuration for the cache
-            logger: Optional logger instance
         """
         self.config = config or QueryCacheConfig()
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
         # Memory cache storage
         self._cache: dict[str, CachedResult[Any]] = {}

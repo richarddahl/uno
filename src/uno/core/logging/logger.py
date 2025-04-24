@@ -7,8 +7,8 @@ Wraps Python's standard logging, loads config from uno.core.config, and exposes 
 import logging
 import os
 import sys
-from functools import lru_cache
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 from uno.core.config.base import (
@@ -16,6 +16,10 @@ from uno.core.config.base import (
     ProdSettingsConfigDict,
     TestSettingsConfigDict,
 )
+from uno.core.di.provider import ServiceLifecycle
+
+# Type alias for logger
+Logger = logging.Logger
 
 
 class LoggingConfig(BaseSettings):
@@ -32,6 +36,8 @@ class LoggingConfig(BaseSettings):
     INCLUDE_LOGGER_CONTEXT: bool = True
     INCLUDE_EXCEPTION_TRACEBACK: bool = True
 
+    model_config = ConfigDict(env_prefix="UNO_LOG_")
+
 
 class Prod(LoggingConfig):
     model_config = ProdSettingsConfigDict
@@ -45,52 +51,82 @@ class Test(LoggingConfig):
     model_config = TestSettingsConfigDict
 
 
-# Create a dictionary of environment settings
-env_settings: dict[str, type[LoggingConfig]] = {"dev": Dev, "test": Test, "prod": Prod}
-# Select the environment settings based on the ENV variable
-logging_config: Dev | Test | Prod = env_settings[os.environ.get("ENV", "dev").lower()]()
+# DI-managed LoggerService implementation
+class LoggerService(ServiceLifecycle):
+    """
+    Dependency-injected singleton logging service for Uno.
+    Handles logger configuration, lifecycle, and DI-friendly logger retrieval.
+    """
 
+    def __init__(self, config: LoggingConfig | None = None) -> None:
+        self._config: LoggingConfig = config or self._load_config()
+        self._initialized: bool = False
+        self._loggers: dict[str, Logger] = {}
 
-@lru_cache(maxsize=16)
-def configure_root_logger():
-    """Configure the root logger according to uno.config.logging.logging_config."""
-    level = getattr(logging, logging_config.LEVEL.upper(), logging.INFO)
-    handlers = []
+    def _load_config(self) -> LoggingConfig:
+        env_settings: dict[str, type[LoggingConfig]] = {
+            "dev": Dev,
+            "test": Test,
+            "prod": Prod,
+        }
+        env = os.environ.get("ENV", "dev").lower()
+        return env_settings.get(env, Dev)()
 
-    if logging_config.CONSOLE_OUTPUT:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(
-            logging.Formatter(
-                fmt=logging_config.FORMAT,
-                datefmt=logging_config.DATE_FORMAT,
+    async def initialize(self) -> None:
+        if self._initialized:
+            return
+        self._configure_root_logger()
+        self._initialized = True
+
+    async def dispose(self) -> None:
+        # Optionally flush/close handlers or perform cleanup
+        self._loggers.clear()
+        self._initialized = False
+
+    def get_logger(self, name: str | None = None) -> Logger:
+        if not self._initialized:
+            raise RuntimeError("LoggerService must be initialized before use.")
+        logger_name = name or "uno"
+        if logger_name not in self._loggers:
+            self._loggers[logger_name] = logging.getLogger(logger_name)
+        return self._loggers[logger_name]
+
+    def _configure_root_logger(self) -> None:
+        cfg = self._config
+        level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
+        handlers = []
+        if cfg.CONSOLE_OUTPUT:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(
+                logging.Formatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
             )
-        )
-        handlers.append(console_handler)
-
-    if logging_config.FILE_OUTPUT and logging_config.FILE_PATH:
-        file_handler = logging.handlers.RotatingFileHandler(
-            logging_config.FILE_PATH,
-            maxBytes=logging_config.MAX_BYTES,
-            backupCount=logging_config.BACKUP_COUNT,
-        )
-        file_handler.setFormatter(
-            logging.Formatter(
-                fmt=logging_config.FORMAT,
-                datefmt=logging_config.DATE_FORMAT,
+            handlers.append(console_handler)
+        if cfg.FILE_OUTPUT and cfg.FILE_PATH:
+            file_handler = logging.handlers.RotatingFileHandler(
+                cfg.FILE_PATH,
+                maxBytes=cfg.MAX_BYTES,
+                backupCount=cfg.BACKUP_COUNT,
             )
+            file_handler.setFormatter(
+                logging.Formatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
+            )
+            handlers.append(file_handler)
+        logging.basicConfig(
+            level=level,
+            handlers=handlers if handlers else None,
+            format=cfg.FORMAT,
+            datefmt=cfg.DATE_FORMAT,
         )
-        handlers.append(file_handler)
-
-    logging.basicConfig(
-        level=level,
-        handlers=handlers if handlers else None,
-        format=logging_config.FORMAT,
-        datefmt=logging_config.DATE_FORMAT,
-    )
 
 
-@lru_cache(maxsize=16)
-def get_logger(name: str | None = None) -> logging.Logger:
-    """Get a logger instance (optionally by name)."""
-    configure_root_logger()
-    return logging.getLogger(name or "uno")
+# For backward compatibility: create a default singleton instance (to be deprecated)
+logger_service = LoggerService()
+
+
+# This function can be used for legacy code, but DI should be preferred
+def get_logger(name: str | None = None) -> Logger:
+    if not logger_service._initialized:
+        import asyncio
+
+        asyncio.run(logger_service.initialize())
+    return logger_service.get_logger(name)

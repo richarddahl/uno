@@ -16,16 +16,8 @@ import os
 # SPDX-License-Identifier: MIT
 import sys
 
-from uno.core.logging.logger import get_logger
+from uno.core.logging.logger import LoggerService
 
-
-def setup_logging(level: int = logging.INFO) -> None:
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
 
 
 def init_database(
@@ -33,6 +25,7 @@ def init_database(
     db_name: str = None,
     extensions: list[str] | None = None,
     graph_name: str = "graph",
+    logger_service: LoggerService | None = None,
 ) -> int:
     """
     Initialize the PostgreSQL database with required extensions.
@@ -42,13 +35,12 @@ def init_database(
         db_name: Database name (defaults to POSTGRES_DB env var)
         extensions: List of extensions to enable
         graph_name: Name for the Age graph
+        logger_service: DI logger service
 
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    # Set up logging
-    setup_logging()
-    logger = get_logger("db_init")
+    logger = (logger_service or LoggerService()).get_logger("db_init")
 
     # Get username and database name from environment if not provided
     if db_user is None:
@@ -153,14 +145,13 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(log_level)
-
+    logger_service = LoggerService()
     return init_database(
         db_user=args.db_user,
         db_name=args.db_name,
         extensions=args.extension,
         graph_name=args.graph_name,
+        logger_service=logger_service,
     )
 
 

@@ -14,12 +14,16 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 
-from uno.core.logging.logger import get_logger
+from typing import TYPE_CHECKING
 from uno.core.protocols import (
     DatabaseSessionContextProtocol,
     DatabaseSessionFactoryProtocol,
     DatabaseSessionProtocol,
 )
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 from uno.settings import uno_settings
@@ -37,12 +41,13 @@ class AsyncSessionFactory(DatabaseSessionFactoryProtocol):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         engine_factory: AsyncEngineFactory | None = None,
-        logger: logging.Logger | None = None,
     ):
         """Initialize the session factory."""
-        self.engine_factory = engine_factory or AsyncEngineFactory(logger=logger)
-        self.logger = logger or get_logger(__name__)
+        self.logger_service = logger_service
+        self.engine_factory = engine_factory or AsyncEngineFactory(logger_service=logger_service)
+        self.logger = logger_service.get_logger(__name__)
         self._sessionmakers: dict[str, async_sessionmaker] = {}
         self._scoped_sessions: dict[str, async_scoped_session] = {}
 
@@ -119,6 +124,7 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         db_driver: str = uno_settings.DB_ASYNC_DRIVER,
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
@@ -126,19 +132,19 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
         factory: DatabaseSessionFactoryProtocol | None = None,
-        logger: logging.Logger | None = None,
         scoped: bool = False,
         **kwargs: Any,
     ):
         """Initialize the async session context."""
+        self.logger_service = logger_service
         self.db_driver = db_driver
         self.db_name = db_name
         self.db_user_pw = db_user_pw
         self.db_role = db_role
         self.db_host = db_host
         self.db_port = db_port
-        self.factory = factory or AsyncSessionFactory(logger=logger)
-        self.logger = logger or get_logger(__name__)
+        self.factory = factory or AsyncSessionFactory(logger_service=logger_service)
+        self.logger = logger_service.get_logger(__name__)
         self.scoped = scoped
         self.kwargs = kwargs
         self.session: DatabaseSessionProtocol | None = None
@@ -175,6 +181,7 @@ class AsyncSessionContext(DatabaseSessionContextProtocol):
 
 @contextlib.asynccontextmanager
 async def async_session(
+    logger_service: "LoggerService",
     db_driver: str = uno_settings.DB_ASYNC_DRIVER,
     db_name: str = uno_settings.DB_NAME,
     db_user_pw: str = uno_settings.DB_USER_PW,
@@ -182,7 +189,6 @@ async def async_session(
     db_host: str | None = uno_settings.DB_HOST,
     db_port: int | None = uno_settings.DB_PORT,
     factory: DatabaseSessionFactoryProtocol | None = None,
-    logger: logging.Logger | None = None,
     scoped: bool = False,
     **kwargs,
 ) -> AsyncIterator[DatabaseSessionProtocol]:
@@ -190,6 +196,7 @@ async def async_session(
     Context manager for asynchronous database sessions.
 
     Args:
+        logger_service: DI-injected LoggerService
         db_driver:
         db_name:
         db_user_pw:
@@ -197,7 +204,6 @@ async def async_session(
         db_host:
         db_port:
         factory: Optional session factory
-        logger: Optional logger
         scoped: Whether to use a scoped session tied to the current async task
         **kwargs: Additional connection parameters
 
@@ -206,6 +212,7 @@ async def async_session(
     """
     # Use the new AsyncSessionContext class
     context = AsyncSessionContext(
+        logger_service=logger_service,
         db_driver=db_driver,
         db_name=db_name,
         db_user_pw=db_user_pw,
@@ -213,7 +220,6 @@ async def async_session(
         db_host=db_host,
         db_port=db_port,
         factory=factory,
-        logger=logger,
         scoped=scoped,
         **kwargs,
     )

@@ -28,9 +28,12 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-from uno.core.logging.logger import get_logger
+from typing import TYPE_CHECKING
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
 T = TypeVar("T")
 
@@ -47,17 +50,17 @@ class EnhancedAsyncEngineFactory(AsyncEngineFactory):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         connection_limiter: Limiter | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the enhanced async engine factory.
 
         Args:
+            logger_service: DI-injected LoggerService
             connection_limiter: Optional limiter to control the number of concurrent connections
-            logger: Optional logger instance
         """
-        super().__init__(logger=logger)
+        super().__init__(logger_service=logger_service)
         self.connection_limiter = connection_limiter or Limiter(
             max_concurrent=10, name="db_connection_limiter"
         )
@@ -88,11 +91,11 @@ class EnhancedAsyncEngineFactory(AsyncEngineFactory):
 
 async def connect_with_retry(
     config: ConnectionConfig,
+    logger_service: "LoggerService",
     factory: EnhancedAsyncEngineFactory | None = None,
     max_retries: int = 3,
     base_retry_delay: float = 1.0,
     isolation_level: str = "AUTOCOMMIT",
-    logger: logging.Logger | None = None,
 ) -> AsyncConnection:
     """
     Connect to the database with retry logic and timeout.
@@ -112,8 +115,8 @@ async def connect_with_retry(
         SQLAlchemyError: If connection failed after all retries
     """
     # Use provided factory or create a new one
-    engine_factory = factory or EnhancedAsyncEngineFactory(logger=logger)
-    log = logger or get_logger(__name__)
+    engine_factory = factory or EnhancedAsyncEngineFactory(logger_service=logger_service)
+    log = logger_service.get_logger(__name__)
 
     # Get or create the connection lock for this config
     conn_lock = engine_factory.get_connection_lock(config)
@@ -208,6 +211,7 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
     def __init__(
         self,
         db_role: str,
+        logger_service: "LoggerService",
         db_name: str | None = None,
         db_host: str | None = None,
         db_user_pw: str | None = None,
@@ -218,30 +222,24 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
         factory: EnhancedAsyncEngineFactory | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        logger: logging.Logger | None = None,
         **kwargs: Any,
     ):
-        """Initialize the async connection context."""
-        # Use provided ConnectionConfig or create one from parameters
+        self.db_role = db_role
+        self.logger_service = logger_service
+        self.db_name = db_name
+        self.db_host = db_host
+        self.db_user_pw = db_user_pw
+        self.db_driver = db_driver
+        self.db_port = db_port
         self.config = config
-        if self.config is None:
-            self.config = ConnectionConfig(
-                db_role=db_role,
-                db_name=db_name,
-                db_host=db_host,
-                db_user_pw=db_user_pw,
-                db_driver=db_driver,
-                db_port=db_port,
-                **kwargs,
-            )
-
         self.isolation_level = isolation_level
-        self.factory = factory or EnhancedAsyncEngineFactory(logger=logger)
+        self.factory = factory
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self.logger = logger or get_logger(__name__)
-        self.connection: AsyncConnection | None = None
-        self.engine: AsyncEngine | None = None
+        self.logger = logger_service.get_logger(__name__)
+        self.kwargs = kwargs
+        self.engine = None
+        self.connection = None
 
     async def __aenter__(self) -> AsyncConnection:
         """Enter the async context, returning a database connection."""
@@ -249,11 +247,11 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
             # Connect with retry logic
             self.connection = await connect_with_retry(
                 config=self.config,
+                logger_service=self.logger_service,
                 factory=self.factory,
                 max_retries=self.max_retries,
                 base_retry_delay=self.retry_delay,
                 isolation_level=self.isolation_level,
-                logger=self.logger,
             )
 
             # Store the engine for cleanup
@@ -289,6 +287,7 @@ class AsyncConnectionContext(AbstractAsyncContextManager[AsyncConnection]):
 
 async def enhanced_async_connection(
     db_role: str,
+    logger_service: "LoggerService",
     db_name: str | None = None,
     db_host: str | None = None,
     db_user_pw: str | None = None,
@@ -299,7 +298,6 @@ async def enhanced_async_connection(
     factory: EnhancedAsyncEngineFactory | None = None,
     max_retries: int = 3,
     retry_delay: float = 1.0,
-    logger: logging.Logger | None = None,
     **kwargs: Any,
 ) -> AsyncIterator[AsyncConnection]:
     """
@@ -331,6 +329,7 @@ async def enhanced_async_connection(
     # Create and use the connection context
     context = AsyncConnectionContext(
         db_role=db_role,
+        logger_service=logger_service,
         db_name=db_name,
         db_host=db_host,
         db_user_pw=db_user_pw,
@@ -341,7 +340,6 @@ async def enhanced_async_connection(
         factory=factory,
         max_retries=max_retries,
         retry_delay=retry_delay,
-        logger=logger,
         **kwargs,
     )
 
@@ -361,18 +359,18 @@ class DatabaseOperationGroup:
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         name: str | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize a database operation group.
 
         Args:
+            logger_service: DI-injected LoggerService
             name: Optional name for the group (for logging)
-            logger: Optional logger instance
         """
         self.name = name or f"db_op_group_{id(self):x}"
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
         self.task_group = TaskGroup(name=self.name, logger=self.logger)
         self.context_group = AsyncContextGroup()
         self.exit_stack = AsyncExitStack()

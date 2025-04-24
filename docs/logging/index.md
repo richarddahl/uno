@@ -2,20 +2,11 @@
 
 ## Introduction
 
-The Uno logging system provides a unified approach to logging across all components of the application. This documentation covers the design principles, configuration options, and usage patterns for effectively logging in Uno applications.
+Uno provides a robust, extensible logging system designed for modern, scalable Python applications. It supports structured logging, context propagation, and flexible configuration for both development and production environments.
 
-## Quick Start
+## Recommended Usage: Dependency Injection (DI-First)
 
-```python
-from uno.core.logging import get_logger
-
-# Create a logger for your module (direct usage)
-logger = get_logger(__name__)
-
-# Log messages at different levels
-logger.info("Application started")
-logger.warning("Resource running low", extra={"resource": "memory", "available": "10%"})
-```
+The preferred way to use logging in Uno is via dependency injection. Inject `LoggerService` into your services, modules, or scripts:
 
 ### Logger Injection via Dependency Injection (DI)
 

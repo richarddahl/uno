@@ -1,0 +1,29 @@
+# uno framework rules
+
+uno is a modern python framework for building scalable, maintainable, and production-ready applications.
+uno is designed to be extensible, testable, and production-ready.
+uno uses event sourcing and domain-driven design (DDD) (uno.core.domain). (NOT fully implemented yet)
+uno uses a dependency injection (DI) system (uno.core.di).
+uno uses a centralized configuration system (uno.core.config).
+uno uses a monad-based error handling system (uno.core.errors).
+uno uses a centralized logging system (uno.core.logging).
+uno uses the most recent stable versions of all dependencies and implements them correctly, without deprecated features, e.g. pydantic ConfigDict not class Config.
+
+Every uno feature should be built with the following principles in mind:
+
+- loose coupling
+- clean code
+- efficient
+- modern python
+- type hints
+- unit tests
+- documentation
+- logging
+- performance
+
+uno features should use the DI system (uno.core.di) for dependency injection.
+uno features should use the configuration system (uno.core.config) for configuration.
+uno features should use the error handling system (uno.core.errors) for error handling.
+uno features should use the logging system (uno.core.logging) for logging.
+
+THIS IS A NEW LIBRARY, THERE IS NO REASON TO SUPPORT LEGACY CODE OR BACKWARDS COMPATIBILITY!

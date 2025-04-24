@@ -36,12 +36,16 @@ from uno.core.async_utils import (
     run_task,
     timeout,
 )
-from uno.core.logging.logger import get_logger
+from typing import TYPE_CHECKING
 from uno.core.protocols import (
     DatabaseSessionContextProtocol,
     DatabaseSessionFactoryProtocol,
     DatabaseSessionProtocol,
 )
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.enhanced_async import (
     EnhancedAsyncEngineFactory,
@@ -65,25 +69,24 @@ class EnhancedAsyncSessionFactory(DatabaseSessionFactoryProtocol):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         engine_factory: EnhancedAsyncEngineFactory | None = None,
         session_limiter: Limiter | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the enhanced async session factory.
 
         Args:
+            logger_service: DI-injected LoggerService
             engine_factory: Optional engine factory
             session_limiter: Optional limiter for controlling concurrent sessions
-            logger: Optional logger instance
         """
-        self.engine_factory = engine_factory or EnhancedAsyncEngineFactory(
-            logger=logger
-        )
+        self.logger_service = logger_service
+        self.engine_factory = engine_factory or EnhancedAsyncEngineFactory(logger_service=logger_service)
         self.session_limiter = session_limiter or Limiter(
             max_concurrent=20, name="db_session_limiter"
         )
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
         self._session_locks: dict[str, AsyncLock] = {}
         self._sessionmakers: dict[str, async_sessionmaker] = {}
         self._scoped_sessions: dict[str, async_scoped_session] = {}
@@ -342,6 +345,7 @@ class EnhancedAsyncSessionContext(DatabaseSessionContextProtocol):
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         db_driver: str = uno_settings.DB_ASYNC_DRIVER,
         db_name: str = uno_settings.DB_NAME,
         db_user_pw: str = uno_settings.DB_USER_PW,
@@ -349,20 +353,20 @@ class EnhancedAsyncSessionContext(DatabaseSessionContextProtocol):
         db_host: str | None = uno_settings.DB_HOST,
         db_port: int | None = uno_settings.DB_PORT,
         factory: DatabaseSessionFactoryProtocol | None = None,
-        logger: logging.Logger | None = None,
         scoped: bool = False,
         timeout_seconds: float | None = None,
         **kwargs: Any,
     ):
         """Initialize the enhanced async session context."""
+        self.logger_service = logger_service
         self.db_driver = db_driver
         self.db_name = db_name
         self.db_user_pw = db_user_pw
         self.db_role = db_role
         self.db_host = db_host
         self.db_port = db_port
-        self.factory = factory or EnhancedAsyncSessionFactory(logger=logger)
-        self.logger = logger or get_logger(__name__)
+        self.factory = factory or EnhancedAsyncSessionFactory(logger_service=logger_service)
+        self.logger = logger_service.get_logger(__name__)
         self.scoped = scoped
         self.timeout_seconds = timeout_seconds
         self.kwargs = kwargs
@@ -546,18 +550,18 @@ class SessionOperationGroup:
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         name: str | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize a session operation group.
 
         Args:
+            logger_service: DI-injected LoggerService
             name: Optional name for the group (for logging)
-            logger: Optional logger instance
         """
         self.name = name or f"session_op_group_{id(self):x}"
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
         self.task_group = TaskGroup(name=self.name, logger=self.logger)
         self.context_group = AsyncContextGroup()
         self.exit_stack = AsyncExitStack()

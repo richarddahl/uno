@@ -10,11 +10,11 @@ including DDL operations and migrations.
 
 import logging
 from collections.abc import Callable
-from typing import Any, ContextManager
+from typing import Any, ContextManager, TYPE_CHECKING
 
-import psycopg
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
-from uno.core.logging.logger import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 
 
@@ -28,18 +28,18 @@ class DBManager:
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         connection_provider: Callable[[], ContextManager[psycopg.Connection]],
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the schema manager.
 
         Args:
+            logger_service: DI-injected LoggerService
             connection_provider: Function that provides a database connection
-            logger: Optional logger instance
         """
         self.get_connection = connection_provider
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
     def execute_ddl(self, ddl: str) -> None:
         """

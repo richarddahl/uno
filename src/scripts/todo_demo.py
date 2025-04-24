@@ -7,13 +7,13 @@ Demo script to showcase the TodoList bounded context.
 """
 import asyncio
 import logging
+from uno.core.logging.logger import LoggerService
 
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 import sys
 from pathlib import Path
 
-from uno.core.logging.logger import get_logger
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -28,18 +28,11 @@ from uno.examples.todolist.application.commands import (
 from uno.examples.todolist.application.queries import ListTodoItemsQuery
 from uno.examples.todolist.domain.models import TodoPriority
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-logger = get_logger(__name__)
 
 
-async def run_demo():
+async def run_demo(logger_service: LoggerService) -> None:
     """Run the demo."""
+    logger = logger_service.get_logger(__name__)
     logger.info("Initializing TodoList bounded context...")
     await initialize_todolist()
 
@@ -97,5 +90,9 @@ async def run_demo():
     logger.info("Demo completed successfully!")
 
 
+def main() -> None:
+    logger_service = LoggerService()
+    asyncio.run(run_demo(logger_service))
+
 if __name__ == "__main__":
-    asyncio.run(run_demo())
+    main()

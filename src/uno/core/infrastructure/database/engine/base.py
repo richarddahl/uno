@@ -3,11 +3,11 @@
 # uno framework
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from logging import Logger
-from typing import Generic, TypeVar
-
-from uno.core.logging.logger import get_logger
+from typing import Generic, TypeVar, TYPE_CHECKING
 from uno.infrastructure.database.config import ConnectionConfig
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
 # Type for connection callback functions
 T = TypeVar("T")
@@ -21,11 +21,11 @@ class EngineFactory(Generic[E, C], ABC):
 
     def __init__(
         self,
-        logger: Logger | None = None,
+        logger_service: "LoggerService",
         config: ConnectionConfig | None = None,
     ):
-        """Initialize the engine factory."""
-        self.logger = logger or get_logger(__name__)
+        """Initialize the engine factory with DI-managed logger."""
+        self.logger = logger_service.get_logger(__name__)
         self.connection_callbacks: dict[str, ConnectionCallback] = {}
 
     @abstractmethod

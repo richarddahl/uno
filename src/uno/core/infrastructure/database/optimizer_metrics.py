@@ -5,7 +5,6 @@
 Metrics collection and monitoring for the query optimizer.
 
 This module provides tools to collect, aggregate, and visualize metrics
-from uno.core.logging.logger import get_logger
 from the query optimizer for performance monitoring and improvement tracking.
 """
 
@@ -18,7 +17,11 @@ from enum import Enum
 from functools import wraps
 from typing import (
     Any,
+    TYPE_CHECKING,
 )
+
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -176,18 +179,18 @@ class OptimizerMetricsCollector:
 
     def __init__(
         self,
+        logger_service: "LoggerService",
         metrics_manager: MetricsManager | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the metrics collector.
 
         Args:
+            logger_service: DI-injected LoggerService
             metrics_manager: Optional metrics manager for reporting
-            logger: Optional logger instance
         """
         self.metrics_manager = metrics_manager
-        self.logger = logger or get_logger(__name__)
+        self.logger = logger_service.get_logger(__name__)
 
         # Metrics snapshots
         self._snapshots: list[OptimizerMetricsSnapshot] = []
