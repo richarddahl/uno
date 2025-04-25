@@ -3,7 +3,8 @@
 # uno framework
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Generic, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
+
 from uno.infrastructure.database.config import ConnectionConfig
 
 if TYPE_CHECKING:

@@ -29,6 +29,9 @@ class TodoStatus(Enum):
     CANCELLED = "cancelled"
 
 
+from uno.core.events.events import DomainEvent
+
+
 class TodoItemCreatedEvent(DomainEvent):
     """Event raised when a new todo item is created."""
 

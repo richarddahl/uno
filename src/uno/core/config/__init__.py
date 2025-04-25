@@ -16,13 +16,35 @@ from uno.core.di.provider import get_service_provider
 from .api import APIConfig, api_config
 from .application import ApplicationConfig, application_config
 from .database import DatabaseConfig, database_config
-from .general import GeneralConfig, general_config
-from .jwt import JWTConfig, jwt_config
+from .general import ConfigService, GeneralConfig, general_config
+from .jwt import JWTConfig, get_jwt_config
 from .security import SecurityConfig, security_config
 from .vector_search import VectorSearchConfig, vector_search_config
 
 # Create a service collection for configuration services
 services = ServiceCollection()
+
+__all__ = [
+    "APIConfig",
+    "api_config",
+    "ApplicationConfig",
+    "application_config",
+    "DatabaseConfig",
+    "database_config",
+    "ConfigService",
+    "GeneralConfig",
+    "general_config",
+    "JWTConfig",
+    "get_jwt_config",
+    "SecurityConfig",
+    "security_config",
+    "VectorSearchConfig",
+    "vector_search_config",
+    "get_config_provider",
+    "get_config",
+    "services",
+]
+
 
 # Register all config instances
 services.add_singleton(APIConfig, api_config)
@@ -33,7 +55,6 @@ services.add_singleton(DatabaseConfig, database_config)
 # Example: register a named config variant
 services.add_singleton(DatabaseConfig, database_config, name="readonly")
 services.add_singleton(GeneralConfig, general_config)
-services.add_singleton(JWTConfig, jwt_config)
 services.add_singleton(SecurityConfig, security_config)
 services.add_singleton(VectorSearchConfig, vector_search_config)
 
@@ -80,7 +101,7 @@ def get_config(config_type: type[Any]) -> Any:
     elif config_type is DatabaseConfig:
         return database_config
     elif config_type is JWTConfig:
-        return jwt_config
+        return get_jwt_config()
     elif config_type is SecurityConfig:
         return security_config
     elif config_type is VectorSearchConfig:

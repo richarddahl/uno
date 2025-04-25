@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
 from typing import (
-    Any,
     TYPE_CHECKING,
+    Any,
 )
 
 if TYPE_CHECKING:
@@ -25,8 +25,7 @@ if TYPE_CHECKING:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uno.core.monitoring.metrics import MetricsRegistry as MetricsManager
-from uno.core.monitoring.metrics import MetricType
+from uno.core.monitoring.metrics import MetricsRegistry as MetricsManager, MetricType
 from uno.infrastructure.database.query_optimizer import (
     QueryComplexity,
     QueryOptimizer,

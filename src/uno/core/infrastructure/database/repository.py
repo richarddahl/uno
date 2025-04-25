@@ -8,7 +8,6 @@ This module provides a unified repository base that can be used
 with or without UnoObj in the Uno framework.
 """
 
-import logging
 from typing import (
     TYPE_CHECKING,
     Any,

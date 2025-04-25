@@ -8,40 +8,21 @@ This module provides the foundational classes for implementing a domain-driven d
 approach in the Uno framework, including entities, value objects, aggregates, and events.
 """
 
+from __future__ import annotations
+
+# Standard library imports
 import uuid
 from datetime import datetime
-from typing import (
-    Any,
-    Generic,
-    TypeVar,
-)
+from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+# Third-party imports
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
+# Import from base types to avoid circular imports
+from uno.core.domain._base_types import BaseDomainEvent
 
-class DomainEvent(BaseModel):
-    """
-    Base class for domain events.
-
-    Domain events represent something significant that occurred within the domain.
-    They are used to communicate between different parts of the application
-    and to enable event-driven architectures.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    event_type: str = Field(default="domain_event")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DomainEvent":
-        """Create an event from a dictionary."""
-        return cls(**data)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert event to a dictionary."""
-        return self.model_dump()
+# Define DomainEvent as an alias of BaseDomainEvent for backward compatibility
+DomainEvent = BaseDomainEvent
 
 
 class ValueObject(BaseModel):
@@ -97,40 +78,17 @@ class Entity(BaseModel, Generic[T_ID]):
     def set_updated_at(self, values):
         """Update the updated_at field whenever the entity is modified."""
         # Only set updated_at for existing entities that are being modified
-        if values.get("id") and values.get("created_at"):
-            values["updated_at"] = datetime.now(datetime.UTC)
-        return values
+        if values is None:
+            return values
+        data = values.data if hasattr(values, "data") else values
+        if data is None:
+            return values
+        if data.get("id") and data.get("created_at"):
+            data["updated_at"] = datetime.now(datetime.UTC)
+        return data
 
     # Python 3.13 compatibility methods for dataclasses
-    def __post_init__(self):
-        """
-        Handle initialization after dataclass processing.
 
-        This method is called by dataclasses after the object is initialized.
-        Override it in subclasses to handle additional initialization
-        requirements, but be sure to call super().__post_init__() first.
-        """
-        # Ensure object attributes are properly initialized
-        for field_name, field_value in self.__annotations__.items():
-            # Check if this is a collection that might need initialization
-            if hasattr(self, field_name):
-                continue  # Field already exists
-
-            # Handle dictionary fields
-            if field_value is dict or (
-                isinstance(field_value, type) and issubclass(field_value, dict)
-            ):
-                setattr(self, field_name, {})
-            # Handle list fields
-            elif field_value is list or (
-                isinstance(field_value, type) and issubclass(field_value, list)
-            ):
-                setattr(self, field_name, [])
-            # Handle set fields
-            elif field_value is set or (
-                isinstance(field_value, type) and issubclass(field_value, set)
-            ):
-                setattr(self, field_name, set())
 
 
 T = TypeVar("T", bound=Entity)
@@ -139,91 +97,81 @@ T_Child = TypeVar("T_Child", bound=Entity)
 
 class AggregateRoot(Entity[T_ID]):
     """
-    Base class for aggregate roots.
+    Base class for aggregate roots with event sourcing capabilities.
 
     Aggregate roots are the entry point to an aggregate - a cluster of domain objects
     that can be treated as a single unit. They encapsulate related domain objects and
     define boundaries for transactions and consistency.
 
-    Examples include Order (which contains OrderLines), User (which contains Addresses).
+    This class supports event sourcing: aggregates are mutated only by applying events,
+    and can be rehydrated from an event stream.
     """
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # Add type annotations to mark class attributes
-    # These can be used to hold instance attributes that should be properly initialized
-    _events: list[DomainEvent]
-    _child_entities: set[Entity]
+    _events: list[Any] = PrivateAttr(default_factory=list)  # Typed as Any to avoid circular reference
+    _child_entities: set[Entity] = PrivateAttr(default_factory=set)
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Initialize instance-specific collections
-        self._events = []
-        self._child_entities = set()
 
-    # Override __post_init__ from Entity to handle dataclass compatibility
-    def __post_init__(self):
+
+
+    def add_event(self, event: Any) -> None:
         """
-        Handle initialization after dataclass processing for aggregate roots.
-
-        This method ensures that all necessary collections are properly initialized,
-        even when the object is created through dataclass processing.
-        """
-        super().__post_init__()
-
-        # Explicitly initialize our instance collections
-        if not hasattr(self, "_events") or self._events is None:
-            self._events = []
-        if not hasattr(self, "_child_entities") or self._child_entities is None:
-            self._child_entities = set()
-
-    def add_event(self, event: DomainEvent) -> None:
-        """
-        Add a domain event to this aggregate.
-
-        Domain events are collected within the aggregate and can be processed
-        after the aggregate is saved.
-
-        Args:
-            event: The domain event to add
+        Add a domain event to this aggregate and apply it to mutate state.
         """
         if not hasattr(self, "_events") or self._events is None:
             self._events = []
+        self.apply_event(event)
         self._events.append(event)
 
-    def clear_events(self) -> list[DomainEvent]:
+    def clear_events(self) -> list[Any]:
         """
         Clear all domain events from this aggregate.
-
-        Returns:
-            The list of events that were cleared
+        Returns the list of events that were cleared.
         """
         if not hasattr(self, "_events") or self._events is None:
             self._events = []
             return []
-
         events = self._events.copy()
         self._events.clear()
         return events
 
     def register_child_entity(self, entity: Entity) -> None:
-        """
-        Register a child entity with this aggregate root.
-
-        Args:
-            entity: The child entity to register
-        """
         if not hasattr(self, "_child_entities") or self._child_entities is None:
             self._child_entities = set()
         self._child_entities.add(entity)
 
     def get_child_entities(self) -> set[Entity]:
-        """
-        Get all child entities of this aggregate root.
-
-        Returns:
-            The set of child entities
-        """
         if not hasattr(self, "_child_entities") or self._child_entities is None:
             self._child_entities = set()
         return self._child_entities
+
+    @classmethod
+    def from_events(cls: type[T], events: list[Any]) -> T:
+        """
+        Rehydrate an aggregate from a stream of events.
+        """
+        if not events:
+            raise ValueError("Cannot rehydrate aggregate from empty event stream.")
+        # Create a new instance with the ID and base fields from the first event
+        base_data = {
+            "id": events[0].aggregate_id,
+            # Optionally: set created_at/updated_at from event timestamps
+        }
+        aggregate = cls(**base_data)  # type: ignore
+        for event in events:
+            aggregate.apply_event(event)
+        return aggregate
+
+    def apply_event(self, event: Any) -> None:
+        """
+        Apply a domain event to mutate the aggregate's state.
+        Calls a method named 'apply_<event_type>' if present, else does nothing.
+        """
+        event_type = event.event_type.lower()
+        if "." in event_type:
+            event_type = event_type.split(".")[-1]
+        handler_name = f"apply_{event_type}"
+        handler = getattr(self, handler_name, None)
+        if callable(handler):
+            handler(event)
+        # else: silently ignore if no handler is present

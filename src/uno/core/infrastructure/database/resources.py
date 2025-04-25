@@ -10,7 +10,7 @@ management, including connection pooling, circuit breakers, and cleanup.
 
 import asyncio
 import contextlib
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from uno.core.logging.logger import LoggerService
@@ -20,7 +20,6 @@ import time
 from collections.abc import Awaitable, Callable
 from enum import Enum
 from typing import (
-    Any,
     Generic,
     TypeVar,
     cast,

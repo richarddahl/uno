@@ -2,9 +2,11 @@
 Tests for ErrorLoggingService (structured error event logging).
 """
 import pytest
-from uno.core.logging.logger import LoggerService
-from uno.core.logging.error_logging_service import ErrorLoggingService
+
 from uno.core.errors.base import FrameworkError
+from uno.core.logging.error_logging_service import ErrorLoggingService
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
 
 class DummyFrameworkError(FrameworkError):
     def __init__(self, message: str, error_code: str = "DUMMY", **context):
@@ -12,7 +14,7 @@ class DummyFrameworkError(FrameworkError):
 
 @pytest.fixture
 def logger_service():
-    svc = LoggerService()
+    svc = LoggerService(LoggingConfig())
     import asyncio
     asyncio.run(svc.initialize())
     # Enable JSON log format for structured log assertions
@@ -34,7 +36,6 @@ def logger_service():
 def error_logging_service(logger_service):
     return ErrorLoggingService(logger_service)
 
-import json
 
 def test_log_framework_error(caplog, error_logging_service):
     err = DummyFrameworkError("fail", error_code="X123", foo="bar")

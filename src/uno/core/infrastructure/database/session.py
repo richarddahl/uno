@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: MIT
 # uno framework
 import contextlib
-import logging
 from asyncio import current_task
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -14,7 +13,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 
-from typing import TYPE_CHECKING
 from uno.core.protocols import (
     DatabaseSessionContextProtocol,
     DatabaseSessionFactoryProtocol,

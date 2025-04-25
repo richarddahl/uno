@@ -31,7 +31,6 @@ Uno Migration Commands:
 """
 
 import argparse
-import logging
 import os
 import sys
 from pathlib import Path
@@ -42,7 +41,6 @@ from alembic.config import Config
 from uno.core.logging.logger import LoggerService
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.settings import uno_settings
-
 
 
 def get_alembic_config() -> Config:

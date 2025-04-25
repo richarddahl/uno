@@ -9,7 +9,6 @@ It ensures all required extensions are enabled in the database.
 """
 
 import argparse
-import logging
 import os
 
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
@@ -17,7 +16,6 @@ import os
 import sys
 
 from uno.core.logging.logger import LoggerService
-
 
 
 def init_database(

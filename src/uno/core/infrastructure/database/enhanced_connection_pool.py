@@ -14,7 +14,6 @@ This module provides an enhanced connection pool with advanced features:
 
 import asyncio
 import contextlib
-import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -38,7 +37,7 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-
+from uno.core.logging.logger import LoggerService
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.resources import (
     CircuitBreaker,
@@ -1588,9 +1587,9 @@ class EnhancedAsyncEnginePool:
         self,
         name: str,
         config: ConnectionConfig,
+        logger: LoggerService,
         pool_config: ConnectionPoolConfig | None = None,
         resource_registry: ResourceRegistry | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the enhanced async engine pool.
@@ -1598,15 +1597,15 @@ class EnhancedAsyncEnginePool:
         Args:
             name: Name of the pool
             config: Database connection configuration
+            logger: DI-injected LoggerService instance
             pool_config: Pool configuration
             resource_registry: Resource registry
-            logger: Logger instance
         """
         self.name = name
         self.config = config
         self.pool_config = pool_config or ConnectionPoolConfig()
         self.resource_registry = resource_registry or get_resource_registry()
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
 
         # Create the connection pool
         self.pool: EnhancedConnectionPool[AsyncEngine] | None = None

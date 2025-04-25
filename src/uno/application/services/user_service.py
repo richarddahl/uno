@@ -2,17 +2,16 @@
 # SPDX-License-Identifier: MIT
 # uno framework
 
-from uno.application.event_bus import IEventBus
+from uno.core.di.inject import inject
+from uno.core.events.events import EventBusProtocol
 from uno.domain.repository import Repository
 from uno.domain.user import User
 
 
-from uno.core.di.inject import inject
-
 class UserService:
     """Application service for managing users."""
     repo: Repository[User] = inject()
-    event_bus: IEventBus = inject()
+    event_bus: EventBusProtocol = inject()
 
     async def create_user(self, username: str, email: str) -> User:
         user = User(username=username, email=email)

@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 """
 Centralized logger abstraction for Uno framework.
 
 Wraps Python's standard logging, loads config from uno.core.config, and exposes a DI-friendly logger.
 """
 
+import contextvars
 import logging
 import os
 import sys
+import uuid
 
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
@@ -16,12 +20,10 @@ from uno.core.config.base import (
     ProdSettingsConfigDict,
     TestSettingsConfigDict,
 )
-from uno.core.di.provider import ServiceLifecycle
-import uuid
-import contextvars
 
 # Type alias for logger
 Logger = logging.Logger
+
 
 
 class LoggingConfig(BaseSettings):
@@ -54,7 +56,123 @@ class Test(LoggingConfig):
 
 
 # DI-managed LoggerService implementation
-class LoggerService(ServiceLifecycle):
+# NOTE: Local import to break circular dependency
+class LoggerService:
+    """
+    Dependency-injected singleton logging service for Uno.
+    Handles logger configuration, lifecycle, and DI-friendly logger retrieval.
+    Provides robust trace/correlation/request ID propagation for observability.
+    
+    Usage:
+        logger = LoggerService(LoggingConfig())
+        await logger.initialize()
+        logger.info("Hello, Uno!")
+    """
+    def __init__(self, config: LoggingConfig):
+        self.config = config
+        self._logger: Logger | None = None
+        self._initialized = False
+        self._trace_id: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default=str(uuid.uuid4()))
+
+    async def initialize(self) -> None:
+        """
+        Initialize the logger with the current config.
+        Safe to call multiple times (idempotent).
+        """
+        if self._initialized:
+            return
+        self._logger = self._create_logger()
+        self._initialized = True
+
+    def _create_logger(self) -> Logger:
+        logger = logging.getLogger("uno")
+        logger.setLevel(self.config.LEVEL)
+        formatter = logging.Formatter(self.config.FORMAT, self.config.DATE_FORMAT)
+        if self.config.CONSOLE_OUTPUT:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        if self.config.FILE_OUTPUT and self.config.FILE_PATH:
+            from logging.handlers import RotatingFileHandler
+            handler = RotatingFileHandler(
+                self.config.FILE_PATH,
+                maxBytes=self.config.MAX_BYTES,
+                backupCount=self.config.BACKUP_COUNT,
+            )
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        logger.propagate = self.config.PROPAGATE
+        return logger
+
+    def get_logger(self) -> Logger:
+        """
+        Get the underlying Python logger instance.
+        """
+        if not self._initialized or self._logger is None:
+            raise RuntimeError("LoggerService not initialized. Call 'await initialize()' first.")
+        return self._logger
+
+    def set_trace_id(self, trace_id: str) -> None:
+        """
+        Set the trace/correlation ID for the current context.
+        """
+        self._trace_id.set(trace_id)
+
+    def get_trace_id(self) -> str:
+        """
+        Get the trace/correlation ID for the current context.
+        """
+        return self._trace_id.get()
+
+    def info(self, msg: str, *args, **kwargs) -> None:
+        self.get_logger().info(self._format(msg), *args, **kwargs)
+
+    def debug(self, msg: str, *args, **kwargs) -> None:
+        self.get_logger().debug(self._format(msg), *args, **kwargs)
+
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self.get_logger().warning(self._format(msg), *args, **kwargs)
+
+    def error(self, msg: str, *args, exc_info: bool = True, **kwargs) -> None:
+        self.get_logger().error(self._format(msg), *args, exc_info=exc_info, **kwargs)
+
+    def _format(self, msg: str) -> str:
+        # Optionally add trace ID or other context
+        if self.config.INCLUDE_LOGGER_CONTEXT:
+            return f"[trace_id={self.get_trace_id()}] {msg}"
+        return msg
+
+
+    def __init__(self, config: LoggingConfig) -> None:
+        """
+        LoggerService uses composition for lifecycle management. Requires a LoggingConfig instance.
+        If ServiceLifecycle methods are needed, assign a ServiceLifecycle-compatible object to self._lifecycle.
+        """
+        self._lifecycle = None  # type: ignore
+        self._config: LoggingConfig = config
+        self._initialized: bool = False
+        self._loggers: dict[str, Logger] = {}
+
+    def debug(self, msg: str, *args, name: str | None = None, **kwargs) -> None:
+        """Log a debug message via the Uno logger."""
+        self.get_logger(name).debug(msg, *args, **kwargs)
+
+    def info(self, msg: str, *args, name: str | None = None, **kwargs) -> None:
+        """Log an info message via the Uno logger."""
+        self.get_logger(name).info(msg, *args, **kwargs)
+
+    def warning(self, msg: str, *args, name: str | None = None, **kwargs) -> None:
+        """Log a warning message via the Uno logger."""
+        self.get_logger(name).warning(msg, *args, **kwargs)
+
+    def error(self, msg: str, *args, name: str | None = None, **kwargs) -> None:
+        """Log an error message via the Uno logger."""
+        self.get_logger(name).error(msg, *args, **kwargs)
+
+    def critical(self, msg: str, *args, name: str | None = None, **kwargs) -> None:
+        """Log a critical message via the Uno logger."""
+        self.get_logger(name).critical(msg, *args, **kwargs)
+
     """
     Dependency-injected singleton logging service for Uno.
     Handles logger configuration, lifecycle, and DI-friendly logger retrieval.
@@ -64,10 +182,6 @@ class LoggerService(ServiceLifecycle):
     # Context variable for trace context (correlation/request/trace IDs)
     _trace_context_var: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar("uno_trace_context", default={})
 
-    def __init__(self, config: LoggingConfig | None = None) -> None:
-        self._config: LoggingConfig = config or self._load_config()
-        self._initialized: bool = False
-        self._loggers: dict[str, Logger] = {}
 
     def _load_config(self) -> LoggingConfig:
         env_settings: dict[str, type[LoggingConfig]] = {
@@ -92,9 +206,11 @@ class LoggerService(ServiceLifecycle):
     def get_logger(self, name: str | None = None) -> Logger:
         """
         Returns a logger with the given name, supporting structured logging via the standard logging 'extra' argument.
+        Ensures logger is always initialized (robust singleton).
         """
         if not self._initialized:
-            raise RuntimeError("LoggerService must be initialized before use.")
+            self._configure_root_logger()
+            self._initialized = True
         logger_name = name or "uno"
         if logger_name not in self._loggers:
             self._loggers[logger_name] = logging.getLogger(logger_name)
@@ -230,7 +346,7 @@ class LoggerService(ServiceLifecycle):
                         context = record.context
                         extras = []
                         for key in ("error_code", "exception_type", "exception_message", "correlation_id", "trace_id", "request_id"):
-                            if key in context and context[key]:
+                            if context.get(key):
                                 extras.append(f"{key}={context[key]}")
                         if extras:
                             msg = f"{msg} | {' '.join(extras)}"
@@ -282,7 +398,7 @@ class LoggerService(ServiceLifecycle):
             with logger_service.trace_scope():
                 logger_service.structured_log(...)
         """
-        def __init__(self, logger_service: "LoggerService", correlation_id: str | None = None, trace_context: dict[str, str] | None = None):
+        def __init__(self, logger_service: LoggerService, correlation_id: str | None = None, trace_context: dict[str, str] | None = None):
             self._logger_service = logger_service
             if trace_context is not None:
                 self._trace_context = dict(trace_context)

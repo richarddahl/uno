@@ -19,13 +19,13 @@ import functools
 import hashlib
 import inspect
 import json
-import logging
 import pickle
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generic,
     TypeVar,
@@ -36,10 +36,7 @@ from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.sql import Executable, Select
 
 from uno.core.async_integration import AsyncCache
-from uno.core.errors import Failure, Result, Success
-from uno.core.errors import Result as OpResult
-
-from typing import TYPE_CHECKING
+from uno.core.errors import Failure, Result as OpResult, Success
 
 if TYPE_CHECKING:
     from uno.core.logging.logger import LoggerService

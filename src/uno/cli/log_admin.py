@@ -3,18 +3,18 @@ CLI for Uno Logging Configuration Admin
 
 Allows inspection and runtime update of logging configuration using LoggingConfigService.
 """
+
 import typer
-from typing import Optional
-import sys
-from uno.core.logging.logger import LoggerService
+
 from uno.core.logging.config_service import LoggingConfigService
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 app = typer.Typer(help="Uno Logging Configuration Admin CLI")
 
 @app.command()
 def get_field(field: str):
     """Show the value of a specific logging config field."""
-    logger_service = LoggerService()
+    logger_service = LoggerService(LoggingConfig())
     config_service = LoggingConfigService(logger_service)
     config = config_service.get_config()
     value = getattr(config, field, None)
@@ -27,13 +27,14 @@ def get_field(field: str):
 def schema():
     """Show the logging config schema (fields, types, defaults)."""
     import json
+
     from uno.core.logging.logger import LoggingConfig
     typer.echo(json.dumps(LoggingConfig.model_json_schema(), indent=2))
 
 @app.command()
 def restore_defaults():
     """Restore logging config to defaults (dev environment)."""
-    logger_service = LoggerService()
+    logger_service = LoggerService(LoggingConfig())
     from uno.core.logging.logger import Dev
     config_service = LoggingConfigService(logger_service)
     config = Dev()
@@ -45,7 +46,7 @@ def restore_defaults():
 @app.command()
 def validate():
     """Validate the current logging config (prints errors if invalid)."""
-    logger_service = LoggerService()
+    logger_service = LoggerService(LoggingConfig())
     config_service = LoggingConfigService(logger_service)
     try:
         config = config_service.get_config()
@@ -58,21 +59,21 @@ def validate():
 @app.command()
 def show():
     """Show the current logging configuration."""
-    logger_service = LoggerService()
+    logger_service = LoggerService(LoggingConfig())
     config_service = LoggingConfigService(logger_service)
     config = config_service.get_config()
     typer.echo(config.model_dump_json(indent=2))
 
 @app.command()
 def set(
-    level: Optional[str] = typer.Option(None, help="Set the log level (e.g. INFO, DEBUG, ERROR)"),
+    level: str | None = typer.Option(None, help="Set the log level (e.g. INFO, DEBUG, ERROR)"),
     json_format: bool = typer.Option(None, "--json-format/--no-json-format", help="Enable/disable JSON log output"),
     console_output: bool = typer.Option(None, "--console-output/--no-console-output", help="Enable/disable console output"),
     file_output: bool = typer.Option(None, "--file-output/--no-file-output", help="Enable/disable file output"),
-    file_path: Optional[str] = typer.Option(None, help="Set log file path"),
+    file_path: str | None = typer.Option(None, help="Set log file path"),
 ):
     """Update logging configuration at runtime."""
-    logger_service = LoggerService()
+    logger_service = LoggerService(LoggingConfig())
     config_service = LoggingConfigService(logger_service)
     update = {}
     if level is not None:

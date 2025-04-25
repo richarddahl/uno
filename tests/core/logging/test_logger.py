@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 
-import logging
 import asyncio
+import logging
+
 import pytest
 
 from uno.core.logging.logger import (
@@ -13,7 +14,7 @@ from uno.core.logging.logger import (
 
 @pytest.fixture
 def logger_service():
-    service = LoggerService()
+    service = LoggerService(LoggingConfig(CONSOLE_OUTPUT=False))
     asyncio.run(service.initialize())
     yield service
     asyncio.run(service.dispose())
@@ -88,12 +89,12 @@ def test_logger_multiple_names(logger_service):
 
 
 def test_logger_reconfiguration():
-    service = LoggerService()
+    service = LoggerService(LoggingConfig(CONSOLE_OUTPUT=False))
     import asyncio
     asyncio.run(service.initialize())
     logger = service.get_logger("uno")
     old_config = service._config
-    new_config = LoggingConfig(LEVEL="DEBUG")
+    new_config = LoggingConfig(LEVEL="DEBUG", CONSOLE_OUTPUT=False)
     asyncio.run(service.dispose())
     service._config = new_config
     asyncio.run(service.initialize())
@@ -170,7 +171,6 @@ def test_dynamic_reload_no_duplicate_handlers(logger_service):
     assert len(handlers) == 1
 
 
-import logging
 import pytest
 
 
@@ -242,8 +242,9 @@ async def test_structured_log_with_exc_info(logger_service, caplog):
 
 @pytest.mark.asyncio
 async def test_structured_log_json_output(tmp_path, monkeypatch):
-    from uno.core.logging.logger import LoggingConfig
     import json
+
+    from uno.core.logging.logger import LoggingConfig
     # Set up JSON log config with file output
     log_file = tmp_path / 'log.json'
     config = LoggingConfig(JSON_FORMAT=True, FILE_OUTPUT=True, FILE_PATH=str(log_file), CONSOLE_OUTPUT=False)

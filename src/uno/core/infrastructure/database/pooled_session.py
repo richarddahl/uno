@@ -25,7 +25,11 @@ from uno.infrastructure.database.enhanced_session import (
     EnhancedAsyncSessionFactory,
     SessionOperationGroup,
 )
-from uno.infrastructure.database.resources import CircuitBreaker, ResourceRegistry, get_resource_registry
+from uno.infrastructure.database.resources import (
+    CircuitBreaker,
+    ResourceRegistry,
+    get_resource_registry,
+)
 from uno.settings import uno_settings
 
 if TYPE_CHECKING:

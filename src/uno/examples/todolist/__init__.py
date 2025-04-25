@@ -7,7 +7,11 @@ TodoList bounded context initialization.
 
 from uno.core.application.commands import CommandBus
 from uno.core.application.queries import QueryBus
-from uno.core.application.services import DomainEventDispatcher
+from uno.core.events.events import EventBus, EventBusProtocol
+from uno.core.logging.logger import LoggerService
+
+# Create a bus for example/demo registration (replace with DI in real app)
+event_bus: EventBusProtocol = EventBus(LoggerService())
 
 # from uno.database.session import get_async_session
 from uno.examples.todolist.application.commands import (
@@ -64,9 +68,9 @@ async def register_handlers():
     QueryBus.register_handler(ListTodoItemsQuery, ListTodoItemsHandler(todo_repo))
 
     # Register event handlers
-    DomainEventDispatcher.register(TodoItemCreatedEvent, handle_todo_created)
-    DomainEventDispatcher.register(TodoItemCompletedEvent, handle_todo_completed)
-    DomainEventDispatcher.register(TodoItemCancelledEvent, handle_todo_cancelled)
+    event_bus.subscribe(handle_todo_created, event_type=TodoItemCreatedEvent)
+    event_bus.subscribe(handle_todo_completed, event_type=TodoItemCompletedEvent)
+    event_bus.subscribe(handle_todo_cancelled, event_type=TodoItemCancelledEvent)
 
     # Register middleware
     CommandBus.add_middleware(logging_middleware)

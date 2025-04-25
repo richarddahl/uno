@@ -1,5 +1,6 @@
 import pytest
 from typer.testing import CliRunner
+
 from uno.cli import log_admin
 
 runner = CliRunner()

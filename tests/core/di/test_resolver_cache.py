@@ -1,6 +1,8 @@
 import pytest
+
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider
+
 
 class MyDep:
     pass

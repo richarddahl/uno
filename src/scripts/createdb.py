@@ -3,7 +3,6 @@
 import logging
 from contextlib import contextmanager
 
-import logging
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.db_manager import (
     DBManager,  # Our new DBManager for DDL operations

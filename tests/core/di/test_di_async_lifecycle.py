@@ -4,7 +4,7 @@ Tests for Uno DI: async lifecycle and initialization
 import asyncio
 
 import pytest
-from uno.core.di.test_helpers import di_provider
+
 from uno.core.di.container import ServiceCollection
 
 

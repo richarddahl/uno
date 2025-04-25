@@ -12,13 +12,12 @@ This module extends the base async database engine with:
 """
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from uno.core.async_utils import (
     AsyncContextGroup,
@@ -28,7 +27,6 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-from typing import TYPE_CHECKING
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.asynceng import AsyncEngineFactory
 

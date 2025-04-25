@@ -1,21 +1,17 @@
-import pytest
 import asyncio
+
+import pytest
+
 from uno.core.di.container import ServiceCollection
-from uno.core.logging.logger import LoggerService, LoggingConfig
 from uno.core.logging.config_service import LoggingConfigService
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
 
 def test_logger_service_di_integration():
     sc = ServiceCollection()
-    sc.add_singleton(LoggingConfig, implementation=LoggingConfig)
-    resolver = sc.build()
-    config_result = resolver.resolve(LoggingConfig)
-    if hasattr(config_result, "value"):
-        config = config_result.value
-    else:
-        raise AssertionError(f"DI resolution failed for LoggingConfig: {config_result}")
-    def logger_service_factory():
-        return LoggerService(config)
-    sc.add_singleton(LoggerService, implementation=logger_service_factory)
+    config = LoggingConfig()
+    sc.add_singleton(LoggingConfig, implementation=config)
+    sc.add_singleton(LoggerService, implementation=lambda: LoggerService(LoggingConfig(CONSOLE_OUTPUT=False)))
     resolver = sc.build()
     result = resolver.resolve(LoggerService)
     if hasattr(result, "value"):
@@ -36,16 +32,9 @@ def test_logger_service_di_integration():
 @pytest.mark.asyncio
 async def test_logger_service_lifecycle():
     sc = ServiceCollection()
-    sc.add_singleton(LoggingConfig, implementation=LoggingConfig)
-    resolver = sc.build()
-    config_result = resolver.resolve(LoggingConfig)
-    if hasattr(config_result, "value"):
-        config = config_result.value
-    else:
-        raise AssertionError(f"DI resolution failed for LoggingConfig: {config_result}")
-    def logger_service_factory():
-        return LoggerService(config)
-    sc.add_singleton(LoggerService, implementation=logger_service_factory)
+    config = LoggingConfig()
+    sc.add_singleton(LoggingConfig, implementation=config)
+    sc.add_singleton(LoggerService, implementation=lambda: LoggerService(LoggingConfig(CONSOLE_OUTPUT=False)))
     resolver = sc.build()
     result = resolver.resolve(LoggerService)
     if hasattr(result, "value"):

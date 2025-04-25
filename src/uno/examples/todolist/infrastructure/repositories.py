@@ -8,12 +8,11 @@ Repository implementations for the TodoList bounded context.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from uno.core.di.inject import inject
 from uno.core.domain.repository import Repository
 from uno.examples.todolist.domain.models import TodoItem
 from uno.examples.todolist.infrastructure.database import TodoItemModel
 
-
-from uno.core.di.inject import inject
 
 class TodoItemRepository(Repository[TodoItem, str]):
     """Repository for TodoItem aggregates."""

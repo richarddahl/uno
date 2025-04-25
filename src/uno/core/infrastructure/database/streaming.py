@@ -10,7 +10,6 @@ without loading everything into memory at once.
 
 import asyncio
 import contextlib
-import logging
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from enum import Enum
@@ -27,7 +26,7 @@ from uno.core.async_utils import (
     TaskGroup,
     timeout,
 )
-
+from uno.core.logging.logger import LoggerService
 from uno.infrastructure.database.enhanced_session import enhanced_async_session
 from uno.infrastructure.database.pooled_session import pooled_async_session
 
@@ -61,10 +60,10 @@ class StreamingCursor(Generic[T]):
         self,
         session: AsyncSession,
         query: Any,
+        logger: LoggerService,
         chunk_size: int = 1000,
         timeout_seconds: float | None = None,
         transform_fn: Callable[[Row], T] | None = None,
-        logger: logging.Logger | None = None,
     ):
         """
         Initialize the streaming cursor.
@@ -72,17 +71,17 @@ class StreamingCursor(Generic[T]):
         Args:
             session: Database session
             query: SQL query to execute
+            logger: DI-injected LoggerService instance
             chunk_size: Size of chunks to fetch
             timeout_seconds: Timeout for cursor operations
             transform_fn: Function to transform each row
-            logger: Optional logger
         """
         self.session = session
         self.query = query
+        self.logger = logger
         self.chunk_size = chunk_size
         self.timeout_seconds = timeout_seconds
         self.transform_fn = transform_fn
-        self.logger = logger or logging.getLogger(__name__)
 
         # Cursor state
         self._cursor = None

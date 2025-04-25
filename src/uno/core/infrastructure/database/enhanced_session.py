@@ -16,6 +16,7 @@ import logging
 from asyncio import current_task
 from collections.abc import AsyncIterator
 from typing import (
+    TYPE_CHECKING,
     Any,
     TypeVar,
     cast,
@@ -36,7 +37,6 @@ from uno.core.async_utils import (
     run_task,
     timeout,
 )
-from typing import TYPE_CHECKING
 from uno.core.protocols import (
     DatabaseSessionContextProtocol,
     DatabaseSessionFactoryProtocol,

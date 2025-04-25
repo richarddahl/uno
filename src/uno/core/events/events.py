@@ -3,32 +3,21 @@ Event-driven architecture implementation for the Uno framework
 """
 
 import asyncio
+import datetime
 import json
-import logging
 import re
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime
+from collections.abc import Awaitable, Callable
 from enum import Enum, auto
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    Callable,
-    Awaitable,
-    Union,
-    Pattern,
-    cast,
-)
-from uuid import UUID, uuid4
+from typing import Any, Generic, Protocol, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
+# Import dependencies in correct order
+from uno.core.domain._base_types import BaseDomainEvent
+from uno.core.errors.result import Failure, Result, Success
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 # Type variables
 T = TypeVar("T", bound="DomainEvent")
@@ -36,44 +25,66 @@ HandlerFnT = TypeVar("HandlerFnT")
 
 
 class EventPriority(Enum):
-    """Priority levels for event handling."""
+    """Priority levels for event handling.
+    
+    This enum defines the priority levels for event handlers. Higher priority
+    handlers will be executed before lower priority handlers.
+    """
 
-    HIGH = auto()
-    NORMAL = auto()
-    LOW = auto()
+    HIGH = auto()    # Execute first
+    NORMAL = auto()  # Execute in middle (default)
+    LOW = auto()     # Execute last
 
 
-class DomainEvent(BaseModel):
+class EventBusProtocol(Protocol):
+    """Protocol for event bus implementations."""
+
+    async def publish(self, event: "DomainEvent", metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]: ...
+    async def publish_many(self, events: list["DomainEvent"], metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]: ...
+    def subscribe(
+        self,
+        handler: Any,
+        event_type: type["DomainEvent"] | None = None,
+        topic_pattern: str | re.Pattern | None = None,
+        priority: "EventPriority" = EventPriority.NORMAL,
+    ) -> None: ...
+    def unsubscribe(
+        self,
+        handler: Any,
+        event_type: type["DomainEvent"] | None = None,
+        topic_pattern: str | re.Pattern | None = None,
+    ) -> None: ...
+
+
+class EventPublisherProtocol(Protocol):
+    """Protocol for event publisher implementations."""
+
+    async def publish(self, event: "DomainEvent", metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]: ...
+    async def publish_many(self, events: list["DomainEvent"], metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]: ...
+    def add(self, event: "DomainEvent", metadata: dict[str, Any] | None = None) -> None: ...
+    def add_many(self, events: list["DomainEvent"], metadata: dict[str, Any] | None = None) -> None: ...
+    async def publish_pending(self, metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]: ...
+
+
+class DomainEvent(BaseDomainEvent, BaseModel):
     """
     Base class for domain events.
 
     Domain events represent significant occurrences within the domain model.
     They are immutable records of something that happened.
     """
-
-    model_config = ConfigDict(frozen=True)
-
-    # Standard event metadata
-    event_id: str = Field(default_factory=lambda: str(uuid4()))
-    event_type: str = Field(default="domain_event")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    aggregate_id: Optional[str] = None
-    aggregate_type: Optional[str] = None
-    version: int = 1
-
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+    
     # Optional correlation and causation IDs for event tracing
-    correlation_id: Optional[str] = None
-    causation_id: Optional[str] = None
+    correlation_id: str | None = None
+    causation_id: str | None = None
 
-    # Optional topic for routing
-    topic: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary."""
         return self.model_dump()
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DomainEvent":
+    def from_dict(cls, data: dict[str, Any]) -> "DomainEvent":
         """Create event from dictionary."""
         return cls(**data)
 
@@ -88,9 +99,9 @@ class DomainEvent(BaseModel):
 
     def with_metadata(
         self,
-        correlation_id: Optional[str] = None,
-        causation_id: Optional[str] = None,
-        topic: Optional[str] = None,
+        correlation_id: str | None = None,
+        causation_id: str | None = None,
+        topic: str | None = None,
     ) -> "DomainEvent":
         """
         Create a copy of the event with additional metadata.
@@ -125,7 +136,7 @@ class EventHandler(Generic[T], ABC):
     in response to the events.
     """
 
-    def __init__(self, event_type: Type[T], name: Optional[str] = None):
+    def __init__(self, event_type: type[T], name: str | None = None):
         """
         Initialize the event handler.
 
@@ -137,12 +148,15 @@ class EventHandler(Generic[T], ABC):
         self.name = name or self.__class__.__name__
 
     @abstractmethod
-    async def handle(self, event: T) -> None:
+    async def handle(self, event: T) -> Any:
         """
         Handle an event.
 
         Args:
             event: The event to handle
+            
+        Returns:
+            Handler result, may vary based on implementation
         """
         pass
 
@@ -162,7 +176,7 @@ class EventHandler(Generic[T], ABC):
 # Type aliases for event handler functions
 SyncEventHandler = Callable[[T], None]
 AsyncEventHandler = Callable[[T], Awaitable[None]]
-EventHandlerFn = Union[SyncEventHandler[T], AsyncEventHandler[T]]
+EventHandlerFn = SyncEventHandler[T] | AsyncEventHandler[T]
 
 
 class EventSubscription(Generic[T]):
@@ -175,11 +189,11 @@ class EventSubscription(Generic[T]):
 
     def __init__(
         self,
-        handler: Union[EventHandler[T], EventHandlerFn[T]],
-        event_type: Optional[Type[T]] = None,
-        topic_pattern: Optional[Union[str, Pattern]] = None,
+        handler: EventHandler[T] | EventHandlerFn[T],
+        event_type: type[T] | None = None,
+        topic_pattern: str | re.Pattern | None = None,
         priority: EventPriority = EventPriority.NORMAL,
-        is_async: Optional[bool] = None,
+        is_async: bool | None = None,
     ):
         """
         Initialize the event subscription.
@@ -219,63 +233,77 @@ class EventSubscription(Generic[T]):
         Returns:
             True if this subscription matches the event, False otherwise
         """
-        # Check event type
+        # Check event type if specified
         if self.event_type and not isinstance(event, self.event_type):
             return False
 
-        # Check topic pattern
-        if self.topic_pattern and event.topic:
-            if isinstance(self.topic_pattern, Pattern):
-                return bool(self.topic_pattern.match(event.topic))
+        # Check topic pattern if specified
+        # If the event has no topic but we have a pattern, it doesn't match
+        if not event.topic and self.topic_pattern:
+            return False
 
-        return True
+        # If we have a pattern and the event has a topic, check the pattern
+        return not (
+            self.topic_pattern
+            and not self.topic_pattern.match(event.topic)
+        )
 
-    async def invoke(self, event: DomainEvent) -> None:
+    async def invoke(self, event: DomainEvent) -> Result[Any, Exception]:
         """
         Invoke the handler for the given event.
 
         Args:
             event: The event to handle
+            
+        Returns:
+            Result with the handler's return value on success, or Exception on failure
         """
-        # Cast event to the expected type
-        typed_event = cast(T, event)
+        try:
+            # Cast event to the expected type
+            typed_event = cast("T", event)
 
-        if isinstance(self.handler, EventHandler):
-            # Handler object
-            await self.handler.handle(typed_event)
-        elif self.is_async:
-            # Async handler function
-            await self.handler(typed_event)
-        else:
-            # Sync handler function - run in executor
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self.handler, typed_event)
+            if isinstance(self.handler, EventHandler):
+                # Handler object
+                result = await self.handler.handle(typed_event)
+                return Success(result)
+            elif self.is_async:
+                # Async handler function
+                result = await self.handler(typed_event)
+                return Success(result)
+            else:
+                # Sync handler function - run in executor
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(None, self.handler, typed_event)
+                return Success(result)
+        except Exception as e:
+            return Failure(e)
 
 
-class EventBus:
+class EventBus(EventBusProtocol):
     """
     Event bus for publishing and subscribing to domain events.
 
     The event bus enables loosely coupled communication between different
     parts of the application using an event-driven architecture.
+    Implements EventBusProtocol.
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: LoggerService):
         """
         Initialize the event bus.
 
         Args:
-            logger: Optional logger instance
+            logger: DI-injected LoggerService instance
         """
-        self.logger = logger or logging.getLogger(__name__)
-        self._subscriptions: List[EventSubscription] = []
-        self._publish_time: Dict[str, float] = {}  # Event type -> last publish time
+        self.logger = logger
+        self._subscriptions: list[EventSubscription] = []
+        self._publish_time: dict[str, float] = {}  # Event type -> last publish time
 
     def subscribe(
         self,
-        handler: Union[EventHandler[T], EventHandlerFn[T]],
-        event_type: Optional[Type[T]] = None,
-        topic_pattern: Optional[str] = None,
+        handler: EventHandler[T] | EventHandlerFn[T],
+        event_type: type[T] | None = None,
+        topic_pattern: str | None = None,
         priority: EventPriority = EventPriority.NORMAL,
     ) -> None:
         """
@@ -312,9 +340,9 @@ class EventBus:
 
     def unsubscribe(
         self,
-        handler: Union[EventHandler[T], EventHandlerFn[T]],
-        event_type: Optional[Type[T]] = None,
-        topic_pattern: Optional[str] = None,
+        handler: EventHandler[T] | EventHandlerFn[T],
+        event_type: type[T] | None = None,
+        topic_pattern: str | None = None,
     ) -> None:
         """
         Unsubscribe from events of a specific type or topic.
@@ -324,51 +352,41 @@ class EventBus:
             event_type: The type of event to unsubscribe from
             topic_pattern: Optional topic pattern for topic-based routing
         """
-        # Compile topic pattern if provided
-        compiled_pattern = re.compile(topic_pattern) if topic_pattern else None
-
-        # Find and remove matching subscriptions
-        initial_count = len(self._subscriptions)
-
-        # Use identity check for handler objects
-        if isinstance(handler, EventHandler):
-            self._subscriptions = [
-                s
-                for s in self._subscriptions
-                if not (
-                    (
-                        isinstance(s.handler, EventHandler)
-                        and id(s.handler) == id(handler)
+        before = len(self._subscriptions)
+        self._subscriptions = [
+            s
+            for s in self._subscriptions
+            if not (
+                s.handler == handler
+                and (event_type is None or s.event_type == event_type)
+                and (
+                    topic_pattern is None
+                    or (
+                        s.topic_pattern.pattern == topic_pattern
+                        if hasattr(s.topic_pattern, "pattern")
+                        else s.topic_pattern == topic_pattern
                     )
-                    and (event_type is None or s.event_type == event_type)
-                    and (topic_pattern is None or s.topic_pattern == compiled_pattern)
                 )
-            ]
-        else:
-            # For function handlers
-            self._subscriptions = [
-                s
-                for s in self._subscriptions
-                if not (
-                    s.handler == handler
-                    and (event_type is None or s.event_type == event_type)
-                    and (topic_pattern is None or s.topic_pattern == compiled_pattern)
-                )
-            ]
-
-        if len(self._subscriptions) < initial_count:
-            self.logger.debug(
-                f"Unsubscribed handler from events: "
-                f"event_type={event_type.__name__ if event_type else 'Any'}, "
-                f"topic_pattern={topic_pattern or 'Any'}"
             )
+        ]
+        after = len(self._subscriptions)
+        self.logger.debug(
+            f"Unsubscribed handler from events: "
+            f"event_type={event_type.__name__ if event_type else 'Any'}, "
+            f"topic_pattern={topic_pattern or 'Any'}, "
+            f"removed={before - after}"
+        )
 
-    async def publish(self, event: DomainEvent) -> None:
+    async def publish(self, event: DomainEvent, metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]:
         """
         Publish an event to all matching subscribers.
 
         Args:
             event: The event to publish
+            metadata: Optional metadata to associate with the event
+
+        Returns:
+            Result containing a list of Results from each handler, or an Exception if the overall process failed
         """
         event_type_name = event.__class__.__name__
         topic = event.topic or ""
@@ -383,24 +401,60 @@ class EventBus:
 
         if not matching_subscriptions:
             self.logger.debug(f"No handlers registered for event: {event_type_name}")
-            return
+            return Success([])
 
-        # Invoke handlers
+        # Invoke handlers and collect results
+        results: list[Result[Any, Exception]] = []
+        
         for subscription in matching_subscriptions:
             try:
-                await subscription.invoke(event)
+                result = await subscription.invoke(event)
+                results.append(result)
             except Exception as e:
-                self.logger.error(f"Error in event handler: {str(e)}")
+                self.logger.error(f"Error in event handler: {e!s}")
+                results.append(Failure(e))
+                
+        return Success(results)
 
-    async def publish_many(self, events: List[DomainEvent]) -> None:
+    async def publish_many(self, events: list[DomainEvent], metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]:
         """
         Publish multiple events.
 
         Args:
             events: The events to publish
+            metadata: Optional metadata to associate with all events
+
+        Returns:
+            Result containing results from publishing each event, or an Exception if the overall process failed
         """
-        for event in events:
-            await self.publish(event)
+        # Create shared metadata if needed
+        event_metadata = metadata or {}
+        
+        # Track results for each event published
+        results: list[Result[list[Result[Any, Exception]], Exception]] = []
+        
+        try:
+            for event in events:
+                # Include event-specific metadata from the event itself if available
+                combined_metadata = {**event_metadata}
+                
+                # Publish the event with combined metadata
+                event_result = await self.publish(event, combined_metadata)
+                
+                # Store the result
+                if event_result.is_success():
+                    results.append(event_result)
+                else:
+                    # If publishing failed, propagate the failure but continue with other events
+                    self.logger.warning(
+                        f"Failed to publish event {event.__class__.__name__}: {event_result.error}"
+                    )
+                    results.append(Failure(event_result.error))
+                    
+            return Success(results)
+        except Exception as e:
+            self.logger.error(f"Error in publish_many: {e}")
+            return Failure(e)
 
 
 class EventStore(ABC):
@@ -412,24 +466,27 @@ class EventStore(ABC):
     """
 
     @abstractmethod
-    async def append(self, event: DomainEvent) -> None:
+    async def append(self, event: DomainEvent) -> Result[None, Exception]:
         """
         Append an event to the event store.
 
         Args:
             event: The event to append
+        
+        Returns:
+            Result with None on success, or an error on failure
         """
         pass
 
     @abstractmethod
     async def get_events(
         self,
-        aggregate_id: Optional[str] = None,
-        aggregate_type: Optional[str] = None,
-        since_version: Optional[int] = None,
-        since_timestamp: Optional[datetime] = None,
-        limit: Optional[int] = None,
-    ) -> List[DomainEvent]:
+        aggregate_id: str | None = None,
+        aggregate_type: str | None = None,
+        since_version: int | None = None,
+        since_timestamp: datetime.datetime | None = None,
+        limit: int | None = None,
+    ) -> Result[list[DomainEvent], Exception]:
         """
         Get events from the event store.
 
@@ -441,7 +498,7 @@ class EventStore(ABC):
             limit: Optional maximum number of events to return
 
         Returns:
-            List of events matching the criteria
+            Result with list of events matching the criteria, or an error on failure
         """
         pass
 
@@ -454,34 +511,42 @@ class InMemoryEventStore(EventStore):
     testing and simple applications.
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: LoggerService):
         """
         Initialize the in-memory event store.
 
         Args:
-            logger: Optional logger instance
+            logger: DI-injected LoggerService instance
         """
-        self.logger = logger or logging.getLogger(__name__)
-        self._events: List[DomainEvent] = []
+        self.logger = logger
+        self._events: list[DomainEvent] = []
 
-    async def append(self, event: DomainEvent) -> None:
+    async def append(self, event: DomainEvent) -> Result[None, Exception]:
         """
         Append an event to the event store.
 
         Args:
             event: The event to append
+            
+        Returns:
+            Result with None on success, or an error on failure
         """
-        self._events.append(event)
-        self.logger.debug(f"Event appended to store: {event.__class__.__name__}")
+        try:
+            self._events.append(event)
+            self.logger.debug(f"Event appended to store: {event.__class__.__name__}")
+            return Success(None)
+        except Exception as e:
+            self.logger.error(f"Failed to append event to store: {e!s}")
+            return Failure(e)
 
     async def get_events(
         self,
-        aggregate_id: Optional[str] = None,
-        aggregate_type: Optional[str] = None,
-        since_version: Optional[int] = None,
-        since_timestamp: Optional[datetime] = None,
-        limit: Optional[int] = None,
-    ) -> List[DomainEvent]:
+        aggregate_id: str | None = None,
+        aggregate_type: str | None = None,
+        since_version: int | None = None,
+        since_timestamp: datetime.datetime | None = None,
+        limit: int | None = None,
+    ) -> Result[list[DomainEvent], Exception]:
         """
         Get events from the event store.
 
@@ -493,52 +558,58 @@ class InMemoryEventStore(EventStore):
             limit: Optional maximum number of events to return
 
         Returns:
-            List of events matching the criteria
+            Result with list of events matching the criteria, or an error on failure
         """
-        filtered_events = self._events.copy()
+        try:
+            # Start with all events
+            filtered_events = self._events.copy()
 
-        # Apply filters
-        if aggregate_id:
-            filtered_events = [
-                e for e in filtered_events if e.aggregate_id == aggregate_id
-            ]
+            # Apply filters
+            if aggregate_id:
+                filtered_events = [
+                    e for e in filtered_events if e.aggregate_id == aggregate_id
+                ]
 
-        if aggregate_type:
-            filtered_events = [
-                e for e in filtered_events if e.aggregate_type == aggregate_type
-            ]
+            if aggregate_type:
+                filtered_events = [
+                    e for e in filtered_events if e.aggregate_type == aggregate_type
+                ]
 
-        if since_version:
-            filtered_events = [e for e in filtered_events if e.version >= since_version]
+            if since_version:
+                filtered_events = [e for e in filtered_events if e.version >= since_version]
 
-        if since_timestamp:
-            filtered_events = [
-                e for e in filtered_events if e.timestamp >= since_timestamp
-            ]
+            if since_timestamp:
+                filtered_events = [
+                    e for e in filtered_events if e.timestamp >= since_timestamp
+                ]
 
-        # Sort by timestamp
-        filtered_events.sort(key=lambda e: e.timestamp)
+            # Sort by timestamp
+            filtered_events.sort(key=lambda e: e.timestamp)
 
-        # Apply limit
-        if limit:
-            filtered_events = filtered_events[:limit]
+            # Apply limit
+            if limit:
+                filtered_events = filtered_events[:limit]
 
-        return filtered_events
+            self.logger.debug(f"Retrieved {len(filtered_events)} events from store")
+            return Success(filtered_events)
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve events from store: {e!s}")
+            return Failure(e)
 
 
-class EventPublisher:
+class EventPublisher(EventPublisherProtocol):
     """
     Helper class for publishing events.
 
-    This class provides a convenient interface for collecting and publishing
-    events to an event bus.
+    Provides a convenient interface for collecting, persisting, and publishing
+    events to an event bus. Implements EventPublisherProtocol.
     """
 
     def __init__(
         self,
-        event_bus: EventBus,
-        event_store: Optional[EventStore] = None,
-        logger: Optional[logging.Logger] = None,
+        event_bus: EventBusProtocol,
+        event_store: EventStore | None = None,
+        logger: LoggerService | None = None,
     ):
         """
         Initialize the event publisher.
@@ -546,12 +617,12 @@ class EventPublisher:
         Args:
             event_bus: The event bus to publish events to
             event_store: Optional event store for event persistence
-            logger: Optional logger instance
+            logger: DI-injected LoggerService instance
         """
         self.event_bus = event_bus
         self.event_store = event_store
-        self.logger = logger or logging.getLogger(__name__)
-        self._pending_events: List[DomainEvent] = []
+        self.logger = logger  # Must be a LoggerService instance
+        self._pending_events: list[DomainEvent] = []
 
     def add(self, event: DomainEvent) -> None:
         """
@@ -562,7 +633,7 @@ class EventPublisher:
         """
         self._pending_events.append(event)
 
-    def add_many(self, events: List[DomainEvent]) -> None:
+    def add_many(self, events: list[DomainEvent]) -> None:
         """
         Add multiple events to be published later.
 
@@ -571,102 +642,275 @@ class EventPublisher:
         """
         self._pending_events.extend(events)
 
-    async def publish_pending(self) -> None:
+    async def publish_pending(self, metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]:
         """
         Publish all pending events.
 
         This method publishes all events that have been added with add()
         or add_many() and clears the list of pending events.
+        
+        Args:
+            metadata: Optional metadata to associate with all events
+            
+        Returns:
+            Result containing the results of publishing each event
         """
         events = self._pending_events.copy()
         self._pending_events.clear()
 
         if not events:
-            return
+            self.logger.debug("No pending events to publish.")
+            return Success([])
 
+        # Track results for persistence and publishing
+        persist_results = []
+        
         # Persist events if event store is available
         if self.event_store:
             for event in events:
-                await self.event_store.append(event)
+                persist_result = await self.event_store.append(event)
+                persist_results.append(persist_result)
+                
+                if persist_result.is_success():
+                    self.logger.info(
+                        f"Persisted event {event.event_type} with ID {event.event_id}."
+                    )
+                else:
+                    self.logger.error(
+                        f"Failed to persist event {event.event_type} with ID {event.event_id}: "
+                        f"{persist_result.error}"
+                    )
 
-        # Publish events to the event bus
-        await self.event_bus.publish_many(events)
+        # Publish events to the event bus and return the results
+        result = await self.event_bus.publish_many(events, metadata)
+        self.logger.info(f"Published {len(events)} pending events to event bus.")
+        
+        return result
 
-    async def publish(self, event: DomainEvent) -> None:
+    async def publish(self, event: DomainEvent, metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]:
         """
         Publish an event immediately.
 
         Args:
             event: The event to publish
+            metadata: Optional metadata to associate with the event
+            
+        Returns:
+            Result containing the results of publishing the event
         """
+        # Track results
+        results = []
+        
         # Persist event if event store is available
         if self.event_store:
-            await self.event_store.append(event)
+            persist_result = await self.event_store.append(event)
+            results.append(persist_result)
+            
+            if persist_result.is_success():
+                self.logger.info(f"Persisted event {event.event_type} with ID {event.event_id}.")
+            else:
+                self.logger.error(
+                    f"Failed to persist event {event.event_type} with ID {event.event_id}: "
+                    f"{persist_result.error}"
+                )
+                # We continue publishing even if persistence fails
 
         # Publish event to the event bus
-        await self.event_bus.publish(event)
+        publish_result = await self.event_bus.publish(event, metadata)
+        
+        if publish_result.is_success():
+            self.logger.info(f"Published event {event.event_type} with ID {event.event_id} to event bus.")
+        else:
+            self.logger.error(
+                f"Failed to publish event {event.event_type} with ID {event.event_id}: "
+                f"{publish_result.error}"
+            )
+            
+        return publish_result
 
-    async def publish_many(self, events: List[DomainEvent]) -> None:
+    async def publish_many(self, events: list[DomainEvent], metadata: dict[str, Any] | None = None) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]:
         """
         Publish multiple events immediately.
 
         Args:
             events: The events to publish
+            metadata: Optional metadata to associate with all events
+            
+        Returns:
+            Result containing the results of publishing the events
         """
+        # Track results for persistence operations
+        persist_results = []
+        
         # Persist events if event store is available
         if self.event_store:
             for event in events:
-                await self.event_store.append(event)
+                persist_result = await self.event_store.append(event)
+                persist_results.append(persist_result)
+                
+                if persist_result.is_success():
+                    self.logger.info(f"Persisted event {event.event_type} with ID {event.event_id}.")
+                else:
+                    self.logger.error(
+                        f"Failed to persist event {event.event_type} with ID {event.event_id}: "
+                        f"{persist_result.error}"
+                    )
+                    # We continue with other events even if one fails
 
         # Publish events to the event bus
-        await self.event_bus.publish_many(events)
+        publish_result = await self.event_bus.publish_many(events, metadata)
+        
+        if publish_result.is_success():
+            self.logger.info(f"Published {len(events)} events to event bus.")
+        else:
+            self.logger.error(f"Failed to publish events: {publish_result.error}")
+            
+        return publish_result
 
 
-# Create default instances
-default_event_bus = EventBus()
-default_event_store = InMemoryEventStore()
-default_publisher = EventPublisher(default_event_bus, default_event_store)
+# Factory functions for event system components
+# These implement the Service Locator pattern for use when DI is not available
+# In production code, proper DI container should be used instead
+
+# Initialize lazily loaded singletons
+_event_system_components = {
+    "logger": None,
+    "event_bus": None,
+    "event_store": None,
+    "publisher": None,
+}
+
+
+def get_logger_service() -> LoggerService:
+    """Get the default LoggerService instance for event system components.
+    
+    Returns:
+        A shared LoggerService instance
+    """
+    if _event_system_components["logger"] is None:
+        # Create a default logger if not provided through DI
+        _event_system_components["logger"] = LoggerService(LoggingConfig())
+    
+    return _event_system_components["logger"]
+
+
+def set_logger_service(logger: LoggerService) -> None:
+    """Set a custom LoggerService for all event system components.
+    
+    Args:
+        logger: The LoggerService instance to use
+    """
+    _event_system_components["logger"] = logger
+    
+    # Reset other components to ensure they use the new logger
+    _event_system_components["event_bus"] = None
+    _event_system_components["event_store"] = None
+    _event_system_components["publisher"] = None
 
 
 def get_event_bus() -> EventBus:
-    """Get the default event bus."""
-    return default_event_bus
+    """Get the default event bus.
+    
+    Returns:
+        The default EventBus instance, creating it if necessary
+    """
+    if _event_system_components["event_bus"] is None:
+        # Create a default event bus if not provided through DI
+        _event_system_components["event_bus"] = EventBus(get_logger_service())
+    
+    return _event_system_components["event_bus"]
+
+
+def set_event_bus(event_bus: EventBus) -> None:
+    """Set a custom EventBus as the default.
+    
+    Args:
+        event_bus: The EventBus instance to use
+    """
+    _event_system_components["event_bus"] = event_bus
+    
+    # Reset publisher to ensure it uses the new event bus
+    _event_system_components["publisher"] = None
 
 
 def get_event_store() -> EventStore:
-    """Get the default event store."""
-    return default_event_store
+    """Get the default event store.
+    
+    Returns:
+        The default EventStore instance, creating it if necessary
+    """
+    if _event_system_components["event_store"] is None:
+        # Create a default in-memory event store if not provided through DI
+        _event_system_components["event_store"] = InMemoryEventStore(get_logger_service())
+    
+    return _event_system_components["event_store"]
+
+
+def set_event_store(event_store: EventStore) -> None:
+    """Set a custom EventStore as the default.
+    
+    Args:
+        event_store: The EventStore instance to use
+    """
+    _event_system_components["event_store"] = event_store
+    
+    # Reset publisher to ensure it uses the new event store
+    _event_system_components["publisher"] = None
 
 
 def get_event_publisher() -> EventPublisher:
-    """Get the default event publisher."""
-    return default_publisher
+    """Get the default event publisher.
+    
+    Returns:
+        The default EventPublisher instance, creating it if necessary
+    """
+    if _event_system_components["publisher"] is None:
+        # Create a default publisher if not provided through DI
+        _event_system_components["publisher"] = EventPublisher(
+            get_event_bus(),
+            get_event_store(),
+            get_logger_service()
+        )
+    
+    return _event_system_components["publisher"]
+
+
+def set_event_publisher(publisher: EventPublisher) -> None:
+    """Set a custom EventPublisher as the default.
+    
+    Args:
+        publisher: The EventPublisher instance to use
+    """
+    _event_system_components["publisher"] = publisher
 
 
 def subscribe(
-    event_type: Optional[Type[DomainEvent]] = None,
-    topic_pattern: Optional[str] = None,
+    event_type: type[DomainEvent] | None = None,
+    topic_pattern: str | None = None,
     priority: EventPriority = EventPriority.NORMAL,
+    *,
+    event_bus: EventBusProtocol | None = None,
 ) -> Callable[[HandlerFnT], HandlerFnT]:
     """
-    Decorator for subscribing functions or methods to events.
+    Decorator for subscribing functions or methods to events (DI-friendly).
 
-    This decorator registers a function or method as an event handler
-    for a specific event type or topic.
+    Registers a function or method as an event handler for a specific event type or topic.
+    Supports handler priorities and topic pattern matching. Optionally allows DI of the event bus.
 
     Args:
         event_type: The type of event to subscribe to
         topic_pattern: Optional topic pattern for topic-based routing
         priority: Handler priority
+        event_bus: The EventBus instance to register with (defaults to global bus)
 
     Returns:
         The decorated function or method
     """
 
     def decorator(handler: HandlerFnT) -> HandlerFnT:
-        # Subscribe the handler to the event bus
-        default_event_bus.subscribe(
-            handler=cast(Any, handler),
+        bus = event_bus or get_event_bus()
+        bus.subscribe(
+            handler=cast("Any", handler),
             event_type=event_type,
             topic_pattern=topic_pattern,
             priority=priority,
@@ -674,3 +918,30 @@ def subscribe(
         return handler
 
     return decorator
+
+
+def register_event_handler(
+    handler: HandlerFnT,
+    event_type: type[DomainEvent] | None = None,
+    topic_pattern: str | None = None,
+    priority: EventPriority = EventPriority.NORMAL,
+    *,
+    event_bus: EventBusProtocol | None = None,
+) -> None:
+    """
+    Register an event handler function or object with the event bus (DI/config-friendly).
+
+    Args:
+        handler: The handler function or object
+        event_type: The type of event to subscribe to
+        topic_pattern: Optional topic pattern for topic-based routing
+        priority: Handler priority
+        event_bus: The EventBus instance to register with (defaults to global bus)
+    """
+    bus = event_bus or get_event_bus()
+    bus.subscribe(
+        handler=cast("Any", handler),
+        event_type=event_type,
+        topic_pattern=topic_pattern,
+        priority=priority,
+    )

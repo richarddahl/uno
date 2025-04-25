@@ -6,10 +6,11 @@ Integrates with LoggerService to apply changes immediately.
 """
 from __future__ import annotations
 
-import logging
 from typing import Any
-from uno.core.logging.logger import LoggingConfig, LoggerService
+
 from uno.core.errors.base import FrameworkError
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
 
 class LoggingConfigUpdateError(FrameworkError):
     """Raised when an invalid logging config update is attempted."""

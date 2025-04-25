@@ -2,8 +2,13 @@
 Tests for LoggingConfigService (runtime updatable logging config).
 """
 import pytest
-from uno.core.logging.logger import LoggingConfig, LoggerService
-from uno.core.logging.config_service import LoggingConfigService, LoggingConfigUpdateError
+
+from uno.core.logging.config_service import (
+    LoggingConfigService,
+    LoggingConfigUpdateError,
+)
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
 
 @pytest.fixture
 def logger_service():
@@ -36,7 +41,7 @@ def test_file_output_update(tmp_path, config_service):
     config_service.set_file_output(True, file_path=file_path)
     cfg = config_service.get_config()
     assert cfg.FILE_OUTPUT is True
-    assert cfg.FILE_PATH == file_path
+    assert file_path == cfg.FILE_PATH
     config_service.set_file_output(False)
     assert config_service.get_config().FILE_OUTPUT is False
 

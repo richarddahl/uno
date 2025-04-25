@@ -8,7 +8,6 @@ This module provides a centralized access point for database connections,
 supporting both synchronous and asynchronous access patterns.
 """
 
-import logging
 from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncContextManager, ContextManager
 
@@ -23,7 +22,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session, sessionmaker
 
-
+from uno.core.logging.logger import LoggerService
 from uno.infrastructure.database.config import ConnectionConfig
 
 
@@ -36,16 +35,16 @@ class DatabaseProvider:
     for database access in Uno applications.
     """
 
-    def __init__(self, config: ConnectionConfig, logger: logging.Logger | None = None):
+    def __init__(self, config: ConnectionConfig, logger: LoggerService):
         """
         Initialize the database provider with connection configuration.
 
         Args:
             config: Database connection configuration
-            logger: Optional logger instance
+            logger: DI-injected LoggerService instance
         """
         self.config = config
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
 
         # Engine instances - lazy initialized
         self._async_engine: AsyncEngine | None = None

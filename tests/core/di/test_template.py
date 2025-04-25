@@ -4,7 +4,9 @@
 # See docs/di_testing.md for DI test patterns and best practices
 
 import pytest
-from uno.core.di.test_helpers import di_provider, TestDI
+
+from uno.core.di.test_helpers import TestDI
+
 
 # Example: Isolated provider per test
 def test_example_isolated(di_provider):

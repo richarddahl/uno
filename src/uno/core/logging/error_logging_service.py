@@ -4,9 +4,12 @@ ErrorLoggingService for Uno: structured error event logging and context propagat
 Integrates with uno.core.errors to log error events in a structured, context-rich way, using the DI logger system.
 """
 from __future__ import annotations
+
 from typing import Any
-from uno.core.logging.logger import LoggerService
+
 from uno.core.errors.base import FrameworkError
+from uno.core.logging.logger import LoggerService
+
 
 class ErrorLoggingService:
     """

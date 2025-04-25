@@ -225,7 +225,7 @@ class _ServiceResolver:
         except Exception as e:
             return Failure(
                 ServiceRegistrationError(
-                    f"Failed to register service: {str(e)}", reason=str(e)
+                    f"Failed to register service: {e!s}", reason=str(e)
                 )
             )
 
@@ -429,7 +429,7 @@ class _ServiceResolver:
 
         except Exception as e:
             raise ServiceResolutionError(
-                f"Failed to create instance of {registration.implementation.__name__}: {str(e)}"
+                f"Failed to create instance of {registration.implementation.__name__}: {e!s}"
             ) from e
 
     def _handle_registration_failure(self, service_type, reg_result):
@@ -723,7 +723,7 @@ class _ServiceResolver:
         except Exception as e:
             return Failure(
                 ServiceRegistrationError(
-                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
+                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {e!s}",
                     reason=str(e),
                 )
             )
@@ -947,7 +947,7 @@ class _ServiceResolver:
         except Exception as e:
             return Failure(
                 ServiceRegistrationError(
-                    f"Failed to create instance: {str(e)}", reason=str(e)
+                    f"Failed to create instance: {e!s}", reason=str(e)
                 )
             )
 
@@ -1051,7 +1051,7 @@ class _ServiceResolver:
         except Exception as e:
             return Failure(
                 ServiceRegistrationError(
-                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {str(e)}",
+                    f"Failed to resolve parameter '{param_name}' of type {registered_type}: {e!s}",
                     reason=str(e),
                 )
             )

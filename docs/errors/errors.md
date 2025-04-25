@@ -32,9 +32,9 @@ _This document provides an in-depth look at the error handling system within `un
 
 ## Error Types & Structure
 
-### Base Error: `CustomError`
+### Base Error: `FrameworkError`
 
-All core errors inherit from `CustomError`, which extends the default language error/exception. Its main features:
+All core errors inherit from `FrameworkError`, which extends the default language error/exception. Its main features:
 
 - `message` (str): Description of the error.
 - `code` (str): Error identifier (e.g., `"DATA_NOT_FOUND"`).
@@ -43,7 +43,7 @@ All core errors inherit from `CustomError`, which extends the default language e
 #### Example Definition
 
 ```python
-class CustomError(Exception):
+class FrameworkError(Exception):
     def __init__(self, message, code=None, context=None):
         super().__init__(message)
         self.code = code
@@ -55,9 +55,9 @@ class CustomError(Exception):
 ### Raising Errors
 
 ```python
-from uno.core.errors import CustomError
+from uno.core.errors import FrameworkError
 
-raise CustomError("Missing configuration.", code="CONFIG_MISSING", context={"file": "settings.yaml"})
+raise FrameworkError("Missing configuration.", code="CONFIG_MISSING", context={"file": "settings.yaml"})
 ```
 
 ### Handling & Logging
@@ -65,7 +65,7 @@ raise CustomError("Missing configuration.", code="CONFIG_MISSING", context={"fil
 ```python
 try:
     ...
-except CustomError as err:
+except FrameworkError as err:
     logger.error(f"Caught Error [{err.code}]: {err} | Context: {err.context}")
     if err.code == "CONFIG_MISSING":
         # Recovery logic
@@ -79,7 +79,7 @@ You can wrap third-party/library errors for consistency:
 try:
     db.connect()
 except SomeLibraryError as ex:
-    raise CustomError("Database unavailable", code="DB_UNAVAILABLE", context={"original": repr(ex)})
+    raise FrameworkError("Database unavailable", code="DB_UNAVAILABLE", context={"original": repr(ex)})
 ```
 
 ## Extending the Error System
@@ -89,7 +89,7 @@ except SomeLibraryError as ex:
 Define your own types for further granularity:
 
 ```python
-class ValidationError(CustomError):
+class ValidationError(FrameworkError):
     def __init__(self, message, context=None):
         super().__init__(message, code="VALIDATION_FAIL", context=context)
 ```
@@ -102,7 +102,7 @@ class ValidationError(CustomError):
 
 ## Integration Guidelines
 
-- Catch and handle `CustomError` in orchestrator-level code.
+- Catch and handle `FrameworkError` in orchestrator-level code.
 - Surface only user-appropriate error messages to external clients or interfaces.
 - Log full context for internal audits and debugging.
 
@@ -114,8 +114,8 @@ class ValidationError(CustomError):
 
 ## Frequently Asked Questions
 
-**Q:** _Should I use standard exceptions or only CustomError?_  
-**A:** Favor `CustomError` for all application logic errors; reserve standard exceptions for truly exceptional runtime failures.
+**Q:** _Should I use standard exceptions or only FrameworkError?_  
+**A:** Favor `FrameworkError` for all application logic errors; reserve standard exceptions for truly exceptional runtime failures.
 
 **Q:** _Can I attach objects in the context?_  
 **A:** Yes, as long as they are serializable; avoid very large or complex references.
@@ -123,7 +123,7 @@ class ValidationError(CustomError):
 ## Troubleshooting
 
 - **Problem:** Unexpected error types caught  
-  **Solution:** Ensure all raises in your modules use `CustomError` or its descendants.
+  **Solution:** Ensure all raises in your modules use `FrameworkError` or its descendants.
 
 - **Problem:** Context is missing or unhelpful  
   **Solution:** Audit all errors for context population; automate this in custom error class constructors if possible.

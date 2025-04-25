@@ -9,6 +9,7 @@ from typing import Optional
 
 from uno.core.application.commands import CommandHandler
 from uno.core.application.queries import QueryHandler
+from uno.core.di.inject import inject
 from uno.core.errors.result import Failure, Success
 from uno.examples.todolist.application.commands import (
     CancelTodoItemCommand,
@@ -22,8 +23,6 @@ from uno.examples.todolist.application.queries import (
 from uno.examples.todolist.domain.models import TodoItem
 from uno.examples.todolist.infrastructure.repositories import TodoItemRepository
 
-
-from uno.core.di.inject import inject
 
 class CreateTodoItemHandler(CommandHandler[CreateTodoItemCommand, TodoItem]):
     """Handler for creating new todo items."""

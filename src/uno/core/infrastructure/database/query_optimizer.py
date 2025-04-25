@@ -28,9 +28,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.sql import Executable
 
-from uno.core.errors.result import Failure, Success
-from uno.core.errors.result import Result as OpResult
-
+from uno.core.errors.result import Failure, Result as OpResult, Success
 
 
 class QueryComplexity(enum.Enum):

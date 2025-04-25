@@ -11,7 +11,10 @@ automatic dependency resolution, and improved lifecycle management.
 
 import logging
 import threading
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+
+if TYPE_CHECKING:
+    from uno.core.events.events import EventBusProtocol, EventBus
 
 from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
 from uno.core.di.interfaces import (
@@ -19,13 +22,16 @@ from uno.core.di.interfaces import (
     DatabaseProviderProtocol,
     DBManagerProtocol,
     DTOManagerProtocol,
-    EventBusProtocol,
     SQLEmitterFactoryProtocol,
     SQLExecutionProtocol,
 )
 from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
 from uno.core.errors.result import Failure, Result, Success
+
+# Import EventBusProtocol only from type checking to avoid circular imports
+if TYPE_CHECKING:
+    from uno.core.events.events import EventBus
 
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
@@ -62,16 +68,17 @@ class ServiceProvider:
     - Internal helpers (e.g., _ServiceResolver, ServiceRegistration) are for advanced/extensibility use only.
     """
 
-    def __init__(self, logger: logging.Logger | None = None) -> None:
+    def __init__(self, services: ServiceCollection | None = None, logger: logging.Logger | None = None) -> None:
         """
         Initialize the service provider.
 
         Args:
+            services: Optional ServiceCollection to use as the base service registry
             logger: Optional logger for diagnostic information
         """
         self._logger = logger or logging.getLogger("uno.services")
         self._initialized = False
-        self._base_services = ServiceCollection()
+        self._base_services = services or ServiceCollection()
         self._extensions: dict[str, ServiceCollection] = {}
         self._lifecycle_queue: list[type[ServiceLifecycle]] = []
         self._initializing = False
@@ -370,6 +377,18 @@ class ServiceProvider:
 
         return Scope(self, scope_id)
 
+    def try_get_service(self, service_type: type[T]) -> Result[T, FrameworkError]:
+        """
+        Monad-based service resolution. Returns Success(instance) or Failure(error) instead of raising or setting .error attributes.
+        Prefer this method for all new code and tests. Legacy code may use get_service.
+        """
+        if not self._initialized:
+            return Failure(FrameworkError("Service provider is not initialized", "SERVICE_PROVIDER_NOT_INITIALIZED"))
+        from .scope import Scope
+        scope = Scope.get_current_scope()
+        result = self._resolver.resolve(service_type, scope=scope)
+        return result
+
     def get_service(self, service_type: type[T]) -> T:
         """
         Get a service by its type. Supports singleton, transient, and scoped lifetimes.
@@ -386,7 +405,7 @@ class ServiceProvider:
         if not self._initialized:
             from uno.core.errors.result import Failure
 
-            return Failure(FrameworkError("Service provider is not initialized"))
+            return Failure(FrameworkError("Service provider is not initialized", "SERVICE_PROVIDER_NOT_INITIALIZED"))
         from .scope import Scope
 
         scope = Scope.get_current_scope()
@@ -452,7 +471,7 @@ class ServiceProvider:
         """
         return self.get_service(SQLExecutionProtocol)
 
-    def get_event_bus(self) -> EventBusProtocol:
+    def get_event_bus(self) -> 'EventBusProtocol':
         """
         Get the event bus service.
 
@@ -696,7 +715,9 @@ async def configure_base_services() -> None:
     )
 
     # Create and register database provider
-    db_provider = DatabaseProvider(connection_config, logger=logging.getLogger("uno.database"))
+    db_provider = DatabaseProvider(
+        connection_config, logger=logging.getLogger("uno.database")
+    )
     services.add_instance(DatabaseProvider, db_provider)
     services.add_instance(DatabaseProviderProtocol, db_provider)
 
@@ -737,15 +758,15 @@ async def configure_base_services() -> None:
     )
 
     # Register event bus
-    from uno.domain.events import EventBus, EventPublisher
+    from uno.core.events.handlers import EventHandler
+
+    # Import the concrete EventBus implementation only when needed
+    # to avoid circular imports
+    from uno.core.events.handlers import EventBus
 
     event_bus = EventBus(logger=logging.getLogger("uno.events"))
     services.add_instance(EventBus, event_bus)
     services.add_instance(EventBusProtocol, event_bus)
-    services.add_instance(
-        EventPublisher,
-        EventPublisher(event_bus, logger=logging.getLogger("uno.events")),
-    )
 
     # Register domain registry
     from uno.domain.factory import DomainRegistry
@@ -764,7 +785,9 @@ async def configure_base_services() -> None:
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
-        logging.getLogger("uno.services").debug(f"Vector search provider not available: {e}")
+        logging.getLogger("uno.services").debug(
+            f"Vector search provider not available: {e}"
+        )
         pass
 
     # Register queries provider

@@ -6,14 +6,13 @@
 Demo script to showcase the TodoList bounded context.
 """
 import asyncio
-import logging
-from uno.core.logging.logger import LoggerService
 
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 import sys
 from pathlib import Path
 
+from uno.core.logging.logger import LoggerService
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -27,7 +26,6 @@ from uno.examples.todolist.application.commands import (
 )
 from uno.examples.todolist.application.queries import ListTodoItemsQuery
 from uno.examples.todolist.domain.models import TodoPriority
-
 
 
 async def run_demo(logger_service: LoggerService) -> None:

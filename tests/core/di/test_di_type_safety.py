@@ -4,13 +4,12 @@ Tests for Uno DI: type safety and error handling
 
 # Standard library
 import sys
-from typing import Annotated, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 # Local application
-from uno.core.di.container import ServiceRegistration, ServiceScope, _ServiceResolver
+from uno.core.di.container import _ServiceResolver
 from uno.core.errors.definitions import (
     CircularDependencyError,
-    MissingParameterError,
     ServiceNotFoundError,
     ServiceRegistrationError,
 )
@@ -123,7 +122,7 @@ def test_circular_dependency_raises():
     resolver.register(B, B)
     result = resolver.resolve(A)
     assert isinstance(result, Failure)
-    from uno.core.errors.definitions import CircularDependencyError, ServiceRegistrationError
+    from uno.core.errors.definitions import ServiceRegistrationError
     assert isinstance(result.error, (CircularDependencyError, ServiceRegistrationError))
 
 def test_circular_dependency_with_factories_returns_failure():
@@ -133,5 +132,5 @@ def test_circular_dependency_with_factories_returns_failure():
     resolver.register(B, lambda: B(A()))
     result = resolver.resolve(A)
     assert isinstance(result, Failure)
-    from uno.core.errors.definitions import ServiceNotFoundError, ServiceRegistrationError
+    from uno.core.errors.definitions import ServiceRegistrationError
     assert isinstance(result.error, (ServiceNotFoundError, ServiceRegistrationError))

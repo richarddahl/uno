@@ -40,3 +40,6 @@ class Test(GeneralConfig):
 env_settings: dict[str, type[GeneralConfig]] = {"dev": Dev, "test": Test, "prod": Prod}
 # Select the environment settings based on the ENV variable
 general_config: Dev | Test | Prod = env_settings[os.environ.get("ENV", "dev").lower()]()
+
+# Public alias for DI/config API
+ConfigService = GeneralConfig

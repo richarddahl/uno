@@ -5,8 +5,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from uno.core.config.general import GeneralConfig
 from uno.core import utils
+from uno.core.config.general import GeneralConfig
 
 
 @pytest.fixture

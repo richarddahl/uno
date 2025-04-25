@@ -8,9 +8,10 @@ from pathlib import Path
 # Ensure the src directory is on sys.path so local uno package is imported
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+import logging
+
 import pytest
 
-from uno.core.config import services
 from uno.core.config.general import GeneralConfig
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider, get_service_provider
@@ -38,7 +39,6 @@ def initialize_di():
     provider = get_service_provider()
     provider._initialized = False  # Reset if it was previously initialized
     provider.configure_services(test_services)
-    provider.configure_services(services)
 
     # Not calling initialize() here since it's async and pytest fixture can't be async
     # Tests that need initialized services should use initialize_provider fixture
@@ -68,3 +68,5 @@ def service_provider():
 def config_instance():
     """Provide a test config instance."""
     return GeneralConfig(SITE_NAME="Uno Test Site")
+
+

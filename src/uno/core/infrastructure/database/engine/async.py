@@ -10,7 +10,6 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.factory import AsyncEngineFactory
 from uno.settings import uno_settings

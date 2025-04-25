@@ -10,3 +10,5 @@ providing a clear separation of concerns and a rich domain model.
 It contains implementations of domain-driven design patterns including entities,
 value objects, aggregates, repositories, and specifications.
 """
+
+__all__ = []  # Update as public API is defined

@@ -4,28 +4,26 @@
 """Alembic environment script for Uno database migrations."""
 
 
-import os
-import sys
 import logging
+import sys
 import urllib.parse
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool, create_engine, text
 from alembic import context
+from sqlalchemy import create_engine, text
+
+import uno.attributes.models
+import uno.authorization.models
+import uno.messaging.models
+import uno.meta.models
+import uno.queries.models
+import uno.reports.models
+import uno.values.models
+import uno.workflows.models  # noqa: F401
+from uno.model import Base
 
 # Import Uno configuration and model base
 from uno.settings import uno_settings
-from uno.model import Base
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine import sync_connection, SyncEngineFactory
-import uno.attributes.models  # noqa: F401
-import uno.authorization.models  # noqa: F401
-import uno.meta.models  # noqa: F401
-import uno.messaging.models  # noqa: F401
-import uno.queries.models  # noqa: F401
-import uno.reports.models  # noqa: F401
-import uno.values.models  # noqa: F401
-import uno.workflows.models  # noqa: F401
 
 # Setup logging - Alembic's default logging might be too verbose
 logger = logging.getLogger("alembic.env")

@@ -34,5 +34,8 @@ class Test(JWTConfig):
 
 # Create a dictionary of environment settings
 env_settings: dict[str, type[JWTConfig]] = {"dev": Dev, "test": Test, "prod": Prod}
-# Select the environment settings based on the ENV variable
-jwt_config: Dev | Test | Prod = env_settings[os.environ.get("ENV", "dev").lower()]()
+
+def get_jwt_config() -> Dev | Test | Prod:
+    """Safely instantiate JWTConfig for the current environment only when needed."""
+    env = os.environ.get("ENV", "dev").lower()
+    return env_settings[env]()

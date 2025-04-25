@@ -19,7 +19,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -29,7 +29,6 @@ from sqlalchemy.ext.asyncio import (
 
 from uno.core.async_integration import AsyncCache, cancellable, retry
 from uno.core.async_utils import AsyncLock, TaskGroup, timeout
-from typing import TYPE_CHECKING
 from uno.core.protocols import DatabaseSessionFactoryProtocol, DatabaseSessionProtocol
 
 if TYPE_CHECKING:

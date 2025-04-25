@@ -14,8 +14,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-from uno.core.errors.result import Failure, Success
-from uno.core.errors.result import Result as OpResult
+from uno.core.errors.result import Failure, Result as OpResult, Success
 from uno.infrastructure.database.query_optimizer import (
     IndexRecommendation,
     IndexType,
@@ -100,15 +99,16 @@ class PgOptimizationStrategies:
     Provides additional optimization techniques leveraging PostgreSQL features.
     """
 
-    def __init__(self, optimizer: QueryOptimizer):
+    def __init__(self, optimizer: QueryOptimizer, logger: LoggerService):
         """
         Initialize PostgreSQL optimization strategies.
 
         Args:
             optimizer: The query optimizer to extend
+            logger: DI-injected LoggerService instance
         """
         self.optimizer = optimizer
-        self.logger = optimizer.logger
+        self.logger = logger
 
     async def analyze_table(self, table_name: str) -> OpResult[dict[str, Any]]:
         """

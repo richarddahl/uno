@@ -4,7 +4,6 @@
 Unit tests for RelationshipCache with injected LoggerService.
 """
 
-import pytest
 
 """
 from uno.core.logging.logger import LoggerService

@@ -8,9 +8,8 @@ This module provides functionality for managing database schemas,
 including DDL operations and migrations.
 """
 
-import logging
 from collections.abc import Callable
-from typing import Any, ContextManager, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ContextManager
 
 if TYPE_CHECKING:
     from uno.core.logging.logger import LoggerService
