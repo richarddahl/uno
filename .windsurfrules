@@ -8,6 +8,8 @@ uno uses a centralized configuration system (uno.core.config).
 uno uses a monad-based error handling system (uno.core.errors).
 uno uses a centralized logging system (uno.core.logging).
 uno uses the most recent stable versions of all dependencies and implements them correctly, without deprecated features, e.g. pydantic ConfigDict not class Config.
+uno code never uses python keywords as names of classes, functions, methods, constants, etc...
+uno code never uses names that shadow built-ins or imported package names
 
 Every uno feature should be built with the following principles in mind:
 
@@ -19,11 +21,19 @@ Every uno feature should be built with the following principles in mind:
 - unit tests
 - documentation
 - logging
-- performance
+- performance  
+- idiom and current PEP compliance  
 
 uno features should use the DI system (uno.core.di) for dependency injection.
 uno features should use the configuration system (uno.core.config) for configuration.
 uno features should use the error handling system (uno.core.errors) for error handling.
 uno features should use the logging system (uno.core.logging) for logging.
+
+when writing tests:  
+
+- use pytest
+- use fixtures
+- name objects created for testing with the prefix Fake or Mock, never Test, it confuses pytest into thinking it is an actual TestCase class
+
 
 THIS IS A NEW LIBRARY, THERE IS NO REASON TO SUPPORT LEGACY CODE OR BACKWARDS COMPATIBILITY!
