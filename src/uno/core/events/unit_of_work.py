@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, AsyncTransaction
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.events.event_store import EventStore
 from uno.core.logging.logger import LoggerService
+from uno.core.logging.logger import LoggingConfig
 
 
 T = TypeVar('T')
@@ -83,8 +84,8 @@ class InMemoryUnitOfWork(UnitOfWork):
         if logger_factory:
             self.logger = logger_factory("uow_inmem")
         else:
-            self.logger = LoggerService(name="uno.events.uow.inmem")
-            
+            self.logger = LoggerService(LoggingConfig())
+
         self._committed = False
     
     async def commit(self) -> Result[None, Exception]:
@@ -167,8 +168,8 @@ class InMemoryUnitOfWork(UnitOfWork):
             if logger_factory:
                 logger = logger_factory("uow_inmem")
             else:
-                logger = LoggerService(name="uno.events.uow.inmem")
-                
+                logger = LoggerService(LoggingConfig())
+
             logger.structured_log(
                 "ERROR",
                 f"Error in unit of work: {e}",
@@ -211,8 +212,8 @@ class PostgresUnitOfWork(UnitOfWork):
         if logger_factory:
             self.logger = logger_factory("uow_postgres")
         else:
-            self.logger = LoggerService(name="uno.events.uow.postgres")
-    
+            self.logger = LoggerService(LoggingConfig())
+
     async def commit(self) -> Result[None, Exception]:
         """
         Commit the transaction.
@@ -291,8 +292,8 @@ class PostgresUnitOfWork(UnitOfWork):
                     if logger_factory:
                         logger = logger_factory("uow_postgres")
                     else:
-                        logger = LoggerService(name="uno.events.uow.postgres")
-                        
+                        logger = LoggerService(LoggingConfig())
+
                     logger.structured_log(
                         "ERROR",
                         f"Error in PostgreSQL unit of work: {e}",

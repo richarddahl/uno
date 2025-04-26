@@ -4,7 +4,7 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, TypeVar, Awaitable
-from uno.core.base_event import DomainEvent
+from uno.core.events.base_event import DomainEvent
 from uno.core.errors.result import Result
 
 E = TypeVar("E", bound=DomainEvent)

@@ -4,24 +4,12 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, TypeVar, Awaitable
-from uno.core.base_event import DomainEvent
+from uno.core.events.base_event import DomainEvent
+from uno.core.events.interfaces import EventBusProtocol, EventPublisherProtocol
 from uno.core.errors.result import Result
 
 E = TypeVar("E", bound=DomainEvent)
 
-class EventBusProtocol(Protocol):
-    """
-    Protocol for event buses (pub/sub, async/sync).
-    """
-    async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> Result[None, Exception]: ...
-    async def publish_many(self, events: list[E]) -> Result[None, Exception]: ...
-
-class EventPublisherProtocol(Protocol):
-    """
-    Protocol for event publishers (decoupled publishing interface).
-    """
-    async def publish(self, event: E) -> Result[None, Exception]: ...
-    async def publish_many(self, events: list[E]) -> Result[None, Exception]: ...
 
 class InMemoryEventBus(EventBusProtocol):
     """
@@ -42,3 +30,6 @@ class InMemoryEventBus(EventBusProtocol):
 
     def subscribe(self, event_type: str, handler: Any) -> None:
         self._subscribers.setdefault(event_type, []).append(handler)
+
+# Alias for public API
+EventBus = InMemoryEventBus

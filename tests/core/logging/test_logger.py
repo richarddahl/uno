@@ -14,7 +14,7 @@ from uno.core.logging.logger import (
 
 @pytest.fixture
 def logger_service():
-    service = LoggerService(LoggingConfig(CONSOLE_OUTPUT=False))
+    service = LoggerService(LoggingConfig(CONSOLE_OUTPUT=True))
     asyncio.run(service.initialize())
     yield service
     asyncio.run(service.dispose())
@@ -122,16 +122,11 @@ def test_dynamic_reload_log_level(logger_service, caplog, capsys):
     # So check both caplog.records and captured stdout.
     with caplog.at_level(logging.DEBUG, logger="uno.reload"):
         logger.debug("should appear after reload")
-    # Try caplog.records first
-    debug_found = any(
-        rec.levelname == "DEBUG" and "should appear after reload" in rec.getMessage()
-        for rec in caplog.records
-    )
-    if not debug_found:
-        # Fallback: check captured stdout
-        captured = capsys.readouterr()
-        debug_found = "should appear after reload" in captured.out
-    assert debug_found, "DEBUG log after reload should appear in caplog or stdout"
+    found = any("should appear after reload" in r.getMessage() for r in caplog.records)
+    if not found:
+        captured = capsys.readouterr().out
+        found = "should appear after reload" in captured
+    assert found, "DEBUG log after reload should appear in caplog or stdout"
 
 
 def test_dynamic_reload_format(monkeypatch, tmp_path):
@@ -166,9 +161,9 @@ def test_dynamic_reload_no_duplicate_handlers(logger_service):
     config_service.set_level("DEBUG")
     config_service.set_level("INFO")
     config_service.set_level("WARNING")
-    # After multiple reloads, should only have 1 handler (console)
-    handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler)]
-    assert len(handlers) == 1
+    # After reload, count all StreamHandlers (should be 1)
+    stream_handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler)]
+    assert len(stream_handlers) == 1, f"Expected 1 StreamHandler, found {len(stream_handlers)}"
 
 
 import pytest

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar
 from pydantic import Field
 from uno.core.domain.entity import Entity
-from uno.core.base_event import DomainEvent
+from uno.core.events.base_event import DomainEvent
 
 T_ID = TypeVar("T_ID")
 

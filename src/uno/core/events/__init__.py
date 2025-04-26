@@ -3,22 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 # Event sourcing core
-from .events import (
-    DomainEvent,
-    EventBus,
-    EventBusProtocol,
-    EventHandler as CoreEventHandler,
-    EventPriority,
-    EventPublisher,
-    EventPublisherProtocol,
-    EventStore,
-    InMemoryEventStore,
-    get_event_bus,
-    get_event_publisher,
-    get_event_store,
-    register_event_handler,
-    subscribe,
-)
+from .base_event import DomainEvent
+from .bus import EventBus, EventBusProtocol
+from .event_store import EventStore, InMemoryEventStore
+from .publisher import EventPublisher, EventPublisherProtocol
+from .priority import EventPriority
+from .registry import register_event_handler, subscribe
+from .factory import get_event_bus, get_event_publisher, get_event_store
 
 # Event handlers
 from .handlers import (

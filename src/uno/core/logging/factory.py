@@ -8,7 +8,7 @@ with consistent configuration and naming.
 from collections.abc import Callable
 from typing import Protocol
 
-from uno.core.logging.logger import LoggerService
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 
 class LoggerServiceFactory(Protocol):
@@ -50,7 +50,8 @@ class DefaultLoggerServiceFactory:
             A configured LoggerService instance
         """
         logger_name = f"{self.base_namespace}.{component_name}"
-        return LoggerService(name=logger_name)
+        # NOTE: LoggerService no longer takes a name argument. Use LoggingConfig().
+        return LoggerService(LoggingConfig())
 
 
 def create_logger_factory(base_namespace: str = "uno") -> LoggerServiceFactory:

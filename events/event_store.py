@@ -20,7 +20,6 @@ from sqlalchemy.orm import sessionmaker
 from uno.core.events._base import E, EventStoreProtocol
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.events.events import DomainEvent
-from uno.core.events.event_store_manager import EventStoreManager
 from uno.core.logging.logger import LoggerService
 
 # Import snapshots avoiding circular dependencies
@@ -32,37 +31,36 @@ from uno.core.events.snapshots import (
     TimeBasedSnapshotStrategy,
 )
 
+
 # Define a protocol for common aggregate methods to avoid importing AggregateRoot
 class AggregateProtocol(Protocol):
     id: Any
-    
-    def add_event(self, event: Any) -> None:
-        ...
-    
-    def clear_events(self) -> list[Any]:
-        ...
+
+    def add_event(self, event: Any) -> None: ...
+
+    def clear_events(self) -> list[Any]: ...
 
 
 class EventStore(EventStoreProtocol[E]):
     """
     Abstract base class for event stores.
-    
+
     Event stores persist domain events for event sourcing, auditing,
     and integration with external systems.
     """
-    
+
     async def save_event(self, event: E) -> Result[None, Exception]:
         """
         Save a domain event to the store.
-        
+
         Args:
             event: The domain event to save
-            
+
         Returns:
             Result with None on success, or an error
         """
         raise NotImplementedError
-    
+
     async def get_events(
         self,
         aggregate_id: str | None = None,
@@ -72,28 +70,28 @@ class EventStore(EventStoreProtocol[E]):
     ) -> Result[list[DomainEvent], Exception]:
         """
         Get events by aggregate ID and/or event type.
-        
+
         Args:
             aggregate_id: The aggregate ID to filter by
             event_type: The event type to filter by
             limit: Maximum number of events to return
             since_version: Return only events since this version
-            
+
         Returns:
             Result with a list of events or an error
         """
         raise NotImplementedError
-    
+
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
     ) -> Result[list[E], Exception]:
         """
         Get all events for a specific aggregate ID.
-        
+
         Args:
             aggregate_id: The ID of the aggregate to get events for
             event_types: Optional list of event types to filter by
-            
+
         Returns:
             Result with a list of events or an error
         """
@@ -105,21 +103,22 @@ class InMemoryEventStore(EventStore[E]):
     Simple in-memory event store for development and testing.
     Stores events in a Python list grouped by aggregate_id.
     """
+
     def __init__(self, logger_factory: Callable[..., LoggerService] | None = None):
         # Use provided logger factory or create a default logger
         if logger_factory:
             self.logger = logger_factory("inmem")
         else:
             self.logger = LoggerService(name="uno.events.store.inmem")
-            
+
         self._events: dict[str, list[E]] = {}
 
     async def save_event(self, event: E) -> Result[None, Exception]:
         """Save a domain event to the in-memory store.
-        
+
         Args:
             event: The domain event to save
-            
+
         Returns:
             Result with None on success, or an error
         """
@@ -130,20 +129,20 @@ class InMemoryEventStore(EventStore[E]):
                 "ERROR",
                 f"Failed to save event {event.event_type}: {error}",
                 name="uno.events.inmem",
-                error=error
+                error=error,
             )
             return Failure(error)
-        
+
         try:
             if aggregate_id not in self._events:
                 self._events[aggregate_id] = []
             # Store a deep copy to ensure immutability
             self._events[aggregate_id].append(copy.deepcopy(event))
-            
+
             self.logger.structured_log(
                 "INFO",
                 f"Saved event {event.event_type} for aggregate {aggregate_id}",
-                name="uno.events.inmem"
+                name="uno.events.inmem",
             )
             return Success(None)
         except Exception as e:
@@ -151,7 +150,7 @@ class InMemoryEventStore(EventStore[E]):
                 "ERROR",
                 f"Failed to save event {event.event_type}: {e}",
                 name="uno.events.inmem",
-                error=e
+                error=e,
             )
             return Failure(e)
 
@@ -163,13 +162,13 @@ class InMemoryEventStore(EventStore[E]):
         since_version: int | None = None,
     ) -> Result[list[DomainEvent], Exception]:
         """Get events by aggregate ID and/or event type.
-        
+
         Args:
             aggregate_id: The aggregate ID to filter by
             event_type: The event type to filter by
             limit: Maximum number of events to return
             since_version: Return only events since this version
-            
+
         Returns:
             Result with a list of events or an error
         """
@@ -178,77 +177,87 @@ class InMemoryEventStore(EventStore[E]):
             all_events = []
             for events in self._events.values():
                 all_events.extend(events)
-                
+
             # Apply filters
             filtered_events = all_events
-            
+
             if aggregate_id:
-                filtered_events = [e for e in filtered_events 
-                                 if getattr(e, "aggregate_id", None) == aggregate_id]
-            
+                filtered_events = [
+                    e
+                    for e in filtered_events
+                    if getattr(e, "aggregate_id", None) == aggregate_id
+                ]
+
             if event_type:
-                filtered_events = [e for e in filtered_events 
-                                 if getattr(e, "event_type", None) == event_type]
-            
+                filtered_events = [
+                    e
+                    for e in filtered_events
+                    if getattr(e, "event_type", None) == event_type
+                ]
+
             if since_version is not None:
-                filtered_events = [e for e in filtered_events 
-                                 if getattr(e, "version", 0) >= since_version]
-            
+                filtered_events = [
+                    e
+                    for e in filtered_events
+                    if getattr(e, "version", 0) >= since_version
+                ]
+
             # Apply limit
             if limit:
                 filtered_events = filtered_events[:limit]
-                
+
             # Log the result
             self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(filtered_events)} events from store",
-                name="uno.events.inmem"
+                name="uno.events.inmem",
             )
-            
+
             return Success(filtered_events)
-            
+
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
                 f"Failed to retrieve events: {e}",
                 name="uno.events.inmem",
-                error=e
+                error=e,
             )
             return Failure(e)
-            
+
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
     ) -> Result[list[E], Exception]:
         """
         Get all events for a specific aggregate ID.
-        
+
         Args:
             aggregate_id: The ID of the aggregate to get events for
             event_types: Optional list of event types to filter by
-            
+
         Returns:
             Result with a list of events or an error
         """
         try:
             if aggregate_id not in self._events:
                 return Success([])
-                
+
             events = self._events[aggregate_id]
-            
+
             # Filter by event types if provided
             if event_types:
                 events = [e for e in events if e.event_type in event_types]
-                
+
             return Success(events)
-            
+
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
                 f"Error retrieving events for aggregate {aggregate_id}: {e}",
                 name="uno.events.inmem",
-                error=e
+                error=e,
             )
             return Failure(e)
+
 
 # The EventSourcedRepository should be imported directly from its module
 # We don't need to re-export it here

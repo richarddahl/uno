@@ -17,11 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 # Import base interfaces first to avoid circular dependencies
-from uno.core.events._base import E, EventStoreProtocol
+from uno.core.events.interfaces import EventStoreProtocol
+from uno.core.events.base_event import DomainEvent
+from typing import TypeVar
+E = TypeVar("E", bound=DomainEvent)
 from uno.core.errors.result import Failure, Result, Success
-from uno.core.events.events import DomainEvent
-from uno.core.events.event_store_manager import EventStoreManager
 from uno.core.logging.logger import LoggerService
+from uno.core.logging.logger import LoggingConfig
 
 # Import snapshots avoiding circular dependencies
 from uno.core.events.snapshots import (
@@ -43,7 +45,9 @@ class AggregateProtocol(Protocol):
         ...
 
 
-class EventStore(EventStoreProtocol[E]):
+from typing import Generic
+
+class EventStore(EventStoreProtocol[E], Generic[E]):
     """
     Abstract base class for event stores.
     
@@ -110,7 +114,7 @@ class InMemoryEventStore(EventStore[E]):
         if logger_factory:
             self.logger = logger_factory("inmem")
         else:
-            self.logger = LoggerService(name="uno.events.store.inmem")
+            self.logger = LoggerService(LoggingConfig())
             
         self._events: dict[str, list[E]] = {}
 

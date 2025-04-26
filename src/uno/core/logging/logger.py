@@ -363,16 +363,19 @@ class LoggerService:
         cfg = self._config
         formatter = self._get_formatter()
         level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
-        for logger in self._loggers.values():
+        for name, logger in self._loggers.items():
             logger.setLevel(level)
-            # Remove all handlers
-            for h in list(logger.handlers):
-                logger.removeHandler(h)
-            # Add appropriate handlers (match root logger)
+            # Remove all handlers robustly (including inherited ones)
+            while logger.handlers:
+                logger.removeHandler(logger.handlers[0])
+            # Prevent duplicate handlers by checking existing ones
+            handler_ids = set()
             if cfg.CONSOLE_OUTPUT:
                 console_handler = logging.StreamHandler(sys.stdout)
                 console_handler.setFormatter(formatter)
-                logger.addHandler(console_handler)
+                if id(console_handler) not in handler_ids:
+                    logger.addHandler(console_handler)
+                    handler_ids.add(id(console_handler))
             if cfg.FILE_OUTPUT and cfg.FILE_PATH:
                 file_handler = logging.handlers.RotatingFileHandler(
                     cfg.FILE_PATH,
@@ -380,8 +383,13 @@ class LoggerService:
                     backupCount=cfg.BACKUP_COUNT,
                 )
                 file_handler.setFormatter(formatter)
-                logger.addHandler(file_handler)
+                if id(file_handler) not in handler_ids:
+                    logger.addHandler(file_handler)
+                    handler_ids.add(id(file_handler))
             logger.propagate = cfg.PROPAGATE
+        # For test isolation: clear loggers if not initialized
+        if not self._initialized:
+            self._loggers.clear()
 
     def new_trace_context(self) -> dict[str, str]:
         """

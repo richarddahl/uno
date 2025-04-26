@@ -16,11 +16,12 @@ from typing import Any, ClassVar, TypeVar, cast
 
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.events.context import EventHandlerContext
-from uno.core.events.events import DomainEvent
+from uno.core.events.base_event import DomainEvent
 from uno.core.logging.logger import LoggerService
+from uno.core.logging.logger import LoggingConfig
 
 # Import AsyncEventHandlerAdapter - import here to avoid circular imports
-from uno.core.events.async_utils import AsyncEventHandlerAdapter, FunctionHandlerAdapter, EventHandlerProtocol
+from uno.core.async_utils import AsyncEventHandlerAdapter, FunctionHandlerAdapter, EventHandlerProtocol
 
 
 T = TypeVar('T')
@@ -85,7 +86,7 @@ class EventHandlerRegistry:
         if logger_factory:
             self.logger = logger_factory("events.handler_registry")
         else:
-            self.logger = LoggerService(name="uno.events.handlers.registry")
+            self.logger = LoggerService(LoggingConfig())
             
         self._handlers: dict[str, list[EventHandler]] = {}
         self._middleware: list[EventHandlerMiddleware] = []
@@ -438,7 +439,7 @@ class EventBus:
         if logger_factory:
             self.logger = logger_factory("event_bus")
         else:
-            self.logger = LoggerService(name="uno.events.handlers.bus")
+            self.logger = LoggerService(LoggingConfig())
     
     async def publish(self, event: DomainEvent, metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]:
         """Publish an event to all registered handlers."""
@@ -572,6 +573,10 @@ class EventBus:
         return Success(results)
 
 
+from uno.core.events.middleware.retry import RetryMiddleware
+from uno.core.events.middleware.metrics import MetricsMiddleware
+from uno.core.events.middleware.circuit_breaker import CircuitBreakerMiddleware
+
 # Common middleware implementations
 
 class LoggingMiddleware(EventHandlerMiddleware):
@@ -588,7 +593,7 @@ class LoggingMiddleware(EventHandlerMiddleware):
         if logger_factory:
             self.logger = logger_factory("logging_middleware")
         else:
-            self.logger = LoggerService(name="uno.events.handlers.middleware.logging")
+            self.logger = LoggerService(LoggingConfig())
     
     async def process(
         self, 
@@ -664,7 +669,7 @@ class TimingMiddleware(EventHandlerMiddleware):
         if logger_factory:
             self.logger = logger_factory("timing_middleware")
         else:
-            self.logger = LoggerService(name="uno.events.handlers.middleware.timing")
+            self.logger = LoggerService(LoggingConfig())
     
     async def process(
         self, 
@@ -756,7 +761,7 @@ def discover_handlers(
     if logger_factory:
         logger = logger_factory("handler_discovery")
     else:
-        logger = LoggerService(name="uno.events.handlers.discovery")
+        logger = LoggerService(LoggingConfig())
     
     # Set the logger and registry for the decorator
     EventHandlerDecorator.set_logger(logger)

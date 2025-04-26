@@ -14,10 +14,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from uno.core.errors.result import Failure, Result
-from uno.core.events.handlers import EventHandlerContext, EventHandlerMiddleware
-from uno.core.logging.factory import LoggerServiceFactory
-from uno.core.logging.logger import LoggerService
+from uno.core.events.middleware.retry import RetryMiddleware, RetryOptions
+from uno.core.events.middleware.metrics import MetricsMiddleware, EventMetrics
+from uno.core.events.middleware.circuit_breaker import CircuitBreakerMiddleware, CircuitBreakerState
 
 
 @dataclass

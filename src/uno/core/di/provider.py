@@ -68,7 +68,11 @@ class ServiceProvider:
     - Internal helpers (e.g., _ServiceResolver, ServiceRegistration) are for advanced/extensibility use only.
     """
 
-    def __init__(self, services: ServiceCollection | None = None, logger: logging.Logger | None = None) -> None:
+    def __init__(
+        self,
+        services: ServiceCollection | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
         """
         Initialize the service provider.
 
@@ -251,32 +255,30 @@ class ServiceProvider:
             self._logger.info(
                 f"Initializing {len(self._lifecycle_queue)} lifecycle services"
             )
-            # Modern DI: Use the main resolver to resolve and initialize lifecycle services
-            for service_type in self._lifecycle_queue:
-                try:
-                    # Get the registration if it exists
-                    registration = self._resolver._registrations.get(service_type)
-                    # Skip if it's not a singleton (scoped lifecycle services should be initialized in their scope)
-                    if (
-                        registration is not None
-                        and getattr(registration, "scope", None) != "singleton"
-                    ):
-                        self._logger.error(
-                            f"Non-singleton service registered for lifecycle management: {service_type.__name__}"
-                        )
-                        continue
 
-                    service = self._resolver.resolve(service_type)
-                    if hasattr(service, "initialize") and callable(service.initialize):
-                        await service.initialize()
-                    self._logger.debug(
-                        f"Initialized lifecycle service: {service_type.__name__}"
-                    )
-                except Exception as e:
-                    self._logger.error(
-                        f"Error initializing service {service_type.__name__}: {e!s}"
-                    )
-                    raise
+        for service_type in self._lifecycle_queue:
+            registration = self._base_services._registrations.get(service_type)
+            if registration is None:
+                self._logger.warning(
+                    f"Lifecycle service {service_type} is not registered; skipping."
+                )
+                continue
+
+            if getattr(registration, "scope", None) != ServiceScope.SINGLETON:
+                raise NotImplementedError(
+                    f"Lifecycle service {service_type} must be registered as a singleton."
+                )
+
+            # Guarantee: Always resolve the actual singleton instance (Success.value)
+            result = self._resolver.resolve(service_type)
+            service = result.value if hasattr(result, "value") else result
+
+            if hasattr(service, "initialize") and callable(service.initialize):
+                await service.initialize()
+
+            self._logger.debug(
+                f"Initialized lifecycle service: {service_type.__name__}"
+            )
 
     async def _dispose_lifecycle_services(self) -> None:
         """
@@ -294,7 +296,9 @@ class ServiceProvider:
             for service_type in reversed_queue:
                 try:
                     # Get the service if it exists
-                    service = self.get_service(service_type)
+                    result = self._resolver.resolve(service_type)
+                    service = result.value if hasattr(result, "value") else result
+
                     await service.dispose()
                     self._logger.debug(
                         f"Disposed lifecycle service: {service_type.__name__}"
@@ -340,6 +344,9 @@ class ServiceProvider:
             # Modern DI: Build the resolver from the base services
             self._resolver = self._base_services.build(resolver_class=_ServiceResolver)
 
+            # Prewarm all singleton instances before initializing lifecycle services
+            self._resolver.prewarm_singletons()
+
             await self._integrate_extensions()
             await self._initialize_lifecycle_services()
 
@@ -383,8 +390,14 @@ class ServiceProvider:
         Prefer this method for all new code and tests. Legacy code may use get_service.
         """
         if not self._initialized:
-            return Failure(FrameworkError("Service provider is not initialized", "SERVICE_PROVIDER_NOT_INITIALIZED"))
+            return Failure(
+                FrameworkError(
+                    "Service provider is not initialized",
+                    "SERVICE_PROVIDER_NOT_INITIALIZED",
+                )
+            )
         from .scope import Scope
+
         scope = Scope.get_current_scope()
         result = self._resolver.resolve(service_type, scope=scope)
         return result
@@ -405,7 +418,12 @@ class ServiceProvider:
         if not self._initialized:
             from uno.core.errors.result import Failure
 
-            return Failure(FrameworkError("Service provider is not initialized", "SERVICE_PROVIDER_NOT_INITIALIZED"))
+            return Failure(
+                FrameworkError(
+                    "Service provider is not initialized",
+                    "SERVICE_PROVIDER_NOT_INITIALIZED",
+                )
+            )
         from .scope import Scope
 
         scope = Scope.get_current_scope()
@@ -471,7 +489,7 @@ class ServiceProvider:
         """
         return self.get_service(SQLExecutionProtocol)
 
-    def get_event_bus(self) -> 'EventBusProtocol':
+    def get_event_bus(self) -> "EventBusProtocol":
         """
         Get the event bus service.
 
