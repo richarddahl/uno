@@ -2,8 +2,18 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""
+Uno API definition module.
+
+All API responses MUST use the Uno canonical serialization contract:
+    model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+
+Use uno.application.api_utils.as_canonical_json to ensure compliance at all API boundaries.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .api_utils import as_canonical_json
 
 tags_metadata = [
     {
