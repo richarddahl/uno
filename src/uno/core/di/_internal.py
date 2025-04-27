@@ -64,11 +64,11 @@ class _ServiceResolver:
     # ... (existing code)
 
     def __init__(
-        self,
-        registrations: dict[type, ServiceRegistration],
-        instances: dict[type, Any] | None = None,
+        self: "_ServiceResolver",
+        registrations: dict[type[Any], ServiceRegistration[Any]],
+        instances: dict[type[Any], Any] | None = None,
         auto_register: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the service resolver.
 
@@ -85,7 +85,7 @@ class _ServiceResolver:
         import logging
         self._logger = logging.getLogger("uno.di.resolver")
 
-    def _get_registration_or_error(self, service_type, name=None):
+    def _get_registration_or_error(self: "_ServiceResolver", service_type: type[Any], name: str | None = None) -> Any:
         """
         Get a service registration or return an error if not found or condition not met.
 
@@ -143,14 +143,11 @@ class _ServiceResolver:
         return Success(registration)
 
     def register(
-        self,
-        service_type: type[T],
-        implementation: type[T] | None = None,
+        self: "_ServiceResolver",
+        service_type: type[Any],
+        implementation: type[Any] | None = None,
         scope: ServiceScope = ServiceScope.TRANSIENT,
-    ) -> (
-        Success[ServiceRegistration[T], ServiceRegistrationError]
-        | Failure[ServiceRegistration[T], ServiceRegistrationError]
-    ):
+    ) -> Success[ServiceRegistration[Any], ServiceRegistrationError] | Failure[ServiceRegistration[Any], ServiceRegistrationError]:
         """
         Register a service with runtime type safety checks.
 
@@ -229,7 +226,7 @@ class _ServiceResolver:
                 )
             )
 
-    def register_instance(self, service_type, instance):
+    def register_instance(self: "_ServiceResolver", service_type: type[Any], instance: Any) -> None:
         """
         Register an instance for a service type.
 
@@ -268,14 +265,11 @@ class _ServiceResolver:
                     )
 
     def resolve(
-        self,
-        service_type: type,
-        _resolving: set[type] | None = None,
-        scope=None,
-    ) -> (
-        Success[T, ServiceRegistrationError | CircularDependencyError]
-        | Failure[T, ServiceRegistrationError | CircularDependencyError]
-    ):
+        self: "_ServiceResolver",
+        service_type: type[Any],
+        _resolving: set[type[Any]] | None = None,
+        scope: Any = None,
+    ) -> Success[Any, ServiceRegistrationError | CircularDependencyError] | Failure[Any, ServiceRegistrationError | CircularDependencyError]:
         """
         Resolve a service instance.
 
@@ -729,7 +723,7 @@ class _ServiceResolver:
             )
 
     def _get_resolution_plan(
-        self, t: type
+        self: "_ServiceResolver", t: type[Any]
     ) -> tuple[inspect.Signature, list[inspect.Parameter]]:
         """
         Get the resolution plan for a type.
@@ -737,7 +731,7 @@ class _ServiceResolver:
         sig = inspect.signature(t)
         return sig, list(sig.parameters.values())
 
-    def _get_constructor_type_hints_safe(self, t: type) -> dict[str, Any]:
+    def _get_constructor_type_hints_safe(self: "_ServiceResolver", t: type[Any]) -> dict[str, Any]:
         """
         Get type hints for a constructor safely.
         """
@@ -746,7 +740,7 @@ class _ServiceResolver:
         except Exception:
             return {}
 
-    def _get_eval_namespaces(self, t: type) -> tuple[dict[str, Any], dict[str, Any]]:
+    def _get_eval_namespaces(self: "_ServiceResolver", t: type[Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Get namespaces for evaluating type hints.
         """
@@ -771,16 +765,32 @@ class _ServiceResolver:
         return param_type
 
     def _eval_forward_ref(
-        self, t: type, globalns: dict[str, Any], localns: dict[str, Any], impl: type
-    ) -> type:
+        self, t: type | str, globalns: dict[str, Any], localns: dict[str, Any], impl: type
+    ) -> type | str:
         """
-        Evaluate a forward reference type.
+        Evaluate a forward reference type safely.
+        Only allow lookup of type names or dotted paths in the provided namespaces.
+        Does NOT use eval for safety.
         """
         if isinstance(t, str):
-            try:
-                return eval(t, globalns, localns)
-            except Exception:
-                return t
+            # Try to resolve as a dotted path (e.g., 'module.TypeName')
+            parts = t.split('.')
+            obj = globalns.get(parts[0], localns.get(parts[0]))
+            for part in parts[1:]:
+                if obj is not None and hasattr(obj, part):
+                    obj = getattr(obj, part)
+                else:
+                    obj = None
+                    break
+            if obj is not None:
+                return obj
+            # Fallback: try localns, then globalns directly
+            if t in localns:
+                return localns[t]
+            if t in globalns:
+                return globalns[t]
+            # Could not resolve, return as-is
+            return t
         return t
 
     def _find_registered_type(self, t: type, impl: type) -> type | None:
