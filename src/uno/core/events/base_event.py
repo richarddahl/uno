@@ -5,6 +5,8 @@ All domain/integration events should inherit from this class.
 
 from __future__ import annotations
 
+import collections.abc
+import logging
 from typing import Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -83,19 +85,32 @@ class DomainEvent(BaseModel):
     def _set_event_hash(self) -> Self:
         """
         Pydantic model-wide validator: Compute and set the event_hash field after model creation.
-        Ensures all events are cryptographically chained and tamper-evident.
+        Uses DI to resolve the hash service (HashServiceProtocol) for compliance and flexibility.
+        Falls back to sha256 if DI is not available.
 
         Returns:
             Self: The event instance with its event_hash set.
         """
-        import hashlib
         import json
+        from uno.core.di import ServiceProvider, get_service_provider
+        from uno.core.services.hash_service_protocol import HashServiceProtocol
+        from uno.core.services.default_hash_service import DefaultHashService
 
         d = self.model_dump(exclude={"event_hash"}, exclude_none=True, exclude_unset=True)
         payload = json.dumps(d, sort_keys=True, separators=(",", ":"))
-        object.__setattr__(
-            self, "event_hash", hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        )
+        hash_service = None
+        try:
+            provider = get_service_provider()
+            result = provider.try_get_service(HashServiceProtocol)
+            if getattr(result, "is_success", False):
+                hash_service = getattr(result, "value", None)
+        except Exception as exc:
+            logging.getLogger("uno.events").warning(
+                "Could not resolve HashServiceProtocol from DI: %s. Falling back to DefaultHashService.", exc
+            )
+        if hash_service is None:
+            hash_service = DefaultHashService("sha256")
+        object.__setattr__(self, "event_hash", hash_service.compute_hash(payload))
         return self
 
     def to_dict(self) -> dict[str, Any]:
@@ -157,16 +172,15 @@ class EventUpcasterRegistry:
     _registry: ClassVar[dict[tuple[type, int], callable]] = {}
 
     @classmethod
-    def register(cls, event_type: type, from_version: int):
-        def decorator(func):
+    def register(cls, event_type: type, from_version: int) -> collections.abc.Callable[[collections.abc.Callable[[dict[str, Any]], dict[str, Any]]], collections.abc.Callable[[dict[str, Any]], dict[str, Any]]]:
+        def decorator(func: collections.abc.Callable[[dict[str, Any]], dict[str, Any]]) -> collections.abc.Callable[[dict[str, Any]], dict[str, Any]]:
             cls._registry[(event_type, from_version)] = func
             return func
-
         return decorator
 
     @classmethod
     def register_upcaster(
-        cls, event_type: type, from_version: int, upcaster_fn: callable
+        cls, event_type: type, from_version: int, upcaster_fn: collections.abc.Callable[[dict[str, Any]], dict[str, Any]]
     ) -> None:
         cls._registry[(event_type, from_version)] = upcaster_fn
 
