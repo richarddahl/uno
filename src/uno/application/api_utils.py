@@ -14,8 +14,8 @@ Usage:
 
 All API endpoints must use this utility (or equivalent logic) to ensure compliance.
 """
-from typing import Any
 from pydantic import BaseModel
+from typing import Any
 
 
 def as_canonical_json(obj: Any) -> Any:

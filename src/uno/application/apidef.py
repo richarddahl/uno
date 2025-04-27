@@ -13,7 +13,6 @@ Use uno.application.api_utils.as_canonical_json to ensure compliance at all API 
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api_utils import as_canonical_json
 
 tags_metadata = [
     {

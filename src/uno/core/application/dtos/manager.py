@@ -19,7 +19,7 @@ from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
 
 from uno.core.errors.base import FrameworkError
-from uno.dto.dto import DTOConfig, DTO
+from uno.core.application.dtos.dto import DTOConfig, DTO
 
 # Type variables for improved type safety
 ModelT = TypeVar("ModelT", bound=BaseModel)
