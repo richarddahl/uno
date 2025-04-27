@@ -1,0 +1,178 @@
+# Uno Integrated Example App
+
+This example demonstrates Uno's modern, production-ready approach to Domain-Driven Design (DDD), event sourcing, dependency injection, and API development in Python.
+
+---
+
+## Uno Example Features
+
+- **Aggregates:** `InventoryItem`, `Vendor` (add your own easily)
+- **Event Sourcing:** All state changes are recorded as domain events
+- **API Layer:** RESTful endpoints for all aggregates via FastAPI
+- **Serialization:** Canonical DTOs using Pydantic v2
+- **Testing:** End-to-end tests for all API endpoints
+- **Extensibility:** Add new aggregates/events/endpoints with minimal boilerplate
+- **Modern Python:** Type hints, Pydantic 2, Python 3.13, strict linting
+
+---
+
+## Uno DDD & Event Sourcing Philosophy
+
+Uno encourages:
+- **Explicit domain modeling**: Aggregates, events, and value objects are first-class.
+- **Loose coupling**: DI for all services and repositories.
+- **Event sourcing**: Every state change is an event; aggregates replay their history.
+- **Structured logging** and **centralized config** (see Uno core docs).
+
+---
+
+## Project Structure
+
+```text
+app/
+  domain/         # Domain models (aggregates, events)
+  persistence/    # Event-sourced repositories
+  api/            # FastAPI app, DTOs, API logic
+  tests/          # End-to-end and integration tests
+  __main__.py     # Entrypoint to run the example app
+  README.md       # This file
+```
+
+---
+
+## Running the Example App
+
+1. **Install Uno in editable mode:**
+
+   ```bash
+   pip install -e ../../  # from the root of the uno repo
+   ```
+
+2. **Run the example app:**
+
+   ```bash
+   python -m examples.app
+   ```
+   _Note: This does not support hot reload._
+
+   **For hot reload during development:**
+
+   ```bash
+   uvicorn examples.app.api.api:app --reload
+   ```
+
+3. **Explore the API:**
+   - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for Swagger UI
+
+---
+
+## Aggregates & API Endpoints
+
+### InventoryItem
+
+- **POST /inventory/** — Create an item
+- **GET /inventory/{item_id}** — Fetch an item
+- **PUT /inventory/{item_id}** — Update an item
+- **GET /inventory/** — List all items
+
+#### Example: Create an InventoryItem
+
+```bash
+curl -X POST http://localhost:8000/inventory/ \
+  -H 'Content-Type: application/json' \
+  -d '{"id": "sku-123", "name": "Widget", "quantity": 10}'
+```
+
+**Response:**
+```json
+{
+  "id": "sku-123",
+  "name": "Widget",
+  "quantity": 10
+}
+```
+
+#### Example: Update InventoryItem
+
+```bash
+curl -X PUT http://localhost:8000/inventory/sku-123 \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Widget Pro", "quantity": 15}'
+```
+
+---
+
+### Vendor
+
+- **POST /vendors/** — Create a vendor
+- **GET /vendors/{vendor_id}** — Fetch a vendor
+- **PUT /vendors/{vendor_id}** — Update a vendor
+- **GET /vendors/** — List all vendors
+
+#### Example: Create a Vendor
+
+```bash
+curl -X POST http://localhost:8000/vendors/ \
+  -H 'Content-Type: application/json' \
+  -d '{"id": "vendor-1", "name": "Acme Distilling", "contact_email": "info@acme.com"}'
+```
+
+**Response:**
+```json
+{
+  "id": "vendor-1",
+  "name": "Acme Distilling",
+  "contact_email": "info@acme.com"
+}
+```
+
+#### Example: Update a Vendor
+
+```bash
+curl -X PUT http://localhost:8000/vendors/vendor-1 \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Acme Spirits", "contact_email": "hello@acme.com"}'
+```
+
+---
+
+## Event Sourcing in Uno
+
+- Every aggregate method (e.g. `create`, `update`) records a domain event.
+- The repository stores events, not just current state.
+- Aggregates are rebuilt by replaying their event history.
+- See `domain/` for event classes (e.g. `InventoryItemCreated`, `VendorCreated`).
+
+---
+
+## Adding a New Aggregate
+
+1. **Define the aggregate and events:**
+   - Create `domain/my_aggregate.py` with your class and events.
+2. **Add a repository:**
+   - Create `persistence/my_aggregate_repository.py` (see vendor/inventory examples).
+3. **Create DTOs:**
+   - Add `api/my_aggregate_dtos.py`.
+4. **Expose API endpoints:**
+   - Update `api/api.py` to add your endpoints.
+5. **Write tests:**
+   - Add `tests/test_my_aggregate_api.py`.
+
+---
+
+## Testing
+
+Run all end-to-end tests:
+
+```bash
+hatch run test:test-examplesV
+```
+
+---
+
+## License
+
+SPDX-License-Identifier: MIT
+
+---
+_This integrated example is for onboarding, regression, and demonstration purposes. For framework core logic, see `uno/core/`. For focused/legacy examples, see the top-level `examples/` directory._
