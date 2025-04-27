@@ -6,21 +6,27 @@ Replace with a real event store for production/demo persistence.
 """
 from typing import Any, Dict
 from examples.app.domain.inventory_item import InventoryItem, InventoryItemCreated, InventoryItemRenamed, InventoryItemAdjusted
+from uno.core.logging import LoggerService
 
 class InMemoryInventoryItemRepository:
     """A minimal in-memory event-sourced repo for InventoryItem."""
-    def __init__(self) -> None:
+    def __init__(self, logger: LoggerService) -> None:
         self._events: dict[str, list[Any]] = {}
+        self._logger = logger
+        self._logger.debug("InMemoryInventoryItemRepository initialized.")
 
     def save(self, item: InventoryItem) -> None:
+        self._logger.info(f"Saving inventory item: {item.id}")
         # For demo: append all events (in real ES, track new events only)
         self._events.setdefault(item.id, []).extend(item._domain_events)
         item._domain_events.clear()
+        self._logger.debug(f"Inventory item {item.id} saved with {len(item._domain_events)} events.")
 
-    def get(self, item_id: str) -> InventoryItem | None:
+    def get(self, item_id: str) -> Success | Failure[InventoryItemNotFoundError]:
         events = self._events.get(item_id)
         if not events:
-            return None
+            self._logger.warning(f"InventoryItem not found: {item_id}")
+            return Failure(InventoryItemNotFoundError(item_id))
         item = None
         for event in events:
             if isinstance(event, InventoryItemCreated):
@@ -29,7 +35,10 @@ class InMemoryInventoryItemRepository:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:
                 item.quantity += event.adjustment
+        self._logger.debug(f"Fetched inventory item: {item_id}")
         return item
 
     def all_ids(self) -> list[str]:
-        return list(self._events.keys())
+        ids = list(self._events.keys())
+        self._logger.debug(f"Listing all inventory item ids: {ids}")
+        return ids

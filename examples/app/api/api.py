@@ -20,13 +20,31 @@ from examples.app.api.inventory_lot_dtos import InventoryLotDTO, InventoryLotCre
 from examples.app.api.order_dtos import OrderDTO, OrderCreateDTO, OrderFulfillDTO, OrderCancelDTO
 from pydantic import BaseModel, Field
 
+from uno.core.logging import LoggerService, LoggingConfig
+from uno.core.di.container import ServiceCollection
+
 app = FastAPI(title="Uno Example App", version="0.2.0")
 
-# In-memory repo singletons (demo only)
-repo = InMemoryInventoryItemRepository()
-vendor_repo = InMemoryVendorRepository()
-lot_repo = InMemoryInventoryLotRepository()
-order_repo = InMemoryOrderRepository()
+# --- Dependency Injection Setup ---
+service_collection = ServiceCollection()
+logging_config = LoggingConfig()
+logger_service = LoggerService(logging_config)
+
+# Register repositories with DI
+service_collection.add_singleton(LoggerService, instance=logger_service)
+service_collection.add_singleton(InMemoryInventoryItemRepository, implementation=InMemoryInventoryItemRepository, logger=logger_service)
+service_collection.add_singleton(InMemoryVendorRepository, implementation=InMemoryVendorRepository, logger=logger_service)
+service_collection.add_singleton(InMemoryInventoryLotRepository, implementation=InMemoryInventoryLotRepository, logger=logger_service)
+service_collection.add_singleton(InMemoryOrderRepository, implementation=InMemoryOrderRepository, logger=logger_service)
+
+# Build DI resolver
+resolver = service_collection.build()
+
+# Resolve repositories via DI (use .get() for raw instance, not monad)
+repo: InMemoryInventoryItemRepository = resolver.get(InMemoryInventoryItemRepository)
+vendor_repo: InMemoryVendorRepository = resolver.get(InMemoryVendorRepository)
+lot_repo: InMemoryInventoryLotRepository = resolver.get(InMemoryInventoryLotRepository)
+order_repo: InMemoryOrderRepository = resolver.get(InMemoryOrderRepository)
 
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
@@ -51,12 +69,43 @@ def create_vendor(data: VendorCreateDTO) -> VendorDTO:
     dto = VendorDTO(id=vendor.id, name=vendor.name, contact_email=vendor.contact_email)
     return as_canonical_json(dto)
 
+from examples.app.api.errors import VendorNotFoundError, InventoryItemNotFoundError, InventoryLotNotFoundError, OrderNotFoundError
+from uno.core.errors.result import Failure
+
 @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
 def get_vendor(vendor_id: str) -> VendorDTO:
-    vendor = vendor_repo.get(vendor_id)
-    if not vendor:
-        raise HTTPException(status_code=404, detail=f"Vendor not found: {vendor_id}")
+    result = vendor_repo.get(vendor_id)
+    if isinstance(result, Failure):
+        raise result.error
+    vendor = result.value
     dto = VendorDTO(id=vendor.id, name=vendor.name, contact_email=vendor.contact_email)
+    return as_canonical_json(dto)
+
+@app.get("/inventory/{item_id}", tags=["inventory"], response_model=InventoryItemDTO)
+def get_inventory_item(item_id: str) -> InventoryItemDTO:
+    result = repo.get(item_id)
+    if isinstance(result, Failure):
+        raise result.error
+    item = result.value
+    dto = InventoryItemDTO(id=item.id, name=item.name, quantity=item.quantity)
+    return as_canonical_json(dto)
+
+@app.get("/lots/{lot_id}", tags=["lots"], response_model=InventoryLotDTO)
+def get_inventory_lot(lot_id: str) -> InventoryLotDTO:
+    result = lot_repo.get(lot_id)
+    if isinstance(result, Failure):
+        raise result.error
+    lot = result.value
+    dto = InventoryLotDTO(id=lot.id, item_id=lot.item_id, vendor_id=lot.vendor_id, quantity=lot.quantity, purchase_price=lot.purchase_price, sale_price=lot.sale_price)
+    return as_canonical_json(dto)
+
+@app.get("/orders/{order_id}", tags=["orders"], response_model=OrderDTO)
+def get_order(order_id: str) -> OrderDTO:
+    result = order_repo.get(order_id)
+    if isinstance(result, Failure):
+        raise result.error
+    order = result.value
+    dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
     return as_canonical_json(dto)
 
 @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
@@ -166,3 +215,13 @@ def cancel_order(order_id: str, data: OrderCancelDTO) -> OrderDTO:
     order_repo.save(order)
     dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
     return as_canonical_json(dto)
+
+# --- Uno Error Handlers ---
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from examples.app.api.errors import ResourceNotFoundError
+
+@app.exception_handler(ResourceNotFoundError)
+async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError):
+    logger_service.error(f"{exc.resource_type} not found: {exc.resource_id}", exc_info=exc)
+    return JSONResponse(status_code=404, content={"detail": str(exc)})

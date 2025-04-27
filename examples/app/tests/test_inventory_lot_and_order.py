@@ -8,6 +8,8 @@ import pytest
 from examples.app.domain.inventory_item import InventoryItem
 from examples.app.domain.inventory_lot import InventoryLot
 from examples.app.domain.order import Order
+from examples.app.persistence.inventory_lot_repository import InMemoryInventoryLotRepository
+from examples.app.persistence.order_repository import InMemoryOrderRepository
 
 @pytest.fixture
 def fake_item() -> InventoryItem:
@@ -37,6 +39,22 @@ def test_inventory_lot_adjustment(fake_lot: InventoryLot) -> None:
     fake_lot.adjust_quantity(-10, reason="sold")
     assert fake_lot.quantity == 40
 
+def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -> None:
+    from uno.core.logging import LoggerService, LoggingConfig
+    repo = InMemoryInventoryLotRepository(LoggerService(LoggingConfig()))
+    repo.save(fake_lot)
+    assert repo.verify_integrity(fake_lot.id)
+    # Tamper: replace event object with a different value (simulate tampering)
+    from examples.app.domain.inventory_lot import InventoryLotCreated
+    fake_lot._domain_events[0] = InventoryLotCreated(
+        lot_id=fake_lot.id,
+        item_id=fake_lot.item_id,
+        vendor_id=fake_lot.vendor_id,
+        quantity=999,  # tampered value
+        purchase_price=fake_lot.purchase_price,
+    )
+    assert not repo.verify_integrity(fake_lot.id)
+
 def test_order_creation(fake_order: Order) -> None:
     assert fake_order.item_id == "item-1"
     assert fake_order.lot_id == "lot-1"
@@ -58,3 +76,21 @@ def test_order_fulfillment_and_cancel(fake_order: Order) -> None:
     assert fake_order.is_fulfilled
     fake_order.cancel(reason="customer request")
     assert fake_order.is_cancelled
+
+def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
+    from uno.core.logging import LoggerService, LoggingConfig
+    repo = InMemoryOrderRepository(LoggerService(LoggingConfig()))
+    repo.save(fake_order)
+    assert repo.verify_integrity(fake_order.id)
+    # Tamper: replace event object with a different value (simulate tampering)
+    from examples.app.domain.order import OrderCreated
+    fake_order._domain_events[0] = OrderCreated(
+        order_id=fake_order.id,
+        item_id=fake_order.item_id,
+        lot_id=fake_order.lot_id,
+        vendor_id=fake_order.vendor_id,
+        quantity=999,  # tampered value
+        price=fake_order.price,
+        order_type=fake_order.order_type,
+    )
+    assert not repo.verify_integrity(fake_order.id)

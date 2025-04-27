@@ -8,7 +8,10 @@ Provides a simple, event-sourced repository for the Vendor aggregate using an in
 
 from typing import Any
 
+from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
+from uno.core.errors.result import Failure, Success
+from uno.core.logging import LoggerService
 
 
 class InMemoryVendorRepository:
@@ -17,9 +20,11 @@ class InMemoryVendorRepository:
     Stores and replays domain events for each Vendor by ID.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, logger: LoggerService) -> None:
         """Initialize the in-memory event store."""
         self._events: dict[str, list[Any]] = {}
+        self._logger = logger
+        self._logger.debug("InMemoryVendorRepository initialized.")
 
     def save(self, vendor: Vendor) -> None:
         """
@@ -28,21 +33,26 @@ class InMemoryVendorRepository:
         Args:
             vendor: The Vendor aggregate to save.
         """
+        self._logger.info(f"Saving vendor: {vendor.id}")
         self._events.setdefault(vendor.id, []).extend(vendor._domain_events)
         vendor._domain_events.clear()
+        self._logger.debug(
+            f"Vendor {vendor.id} saved with {len(vendor._domain_events)} events."
+        )
 
-    def get(self, vendor_id: str) -> Vendor | None:
+    def get(self, vendor_id: str) -> Success[Vendor] | Failure[VendorNotFoundError]:
         """
         Retrieve a Vendor aggregate by replaying its event stream.
 
         Args:
             vendor_id: The unique ID of the Vendor.
         Returns:
-            Vendor | None: The reconstructed Vendor, or None if not found.
+            Success[Vendor] | Failure[VendorNotFoundError]: The reconstructed Vendor, or a VendorNotFoundError if not found.
         """
         events = self._events.get(vendor_id)
         if not events:
-            return None
+            self._logger.warning(f"Vendor not found: {vendor_id}")
+            return Failure(VendorNotFoundError(vendor_id))
         vendor = None
         for event in events:
             if isinstance(event, VendorCreated):
@@ -54,7 +64,8 @@ class InMemoryVendorRepository:
             elif isinstance(event, VendorUpdated) and vendor:
                 vendor.name = event.name
                 vendor.contact_email = event.contact_email
-        return vendor
+        self._logger.debug(f"Fetched vendor: {vendor_id}")
+        return Success(vendor)
 
     def all_ids(self) -> list[str]:
         """
@@ -62,4 +73,6 @@ class InMemoryVendorRepository:
         Returns:
             list[str]: List of Vendor IDs.
         """
-        return list(self._events.keys())
+        ids = list(self._events.keys())
+        self._logger.debug(f"Listing all vendor ids: {ids}")
+        return ids

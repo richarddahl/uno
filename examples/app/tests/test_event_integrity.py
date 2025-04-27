@@ -8,7 +8,8 @@ from uno.core.events.base_event import verify_event_stream_integrity
 
 
 def test_event_stream_integrity_and_tamper_detection():
-    repo = InMemoryInventoryItemRepository()
+    from uno.core.logging import LoggerService, LoggingConfig
+    repo = InMemoryInventoryItemRepository(LoggerService(LoggingConfig()))
     # Create and persist events
     item = InventoryItem.create("item-1", "Corn", 100)
     repo.save(item)
