@@ -193,11 +193,18 @@ dependencies = [
   "mkdocs-git-revision-date-localized-plugin",
 ]
 
-
 [tool.hatch.envs.docs.scripts]
 build = "mkdocs build --clean --strict"
 serve = "mkdocs serve --dev-addr localhost:8001"
 
+# Lint Environment
+[tool.hatch.envs.lint]
+dependencies = ["ruff>=0.2.0", "mypy>=1.8.0"]
+
+[tool.hatch.envs.lint.scripts]
+lint = "ruff check src/uno tests"
+typecheck = "mypy --install-types --non-interactive src/uno tests"
+all = ["lint", "typecheck"]
 
 # Types Environment
 [tool.hatch.envs.types]
@@ -213,7 +220,8 @@ all = ["check", "lint", "format"]
 [tool.mypy]
 # Core settings
 python_version = "3.13"
-plugins = ["sqlmypy"]
+# Use the official SQLAlchemy mypy plugin for modern SQLAlchemy type checking
+plugins = ["sqlalchemy.ext.mypy.plugin"]
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
@@ -226,7 +234,6 @@ warn_return_any = true
 warn_unreachable = true
 warn_no_return = true
 warn_unused_configs = true
-
 # Strictness settings
 disallow_any_generics = true
 disallow_untyped_defs = true
@@ -235,6 +242,11 @@ check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
 strict_optional = true
+
+# Module-specific overrides
+[[tool.mypy.overrides]]
+module = "pytest"
+ignore_missing_imports = true
 
 # Ruff lint config migrated to new structure as of 2025-04-24
 [tool.ruff]

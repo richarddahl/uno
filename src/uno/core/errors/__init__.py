@@ -30,6 +30,8 @@ from uno.core.errors.catalog import (
 )
 from uno.core.errors.definitions import (
     AggregateInvariantViolationError,
+    AggregateNotDeletedError,
+    AggregateDeletedError,
     AuthenticationError,
     AuthorizationError,
     ComponentInitializationError,
@@ -148,4 +150,6 @@ __all__ = [
     "OperationFailedError",
     "UnoNotImplementedError",
     "InternalError",
+    "AggregateNotDeletedError",
+    "AggregateDeletedError",
 ]

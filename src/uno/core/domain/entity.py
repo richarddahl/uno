@@ -11,6 +11,11 @@ class Entity(BaseModel, Generic[T_ID]):
     """
     Uno canonical Pydantic base model for all entities.
 
+    Canonical serialization contract:
+      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for serialization, hashing, and transport.
+      - Unset and None fields are treated identically; excluded from serialization and hashing.
+      - This contract is enforced by dedicated tests.
+    
     - All model-wide concerns (e.g., immutability, validation) are handled via Pydantic model_config and validators.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -40,10 +45,10 @@ class Entity(BaseModel, Generic[T_ID]):
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Thin wrapper for Pydantic's `model_dump()`.
-        Use this only if a broader Python API is required; otherwise, prefer `model_dump()` directly.
+        Canonical serialization: returns dict using Uno contract.
+        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
         """
-        return self.model_dump()
+        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:

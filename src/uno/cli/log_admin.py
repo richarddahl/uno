@@ -5,17 +5,28 @@ Allows inspection and runtime update of logging configuration using LoggingConfi
 """
 
 import typer
-
 from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.core.logging.factory import create_logger_factory
+from uno.core.logging.logger import LoggingConfig
 
 app = typer.Typer(help="Uno Logging Configuration Admin CLI")
 
+class CLIContext:
+    def __init__(self):
+        # Use the DI factory for logger service
+        factory = create_logger_factory()
+        self.logger_service = factory.create("cli")
+        self.config_service = LoggingConfigService(self.logger_service)
+
+@app.callback()
+def main(ctx: typer.Context):
+    """Initialize CLI context with DI logger and config services."""
+    ctx.obj = CLIContext()
+
 @app.command()
-def get_field(field: str):
+def get_field(ctx: typer.Context, field: str):
     """Show the value of a specific logging config field."""
-    logger_service = LoggerService(LoggingConfig())
-    config_service = LoggingConfigService(logger_service)
+    config_service = ctx.obj.config_service
     config = config_service.get_config()
     value = getattr(config, field, None)
     if value is None:
@@ -24,19 +35,17 @@ def get_field(field: str):
     typer.echo(f"{field}: {value}")
 
 @app.command()
-def schema():
+def schema(ctx: typer.Context):
     """Show the logging config schema (fields, types, defaults)."""
     import json
-
-    from uno.core.logging.logger import LoggingConfig
     typer.echo(json.dumps(LoggingConfig.model_json_schema(), indent=2))
 
 @app.command()
-def restore_defaults():
+def restore_defaults(ctx: typer.Context):
     """Restore logging config to defaults (dev environment)."""
-    logger_service = LoggerService(LoggingConfig())
     from uno.core.logging.logger import Dev
-    config_service = LoggingConfigService(logger_service)
+    config_service = ctx.obj.config_service
+    logger_service = ctx.obj.logger_service
     config = Dev()
     logger_service._config = config
     logger_service._configure_root_logger()
@@ -44,28 +53,27 @@ def restore_defaults():
     typer.echo(config.model_dump_json(indent=2))
 
 @app.command()
-def validate():
+def validate(ctx: typer.Context):
     """Validate the current logging config (prints errors if invalid)."""
-    logger_service = LoggerService(LoggingConfig())
-    config_service = LoggingConfigService(logger_service)
+    config_service = ctx.obj.config_service
     try:
         config = config_service.get_config()
         config.model_validate(config.model_dump())
         typer.echo("Logging config is valid.")
     except Exception as exc:
         typer.echo(f"Logging config is INVALID: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from exc
 
 @app.command()
-def show():
+def show(ctx: typer.Context):
     """Show the current logging configuration."""
-    logger_service = LoggerService(LoggingConfig())
-    config_service = LoggingConfigService(logger_service)
+    config_service = ctx.obj.config_service
     config = config_service.get_config()
     typer.echo(config.model_dump_json(indent=2))
 
 @app.command()
 def set(
+    ctx: typer.Context,
     level: str | None = typer.Option(None, help="Set the log level (e.g. INFO, DEBUG, ERROR)"),
     json_format: bool = typer.Option(None, "--json-format/--no-json-format", help="Enable/disable JSON log output"),
     console_output: bool = typer.Option(None, "--console-output/--no-console-output", help="Enable/disable console output"),
@@ -73,8 +81,7 @@ def set(
     file_path: str | None = typer.Option(None, help="Set log file path"),
 ):
     """Update logging configuration at runtime."""
-    logger_service = LoggerService(LoggingConfig())
-    config_service = LoggingConfigService(logger_service)
+    config_service = ctx.obj.config_service
     update = {}
     if level is not None:
         update["LEVEL"] = level

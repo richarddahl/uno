@@ -12,6 +12,7 @@ from uno.core.domain.repository import Repository
 from uno.core.events.event_store import EventStoreProtocol
 from uno.core.events.publisher import EventPublisherProtocol
 from uno.core.errors.result import Result, Success, Failure
+from uno.core.events.deleted_event import DeletedEvent
 from uno.core.logging.logger import LoggerService
 
 T = TypeVar("T", bound=AggregateRoot)
@@ -136,12 +137,52 @@ class EventSourcedRepository(Generic[T], Repository[T]):
     async def remove(self, id: str) -> Result[None, Exception]:
         """
         Remove an aggregate by ID (soft delete pattern: emit a Deleted event).
+        Emits and persists a DeletedEvent if the aggregate exists.
         Returns:
-            Failure(NotImplementedError) (pattern not implemented yet)
+            Success(None) if deleted, Failure(error) otherwise.
         """
         self.logger.structured_log(
             "INFO", f"Aggregate {id} removal requested (event sourcing: soft delete)",
             aggregate_id=id
         )
-        # Not implemented: see event sourcing best practices
-        return Failure(NotImplementedError("Soft-delete via Deleted event not implemented"))
+        try:
+            aggregate_result = await self.get_by_id(id)
+            if not aggregate_result.is_success:
+                self.logger.structured_log(
+                    "ERROR", f"Failed to load aggregate {id} for deletion",
+                    aggregate_id=id, error=aggregate_result.error
+                )
+                return Failure(aggregate_result.error)
+            aggregate = aggregate_result.value
+            if aggregate is None:
+                self.logger.structured_log(
+                    "WARNING", f"Aggregate {id} not found for deletion (no-op)",
+                    aggregate_id=id
+                )
+                return Success(None)
+            deleted_event = DeletedEvent(aggregate_id=id)
+            save_result = await self.event_store.save_event(deleted_event)
+            if not save_result.is_success:
+                self.logger.structured_log(
+                    "ERROR", f"Failed to save DeletedEvent for aggregate {id}",
+                    aggregate_id=id, error=save_result.error
+                )
+                return Failure(save_result.error)
+            publish_result = await self.event_publisher.publish(deleted_event)
+            if not publish_result.is_success:
+                self.logger.structured_log(
+                    "ERROR", f"Failed to publish DeletedEvent for aggregate {id}",
+                    aggregate_id=id, error=publish_result.error
+                )
+                return Failure(publish_result.error)
+            self.logger.structured_log(
+                "INFO", f"Aggregate {id} marked as deleted (DeletedEvent emitted)",
+                aggregate_id=id
+            )
+            return Success(None)
+        except Exception as exc:
+            self.logger.structured_log(
+                "ERROR", f"Exception during aggregate {id} soft delete",
+                aggregate_id=id, exc_info=exc
+            )
+            return Failure(exc)

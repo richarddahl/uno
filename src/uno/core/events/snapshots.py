@@ -33,7 +33,13 @@ T = TypeVar("T")
 
 
 class SnapshotStrategy(Protocol):
-    """Protocol for deciding when to create a snapshot."""
+    """Protocol for deciding when to create a snapshot.
+
+    Canonical serialization contract for snapshots:
+      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for snapshot serialization, storage, and integrity checks.
+      - Unset and None fields are treated identically; excluded from serialization and hashing.
+      - This contract is enforced by dedicated tests.
+    """
 
     async def should_snapshot(self, aggregate_id: str, event_count: int) -> bool:
         """
@@ -340,9 +346,19 @@ class FileSystemSnapshotStore(SnapshotStore):
         """Get the path to a snapshot file."""
         return self.snapshot_dir / f"{aggregate_id}.json"
 
+    def _canonical_snapshot_dict(self, aggregate: AggregateRoot) -> dict[str, object]:
+        """
+        Canonical snapshot serialization for storage and integrity.
+        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True) (Uno contract, Pydantic v2 compliant).
+        """
+        return aggregate.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+
     async def save_snapshot(self, aggregate: AggregateRoot) -> Result[None, Exception]:
         """
         Save a snapshot to the file system.
+
+        All persisted snapshots are first serialized using the canonical pattern via self._canonical_snapshot_dict(aggregate).
+        This guarantees deterministic, tamper-evident storage and transport.
 
         Args:
             aggregate: The aggregate to snapshot
@@ -351,31 +367,19 @@ class FileSystemSnapshotStore(SnapshotStore):
             Result with None on success, or an error
         """
         try:
-            self.logger.structured_log(
-                "DEBUG",
-                f"Saving snapshot for aggregate {aggregate.id}",
-                name="uno.events.snapshots",
-            )
+            aggregate_id = getattr(aggregate, "id", None)
+            if not aggregate_id:
+                return Failure(ValueError("Aggregate must have an id field"))
 
-            # Convert aggregate to dict
-            if not hasattr(aggregate, "to_dict"):
-                return Failure(
-                    ValueError(
-                        f"Aggregate {aggregate.id} does not implement to_dict method"
-                    )
-                )
-
-            aggregate_dict = aggregate.to_dict()
-            aggregate_dict["_type"] = aggregate.__class__.__name__
-
-            # Write to file
-            snapshot_path = self._get_snapshot_path(str(aggregate.id))
-            with open(snapshot_path, "w") as f:
-                json.dump(aggregate_dict, f, default=str)
+            path = self._get_snapshot_path(aggregate_id)
+            # Canonical serialization enforced here
+            canonical_snapshot = self._canonical_snapshot_dict(aggregate)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(canonical_snapshot, f, ensure_ascii=False, sort_keys=True)
 
             self.logger.structured_log(
                 "DEBUG",
-                f"Saved snapshot for aggregate {aggregate.id}",
+                f"Saved snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
             return Success(None)

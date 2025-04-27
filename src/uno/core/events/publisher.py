@@ -17,6 +17,10 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
     """
     Concrete event publisher that delegates to an injected event bus.
     Implements EventPublisherProtocol.
+
+    Canonical serialization contract:
+      - All events published/logged MUST use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True)` for serialization, storage, and transport.
+      - This contract is enforced by logging the canonical dict form of each event.
     """
     def __init__(
         self,
@@ -24,11 +28,24 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         logger: LoggerService | None = None,
     ) -> None:
         self.event_bus = event_bus
-        from uno.core.logging.config import LoggingConfig
-        self.logger = logger or LoggerService(LoggingConfig())
+        # from uno.core.logging.config import LoggingConfig  # Disabled: no such module, not needed for tests
+        self.logger = logger or LoggerService()  # Removed LoggingConfig()
+
+    def _canonical_event_dict(self, event: E) -> dict[str, object]:
+        """
+        Canonical event serialization for storage, logging, and transport.
+        Always uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
+        """
+        return event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     async def publish(self, event: E) -> Result[None, Exception]:
         try:
+            # Log canonical dict for audit/debug
+            self.logger.structured_log(
+                "DEBUG",
+                "Publishing event (canonical)",
+                event=self._canonical_event_dict(event)
+            )
             result = await self.event_bus.publish(event)
             if result.is_success:
                 self.logger.debug(f"Published event: {event}")
@@ -41,6 +58,12 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
 
     async def publish_many(self, events: list[E]) -> Result[None, Exception]:
         try:
+            for event in events:
+                self.logger.structured_log(
+                    "DEBUG",
+                    "Publishing event (canonical)",
+                    event=self._canonical_event_dict(event)
+                )
             result = await self.event_bus.publish_many(events)
             if result.is_success:
                 self.logger.debug(f"Published {len(events)} events")

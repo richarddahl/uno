@@ -14,6 +14,11 @@ class DomainEvent(BaseModel):
     """
     Uno canonical Pydantic base model for all events.
 
+    Canonical serialization and hashing contract (Uno standard):
+      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for event serialization, hashing, storage, and transport.
+      - Unset and None fields are treated identically; they are excluded from serialization and do not affect event_hash.
+      - This contract is enforced by dedicated tests (see test_event_serialization_is_deterministic).
+    
     - All model-wide concerns (e.g., upcasting, hash computation) are handled via @model_validator methods.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -86,7 +91,7 @@ class DomainEvent(BaseModel):
         import hashlib
         import json
 
-        d = self.model_dump(exclude={"event_hash"})
+        d = self.model_dump(exclude={"event_hash"}, exclude_none=True, exclude_unset=True)
         payload = json.dumps(d, sort_keys=True, separators=(",", ":"))
         object.__setattr__(
             self, "event_hash", hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -95,13 +100,13 @@ class DomainEvent(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Thin wrapper for Pydantic's `model_dump()`.
-        Use this only if a broader Python API is required; otherwise, prefer `model_dump()` directly.
+        Canonical serialization: returns dict using Uno contract.
+        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
 
         Returns:
             dict[str, Any]: The event as a dict, suitable for serialization or storage.
         """
-        return self.model_dump()
+        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:

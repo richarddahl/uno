@@ -10,6 +10,11 @@ class EventHandlerContext(BaseModel):
     """
     Uno canonical Pydantic base model for event handler context objects.
 
+    Canonical serialization contract:
+      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for serialization, storage, and transport.
+      - Unset and None fields are treated identically; excluded from serialization.
+      - This contract is enforced by dedicated tests.
+    
     - All model-wide concerns (e.g., validation, serialization) are handled via Pydantic model_config and validators.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -26,10 +31,10 @@ class EventHandlerContext(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Thin wrapper for Pydantic's `model_dump()`.
-        Use this only if a broader Python API is required; otherwise, prefer `model_dump()` directly.
+        Canonical serialization: returns dict using Uno contract.
+        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
         """
-        return self.model_dump()
+        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:

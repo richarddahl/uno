@@ -613,6 +613,15 @@ class AuthorizationError(FrameworkError):
 # Domain Error Classes
 # -----------------------------------------------------------------------------
 
+class AggregateNotDeletedError(Exception):
+    """Raised when attempting to restore an aggregate that is not deleted."""
+    pass
+
+class AggregateDeletedError(Exception):
+    """Raised when attempting to mutate a deleted aggregate."""
+    pass
+
+
 
 class DomainError(FrameworkError):
     """

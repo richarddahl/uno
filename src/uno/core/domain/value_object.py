@@ -9,6 +9,11 @@ class ValueObject(BaseModel):
     """
     Uno canonical Pydantic base model for all value objects.
 
+    Canonical serialization contract:
+      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for serialization, hashing, and transport.
+      - Unset and None fields are treated identically; excluded from serialization and hashing.
+      - This contract is enforced by dedicated tests.
+    
     - All model-wide concerns (e.g., immutability, validation) are handled via Pydantic model_config and validators.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -23,22 +28,26 @@ class ValueObject(BaseModel):
 
     def __eq__(self, other: Any) -> bool:
         """
-        Value objects are equal if their model_dump() is equal and type matches.
+        Value objects are equal if their canonical serialization is equal and type matches.
         """
-        return isinstance(other, ValueObject) and self.model_dump() == other.model_dump()
+        return (
+            isinstance(other, ValueObject)
+            and self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+            == other.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+        )
 
     def __hash__(self) -> int:
         """
-        Hash is based on the value of all fields.
+        Hash is based on the canonical serialization contract (Uno standard).
         """
-        return hash(tuple(sorted(self.model_dump().items())))
+        return hash(tuple(sorted(self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True).items())))
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Thin wrapper for Pydantic's `model_dump()`.
-        Use this only if a broader Python API is required; otherwise, prefer `model_dump()` directly.
+        Canonical serialization: returns dict using Uno contract.
+        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
         """
-        return self.model_dump()
+        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:

@@ -53,7 +53,16 @@ class EventStore(EventStoreProtocol[E], Generic[E]):
     
     Event stores persist domain events for event sourcing, auditing,
     and integration with external systems.
+
+    All event persistence MUST use the canonical serialization helper _canonical_event_dict.
     """
+
+    def _canonical_event_dict(self, event: E) -> dict[str, object]:
+        """
+        Canonical event serialization for storage, hashing, and transport.
+        Always uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True).
+        """
+        return event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)
     
     async def save_event(self, event: E) -> Result[None, Exception]:
         """
@@ -121,6 +130,9 @@ class InMemoryEventStore(EventStore[E]):
     async def save_event(self, event: E) -> Result[None, Exception]:
         """Save a domain event to the in-memory store.
         
+        All persisted events are first serialized using the canonical pattern via self._canonical_event_dict(event).
+        This guarantees deterministic, tamper-evident storage and transport.
+        
         Args:
             event: The domain event to save
             
@@ -132,7 +144,7 @@ class InMemoryEventStore(EventStore[E]):
             error = ValueError("Event must have an aggregate_id")
             self.logger.structured_log(
                 "ERROR",
-                f"Failed to save event {event.event_type}: {error}",
+                f"Failed to save event {getattr(event, 'event_type', type(event))}: {error}",
                 name="uno.events.inmem",
                 error=error
             )
@@ -141,12 +153,13 @@ class InMemoryEventStore(EventStore[E]):
         try:
             if aggregate_id not in self._events:
                 self._events[aggregate_id] = []
-            # Store a deep copy to ensure immutability
-            self._events[aggregate_id].append(copy.deepcopy(event))
+            # Canonical serialization enforced here
+            canonical_event = self._canonical_event_dict(event)
+            self._events[aggregate_id].append(copy.deepcopy(canonical_event))
             
             self.logger.structured_log(
                 "INFO",
-                f"Saved event {event.event_type} for aggregate {aggregate_id}",
+                f"Saved event {getattr(event, 'event_type', type(event))} for aggregate {aggregate_id}",
                 name="uno.events.inmem"
             )
             return Success(None)
