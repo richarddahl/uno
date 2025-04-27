@@ -22,10 +22,10 @@ from pydantic import BaseModel, Field, create_model, model_validator
 from uno.core.errors.base import FrameworkError
 
 # Type variable for DTO classes
-DTOT = TypeVar("DTOT", bound="UnoDTO")
+DTOT = TypeVar("DTOT", bound="DTO")
 
 
-class UnoDTO(BaseModel):
+class DTO(BaseModel):
     """
     Base class for all data transfer objects (DTOs) in the Uno framework.
 
@@ -77,7 +77,7 @@ class DTOConfig(BaseModel):
     include or exclude and the base class to use.
     """
 
-    dto_base: type[UnoDTO] = UnoDTO
+    dto_base: type[DTO] = DTO
     exclude_fields: set[str] = Field(default_factory=set)
     include_fields: set[str] = Field(default_factory=set)
 
@@ -99,7 +99,7 @@ class DTOConfig(BaseModel):
             )
         return self
 
-    def create_dto(self, dto_name: str, model: type[BaseModel]) -> type[UnoDTO]:
+    def create_dto(self, dto_name: str, model: type[BaseModel]) -> type[DTO]:
         """
         Create a DTO for a model based on this configuration.
 
@@ -171,14 +171,14 @@ class DTOConfig(BaseModel):
         )
 
         # Cast to ensure the type system recognizes the return value correctly
-        return cast("type[UnoDTO]", dto_cls)
+        return cast("type[DTO]", dto_cls)
 
 
 # Generic list DTO for pagination
 T = TypeVar("T", bound=BaseModel)
 
 
-class PaginatedListDTO(UnoDTO, Generic[T]):
+class PaginatedListDTO(DTO, Generic[T]):
     """
     DTO for paginated lists of items.
 
@@ -196,7 +196,7 @@ class PaginatedListDTO(UnoDTO, Generic[T]):
     pages: int = Field(1, description="The total number of pages")
 
 
-class WithMetadataDTO(UnoDTO):
+class WithMetadataDTO(DTO):
     """
     DTO for items with metadata.
 

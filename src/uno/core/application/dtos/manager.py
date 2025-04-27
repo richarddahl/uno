@@ -19,7 +19,7 @@ from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
 
 from uno.core.errors.base import FrameworkError
-from uno.dto.dto import DTOConfig, UnoDTO
+from uno.dto.dto import DTOConfig, DTO
 
 # Type variables for improved type safety
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -45,7 +45,7 @@ class DTOManager:
             dto_configs: Optional initial DTO configurations
         """
         self.dto_configs: dict[str, DTOConfig] = dto_configs or {}
-        self.dtos: dict[str, type[UnoDTO]] = {}
+        self.dtos: dict[str, type[DTO]] = {}
 
     def add_dto_config(self, name: str, config: DTOConfig) -> None:
         """
@@ -57,7 +57,7 @@ class DTOManager:
         """
         self.dto_configs[name] = config
 
-    def create_dto(self, dto_name: str, model: type[BaseModel]) -> type[UnoDTO]:
+    def create_dto(self, dto_name: str, model: type[BaseModel]) -> type[DTO]:
         """
         Create a DTO for a model.
 
@@ -87,7 +87,7 @@ class DTOManager:
         self.dtos[dto_name] = dto
         return dto
 
-    def create_all_dtos(self, model: type[BaseModel]) -> dict[str, type[UnoDTO]]:
+    def create_all_dtos(self, model: type[BaseModel]) -> dict[str, type[DTO]]:
         """
         Create all DTOs for a model.
 
@@ -101,7 +101,7 @@ class DTOManager:
             self.create_dto(dto_name, model)
         return self.dtos
 
-    def get_dto(self, dto_name: str) -> type[UnoDTO] | None:
+    def get_dto(self, dto_name: str) -> type[DTO] | None:
         """
         Get a DTO by name.
 
@@ -113,7 +113,7 @@ class DTOManager:
         """
         return self.dtos.get(dto_name)
 
-    def get_list_dto(self, model: type[Any]) -> type[UnoDTO]:
+    def get_list_dto(self, model: type[Any]) -> type[DTO]:
         """
         Get or create a DTO for lists of the given model.
 
@@ -168,7 +168,7 @@ class DTOManager:
 
         list_dto = create_model(  # type: ignore
             list_dto_name,
-            __base__=UnoDTO,
+            __base__=DTO,
             items=(list[item_type], ...),  # type: ignore
             total=(int, ...),
             page=(int, 1),
@@ -177,13 +177,13 @@ class DTOManager:
         )
 
         # Cast to ensure the type system recognizes it correctly
-        typed_list_dto = cast("type[UnoDTO]", list_dto)
+        typed_list_dto = cast("type[DTO]", list_dto)
 
         # Store the created DTO
         self.dtos[dto_name] = typed_list_dto
         return typed_list_dto
 
-    def _create_dto_from_sqlalchemy_model(self, model: type[Any]) -> type[UnoDTO]:
+    def _create_dto_from_sqlalchemy_model(self, model: type[Any]) -> type[DTO]:
         """
         Create a Pydantic DTO from a SQLAlchemy model.
 
@@ -208,10 +208,10 @@ class DTOManager:
         # Create a new Pydantic model based on the SQLAlchemy model
         # mypy has issues with create_model, so we use type: ignore
         dto = create_model(  # type: ignore
-            f"{model.__name__}DTO", __base__=UnoDTO, **fields
+            f"{model.__name__}DTO", __base__=DTO, **fields
         )
 
-        return cast("type[UnoDTO]", dto)
+        return cast("type[DTO]", dto)
 
     def _get_python_type_for_column(self, column: Any) -> type[Any]:
         """
@@ -245,7 +245,7 @@ class DTOManager:
 
         return python_type
 
-    def _get_or_create_detail_dto(self, model: type[BaseModel]) -> type[UnoDTO]:
+    def _get_or_create_detail_dto(self, model: type[BaseModel]) -> type[DTO]:
         """
         Get or create a detail DTO for a Pydantic model.
 
