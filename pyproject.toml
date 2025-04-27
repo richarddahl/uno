@@ -149,6 +149,8 @@ test = "ENV=test pytest --tb=no --capture=tee-sys --show-capture=all"
 testv = "ENV=test pytest --tb=short --capture=tee-sys --show-capture=all"
 testvv = "ENV=test pytest -vv --capture=tee-sys --show-capture=all"
 testV = "ENV=test pytest --capture=tee-sys --show-capture=all"
+test-examples = "ENV=test PYTHONPATH=src pytest examples/app/tests/ --tb=no --capture=tee-sys --show-capture=all"
+test-examplesV = "ENV=test PYTHONPATH=src pytest examples/app/tests/ --capture=tee-sys --show-capture=all"
 test-cov = "ENV=test coverage run -m pytest"
 cov-report = ["ENV=test", "- coverage combine", "coverage report"]
 cov = ["ENV=test", "test-cov", "cov-report"]
