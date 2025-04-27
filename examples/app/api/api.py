@@ -8,10 +8,16 @@ from fastapi import FastAPI, HTTPException
 from uno.application.api_utils import as_canonical_json
 from examples.app.persistence.repository import InMemoryInventoryItemRepository
 from examples.app.persistence.vendor_repository import InMemoryVendorRepository
+from examples.app.persistence.inventory_lot_repository import InMemoryInventoryLotRepository
+from examples.app.persistence.order_repository import InMemoryOrderRepository
 from examples.app.domain.vendor import Vendor
 from examples.app.domain.inventory_item import InventoryItem
+from examples.app.domain.inventory_lot import InventoryLot
+from examples.app.domain.order import Order
 from examples.app.api.vendor_dtos import VendorDTO
 from examples.app.api.dtos import InventoryItemDTO
+from examples.app.api.inventory_lot_dtos import InventoryLotDTO, InventoryLotCreateDTO, InventoryLotAdjustDTO
+from examples.app.api.order_dtos import OrderDTO, OrderCreateDTO, OrderFulfillDTO, OrderCancelDTO
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="Uno Example App", version="0.2.0")
@@ -19,6 +25,8 @@ app = FastAPI(title="Uno Example App", version="0.2.0")
 # In-memory repo singletons (demo only)
 repo = InMemoryInventoryItemRepository()
 vendor_repo = InMemoryVendorRepository()
+lot_repo = InMemoryInventoryLotRepository()
+order_repo = InMemoryOrderRepository()
 
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
@@ -91,4 +99,70 @@ def create_inventory_item(data: InventoryItemCreateDTO) -> InventoryItemDTO:
     item = InventoryItem.create(item_id=data.id, name=data.name, quantity=data.quantity)
     repo.save(item)
     dto = InventoryItemDTO(id=item.id, name=item.name, quantity=item.quantity)
+    return as_canonical_json(dto)
+
+# --- InventoryLot API ---
+@app.post("/lots/", tags=["lots"], response_model=InventoryLotDTO, status_code=201)
+def create_inventory_lot(data: InventoryLotCreateDTO) -> InventoryLotDTO:
+    if lot_repo.get(data.id):
+        raise HTTPException(status_code=409, detail=f"InventoryLot already exists: {data.id}")
+    lot = InventoryLot.create(lot_id=data.id, item_id=data.item_id, quantity=data.quantity, vendor_id=data.vendor_id, purchase_price=data.purchase_price)
+    lot_repo.save(lot)
+    dto = InventoryLotDTO(id=lot.id, item_id=lot.item_id, vendor_id=lot.vendor_id, quantity=lot.quantity, purchase_price=lot.purchase_price, sale_price=lot.sale_price)
+    return as_canonical_json(dto)
+
+@app.get("/lots/{lot_id}", tags=["lots"], response_model=InventoryLotDTO)
+def get_inventory_lot(lot_id: str) -> InventoryLotDTO:
+    lot = lot_repo.get(lot_id)
+    if not lot:
+        raise HTTPException(status_code=404, detail=f"InventoryLot not found: {lot_id}")
+    dto = InventoryLotDTO(id=lot.id, item_id=lot.item_id, vendor_id=lot.vendor_id, quantity=lot.quantity, purchase_price=lot.purchase_price, sale_price=lot.sale_price)
+    return as_canonical_json(dto)
+
+@app.patch("/lots/{lot_id}/adjust", tags=["lots"], response_model=InventoryLotDTO)
+def adjust_inventory_lot(lot_id: str, data: InventoryLotAdjustDTO) -> InventoryLotDTO:
+    lot = lot_repo.get(lot_id)
+    if not lot:
+        raise HTTPException(status_code=404, detail=f"InventoryLot not found: {lot_id}")
+    lot.adjust_quantity(data.adjustment, reason=data.reason)
+    lot_repo.save(lot)
+    dto = InventoryLotDTO(id=lot.id, item_id=lot.item_id, vendor_id=lot.vendor_id, quantity=lot.quantity, purchase_price=lot.purchase_price, sale_price=lot.sale_price)
+    return as_canonical_json(dto)
+
+# --- Order API ---
+@app.post("/orders/", tags=["orders"], response_model=OrderDTO, status_code=201)
+def create_order(data: OrderCreateDTO) -> OrderDTO:
+    if order_repo.get(data.id):
+        raise HTTPException(status_code=409, detail=f"Order already exists: {data.id}")
+    order = Order.create(order_id=data.id, item_id=data.item_id, lot_id=data.lot_id, vendor_id=data.vendor_id, quantity=data.quantity, price=data.price, order_type=data.order_type)
+    order_repo.save(order)
+    dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
+    return as_canonical_json(dto)
+
+@app.get("/orders/{order_id}", tags=["orders"], response_model=OrderDTO)
+def get_order(order_id: str) -> OrderDTO:
+    order = order_repo.get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Order not found: {order_id}")
+    dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
+    return as_canonical_json(dto)
+
+@app.patch("/orders/{order_id}/fulfill", tags=["orders"], response_model=OrderDTO)
+def fulfill_order(order_id: str, data: OrderFulfillDTO) -> OrderDTO:
+    order = order_repo.get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Order not found: {order_id}")
+    order.fulfill(data.fulfilled_quantity)
+    order_repo.save(order)
+    dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
+    return as_canonical_json(dto)
+
+@app.patch("/orders/{order_id}/cancel", tags=["orders"], response_model=OrderDTO)
+def cancel_order(order_id: str, data: OrderCancelDTO) -> OrderDTO:
+    order = order_repo.get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Order not found: {order_id}")
+    order.cancel(data.reason)
+    order_repo.save(order)
+    dto = OrderDTO(id=order.id, item_id=order.item_id, lot_id=order.lot_id, vendor_id=order.vendor_id, quantity=order.quantity, price=order.price, order_type=order.order_type, is_fulfilled=order.is_fulfilled, is_cancelled=order.is_cancelled)
     return as_canonical_json(dto)

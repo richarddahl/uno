@@ -38,7 +38,17 @@ def upcast_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
 EventUpcasterRegistry.register_upcaster(FakeEventV2, 1, upcast_v1_to_v2)
 
 
-def test_event_upcasting():
+def upcast_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
+    data = dict(data)
+    data["bar"] = 42
+    data["version"] = 2
+    return data
+
+
+def test_event_upcasting() -> None:
+    # Register upcaster for FakeEventV2 v1 -> v2
+    EventUpcasterRegistry._registry.clear()
+    EventUpcasterRegistry.register_upcaster(FakeEventV2, 1, upcast_v1_to_v2)
     v1_data = {"event_id": "evt_123", "foo": "hello", "version": 1}
     event = FakeEventV2.from_dict(v1_data)
     assert isinstance(event, FakeEventV2)
@@ -47,7 +57,7 @@ def test_event_upcasting():
     assert event.version == 2
 
 
-def test_event_hash_and_chain():
+def test_event_hash_and_chain() -> None:
     # Create a chain of events with deterministic fields
     e1 = FakeEventV2(
         event_id="evt_1", foo="a", bar=1, previous_hash=None, timestamp=1.0
@@ -73,7 +83,7 @@ def test_event_hash_and_chain():
         verify_event_stream_integrity([e1, e2_tampered, e3])
 
 
-def test_event_hash_is_deterministic():
+def test_event_hash_is_deterministic() -> None:
     e1 = FakeEventV2(
         event_id="evt_x", foo="z", bar=7, previous_hash=None, timestamp=42.0
     )
@@ -83,7 +93,7 @@ def test_event_hash_is_deterministic():
     assert e1.event_hash == e2.event_hash
 
 
-def test_upcaster_registry_missing():
+def test_upcaster_registry_missing() -> None:
     # No upcaster for v2 -> v3
     class FakeEventV3(DomainEvent):
         version: int = 3
@@ -94,7 +104,6 @@ def test_upcaster_registry_missing():
 
     v2_data = {"event_id": "evt_999", "foo": "hi", "bar": 1, "version": 2}
     from uno.core.errors.definitions import EventUpcastError
-    with pytest.raises(
-        EventUpcastError, match=r"No upcaster registered"
-    ):
+
+    with pytest.raises(EventUpcastError, match=r"No upcaster registered"):
         FakeEventV3.from_dict(v2_data)
