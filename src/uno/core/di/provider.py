@@ -597,6 +597,16 @@ def get_service_provider() -> ServiceProvider:
     return _service_provider
 
 
+def reset_global_service_provider() -> None:
+    """
+    Reset the global DI service provider and all related global DI state.
+    Intended for test isolation and advanced scenarios.
+    """
+    global _service_provider
+    _service_provider = None
+    # If there are other globals (locks, caches), reset them here as well.
+
+
 # Generic thread-safe singleton pattern for any class (for future use)
 def get_singleton(cls, *args, **kwargs):
     """
@@ -684,14 +694,16 @@ async def configure_base_services() -> None:
     # Create service collection
     services = ServiceCollection()
 
-    # Register configuration service
-    from uno.settings import uno_settings
+    # Register configuration service using DI (no direct uno_settings import)
+    from uno.core.config import general_config, application_config, database_config, security_config, api_config, vector_search_config
 
     class UnoConfig(ConfigProtocol):
         """Configuration provider implementation."""
 
         def __init__(self, settings=None):
-            self._settings = settings or uno_settings
+            # Always resolve from DI unless explicitly injected
+            provider = get_service_provider()
+            self._settings = settings or provider.get_service(type(general_config))
 
         def get_value(self, key: str, default: Any = None) -> Any:
             """Get a configuration value by key."""
@@ -707,10 +719,20 @@ async def configure_base_services() -> None:
 
     services.add_singleton(ConfigProtocol, UnoConfig)
 
-    # Register GeneralConfig
+    # Register all config objects as singletons in DI
     from uno.core.config.general import GeneralConfig
+    from uno.core.config.application import ApplicationConfig
+    from uno.core.config.database import DatabaseConfig
+    from uno.core.config.security import SecurityConfig
+    from uno.core.config.api import APIConfig
+    from uno.core.config.vector_search import VectorSearchConfig
 
-    services.add_singleton(GeneralConfig, GeneralConfig)
+    services.add_singleton(GeneralConfig, general_config)
+    services.add_singleton(ApplicationConfig, application_config)
+    services.add_singleton(DatabaseConfig, database_config)
+    services.add_singleton(SecurityConfig, security_config)
+    services.add_singleton(APIConfig, api_config)
+    services.add_singleton(VectorSearchConfig, vector_search_config)
 
     # Register LoggerService as a singleton
     from uno.core.logging.logger import LoggerService
@@ -718,36 +740,12 @@ async def configure_base_services() -> None:
     services.add_singleton(LoggerService, implementation=LoggerService)
 
     # Register database provider
-    from uno.database.config import ConnectionConfig
-    from uno.database.provider import DatabaseProvider
+    from uno.core.config.database import DatabaseConfig
+    from uno.core.di.providers.database import register_database_services
 
-    # Create connection config from settings
-    connection_config = ConnectionConfig(
-        db_role=uno_settings.DB_NAME + "_login",
-        db_name=uno_settings.DB_NAME,
-        db_host=uno_settings.DB_HOST,
-        db_port=uno_settings.DB_PORT,
-        db_user_pw=uno_settings.DB_USER_PW,
-        db_driver=uno_settings.DB_ASYNC_DRIVER,
-        db_schema=uno_settings.DB_SCHEMA,
-    )
+    # Register database engine and session providers
+    register_database_services(services)
 
-    # Create and register database provider
-    db_provider = DatabaseProvider(
-        connection_config, logger=logging.getLogger("uno.database")
-    )
-    services.add_instance(DatabaseProvider, db_provider)
-    services.add_instance(DatabaseProviderProtocol, db_provider)
-
-    # Register database manager
-    from uno.database.db_manager import DBManager
-
-    services.add_singleton(
-        DBManagerProtocol,
-        DBManager,
-        connection_provider=db_provider.sync_connection,
-        logger=logging.getLogger("uno.database"),
-    )
 
     # Register SQL emitter factory
     from uno.sql.services import SQLEmitterFactoryService

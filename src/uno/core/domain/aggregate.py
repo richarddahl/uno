@@ -16,6 +16,9 @@ T_ID = TypeVar("T_ID")
 class AggregateRoot(Entity[T_ID]):
     """
     Base class for aggregate roots with event sourcing lifecycle and soft delete/restore support.
+
+    Aggregates are intentionally mutable to support event sourcing and transactional workflows.
+    All state changes must be made via domain events and explicit mutation methods.
     """
     _events: list[DomainEvent] = PrivateAttr(default_factory=list)
     version: int = 0
@@ -27,6 +30,19 @@ class AggregateRoot(Entity[T_ID]):
         Returns True if the aggregate has been soft deleted (DeletedEvent applied and not restored).
         """
         return self._is_deleted
+
+    def get_uncommitted_events(self) -> list[DomainEvent]:
+        """
+        Returns a copy of the list of uncommitted domain events since last persistence.
+        """
+        return list(self._events)
+
+    def enforce_invariants(self) -> None:
+        """
+        Override in subclasses to enforce aggregate invariants after event application.
+        Raise an exception if invariants are violated.
+        """
+        pass
 
     def add_event(self, event: DomainEvent) -> Success[None, Exception] | Failure[None, Exception]:
         """
