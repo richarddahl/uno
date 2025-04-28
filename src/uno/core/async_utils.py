@@ -165,7 +165,7 @@ class AsyncEventHandlerAdapter:
             self._is_async = is_async_callable(handler.handle)
         else:
             self._is_async = is_async_callable(handler)
-            
+
     async def handle(self, context: EventHandlerContext) -> Result[Any, Exception]:
         """
         Handle an event.
@@ -194,3 +194,8 @@ class AsyncEventHandlerAdapter:
                     event_type=context.event.event_type
                 )
             return Failure(e)
+
+    async def __call__(self, event: Any) -> Result[Any, Exception]:
+        """Allow the adapter to be directly awaitable by the event bus, passing event as context."""
+        context = event if isinstance(event, EventHandlerContext) else EventHandlerContext(event=event)
+        return await self.handle(context)

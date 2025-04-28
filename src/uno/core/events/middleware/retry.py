@@ -7,7 +7,6 @@ from typing import Any
 from uno.core.errors.result import Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.factory import LoggerServiceFactory
 from uno.core.logging.logger import LoggerService
 from dataclasses import dataclass, field
 
@@ -29,24 +28,17 @@ class RetryOptions:
         return min(int(delay), self.max_delay_ms)
 
 class RetryMiddleware(EventHandlerMiddleware):
+    """
+    RetryMiddleware: Automatically retries failed event handlers.
+    Requires a DI-injected LoggerService instance (strict DI).
+    """
     def __init__(
         self,
-        options: RetryOptions | None = None,
-        logger_factory: LoggerServiceFactory | None = None
-    ):
+        logger: LoggerService,
+        options: RetryOptions | None = None
+    ) -> None:
+        self.logger = logger
         self.options = options or RetryOptions()
-        self.logger_factory = logger_factory
-        self._logger: LoggerService | None = None
-
-    @property
-    def logger(self) -> LoggerService:
-        if self._logger is None:
-            if self.logger_factory:
-                self._logger = self.logger_factory.create("events.middleware.retry")
-            else:
-                from uno.core.logging.config import LoggingConfig
-                self._logger = LoggerService(LoggingConfig())
-        return self._logger
 
     async def process(
         self,

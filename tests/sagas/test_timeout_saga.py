@@ -20,7 +20,8 @@ async def test_timeout_saga_retries_and_timeout() -> None:
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
     services.add_scoped(LoggerService)
     services.add_scoped(TimeoutSaga)
-    provider = ServiceProvider(services)
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger, services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)

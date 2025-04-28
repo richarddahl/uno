@@ -2,6 +2,7 @@ import pytest
 
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 
 class MyDep:
@@ -18,7 +19,8 @@ async def test_resolution_cache_and_lazy_loading():
     services.add_singleton(MyDep)
     services.add_singleton(MyService, lambda: MyService(MyDep()))
     services.add_singleton(MyService)
-    provider = ServiceProvider()
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger)
     provider.configure_services(services)
     await provider.initialize()
     # First resolution (should populate cache)
@@ -46,7 +48,8 @@ async def test_resolution_cache_and_lazy_loading():
     class MyService2(MyService):
         pass
     services.add_singleton(MyService, MyService2)
-    provider2 = ServiceProvider()
+    logger2 = LoggerService(LoggingConfig())
+    provider2 = ServiceProvider(logger2)
     provider2.configure_services(services)
     await provider2.initialize()
     s3 = provider2.get_service(MyService)
@@ -66,7 +69,8 @@ async def test_lazy_loading():
         def __init__(self) -> None:
             instantiation_counter['count'] += 1
     services.add_singleton(LazyDep)
-    provider = ServiceProvider()
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger)
     provider.configure_services(services)
     await provider.initialize()
     # Eager instantiation: singleton is created at initialization

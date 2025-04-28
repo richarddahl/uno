@@ -15,9 +15,15 @@ import pytest
 from uno.core.config.general import GeneralConfig
 from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider, get_service_provider
+from uno.core.services.hash_service_protocol import HashServiceProtocol
+from typing import Any
+
+class FakeHashService(HashServiceProtocol):
+    def hash_event(self, event: Any) -> str:
+        return "fakehash"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def initialize_di():
     """
     Initialize the dependency injection system for tests.
@@ -34,6 +40,7 @@ def initialize_di():
     # Create service collection
     test_services = ServiceCollection()
     test_services.add_instance(GeneralConfig, config)
+    test_services.add_singleton(HashServiceProtocol, FakeHashService)  # Register fake hash service
 
     # Get the global provider and configure it
     provider = get_service_provider()

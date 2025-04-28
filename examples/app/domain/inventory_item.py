@@ -9,6 +9,9 @@ from pydantic import PrivateAttr
 from typing import Self
 from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.event import DomainEvent
+from uno.core.errors.result import Result, Success, Failure
+from uno.core.errors.base import get_error_context
+from uno.core.errors.definitions import DomainValidationError
 
 
 # --- Events ---
@@ -35,19 +38,40 @@ class InventoryItem(AggregateRoot[str]):
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def create(cls, item_id: str, name: str, quantity: int) -> Self:
-        item = cls(id=item_id, name=name, quantity=quantity)
-        event = InventoryItemCreated(item_id=item_id, name=name, quantity=quantity)
-        item._record_event(event)
-        return item
+    def create(cls, item_id: str, name: str, quantity: int) -> Result[Self, Exception]:
+        try:
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details=get_error_context()))
+            if not name:
+                return Failure(DomainValidationError("name is required", details=get_error_context()))
+            if quantity < 0:
+                return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+            item = cls(id=item_id, name=name, quantity=quantity)
+            event = InventoryItemCreated(item_id=item_id, name=name, quantity=quantity)
+            item._record_event(event)
+            return Success(item)
+        except Exception as e:
+            return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def rename(self, new_name: str) -> None:
-        event = InventoryItemRenamed(item_id=self.id, new_name=new_name)
-        self._record_event(event)
+    def rename(self, new_name: str) -> Result[None, Exception]:
+        try:
+            if not new_name:
+                return Failure(DomainValidationError("new_name is required", details=get_error_context()))
+            event = InventoryItemRenamed(item_id=self.id, new_name=new_name)
+            self._record_event(event)
+            return Success(None)
+        except Exception as e:
+            return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def adjust_quantity(self, adjustment: int) -> None:
-        event = InventoryItemAdjusted(item_id=self.id, adjustment=adjustment)
-        self._record_event(event)
+    def adjust_quantity(self, adjustment: int) -> Result[None, Exception]:
+        try:
+            if self.quantity + adjustment < 0:
+                return Failure(DomainValidationError("resulting quantity cannot be negative", details=get_error_context()))
+            event = InventoryItemAdjusted(item_id=self.id, adjustment=adjustment)
+            self._record_event(event)
+            return Success(None)
+        except Exception as e:
+            return Failure(DomainValidationError(str(e), details=get_error_context()))
 
     def _record_event(self, event: DomainEvent) -> None:
         self._domain_events.append(event)
@@ -62,6 +86,6 @@ class InventoryItem(AggregateRoot[str]):
         elif isinstance(event, InventoryItemAdjusted):
             self.quantity += event.adjustment
         else:
-            raise ValueError(f"Unhandled event: {event}")
+            raise DomainValidationError(f"Unhandled event: {event}", details=get_error_context())
 
     # Canonical serialization already handled by AggregateRoot/Entity base

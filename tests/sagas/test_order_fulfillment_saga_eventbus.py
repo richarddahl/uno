@@ -19,7 +19,8 @@ async def test_order_fulfillment_saga_eventbus() -> None:
     services.add_scoped(LoggerService)
     services.add_scoped(OrderFulfillmentSaga)
     services.add_singleton(LoggingConfigService)
-    provider = ServiceProvider(services)
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger, services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)

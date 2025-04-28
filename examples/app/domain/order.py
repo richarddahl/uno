@@ -5,10 +5,17 @@ Domain model: Order aggregate and related events.
 Represents an order to purchase or sell InventoryLots of a particular InventoryItem to/from a Vendor.
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
+
+from typing import Literal, Self
+
 from pydantic import PrivateAttr
-from typing import Self, Literal
+
 from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.event import DomainEvent
+from uno.core.errors.base import get_error_context
+from uno.core.errors.definitions import DomainValidationError
+from uno.core.errors.result import Success, Failure
+
 
 # --- Events ---
 class OrderCreated(DomainEvent):
@@ -20,13 +27,16 @@ class OrderCreated(DomainEvent):
     price: float
     order_type: Literal["purchase", "sale"]
 
+
 class OrderFulfilled(DomainEvent):
     order_id: str
     fulfilled_quantity: int
 
+
 class OrderCancelled(DomainEvent):
     order_id: str
     reason: str | None = None
+
 
 # --- Aggregate ---
 class Order(AggregateRoot[str]):
@@ -41,11 +51,51 @@ class Order(AggregateRoot[str]):
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def create(cls, order_id: str, item_id: str, lot_id: str, vendor_id: str, quantity: int, price: float, order_type: Literal["purchase", "sale"]) -> Self:
-        order = cls(id=order_id, item_id=item_id, lot_id=lot_id, vendor_id=vendor_id, quantity=quantity, price=price, order_type=order_type)
-        event = OrderCreated(order_id=order_id, item_id=item_id, lot_id=lot_id, vendor_id=vendor_id, quantity=quantity, price=price, order_type=order_type)
-        order._record_event(event)
-        return order
+    def create(
+        cls,
+        order_id: str,
+        item_id: str,
+        lot_id: str,
+        vendor_id: str | None,
+        quantity: int,
+        price: float,
+        order_type: str,
+    ) -> Success[Self, Exception] | Failure[None, Exception]:
+        try:
+            if not order_id:
+                return Failure(DomainValidationError("order_id is required", details=get_error_context()))
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details=get_error_context()))
+            if not lot_id:
+                return Failure(DomainValidationError("lot_id is required", details=get_error_context()))
+            if quantity < 0:
+                return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+            if price < 0:
+                return Failure(DomainValidationError("price must be non-negative", details=get_error_context()))
+            if not order_type:
+                return Failure(DomainValidationError("order_type is required", details=get_error_context()))
+            order = cls(
+                id=order_id,
+                item_id=item_id,
+                lot_id=lot_id,
+                vendor_id=vendor_id,
+                quantity=quantity,
+                price=price,
+                order_type=order_type,
+            )
+            event = OrderCreated(
+                order_id=order_id,
+                item_id=item_id,
+                lot_id=lot_id,
+                vendor_id=vendor_id,
+                quantity=quantity,
+                price=price,
+                order_type=order_type,
+            )
+            order._record_event(event)
+            return Success(order)
+        except Exception as e:
+            return Failure(DomainValidationError(str(e), details=get_error_context()))
 
     def fulfill(self, fulfilled_quantity: int) -> None:
         event = OrderFulfilled(order_id=self.id, fulfilled_quantity=fulfilled_quantity)
@@ -72,6 +122,8 @@ class Order(AggregateRoot[str]):
         elif isinstance(event, OrderCancelled):
             self.is_cancelled = True
         else:
-            raise ValueError(f"Unhandled event: {event}")
+            raise DomainValidationError(
+                f"Unhandled event: {event}", details=get_error_context()
+            )
 
     # Canonical serialization already handled by AggregateRoot/Entity base

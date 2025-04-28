@@ -18,7 +18,8 @@ async def test_order_fulfillment_saga_happy_path():
     services.add_scoped(LoggerService)
     services.add_scoped(OrderFulfillmentSaga)
     services.add_singleton(LoggingConfigService)
-    provider = ServiceProvider(services)
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger, services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)
@@ -48,7 +49,6 @@ async def test_order_fulfillment_saga_compensation():
     saga_store = InMemorySagaStore()
     services = ServiceCollection()
     services.add_scoped(OrderFulfillmentSaga)
-    from uno.core.logging.logger import LoggerService, LoggingConfig
     from uno.core.logging.config_service import LoggingConfigService
     # Register LoggingConfig as a singleton
     services.add_singleton(LoggingConfig)
@@ -56,7 +56,8 @@ async def test_order_fulfillment_saga_compensation():
     services.add_singleton(LoggerService)
     # Register LoggingConfigService with LoggerService dependency
     services.add_singleton(LoggingConfigService)
-    provider = ServiceProvider(services)
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger, services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)
@@ -78,7 +79,6 @@ async def test_order_fulfillment_saga_recovery():
     saga_store = InMemorySagaStore()
     services = ServiceCollection()
     services.add_scoped(OrderFulfillmentSaga)
-    from uno.core.logging.logger import LoggerService, LoggingConfig
     from uno.core.logging.config_service import LoggingConfigService
     # Register LoggingConfig as a singleton
     services.add_singleton(LoggingConfig)
@@ -86,7 +86,8 @@ async def test_order_fulfillment_saga_recovery():
     services.add_singleton(LoggerService)
     # Register LoggingConfigService with LoggerService dependency
     services.add_singleton(LoggingConfigService)
-    provider = ServiceProvider(services)
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger, services)
     await provider.initialize()
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)

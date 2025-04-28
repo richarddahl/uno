@@ -9,7 +9,6 @@ from typing import Any
 from uno.core.errors.result import Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.factory import LoggerServiceFactory
 from uno.core.logging.logger import LoggerService
 
 @dataclass
@@ -44,26 +43,19 @@ class EventMetrics:
         self.max_duration_ms = max(self.max_duration_ms, duration_ms)
 
 class MetricsMiddleware(EventHandlerMiddleware):
+    """
+    MetricsMiddleware: Collects metrics about event handler performance.
+    Requires a DI-injected LoggerService instance (strict DI).
+    """
     def __init__(
         self,
-        report_interval_seconds: float = 60.0,
-        logger_factory: LoggerServiceFactory | None = None
-    ):
+        logger: LoggerService,
+        report_interval_seconds: float = 60.0
+    ) -> None:
+        self.logger = logger
         self.report_interval_seconds = report_interval_seconds
         self.last_report_time = time.time()
         self.metrics: dict[str, EventMetrics] = defaultdict(EventMetrics)
-        self.logger_factory = logger_factory
-        self._logger: LoggerService | None = None
-
-    @property
-    def logger(self) -> LoggerService:
-        if self._logger is None:
-            if self.logger_factory:
-                self._logger = self.logger_factory.create("events.middleware.metrics")
-            else:
-                from uno.core.logging.config import LoggingConfig
-                self._logger = LoggerService(LoggingConfig())
-        return self._logger
 
     async def process(
         self,

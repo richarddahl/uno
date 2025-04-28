@@ -140,6 +140,61 @@ This enhanced event handler discovery system provides several benefits:
 4. **Consistent Async Patterns**: Both sync and async handlers work seamlessly
 5. **Modularity**: Handlers can be organized into different modules and discovered automatically
 
+## DI-Injected Logging for Event Handler Registration
+
+Uno now enforces strict dependency injection (DI) for logging in all event handler registration and subscription actions. All registration and subscription must use a DI-injected `LoggerService`, and all actions are logged using `structured_log` with structured context (handler, event_type, topic_pattern, priority, etc.). Legacy/global loggers are not supported.
+
+### Requirements
+
+- All calls to `register_event_handler` and the `@subscribe` decorator require a `logger: LoggerService` argument.
+- Logging is performed via `logger.structured_log(...)` for every registration/subscription action.
+- Legacy/global logging (e.g., `logging.getLogger`) is not permitted in event registration code.
+- Omission of the logger argument will result in a `TypeError` at runtime.
+
+### Example: Registering a Handler with DI Logger
+
+```python
+from uno.core.events.registry import register_event_handler
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
+logger = LoggerService(LoggingConfig())
+
+def handler(event):
+    ...
+
+register_event_handler(
+    handler=handler,
+    event_type=MyEvent,
+    logger=logger,
+)
+```
+
+### Example: Using the @subscribe Decorator with DI Logger
+
+```python
+from uno.core.events.registry import subscribe
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
+logger = LoggerService(LoggingConfig())
+
+@subscribe(event_type=MyEvent, logger=logger)
+def handler(event):
+    ...
+```
+
+All registration and subscription actions will be logged with structured context, e.g.:
+
+```json
+{
+  "level": "info",
+  "msg": "Registered handler",
+  "handler": "<function handler at 0x...>",
+  "event_type": "MyEvent",
+  "topic_pattern": null,
+  "priority": "NORMAL"
+}
+```
+
 ## Best Practices
 
 1. **Use Decorators**: The decorator-based approach is the clearest way to define handlers

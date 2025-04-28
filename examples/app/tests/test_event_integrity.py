@@ -11,7 +11,9 @@ def test_event_stream_integrity_and_tamper_detection():
     from uno.core.logging import LoggerService, LoggingConfig
     repo = InMemoryInventoryItemRepository(LoggerService(LoggingConfig()))
     # Create and persist events
-    item = InventoryItem.create("item-1", "Corn", 100)
+    result = InventoryItem.create("item-1", "Corn", 100)
+    assert hasattr(result, 'unwrap'), f"Expected Result, got {type(result)}"
+    item = result.unwrap()
     repo.save(item)
     events = repo._events[item.id]
     # Verify initial hash chain is valid

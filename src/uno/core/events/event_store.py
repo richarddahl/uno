@@ -62,7 +62,7 @@ class EventStore(EventStoreProtocol[E], Generic[E]):
         Canonical event serialization for storage, hashing, and transport.
         Always uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True).
         """
-        return event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)
+        return event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
     
     async def save_event(self, event: E) -> Result[None, Exception]:
         """
@@ -118,13 +118,8 @@ class InMemoryEventStore(EventStore[E]):
     Simple in-memory event store for development and testing.
     Stores events in a Python list grouped by aggregate_id.
     """
-    def __init__(self, logger_factory: Callable[..., LoggerService] | None = None):
-        # Use provided logger factory or create a default logger
-        if logger_factory:
-            self.logger = logger_factory("inmem")
-        else:
-            self.logger = LoggerService(LoggingConfig())
-            
+    def __init__(self, logger: LoggerService):
+        self.logger = logger
         self._events: dict[str, list[E]] = {}
 
     async def save_event(self, event: E) -> Result[None, Exception]:
@@ -155,7 +150,7 @@ class InMemoryEventStore(EventStore[E]):
                 self._events[aggregate_id] = []
             # Canonical serialization enforced here
             canonical_event = self._canonical_event_dict(event)
-            self._events[aggregate_id].append(copy.deepcopy(canonical_event))
+            self._events[aggregate_id].append(copy.deepcopy(event))
             
             self.logger.structured_log(
                 "INFO",

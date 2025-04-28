@@ -82,6 +82,73 @@ except SomeLibraryError as ex:
     raise FrameworkError("Database unavailable", code="DB_UNAVAILABLE", context={"original": repr(ex)})
 ```
 
+---
+
+## Result Monad: Functional Error Handling
+
+Uno provides a powerful Result monad for functional, exception-free error handling in all core, domain, and service logic. This enables composable, testable, and idiomatic workflows.
+
+### Canonical Usage
+
+```python
+from uno.core.errors.result import Result, Success, Failure
+
+def divide(a: int, b: int) -> Result[float, Exception]:
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a / b)
+
+result = divide(10, 2)
+if result.is_success:
+    print("Result:", result.unwrap())
+else:
+    print("Error:", result.error)
+```
+
+### Chaining with Combinators
+
+```python
+# map: transform the value if successful
+result = divide(10, 2).map(lambda x: x * 100)
+
+# flat_map: chain operations that return Result
+result = divide(10, 2).flat_map(lambda x: divide(x, 2))
+
+# ensure: fail if a predicate is not met
+result = divide(10, 2).ensure(lambda x: x > 2, ValueError("too small"))
+
+# recover: turn a failure into a success
+result = divide(10, 0).recover(lambda e: 0.0)  # returns Success(0.0)
+```
+
+### Async Combinators
+
+```python
+import asyncio
+
+async def async_divide(a: int, b: int) -> Result[float, Exception]:
+    await asyncio.sleep(0)
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a / b)
+
+async def main():
+    result = await Success(10).map_async(lambda x: x + 2)
+    # flat_map_async for chaining async Result-returning functions
+    result = await Success(10).flat_map_async(lambda x: async_divide(x, 2))
+
+asyncio.run(main())
+```
+
+### Migration Tips
+
+- **Service/Domain methods** should *return* `Result[...]` instead of raising exceptions for expected errors.
+- Use `Success(value)` and `Failure(error)` for all command, query, and handler methods.
+- Chain operations with `.map`, `.flat_map`, `.ensure`, `.recover`, and their async equivalents for clean, readable workflows.
+- Only raise exceptions for truly exceptional, unrecoverable failures (framework-level bugs, etc.).
+
+See [`src/uno/core/errors/result.py`](../../src/uno/core/errors/result.py) for full API and combinators.
+
 ## Extending the Error System
 
 ### Creating Domain-Specific Errors

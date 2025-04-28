@@ -34,18 +34,17 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.retry"
     ) -> RetryMiddleware:
         """
-        Create a RetryMiddleware instance.
-        
+        Create a RetryMiddleware instance (strict DI: inject LoggerService).
+
         Args:
             options: Optional retry options
             component_name: Component name for the logger
-            
         Returns:
             Configured RetryMiddleware instance
         """
         return RetryMiddleware(
-            options=options,
-            logger_factory=self.logger_factory
+            logger=self.logger_factory.create(component_name),
+            options=options
         )
     
     def create_circuit_breaker_middleware(
@@ -55,20 +54,19 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.circuit_breaker"
     ) -> CircuitBreakerMiddleware:
         """
-        Create a CircuitBreakerMiddleware instance.
-        
+        Create a CircuitBreakerMiddleware instance (strict DI: inject LoggerService).
+
         Args:
             event_types: Optional list of event types to apply circuit breaking to
             options: Optional circuit breaker options
             component_name: Component name for the logger
-            
         Returns:
             Configured CircuitBreakerMiddleware instance
         """
         return CircuitBreakerMiddleware(
+            logger=self.logger_factory.create(component_name),
             event_types=event_types,
-            options=options,
-            logger_factory=self.logger_factory
+            options=options
         )
     
     def create_metrics_middleware(
@@ -77,18 +75,17 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.metrics"
     ) -> MetricsMiddleware:
         """
-        Create a MetricsMiddleware instance.
-        
+        Create a MetricsMiddleware instance (strict DI: inject LoggerService).
+
         Args:
             report_interval_seconds: Interval in seconds to report metrics
             component_name: Component name for the logger
-            
         Returns:
             Configured MetricsMiddleware instance
         """
         return MetricsMiddleware(
-            report_interval_seconds=report_interval_seconds,
-            logger_factory=self.logger_factory
+            logger=self.logger_factory.create(component_name),
+            report_interval_seconds=report_interval_seconds
         )
     
     def create_default_middleware_stack(

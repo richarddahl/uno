@@ -26,6 +26,7 @@ from uno.core.errors import (
     with_async_error_context,
     with_error_context,
 )
+from uno.core.errors.logging import with_logging_context
 
 
 # --- Result Monad Tests ---
@@ -126,9 +127,34 @@ def test_with_error_context():
 
 
 # --- with_logging_context (sync context manager) ---
+class FakeLogger:
+    def __init__(self):
+        self.calls = []
+    def structured_log(self, level, msg, **kwargs):
+        self.calls.append((level, msg, kwargs))
+
+# Test: with_logging_context uses DI logger and injects context
+@with_logging_context
+def func_with_context(foo: int, bar: str, logger=None):
+    raise ValueError("fail!")
+
 def test_with_logging_context():
-    # Skipping test as with_logging_context is not a context manager or requires a function
-    pass
+    fake_logger = FakeLogger()
+    try:
+        func_with_context(42, "baz", logger=fake_logger)
+    except ValueError:
+        pass
+    else:
+        assert False, "Exception not raised"
+    # Check that structured_log was called
+    assert fake_logger.calls, "DI logger structured_log not called"
+    level, msg, kwargs = fake_logger.calls[0]
+    assert level == "ERROR"
+    assert "Exception in func_with_context" in msg
+    context = kwargs.get("context", {})
+    assert context.get("function") == "func_with_context"
+    assert context.get("args", {}).get("foo") == 42
+    assert context.get("args", {}).get("bar") == "baz"
 
 
 # --- Registering custom error ---

@@ -24,7 +24,10 @@ class AsyncService(ServiceLifecycle):
 @pytest.mark.asyncio
 async def test_async_lifecycle():
 
-    provider = ServiceProvider()
+    from uno.core.logging.logger import LoggerService, LoggingConfig
+
+    logger = LoggerService(LoggingConfig())
+    provider = ServiceProvider(logger)
     provider._base_services.add_singleton(AsyncService)
     provider.register_lifecycle_service(AsyncService)
     await provider.initialize()

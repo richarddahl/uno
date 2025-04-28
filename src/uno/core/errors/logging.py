@@ -5,8 +5,9 @@
 """
 Structured logging with context for the Uno framework.
 
-This module provides utilities for structured logging with
-contextual information and integration with the error handling system.
+DI-FIRST POLICY: All Uno code should use DI-injected LoggerService for all logging operations. Direct use of Python's logging module is permitted ONLY for system bootstrapping (e.g., configure_logging) or in legacy/compatibility contexts where DI is not yet available. All fallback logger usage must be clearly documented and minimized.
+
+This module provides utilities for structured logging with contextual information and integration with the error handling system. Decorators/utilities that log errors should accept a logger parameter for DI injection whenever possible.
 """
 
 import contextvars
@@ -55,6 +56,8 @@ class StructuredLogAdapter(logging.LoggerAdapter):
     Adapter for structured logging.
 
     This adapter enhances log messages with contextual information.
+
+    NOTE: Uno code should prefer DI-injected LoggerService for logging. This adapter is retained for compatibility with the Python logging system during bootstrapping or legacy scenarios.
     """
 
     def process(self, msg: str, kwargs: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -87,8 +90,9 @@ class StructuredJsonFormatter(logging.Formatter):
     """
     JSON formatter for structured logs.
 
-    This formatter converts log records to JSON format with
-    additional contextual information.
+    This formatter converts log records to JSON format with additional contextual information.
+
+    NOTE: Uno code should prefer DI-injected LoggerService for logging. This formatter is retained for compatibility with the Python logging system during bootstrapping or legacy scenarios.
     """
 
     def __init__(
@@ -254,6 +258,10 @@ def with_logging_context(func: Callable) -> Callable:
 
     Returns:
         The decorated function
+
+    DI Logging Policy:
+        If the decorated function receives a 'logger' argument (must be a LoggerService or compatible), it will be used for error logging.
+        If not, falls back to legacy logging (documented, discouraged except for bootstrapping/legacy scenarios).
     """
 
     @functools.wraps(func)
@@ -268,37 +276,34 @@ def with_logging_context(func: Callable) -> Callable:
         # Get arguments as a dict, filtering out self/cls for methods
         arg_dict = {}
         for key, value in bound.arguments.items():
-            # Skip 'self' and 'cls' parameters
             if key not in ("self", "cls"):
-                # Avoid including large objects or sensitive data
                 if isinstance(value, (str, int, float, bool)) or value is None:
                     arg_dict[key] = value
                 else:
-                    # Just include the type for complex objects
                     arg_dict[key] = f"<{type(value).__name__}>"
 
         # Get the current context
         current_context = _logging_context.get().copy()
-
-        # Create a new context with function parameters
         new_context = current_context.copy()
-        new_context.update(
-            {"function": func.__name__, "module": func.__module__, "args": arg_dict}
-        )
-
-        # Set the new context
+        new_context.update({"function": func.__name__, "module": func.__module__, "args": arg_dict})
         token = _logging_context.set(new_context)
 
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            # Log the exception with context
-            logger = logging.getLogger(func.__module__)
-            logger = StructuredLogAdapter(logger, {})
-            logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
+            # Prefer DI-injected logger if available
+            logger = None
+            if 'logger' in bound.arguments:
+                logger = bound.arguments['logger']
+            if logger is not None and hasattr(logger, 'structured_log'):
+                logger.structured_log("ERROR", f"Exception in {func.__name__}: {e!s}", exc_info=e, context=new_context)
+            else:
+                # Fallback to legacy structured logging (discouraged)
+                legacy_logger = logging.getLogger(func.__module__)
+                legacy_logger = StructuredLogAdapter(legacy_logger, {})
+                legacy_logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
             raise
         finally:
-            # Restore the previous context
             _logging_context.reset(token)
 
     return wrapper

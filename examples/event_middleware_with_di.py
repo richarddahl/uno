@@ -18,7 +18,7 @@ from uno.core.events.events import DomainEvent
 from uno.core.events.handlers import EventHandler, EventHandlerContext, EventHandlerRegistry
 from uno.core.events.middleware import CircuitBreakerOptions, RetryOptions
 from uno.core.logging.factory import LoggerServiceFactory
-from uno.core.logging.logger import LoggerService
+from uno.core.logging.logger import LoggerService, LoggingConfig
 
 
 # Sample domain events
@@ -173,7 +173,9 @@ class Application:
         ))
         
         # Create service provider
-        provider = ServiceProvider(services)
+        # Ensure LoggerService is provided as required by DI-logging refactor
+        logger = LoggerService(LoggingConfig())
+        provider = ServiceProvider(logger, services)
         await provider.initialize()
         
         return cls(provider, registry, logger)

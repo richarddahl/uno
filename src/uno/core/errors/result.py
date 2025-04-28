@@ -22,6 +22,7 @@ from typing import (
     TypeVar,
     cast,
     runtime_checkable,
+    Awaitable,
 )
 
 from uno.core.errors.base import ErrorCode, FrameworkError, get_error_context
@@ -68,6 +69,44 @@ class Result(Generic[T, E], ABC):
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]: ...
+
+    def ensure(self, predicate: Callable[[T], bool], error: E) -> "Result[T, E]":
+        """
+        Return Failure if predicate is False for a Success value, else self.
+        """
+        if self.is_success and not predicate(self.unwrap()):
+            return Failure(error)
+        return self
+
+    def recover(self, func: Callable[[E], T]) -> "Result[T, E]":
+        """
+        Transform a Failure into a Success by applying func to the error.
+        """
+        if self.is_failure:
+            return Success(func(self.error))  # type: ignore[attr-defined]
+        return self
+
+    async def map_async(self, func: Callable[[T], 'Awaitable[U]']) -> "Result[U, E]":
+        """
+        Map the value of a Success asynchronously.
+        """
+        if self.is_success:
+            try:
+                return Success(await func(self.unwrap()))
+            except Exception as e:
+                return Failure(cast("E", e))
+        return self  # type: ignore
+
+    async def flat_map_async(self, func: Callable[[T], 'Awaitable[Result[U, E]]']) -> "Result[U, E]":
+        """
+        Flat map the value of a Success asynchronously.
+        """
+        if self.is_success:
+            try:
+                return await func(self.unwrap())
+            except Exception as e:
+                return Failure(cast("E", e))
+        return self  # type: ignore
 
 
 @dataclass(frozen=True)

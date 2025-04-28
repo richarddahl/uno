@@ -14,25 +14,34 @@ class ExampleEvent(DomainEvent):
     value: int = Field(...)
     extra: str | None = None
 
-def test_event_bus_logs_canonical(caplog: Any) -> None:
-    bus = InMemoryEventBus()
+def test_event_bus_logs_canonical():
+    logger = MagicMock()
+    bus = InMemoryEventBus(logger)
     event = ExampleEvent(aggregate_id="agg-1", value=42, extra=None)
     async def fake_handler(e: ExampleEvent) -> None:
         pass
     bus._subscribers[event.event_type] = [fake_handler]
-    with caplog.at_level(logging.DEBUG, logger="uno.events.bus"):
-        asyncio.run(bus.publish(event))
+    asyncio.run(bus.publish(event))
     canonical = bus._canonical_event_dict(event)
-    assert any(
-        record.name == "uno.events.bus"
-        and record.levelname == "DEBUG"
-        and "Publishing event (canonical):" in record.getMessage()
-        and str(canonical) in record.getMessage()
-        for record in caplog.records
-    ), "Canonical event dict not found in logs"
+    logger.debug.assert_any_call(
+        f"Publishing event (canonical): {canonical}"
+    )
+
+    # Simulate error and check error logging
+    async def error_handler(e: ExampleEvent) -> None:
+        raise Exception("fail")
+    bus._subscribers[event.event_type] = [error_handler]
+    asyncio.run(bus.publish(event))
+    # Robust: check for structured_log or error fallback
+    if hasattr(logger, "structured_log"):
+        assert logger.structured_log.called
+    else:
+        assert logger.error.called
+
 
 def test_event_publisher_logs_canonical() -> None:
-    bus = InMemoryEventBus()
+    logger = MagicMock()
+    bus = InMemoryEventBus(logger)
     publisher: EventPublisher = EventPublisher(bus, logger=MagicMock())
     event = ExampleEvent(aggregate_id="agg-1", value=42, extra=None)
     publisher.logger.structured_log = MagicMock()
@@ -41,3 +50,4 @@ def test_event_publisher_logs_canonical() -> None:
     publisher.logger.structured_log.assert_any_call(
         "DEBUG", "Publishing event (canonical)", event=publisher._canonical_event_dict(event)
     )
+

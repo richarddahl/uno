@@ -7,9 +7,12 @@ import pytest
 from uno.core.di.provider import ServiceProvider
 from tests.core.di.di_helper import DIHelper
 
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
 @pytest.fixture
 def di_provider():
-    return ServiceProvider()
+    logger = LoggerService(LoggingConfig())
+    return ServiceProvider(logger)
 
 
 # Example: Isolated provider per test

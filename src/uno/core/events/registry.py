@@ -13,7 +13,7 @@ def subscribe(
     priority: EventPriority = EventPriority.NORMAL,
     *,
     event_bus: EventBusProtocol | None = None,
-    logger: LoggerService | None = None,
+    logger: LoggerService,
 ) -> Callable[[HandlerFnT], HandlerFnT]:
     """
     Decorator to register an event handler with the event bus.
@@ -34,8 +34,14 @@ def subscribe(
             topic_pattern=topic_pattern,
             priority=priority,
         )
-        if logger:
-            logger.debug(f"Subscribed handler {handler} for event_type={event_type}, priority={priority}")
+        logger.structured_log(
+            "info",
+            "Subscribed handler",
+            handler=str(handler),
+            event_type=str(event_type),
+            topic_pattern=topic_pattern,
+            priority=str(priority)
+        )
         return handler
     return decorator
 
@@ -47,7 +53,7 @@ def register_event_handler(
     priority: EventPriority = EventPriority.NORMAL,
     *,
     event_bus: EventBusProtocol | None = None,
-    logger: LoggerService | None = None,
+    logger: LoggerService,
 ) -> None:
     """
     Register an event handler function or object with the event bus (DI/config-friendly).
@@ -66,8 +72,14 @@ def register_event_handler(
         topic_pattern=topic_pattern,
         priority=priority,
     )
-    if logger:
-        logger.debug(f"Registered handler {handler} for event_type={event_type}, priority={priority}")
+    logger.structured_log(
+        "info",
+        "Registered handler",
+        handler=str(handler),
+        event_type=str(event_type),
+        topic_pattern=topic_pattern,
+        priority=str(priority)
+    )
 
 # Import get_event_bus from factory to avoid circular import at module top-level
 from uno.core.events.factory import get_event_bus

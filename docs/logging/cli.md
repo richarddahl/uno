@@ -10,6 +10,22 @@ The Uno CLI provides commands to inspect and update logging configuration at run
 uno logging config show
 ```
 
+### Get/Set Individual Config Fields
+```
+uno logging config get-field LEVEL
+uno logging config set-field LEVEL WARNING
+```
+
+### Restore Defaults
+```
+uno logging config restore-defaults
+```
+
+### Validate Logging Config
+```
+uno logging config validate
+```
+
 ### Set Log Level
 ```
 uno logging config set-level DEBUG
@@ -32,6 +48,12 @@ uno logging config set-file-output false
 uno logging config set-console-output true
 uno logging config set-console-output false
 ```
+
+---
+
+## Advanced Usage
+- The CLI is DI-compliant and can be scripted or extended for automation.
+- See the CLI admin source for more: [`src/uno/cli/log_admin.py`](../../src/uno/cli/log_admin.py)
 
 ## Best Practices
 - Use the CLI for live diagnostics and tuning in dev, test, and prod environments.

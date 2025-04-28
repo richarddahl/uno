@@ -22,7 +22,14 @@ class InMemoryInventoryItemRepository:
         self._logger = logger
         self._logger.debug("InMemoryInventoryItemRepository initialized.")
 
-    def save(self, item: InventoryItem) -> None:
+    def save(self, item: InventoryItem | Success | Failure) -> None:
+        # Unwrap Result if needed
+        if hasattr(item, 'unwrap'):
+            try:
+                item = item.unwrap()
+            except Exception as e:
+                self._logger.error(f"Failed to unwrap Result in save: {e}")
+                return
         self._logger.info(f"Saving inventory item: {item.id}")
         # For demo: append all events (in real ES, track new events only)
         self._events.setdefault(item.id, []).extend(item._domain_events)

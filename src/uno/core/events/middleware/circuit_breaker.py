@@ -6,10 +6,9 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from uno.core.errors.result import Result
+from uno.core.errors.result import Success, Failure, Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.factory import LoggerServiceFactory
 from uno.core.logging.logger import LoggerService
 
 @dataclass
@@ -55,15 +54,19 @@ class CircuitBreakerState:
         return True
 
 class CircuitBreakerMiddleware(EventHandlerMiddleware):
+    """
+    CircuitBreakerMiddleware: Prevents cascading failures using the circuit breaker pattern.
+    Requires a DI-injected LoggerService instance (strict DI).
+    """
     def __init__(
         self,
+        logger: LoggerService,
         event_types: list[str] | None = None,
-        options: CircuitBreakerState | None = None,
-        logger_factory: LoggerServiceFactory | None = None
-    ):
+        options: CircuitBreakerState | None = None
+    ) -> None:
+        self.logger = logger
         self.event_types = event_types
         self.options = options or CircuitBreakerState()
-        self.logger_factory = logger_factory
         self.circuit_states: dict[str, CircuitBreakerState] = defaultdict(
             lambda: CircuitBreakerState(
                 failure_threshold=self.options.failure_threshold,
@@ -71,17 +74,6 @@ class CircuitBreakerMiddleware(EventHandlerMiddleware):
                 success_threshold=self.options.success_threshold
             )
         )
-        self._logger: LoggerService | None = None
-
-    @property
-    def logger(self) -> LoggerService:
-        if self._logger is None:
-            if self.logger_factory:
-                self._logger = self.logger_factory.create("events.middleware.circuit_breaker")
-            else:
-                from uno.core.logging.config import LoggingConfig
-                self._logger = LoggerService(LoggingConfig())
-        return self._logger
 
     async def process(
         self,
@@ -101,7 +93,7 @@ class CircuitBreakerMiddleware(EventHandlerMiddleware):
                 event_id=event.event_id,
                 aggregate_id=event.aggregate_id
             )
-            return Result.failure(Exception(f"Circuit open for event type {event_type}"))
+            return Failure(Exception(f"Circuit open for event type {event_type}"))
         result = await next_middleware(context)
         if result.is_success:
             circuit.record_success()

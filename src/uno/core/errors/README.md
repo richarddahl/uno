@@ -11,7 +11,8 @@ Comprehensive error handling framework for the Uno application.
   - `ValidationContext` to collect nested validation errors.
   - `ValidationError` exception and top-level `validate_fields()` helper.
 - **result.py**: Result/Either monad implementation:
-  - `Result[T]`, `Success[T]`, `Failure[T]`.
+  - `Result[T, E]`, `Success[T, E]`, `Failure[T, E]`.
+  - Functional combinators: `.map`, `.flat_map`, `.ensure`, `.recover`, `.map_async`, `.flat_map_async`.
   - Helpers: `of()`, `failure()`, `from_exception()`, `from_awaitable()`, `combine()`, `combine_dict()`.
 - **logging.py**: Structured logging support:
   - `LogConfig` for runtime configuration.
@@ -24,7 +25,7 @@ Comprehensive error handling framework for the Uno application.
 
 ```python
 from uno.core.errors import FrameworkError, ErrorCode, with_error_context
-from uno.core.errors import Success, Failure, from_exception
+from uno.core.errors.result import Result, Success, Failure
 
 @with_error_context
 def foo(x: int):
@@ -35,8 +36,33 @@ def foo(x: int):
             value=x
         )
     return x
-```  
 
+# Functional error handling with Result
+
+def divide(a: int, b: int) -> Result[float, Exception]:
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a / b)
+
+# Chaining with combinators
+result = divide(10, 2).map(lambda x: x * 100).ensure(lambda x: x > 200, ValueError("too small")).recover(lambda e: 0.0)
+if result.is_success:
+    print("Result:", result.unwrap())
+else:
+    print("Error:", result.error)
+
+# Async combinators
+import asyncio
+async def async_divide(a: int, b: int) -> Result[float, Exception]:
+    await asyncio.sleep(0)
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a / b)
+async def main():
+    r = await Success(10).map_async(lambda x: x + 2)
+    r2 = await Success(10).flat_map_async(lambda x: async_divide(x, 2))
+asyncio.run(main())
+```
 ## Error Context
 
 Use context managers or decorators to attach context to all errors automatically:
@@ -55,17 +81,39 @@ async with with_async_error_context(order_id="abc"):
 
 ## Result Pattern
 
+The Uno Result monad enables functional, exception-free error handling for all domain, service, and application logic.
+
 ```python
-from uno.core.errors.result import from_exception
+from uno.core.errors.result import Result, Success, Failure
 
-@from_exception
-def safe_div(a: int, b: int) -> int:
-    return a // b
+def safe_div(a: int, b: int) -> Result[int, Exception]:
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a // b)
 
-result = safe_div(10, 0)
-if result.is_failure:
-    print("Error:", result.error)
-```  
+# Chaining
+result = safe_div(10, 2).map(lambda x: x * 10).ensure(lambda x: x > 0, ValueError("must be positive"))
+
+# Recovering from errors
+result = safe_div(10, 0).recover(lambda e: 0)
+
+# Async chaining
+import asyncio
+async def async_safe_div(a: int, b: int) -> Result[int, Exception]:
+    await asyncio.sleep(0)
+    if b == 0:
+        return Failure(ValueError("division by zero"))
+    return Success(a // b)
+async def main():
+    r = await Success(10).map_async(lambda x: x + 2)
+    r2 = await Success(10).flat_map_async(lambda x: async_safe_div(x, 2))
+asyncio.run(main())
+```
+
+### Migration Guidance
+- Refactor domain/service methods to return `Result[...]` instead of raising for expected errors.
+- Use `.map`, `.flat_map`, `.ensure`, `.recover`, and async variants for clean workflows.
+- Only raise exceptions for unrecoverable, framework-level failures.
 
 ## Structured Logging
 

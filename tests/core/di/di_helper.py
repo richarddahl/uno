@@ -43,7 +43,9 @@ class DIHelper:
         """
         Create a clean, isolated ServiceProvider for testing.
         """
-        return ServiceProvider()
+        from uno.core.logging.logger import LoggerService, LoggingConfig
+        logger = LoggerService(LoggingConfig())
+        return ServiceProvider(logger=logger)
 
     @staticmethod
     def initialize_test_provider(
@@ -173,7 +175,9 @@ class DIHelper:
         """
         Create a clean, isolated ServiceProvider for testing.
         """
-        return ServiceProvider()
+        from uno.core.logging.logger import LoggerService, LoggingConfig
+        logger = LoggerService(LoggingConfig())
+        return ServiceProvider(logger=logger)
 
     @staticmethod
     def initialize_test_provider(

@@ -9,7 +9,7 @@ to provide enhanced dependency injection functionality, including proper scoping
 automatic dependency resolution, and improved lifecycle management.
 """
 
-import logging
+from uno.core.logging.logger import LoggerService
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
@@ -70,17 +70,18 @@ class ServiceProvider:
 
     def __init__(
         self,
+        logger: LoggerService,
         services: ServiceCollection | None = None,
-        logger: logging.Logger | None = None,
     ) -> None:
         """
         Initialize the service provider.
 
         Args:
+            logger: LoggerService for diagnostic information (required)
             services: Optional ServiceCollection to use as the base service registry
-            logger: Optional logger for diagnostic information
         """
-        self._logger = logger or logging.getLogger("uno.services")
+        assert logger is not None, "LoggerService must be provided via DI."
+        self._logger = logger
         self._initialized = False
         self._base_services = services or ServiceCollection()
         self._extensions: dict[str, ServiceCollection] = {}
@@ -586,6 +587,9 @@ def get_service_provider() -> ServiceProvider:
     """
     Get the global service provider instance (thread-safe singleton).
 
+    If no provider exists, creates one with a default LoggerService using a minimal LoggingConfig.
+    This fallback avoids DI bootstrapping issues ("chicken-and-egg" problem).
+
     Returns:
         The service provider instance
     """
@@ -593,7 +597,9 @@ def get_service_provider() -> ServiceProvider:
     if _service_provider is None:
         with _service_provider_lock:
             if _service_provider is None:
-                _service_provider = ServiceProvider()
+                from uno.core.logging.logger import LoggerService, LoggingConfig
+                logger = LoggerService(LoggingConfig())
+                _service_provider = ServiceProvider(logger=logger)
     return _service_provider
 
 
@@ -750,18 +756,22 @@ async def configure_base_services() -> None:
     # Register SQL emitter factory
     from uno.sql.services import SQLEmitterFactoryService
 
+    # Retrieve the DI-injected LoggerService instance
+    logger_service = services.get(LoggerService)
+
     services.add_singleton(
         SQLEmitterFactoryProtocol,
         SQLEmitterFactoryService,
         config=UnoConfig(),
-        logger=logging.getLogger("uno.sql"),
+        # Use DI-injected LoggerService; downstream must call get_logger("uno.sql") if needed
+    logger=logger_service,
     )
 
     # Register SQL execution service
     from uno.sql.services import SQLExecutionService
 
     services.add_singleton(
-        SQLExecutionProtocol, SQLExecutionService, logger=logging.getLogger("uno.sql")
+        SQLExecutionProtocol, SQLExecutionService, logger=logger_service  # Use DI-injected LoggerService; downstream must call get_logger("uno.sql") if needed
     )
 
     # Register schema manager
@@ -770,7 +780,8 @@ async def configure_base_services() -> None:
     services.add_singleton(
         DTOManagerProtocol,
         DTOManagerService,
-        logger=logging.getLogger("uno.schema"),
+        # Use DI-injected LoggerService; downstream must call get_logger("uno.schema") if needed
+    logger=logger_service,
     )
 
     # Register event bus
@@ -780,7 +791,8 @@ async def configure_base_services() -> None:
     # to avoid circular imports
     from uno.core.events.handlers import EventBus
 
-    event_bus = EventBus(logger=logging.getLogger("uno.events"))
+    # Use DI-injected LoggerService; downstream must call get_logger("uno.events") if needed
+    event_bus = EventBus(logger=logger_service)
     services.add_instance(EventBus, event_bus)
     services.add_instance(EventBusProtocol, event_bus)
 
@@ -788,7 +800,8 @@ async def configure_base_services() -> None:
     from uno.domain.factory import DomainRegistry
 
     services.add_singleton(
-        DomainRegistry, DomainRegistry, logger=logging.getLogger("uno.domain")
+        DomainRegistry, DomainRegistry, # Use DI-injected LoggerService; downstream must call get_logger("uno.domain") if needed
+    logger=logger_service
     )
 
     # Configure the service provider
@@ -801,7 +814,7 @@ async def configure_base_services() -> None:
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
-        logging.getLogger("uno.services").debug(
+        logger_service.debug(
             f"Vector search provider not available: {e}"
         )
         pass
@@ -812,7 +825,7 @@ async def configure_base_services() -> None:
 
         provider.register_extension("queries", get_queries_provider())
     except (ImportError, AttributeError) as e:
-        logging.getLogger("uno.services").debug(f"Queries provider not available: {e}")
+        logger_service.debug(f"Queries provider not available: {e}")
         pass
 
     # Register reports provider
@@ -821,5 +834,5 @@ async def configure_base_services() -> None:
 
         provider.register_extension("reports", get_reports_provider())
     except (ImportError, AttributeError) as e:
-        logging.getLogger("uno.services").debug(f"Reports provider not available: {e}")
+        logger_service.debug(f"Reports provider not available: {e}")
         pass

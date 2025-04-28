@@ -6,7 +6,10 @@ registration without requiring the full uno framework import chain.
 
 import asyncio
 import inspect
-import logging
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
+# Uno strict DI logging: inject a LoggerService for all handlers
+logger = LoggerService(LoggingConfig())
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Protocol, cast
@@ -283,17 +286,26 @@ class UserUpdatedEvent(DomainEvent):
 
 
 # Class-based handler using the handles decorator
-@handles(UserCreatedEvent)
+from uno.core.logging.logger import LoggerService, LoggingConfig
+
+# Uno strict DI logging: inject a LoggerService into @handles
+logger = LoggerService(LoggingConfig())
+
+@handles(UserCreatedEvent, logger)
 class UserCreatedHandler(EventHandler):
     """Handler for user created events."""
     
     def __init__(self):
-        self.logger = logging.getLogger("UserCreatedHandler")
+        self.logger = logger
     
     async def handle(self, context: EventHandlerContext) -> Result:
         event = cast('UserCreatedEvent', context.event)
         
-        self.logger.info(f"User created: {event.user_id} with username {event.username}")
+        self.logger.structured_log(
+            "INFO",
+            f"User created: {event.user_id} with username {event.username}",
+            name="UserCreatedHandler"
+        )
         return Success(None)
 
 
@@ -302,12 +314,16 @@ class UserUpdatedHandler(EventHandler):
     """Handler for user updated events."""
     
     def __init__(self):
-        self.logger = logging.getLogger("UserUpdatedHandler")
+        self.logger = logger
     
     async def handle(self, context: EventHandlerContext) -> Result:
         event = cast('UserUpdatedEvent', context.event)
         
-        self.logger.info(f"User updated: {event.user_id} with new username {event.new_username}")
+        self.logger.structured_log(
+            "INFO",
+            f"User updated: {event.user_id} with new username {event.new_username}",
+            name="UserUpdatedHandler"
+        )
         return Success(None)
 
 
@@ -317,8 +333,11 @@ async def log_user_created(context: EventHandlerContext) -> Result:
     """Log when a user is created."""
     event = cast('UserCreatedEvent', context.event)
     
-    logger = logging.getLogger("log_user_created")
-    logger.info(f"[FUNC] User created: {event.user_id} with username {event.username}")
+    logger.structured_log(
+        "INFO",
+        f"[FUNC] User created: {event.user_id} with username {event.username}",
+        name="log_user_created"
+    )
     return Success(None)
 
 
@@ -329,22 +348,27 @@ class UserModule:
     def __init__(self):
         self._is_event_handler = True
         self._event_type = "user_updated"
-        self.logger = logging.getLogger("UserModule")
+        self.logger = logger
     
     async def handle(self, context: EventHandlerContext) -> Result:
         event = cast('UserUpdatedEvent', context.event)
         
-        self.logger.info(f"[MODULE] User updated: {event.user_id} with new username {event.new_username}")
+        self.logger.structured_log(
+            "INFO",
+            f"[MODULE] User updated: {event.user_id} with new username {event.new_username}",
+            name="UserModule"
+        )
         return Success(None)
 
 
 async def main():
     """Run the example."""
     # Create registry and register handlers
-    registry = EventHandlerRegistry()
+    registry = EventHandlerRegistry(logger)
     
     # Set up the decorator registry
     EventHandlerDecorator.set_registry(registry)
+    # All decorators and handler registration now use DI logger
     
     # Manually register the UserUpdatedHandler
     registry.register_handler("user_updated", UserUpdatedHandler())

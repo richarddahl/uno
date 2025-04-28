@@ -3,7 +3,8 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, TypeVar, Awaitable
+from typing import Any, TypeVar
+from uno.core.logging.logger import LoggerService
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.interfaces import EventBusProtocol, EventPublisherProtocol
 from uno.core.errors.result import Result, Success
@@ -19,8 +20,10 @@ class InMemoryEventBus(EventBusProtocol):
       - All events published/logged MUST use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True)` for serialization, storage, and transport.
       - This contract is enforced by logging the canonical dict form of each event.
     """
-    def __init__(self) -> None:
+    def __init__(self, logger: LoggerService) -> None:
         self._subscribers: dict[str, list[Any]] = {}
+        self.logger = logger
+
 
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
@@ -32,16 +35,41 @@ class InMemoryEventBus(EventBusProtocol):
     async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> Result[None, Exception]:
         try:
             # Log canonical dict for audit/debug
-            import logging
-            logging.getLogger("uno.events.bus").debug(
-                "Publishing event (canonical): %s", self._canonical_event_dict(event)
+            self.logger.debug(
+                f"Publishing event (canonical): {self._canonical_event_dict(event)}"
             )
             for handler in self._subscribers.get(event.event_type, []):
-                await handler(event)
+                result = await handler(event)
+                from uno.core.errors.result import Failure
+                if isinstance(result, Failure):
+                    exc = result.error
+                    if hasattr(self.logger, "structured_log"):
+                        self.logger.structured_log(
+                            "ERROR",
+                            f"Failed to publish event: {event}",
+                            name="uno.events.bus",
+                            error=exc,
+                            event_id=getattr(event, 'event_id', None),
+                            event_type=getattr(event, 'event_type', None),
+                            error_message=str(exc)
+                        )
+                    else:
+                        self.logger.error(f"Failed to publish event: {event} - {exc}")
             return Success(None)
         except Exception as exc:
-            import logging
-            logging.getLogger("uno.events.bus").exception("Failed to publish event: %s", event)
+            # Log using structured_log so the error message is present for test assertions
+            if hasattr(self.logger, "structured_log"):
+                self.logger.structured_log(
+                    "ERROR",
+                    f"Failed to publish event: {event}",
+                    name="uno.events.bus",
+                    error=exc,
+                    event_id=getattr(event, 'event_id', None),
+                    event_type=getattr(event, 'event_type', None),
+                    error_message=str(exc)
+                )
+            else:
+                self.logger.error(f"Failed to publish event: {event} - {exc}")
             return Success(None)
 
     async def publish_many(self, events: list[E]) -> Result[None, Exception]:
@@ -50,8 +78,7 @@ class InMemoryEventBus(EventBusProtocol):
                 await self.publish(event)
             return Success(None)
         except Exception as exc:
-            import logging
-            logging.getLogger("uno.events.bus").exception("Failed to publish events: %s", events)
+            self.logger.error(f"Failed to publish events: {events}", exc_info=exc)
             return Success(None)
         return Success(None)
 

@@ -70,24 +70,16 @@ class EventHandlerMiddleware(ABC):
 
 
 class EventHandlerRegistry:
-    """Registry for event handlers and middleware."""
+    """Registry for event handlers and middleware. Requires DI-injected LoggerService."""
     
-    def __init__(self, logger_factory: Callable[..., LoggerService] | None = None):
+    def __init__(self, logger: LoggerService) -> None:
         """
         Initialize the registry.
         
         Args:
-            logger_factory: Optional factory for creating loggers
+            logger: DI-injected LoggerService instance
         """
-        # Store the logger factory for later use
-        self.logger_factory = logger_factory
-        
-        # Use provided logger factory or create a default logger
-        if logger_factory:
-            self.logger = logger_factory("events.handler_registry")
-        else:
-            self.logger = LoggerService(LoggingConfig())
-            
+        self.logger = logger
         self._handlers: dict[str, list[EventHandler]] = {}
         self._middleware: list[EventHandlerMiddleware] = []
         self._middleware_by_event_type: dict[str, list[EventHandlerMiddleware]] = {}
@@ -381,37 +373,39 @@ class EventHandlerDecorator:
         cls._registry = registry
     
     @classmethod
-    def get_registry(cls) -> EventHandlerRegistry:
+    def get_registry(cls, logger: LoggerService) -> EventHandlerRegistry:
         """
-        Get the registry.
+        Get the registry, creating it if needed with a DI-injected logger.
         
+        Args:
+            logger: DI-injected LoggerService
         Returns:
             The registry
-        
-        Raises:
-            RuntimeError: If the registry is not set
         """
         if cls._registry is None:
-            cls._registry = EventHandlerRegistry()
+            cls._registry = EventHandlerRegistry(logger)
         return cls._registry
     
     @classmethod
-    def handles(cls, event_type: str) -> Callable[[type[EventHandler]], type[EventHandler]]:
+    def handles(
+        cls,
+        event_type: str,
+        logger: LoggerService
+    ) -> Callable[[type[EventHandler]], type[EventHandler]]:
         """
-        Decorator to register a handler for an event type.
+        Decorator to register a handler for an event type, with DI-injected logger.
         
         Args:
             event_type: The event type to handle
-            
+            logger: DI-injected LoggerService
         Returns:
             Decorator function
         """
         def decorator(handler_class: type[EventHandler]) -> type[EventHandler]:
-            registry = cls.get_registry()
+            registry = cls.get_registry(logger)
             handler = handler_class()
             registry.register_handler(event_type, handler)
             return handler_class
-            
         return decorator
 
 
@@ -422,24 +416,19 @@ class EventBus:
     """Event bus for dispatching events to handlers."""
     
     def __init__(
-        self, 
-        registry: EventHandlerRegistry | None = None,
-        logger_factory: Callable[..., LoggerService] | None = None
+        self,
+        logger: LoggerService,
+        registry: EventHandlerRegistry | None = None
     ):
         """
         Initialize the event bus.
         
         Args:
+            logger: DI-injected LoggerService
             registry: Optional registry to use
-            logger_factory: Optional factory for creating loggers
         """
-        self.registry = registry or EventHandlerRegistry()
-        
-        # Use provided logger factory or create a default logger
-        if logger_factory:
-            self.logger = logger_factory("event_bus")
-        else:
-            self.logger = LoggerService(LoggingConfig())
+        self.logger = logger
+        self.registry = registry or EventHandlerRegistry(logger)
     
     async def publish(self, event: DomainEvent, metadata: dict[str, Any] | None = None) -> Result[list[Result[Any, Exception]], Exception]:
         """Publish an event to all registered handlers."""
@@ -729,8 +718,8 @@ class TimingMiddleware(EventHandlerMiddleware):
 
 def discover_handlers(
     package: str | ModuleType,
-    registry: EventHandlerRegistry | None = None,
-    logger_factory: Callable[..., LoggerService] | None = None
+    logger: LoggerService,
+    registry: EventHandlerRegistry | None = None
 ) -> EventHandlerRegistry:
     """
     Discover event handlers in a package.
@@ -744,13 +733,12 @@ def discover_handlers(
     4. Any object with an _is_event_handler attribute set to True
     
     Args:
-        package: The package to search for handlers (string name or module)
-        registry: Optional registry to populate
-        logger_factory: Optional factory for creating loggers
-        
-    Returns:
-        The populated registry with all discovered handlers registered
+        package: The package/module to scan
+        logger: DI-injected LoggerService
+        registry: Optional registry to use
     """
+    registry = registry or EventHandlerRegistry(logger)
+    
     # Import the decorator module
     from uno.core.events.decorators import EventHandlerDecorator
     
