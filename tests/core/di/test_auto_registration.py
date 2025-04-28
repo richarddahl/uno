@@ -31,8 +31,8 @@ class IFakeService:
 
 
 class FakeService(IFakeService):
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, value: int = 0):
+        self.value = value
 
 
 def test_auto_register_env(monkeypatch):
@@ -61,8 +61,8 @@ def test_auto_register_explicit():
 
 def test_explicit_override():
     class CustomFake(FakeService):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+        def __init__(self, value: int = 1) -> None:
+            super().__init__(value=value)
 
     services = ServiceCollection(auto_register=True)
     services.add_singleton(IFakeService, CustomFake)

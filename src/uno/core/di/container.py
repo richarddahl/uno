@@ -14,7 +14,8 @@ Internal/advanced classes (ServiceRegistration, _ServiceResolver) are not part o
 
 from typing import Any, Protocol, TypeVar
 
-from uno.core.di._internal import ServiceRegistration, _ServiceResolver
+from uno.core.di.service_registration import ServiceRegistration
+from uno.core.di.resolver import ServiceResolver
 from uno.core.di.service_scope import ServiceScope
 
 T = TypeVar("T")
@@ -42,7 +43,7 @@ class ServiceCollection:
         self._registrations = {}
         self._instances = {}
         self._validations = []
-        self._resolver_class = _ServiceResolver
+        self._resolver_class = ServiceResolver
         # Auto-registration config
         env_flag = os.environ.get("UNO_DI_AUTO_REGISTER", "false").lower() == "true"
         self._auto_register = auto_register if auto_register is not None else env_flag

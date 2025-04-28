@@ -1,15 +1,18 @@
 """
 Saga orchestration engine for Uno event sourcing.
 """
+
 from typing import Any, Type
 from uno.core.events.sagas import Saga
 from uno.core.events.saga_store import SagaStore, SagaState
 from uno.core.di.provider import ServiceProvider
 
+
 class SagaManager:
     """
     Orchestrates saga lifecycle: event routing, state persistence, and recovery.
     """
+
     def __init__(self, saga_store: SagaStore, di: ServiceProvider) -> None:
         self._saga_store = saga_store
         self._di = di
@@ -17,13 +20,9 @@ class SagaManager:
         self._active_sagas: dict[str, Saga] = {}
 
     def _get_or_create_saga(self, saga_id: str, saga_type: str) -> Saga:
-        print(f"[SagaManager] Registered saga types: {list(self._saga_types.keys())}")
-        print(f"[SagaManager] DI container registrations: {list(getattr(self._di._base_services, '_registrations', {}).keys())}")
-        print(f"[SagaManager] Resolving saga_type: {saga_type}")
         if saga_id in self._active_sagas:
             return self._active_sagas[saga_id]
         saga_cls = self._saga_types[saga_type]
-        print(f"[SagaManager] saga_cls: {saga_cls}")
         saga = self._di.try_get_service(saga_cls).unwrap()
         self._active_sagas[saga_id] = saga
         return saga
@@ -34,7 +33,11 @@ class SagaManager:
         This is an in-memory stub for admin/monitoring, to be extended for persistence.
         """
         return [
-            {"saga_id": saga.saga_id, "type": saga.__class__.__name__, "status": saga.status}
+            {
+                "saga_id": saga.saga_id,
+                "type": saga.__class__.__name__,
+                "status": saga.status,
+            }
             for saga in self._active_sagas.values()
         ]
 
@@ -44,10 +47,10 @@ class SagaManager:
     async def handle_event(self, saga_id: str, saga_type: str, event: Any) -> None:
         saga = self._get_or_create_saga(saga_id, saga_type)
         state = await self._saga_store.load_state(saga_id)
-        if state and hasattr(saga, 'load_state'):
+        if state and hasattr(saga, "load_state"):
             saga.load_state(state)
         await saga.handle_event(event)
-        if hasattr(saga, 'get_state'):
+        if hasattr(saga, "get_state"):
             new_state = saga.get_state()
             await self._saga_store.save_state(saga_id, new_state)
         if await saga.is_completed():

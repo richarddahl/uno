@@ -17,8 +17,8 @@ async def test_escalation_saga() -> None:
     saga_store = InMemorySagaStore()
     services = ServiceCollection()
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
-    services.add_scoped(LoggerService, lambda sp: LoggerService(sp.get(LoggingConfig)))
-    services.add_scoped(EscalationSaga, lambda sp: EscalationSaga(logger=sp.get(LoggerService)))
+    services.add_scoped(LoggerService)
+    services.add_scoped(EscalationSaga)
     provider = ServiceProvider(services)
     await provider.initialize()
     async with await provider.create_scope() as scope:

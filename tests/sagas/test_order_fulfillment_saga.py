@@ -15,8 +15,8 @@ async def test_order_fulfillment_saga_happy_path():
     services = ServiceCollection()
     # Register saga and all logger dependencies for DI
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
-    services.add_scoped(LoggerService, lambda sp: LoggerService(sp.get(LoggingConfig)))
-    services.add_scoped(OrderFulfillmentSaga, lambda sp: OrderFulfillmentSaga(logger=sp.get(LoggerService)))
+    services.add_scoped(LoggerService)
+    services.add_scoped(OrderFulfillmentSaga)
     services.add_singleton(LoggingConfigService)
     provider = ServiceProvider(services)
     await provider.initialize()
@@ -47,7 +47,7 @@ async def test_order_fulfillment_saga_happy_path():
 async def test_order_fulfillment_saga_compensation():
     saga_store = InMemorySagaStore()
     services = ServiceCollection()
-    services.add_scoped(OrderFulfillmentSaga, lambda sp: OrderFulfillmentSaga(logger=sp.get(LoggerService)))
+    services.add_scoped(OrderFulfillmentSaga)
     from uno.core.logging.logger import LoggerService, LoggingConfig
     from uno.core.logging.config_service import LoggingConfigService
     # Register LoggingConfig as a singleton
@@ -77,7 +77,7 @@ async def test_order_fulfillment_saga_compensation():
 async def test_order_fulfillment_saga_recovery():
     saga_store = InMemorySagaStore()
     services = ServiceCollection()
-    services.add_scoped(OrderFulfillmentSaga, lambda sp: OrderFulfillmentSaga(logger=sp.get(LoggerService)))
+    services.add_scoped(OrderFulfillmentSaga)
     from uno.core.logging.logger import LoggerService, LoggingConfig
     from uno.core.logging.config_service import LoggingConfigService
     # Register LoggingConfig as a singleton

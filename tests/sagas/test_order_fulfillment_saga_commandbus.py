@@ -25,8 +25,8 @@ async def test_order_fulfillment_saga_commandbus() -> None:
     # DI setup
     services = ServiceCollection()
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
-    services.add_scoped(LoggerService, lambda sp: LoggerService(sp.get(LoggingConfig)))
-    services.add_scoped(OrderFulfillmentSaga, lambda sp: OrderFulfillmentSaga(logger=sp.get(LoggerService)))
+    services.add_scoped(LoggerService)
+    services.add_scoped(OrderFulfillmentSaga)
     services.add_singleton(LoggingConfigService)
     command_bus = CommandBus()
     services.add_instance(CommandBus, command_bus)
@@ -35,6 +35,10 @@ async def test_order_fulfillment_saga_commandbus() -> None:
     async with await provider.create_scope() as scope:
         manager = SagaManager(saga_store, provider)
         manager.register_saga(OrderFulfillmentSaga)
+        # Inject the CommandBus into the saga instance
+        saga_result = scope.get_service(OrderFulfillmentSaga)
+        saga_instance = saga_result.value
+        saga_instance.set_command_bus(command_bus)
         bus = EventBus()
         command_bus.register_handler(command_handler)
 

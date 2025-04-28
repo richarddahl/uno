@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 if TYPE_CHECKING:
     from uno.core.events.events import EventBusProtocol, EventBus
 
-from uno.core.di.container import ServiceCollection, ServiceScope, _ServiceResolver
+from uno.core.di.container import ServiceCollection, ServiceScope, ServiceResolver
 from uno.core.di.interfaces import (
     ConfigProtocol,
     DatabaseProviderProtocol,
@@ -65,7 +65,7 @@ class ServiceProvider:
 
     API Clarity:
     - Most users should interact with ServiceProvider and ServiceCollection only.
-    - Internal helpers (e.g., _ServiceResolver, ServiceRegistration) are for advanced/extensibility use only.
+    - Internal helpers (e.g., ServiceResolver, ServiceRegistration) are for advanced/extensibility use only.
     """
 
     def __init__(
@@ -225,7 +225,7 @@ class ServiceProvider:
         for name, services in self._extensions.items():
             self._logger.info(f"Initializing extension: {name}")
             # For each service in the extension, register it in the main resolver
-            extension_resolver = services.build(resolver_class=_ServiceResolver)
+            extension_resolver = services.build(resolver_class=ServiceResolver)
             for (
                 service_type,
                 registration,
@@ -342,7 +342,7 @@ class ServiceProvider:
                     raise
 
             # Modern DI: Build the resolver from the base services
-            self._resolver = self._base_services.build(resolver_class=_ServiceResolver)
+            self._resolver = self._base_services.build(resolver_class=ServiceResolver)
 
             # Prewarm all singleton instances before initializing lifecycle services
             self._resolver.prewarm_singletons()
@@ -431,7 +431,7 @@ class ServiceProvider:
         return result
 
     # All scope-related APIs and legacy logic have been removed.
-    # ServiceProvider only exposes high-level APIs and delegates to _ServiceResolver for resolution.
+    # ServiceProvider only exposes high-level APIs and delegates to ServiceResolver for resolution.
 
     # Convenience methods for common services
 

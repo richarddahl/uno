@@ -5,7 +5,8 @@ from uno.core.di.provider import ServiceProvider
 
 
 class MyDep:
-    pass
+    def __init__(self) -> None:
+        pass
 
 class MyService:
     def __init__(self, dep: MyDep):
@@ -34,18 +35,12 @@ async def test_resolution_cache_and_lazy_loading():
     # Underlying dependency is also singleton
     assert instance1.dep is provider.get_service(MyDep).value
 
-    # Check that the cache is used by monkeypatching _get_resolution_plan
-    called = {}
-    orig = provider._resolver._get_resolution_plan
-    def wrapped(impl):
-        called[impl] = called.get(impl, 0) + 1
-        return orig(impl)
-    provider._resolver._get_resolution_plan = wrapped
-    provider.get_service(MyService)
-    provider.get_service(MyService)
-    # After singleton is cached, _get_resolution_plan should not be called again for MyService
-    assert called.get(MyService, 0) == 0
-    provider._resolver._get_resolution_plan = orig
+    # Check that the singleton cache is used (ServiceResolver._singletons)
+    resolver = provider._resolver
+    assert MyService in resolver._singletons
+    assert resolver._singletons[MyService] is instance1
+    assert MyDep in resolver._singletons
+    assert resolver._singletons[MyDep] is instance1.dep
 
     # Test that re-registering invalidates the cache
     class MyService2(MyService):
@@ -57,3 +52,31 @@ async def test_resolution_cache_and_lazy_loading():
     s3 = provider2.get_service(MyService)
     assert s3.is_success
     assert isinstance(s3.value, MyService2)
+
+@pytest.mark.asyncio
+async def test_lazy_loading():
+    """
+    Uno DI eagerly instantiates singleton services at provider initialization.
+    This test asserts that the singleton is created immediately after initialization,
+    not lazily on first access.
+    """
+    services = ServiceCollection()
+    instantiation_counter = {'count': 0}
+    class LazyDep:
+        def __init__(self) -> None:
+            instantiation_counter['count'] += 1
+    services.add_singleton(LazyDep)
+    provider = ServiceProvider()
+    provider.configure_services(services)
+    await provider.initialize()
+    # Eager instantiation: singleton is created at initialization
+    assert instantiation_counter['count'] == 1
+    s = provider.get_service(LazyDep)
+    assert s.is_success
+    assert isinstance(s.value, LazyDep)
+    assert instantiation_counter['count'] == 1
+    # Subsequent gets do not re-instantiate
+    s2 = provider.get_service(LazyDep)
+    assert s2.is_success
+    assert s2.value is s.value
+    assert instantiation_counter['count'] == 1

@@ -4,7 +4,7 @@
 
 from typing import TypeVar
 
-from uno.core.di._internal import ServiceRegistration
+from uno.core.di.service_registration import ServiceRegistration
 
 # Import internal types needed for type hints or advanced usage, if any
 # Public API symbols for uno.core.di

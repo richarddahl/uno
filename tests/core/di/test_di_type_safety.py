@@ -7,7 +7,7 @@ import sys
 from typing import Protocol, runtime_checkable
 
 # Local application
-from uno.core.di.container import _ServiceResolver
+from uno.core.di.resolver import ServiceResolver
 from uno.core.errors.definitions import (
     CircularDependencyError,
     ServiceNotFoundError,
@@ -45,7 +45,7 @@ class IFoo(Protocol):
 
 
 class Foo(IFoo):
-    def __init__(self, *args, **kwargs):
+    def __init__(self) -> None:
         pass
 
     def foo(self) -> str:
@@ -57,7 +57,7 @@ class Bar:
 
 
 def test_register_and_resolve_type_safe():
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
     reg_result = resolver.register(IFoo, Foo)
 
     if isinstance(reg_result, Failure):
@@ -68,7 +68,7 @@ def test_register_and_resolve_type_safe():
 
 
 def test_register_wrong_type_raises():
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
     result = resolver.register(IFoo, Bar)
 
     assert isinstance(result, Failure)
@@ -76,7 +76,7 @@ def test_register_wrong_type_raises():
 
 
 def test_register_factory_wrong_return_type_raises():
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
 
     def factory() -> Bar:
         return Bar()
@@ -97,7 +97,7 @@ def test_register_protocol_structural_check():
             return 1
 
     # Should succeed
-    _ServiceResolver(registrations={}).register(Proto, Implementation)
+    ServiceResolver(registrations={}).register(Proto, Implementation)
 
 
 def test_register_factory_correct_return_type():
@@ -110,14 +110,14 @@ def test_register_factory_correct_return_type():
     def factory() -> IFoo2:
         return Foo2()
 
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
     result = resolver.register(IFoo2, factory)
     assert isinstance(result, Success)
 
 
 def test_circular_dependency_raises():
     """Test that resolving a circular dependency with type-based registrations fails (cycle or missing param)."""
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
     resolver.register(A, A)
     resolver.register(B, B)
     result = resolver.resolve(A)
@@ -127,7 +127,7 @@ def test_circular_dependency_raises():
 
 def test_circular_dependency_with_factories_returns_failure():
     """Test that resolving a circular dependency via factories returns a Failure (not CircularDependencyError)."""
-    resolver = _ServiceResolver(registrations={})
+    resolver = ServiceResolver(registrations={})
     resolver.register(A, lambda: A(B()))
     resolver.register(B, lambda: B(A()))
     result = resolver.resolve(A)

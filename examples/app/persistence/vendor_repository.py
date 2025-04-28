@@ -76,3 +76,16 @@ class InMemoryVendorRepository:
         ids = list(self._events.keys())
         self._logger.debug(f"Listing all vendor ids: {ids}")
         return ids
+
+    def all(self) -> list[Vendor]:
+        """
+        Return all reconstructed Vendor aggregates in the repository.
+        Returns:
+            list[Vendor]: All vendors.
+        """
+        vendors: list[Vendor] = []
+        for vendor_id in self.all_ids():
+            result = self.get(vendor_id)
+            if not isinstance(result, Failure):
+                vendors.append(result.value)
+        return vendors
