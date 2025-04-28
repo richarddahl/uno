@@ -5,7 +5,14 @@ In-memory event-sourced repository for InventoryItem (example vertical slice).
 Replace with a real event store for production/demo persistence.
 """
 from typing import Any, Dict
-from examples.app.domain.inventory_item import InventoryItem, InventoryItemCreated, InventoryItemRenamed, InventoryItemAdjusted
+from examples.app.domain.inventory_item import (
+    InventoryItem,
+    InventoryItemCreated,
+    InventoryItemRenamed,
+    InventoryItemAdjusted,
+)
+from examples.app.api.errors import InventoryItemNotFoundError
+from uno.core.errors import Success, Failure
 from uno.core.logging import LoggerService
 
 class InMemoryInventoryItemRepository:
@@ -22,7 +29,7 @@ class InMemoryInventoryItemRepository:
         item._domain_events.clear()
         self._logger.debug(f"Inventory item {item.id} saved with {len(item._domain_events)} events.")
 
-    def get(self, item_id: str) -> Success | Failure[InventoryItemNotFoundError]:
+    def get(self, item_id: str) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
         events = self._events.get(item_id)
         if not events:
             self._logger.warning(f"InventoryItem not found: {item_id}")

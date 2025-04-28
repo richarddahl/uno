@@ -6,6 +6,8 @@ In-memory repository for Order aggregates (example/demo only).
 import hashlib
 from typing import cast
 from examples.app.domain.order import Order
+from examples.app.api.errors import OrderNotFoundError
+from uno.core.errors import Success, Failure
 from uno.core.logging import LoggerService
 
 class InMemoryOrderRepository:
@@ -15,7 +17,7 @@ class InMemoryOrderRepository:
         self._logger = logger
         self._logger.debug("InMemoryOrderRepository initialized.")
 
-    def get(self, order_id: str) -> Success | Failure:
+    def get(self, order_id: str) -> Success[Order, None] | Failure[None, OrderNotFoundError]:
         order = self._orders.get(order_id)
         if order is None:
             return Failure(OrderNotFoundError(order_id))

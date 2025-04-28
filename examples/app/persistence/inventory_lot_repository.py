@@ -6,6 +6,8 @@ In-memory repository for InventoryLot aggregates (example/demo only).
 import hashlib
 from typing import cast
 from examples.app.domain.inventory_lot import InventoryLot
+from examples.app.api.errors import InventoryLotNotFoundError
+from uno.core.errors import Success, Failure
 from uno.core.logging import LoggerService
 
 class InMemoryInventoryLotRepository:
@@ -15,7 +17,7 @@ class InMemoryInventoryLotRepository:
         self._logger = logger
         self._logger.debug("InMemoryInventoryLotRepository initialized.")
 
-    def get(self, lot_id: str) -> Success | Failure:
+    def get(self, lot_id: str) -> Success[InventoryLot, None] | Failure[None, InventoryLotNotFoundError]:
         lot = self._lots.get(lot_id)
         if lot is None:
             return Failure(InventoryLotNotFoundError(lot_id))

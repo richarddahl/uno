@@ -40,7 +40,7 @@ class InMemoryVendorRepository:
             f"Vendor {vendor.id} saved with {len(vendor._domain_events)} events."
         )
 
-    def get(self, vendor_id: str) -> Success[Vendor] | Failure[VendorNotFoundError]:
+    def get(self, vendor_id: str) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
         """
         Retrieve a Vendor aggregate by replaying its event stream.
 

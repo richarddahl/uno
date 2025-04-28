@@ -4,10 +4,12 @@
 Domain model: InventoryItem aggregate and events (vertical slice reference).
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
+
 from pydantic import PrivateAttr
 from typing import Self
 from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.event import DomainEvent
+
 
 # --- Events ---
 class InventoryItemCreated(DomainEvent):
@@ -15,13 +17,16 @@ class InventoryItemCreated(DomainEvent):
     name: str
     quantity: int
 
+
 class InventoryItemRenamed(DomainEvent):
     item_id: str
     new_name: str
 
+
 class InventoryItemAdjusted(DomainEvent):
     item_id: str
     adjustment: int  # positive or negative
+
 
 # --- Aggregate ---
 class InventoryItem(AggregateRoot[str]):

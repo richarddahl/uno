@@ -4,15 +4,29 @@ Saga orchestration engine for Uno event sourcing.
 from typing import Any, Type
 from uno.core.events.sagas import Saga
 from uno.core.events.saga_store import SagaStore, SagaState
+from uno.core.di.provider import ServiceProvider
 
 class SagaManager:
     """
     Orchestrates saga lifecycle: event routing, state persistence, and recovery.
     """
-    def __init__(self, saga_store: SagaStore) -> None:
+    def __init__(self, saga_store: SagaStore, di: ServiceProvider) -> None:
         self._saga_store = saga_store
+        self._di = di
         self._saga_types: dict[str, Type[Saga]] = {}
         self._active_sagas: dict[str, Saga] = {}
+
+    def _get_or_create_saga(self, saga_id: str, saga_type: str) -> Saga:
+        print(f"[SagaManager] Registered saga types: {list(self._saga_types.keys())}")
+        print(f"[SagaManager] DI container registrations: {list(getattr(self._di._base_services, '_registrations', {}).keys())}")
+        print(f"[SagaManager] Resolving saga_type: {saga_type}")
+        if saga_id in self._active_sagas:
+            return self._active_sagas[saga_id]
+        saga_cls = self._saga_types[saga_type]
+        print(f"[SagaManager] saga_cls: {saga_cls}")
+        saga = self._di.try_get_service(saga_cls).unwrap()
+        self._active_sagas[saga_id] = saga
+        return saga
 
     def list_active_sagas(self) -> list[dict[str, str]]:
         """
@@ -28,19 +42,14 @@ class SagaManager:
         self._saga_types[saga_type.__name__] = saga_type
 
     async def handle_event(self, saga_id: str, saga_type: str, event: Any) -> None:
-        # Load or create saga state
+        saga = self._get_or_create_saga(saga_id, saga_type)
         state = await self._saga_store.load_state(saga_id)
-        saga_cls = self._saga_types[saga_type]
-        saga = saga_cls()  # Assumes no-arg init; pass state/data if needed
-        if state:
-            # Optionally hydrate saga with state
-            if hasattr(saga, 'load_state'):
-                saga.load_state(state)
+        if state and hasattr(saga, 'load_state'):
+            saga.load_state(state)
         await saga.handle_event(event)
-        # Persist updated state if saga provides it
         if hasattr(saga, 'get_state'):
             new_state = saga.get_state()
-            await self.saga_store.save_state(saga_id, new_state)
-        # Optionally clean up if saga is complete
+            await self._saga_store.save_state(saga_id, new_state)
         if await saga.is_completed():
-            await self.saga_store.delete_state(saga_id)
+            await self._saga_store.delete_state(saga_id)
+            self._active_sagas.pop(saga_id, None)

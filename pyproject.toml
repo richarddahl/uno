@@ -145,10 +145,10 @@ tests = ["tests", "*/uno/tests"]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
 
 [tool.hatch.envs.test.scripts]
-test = "ENV=test pytest --tb=no --capture=tee-sys --show-capture=all"
-testv = "ENV=test pytest --tb=short --capture=tee-sys --show-capture=all"
-testvv = "ENV=test pytest -vv --capture=tee-sys --show-capture=all"
-testV = "ENV=test pytest --capture=tee-sys --show-capture=all"
+test = "ENV=test pytest --tb=no --capture=tee-sys --show-capture=all {args}"
+testv = "ENV=test pytest --tb=short --capture=tee-sys --show-capture=all {args}"
+testvv = "ENV=test pytest -vv --capture=tee-sys --show-capture=all {args}"
+testV = "ENV=test pytest --capture=tee-sys --show-capture=all {args}"
 test-examples = "ENV=test PYTHONPATH=src pytest examples/app/tests/ --tb=no --capture=tee-sys --show-capture=all"
 test-examplesV = "ENV=test PYTHONPATH=src pytest examples/app/tests/ --capture=tee-sys --show-capture=all"
 test-cov = "ENV=test coverage run -m pytest"
