@@ -41,7 +41,12 @@ class ServiceResolver:
     Uno eagerly instantiates singleton services at provider initialization (not lazily on first access).
     This design ensures predictable startup, early error detection, and optimal runtime performance.
     """
-    def _instantiate_with_injection(self, impl, params, scope):
+    def _instantiate_with_injection(
+        self,
+        impl: type[Any],
+        params: dict[str, Any],
+        scope: Any
+    ) -> Success[Any, ServiceRegistrationError] | Failure[Any, ServiceRegistrationError]:
         self._logger.debug(f"DI: ENTER _instantiate_with_injection for {impl} with params={params} scope={scope}")
         import inspect
         sig = inspect.signature(impl.__init__)
