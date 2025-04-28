@@ -96,13 +96,13 @@ def set(
     if not update:
         typer.echo("No config fields provided to update.", err=True)
         raise typer.Exit(code=1)
-    try:
-        config = config_service.update_config(**update)
-        typer.echo("Updated logging configuration:")
-        typer.echo(config.model_dump_json(indent=2))
-    except Exception as exc:
-        typer.echo(f"Error updating logging config: {exc}", err=True)
+    from uno.core.errors.result import Success, Failure
+    result = config_service.update_config(**update)
+    if isinstance(result, Failure):
+        typer.echo(f"Error updating logging config: {result.error}", err=True)
         raise typer.Exit(code=2)
+    typer.echo("Updated logging configuration:")
+    typer.echo(result.value.model_dump_json(indent=2))
 
 if __name__ == "__main__":
     app()

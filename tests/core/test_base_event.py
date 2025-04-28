@@ -50,8 +50,9 @@ def test_event_upcasting() -> None:
     EventUpcasterRegistry._registry.clear()
     EventUpcasterRegistry.register_upcaster(FakeEventV2, 1, upcast_v1_to_v2)
     v1_data = {"event_id": "evt_123", "foo": "hello", "version": 1}
-    event = FakeEventV2.from_dict(v1_data)
-    assert isinstance(event, FakeEventV2)
+    result = FakeEventV2.from_dict(v1_data)
+    assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
+    event = result.unwrap()
     assert event.foo == "hello"
     assert event.bar == 42
     assert event.version == 2
@@ -105,5 +106,8 @@ def test_upcaster_registry_missing() -> None:
     v2_data = {"event_id": "evt_999", "foo": "hi", "bar": 1, "version": 2}
     from uno.core.errors.definitions import EventUpcastError
 
-    with pytest.raises(EventUpcastError, match=r"No upcaster registered"):
-        FakeEventV3.from_dict(v2_data)
+    result = FakeEventV3.from_dict(v2_data)
+    from uno.core.errors.result import Failure
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, Exception)
+    assert "No upcaster registered" in str(result.error) or "No upcaster for" in str(result.error)

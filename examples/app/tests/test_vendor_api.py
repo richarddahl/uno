@@ -16,10 +16,6 @@ def client() -> TestClient:
 
 
 def test_vendor_lifecycle(client: TestClient) -> None:
-    # Diagnostic: print all registered routes
-    for route in client.app.routes:
-        print(f"Path: {route.path}, Methods: {route.methods}, Name: {route.name}")
-
     # Create a new vendor
     vendor = {
         "id": "vendor-1",

@@ -5,11 +5,21 @@ All domain/integration events should inherit from this class.
 
 from __future__ import annotations
 
-import collections.abc
 import logging
-from typing import Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from uno.core.errors.result import Failure, Success
+
+if TYPE_CHECKING:
+    import collections.abc
+
+    from uno.core.di import get_service_provider
+    from uno.core.errors.definitions import EventUpcastError
+    from uno.core.errors.result import Failure as FailureType, Success as SuccessType
+    from uno.core.services.default_hash_service import DefaultHashService
+    from uno.core.services.hash_service_protocol import HashServiceProtocol
 
 
 class DomainEvent(BaseModel):
@@ -20,7 +30,7 @@ class DomainEvent(BaseModel):
       - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for event serialization, hashing, storage, and transport.
       - Unset and None fields are treated identically; they are excluded from serialization and do not affect event_hash.
       - This contract is enforced by dedicated tests (see test_event_serialization_is_deterministic).
-    
+
     - All model-wide concerns (e.g., upcasting, hash computation) are handled via @model_validator methods.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -74,6 +84,7 @@ class DomainEvent(BaseModel):
                 )
             except Exception as e:
                 from uno.core.errors.definitions import EventUpcastError
+
                 raise EventUpcastError(
                     event_type=cls.__name__,
                     from_version=data_version,
@@ -96,7 +107,9 @@ class DomainEvent(BaseModel):
         from uno.core.services.hash_service_protocol import HashServiceProtocol
         from uno.core.services.default_hash_service import DefaultHashService
 
-        d = self.model_dump(exclude={"event_hash"}, exclude_none=True, exclude_unset=True)
+        d = self.model_dump(
+            exclude={"event_hash"}, exclude_none=True, exclude_unset=True
+        )
         payload = json.dumps(d, sort_keys=True, separators=(",", ":"))
         hash_service = None
         try:
@@ -106,7 +119,8 @@ class DomainEvent(BaseModel):
                 hash_service = getattr(result, "value", None)
         except Exception as exc:
             logging.getLogger("uno.events").warning(
-                "Could not resolve HashServiceProtocol from DI: %s. Falling back to DefaultHashService.", exc
+                "Could not resolve HashServiceProtocol from DI: %s. Falling back to DefaultHashService.",
+                exc,
             )
         if hash_service is None:
             hash_service = DefaultHashService("sha256")
@@ -124,18 +138,35 @@ class DomainEvent(BaseModel):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(
+        cls, data: dict[str, Any]
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:  # type: ignore[valid-type]
         """
-        Thin wrapper for Pydantic's `model_validate()`.
+        Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
         Upcasting and hash computation are handled by model validators.
         Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
 
         Args:
             data (dict[str, Any]): The event data dict.
         Returns:
-            Self: The constructed, validated, and upcasted event instance.
+            Success[Self, Exception](event) if valid, Failure[Self, Exception](error) otherwise.
         """
-        return cls.model_validate(data)
+        from uno.core.errors.result import Success, Failure
+
+        try:
+            return Success[Self, Exception](cls.model_validate(data))
+        except Exception as exc:
+            return Failure[Self, Exception](
+                Exception(f"Failed to create {cls.__name__} from dict: {exc}")
+            )
+
+    def validate_event(self) -> Success[None, Exception] | Failure[None, Exception]:
+        """
+        Validate the event's invariants. Override in subclasses for custom validation.
+        Returns:
+            Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
+        """
+        return Success[None, Exception](None)
 
 
 def verify_event_stream_integrity(events: list[DomainEvent]) -> bool:
@@ -169,18 +200,31 @@ class EventUpcasterRegistry:
         migrated = EventUpcasterRegistry.apply(MyEvent, old_data, 1, 2)
     """
 
-    _registry: ClassVar[dict[tuple[type, int], callable]] = {}
+    _registry: ClassVar[
+        dict[
+            tuple[type, int],
+            "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
+        ]
+    ] = {}
 
     @classmethod
-    def register(cls, event_type: type, from_version: int) -> collections.abc.Callable[[collections.abc.Callable[[dict[str, Any]], dict[str, Any]]], collections.abc.Callable[[dict[str, Any]], dict[str, Any]]]:
-        def decorator(func: collections.abc.Callable[[dict[str, Any]], dict[str, Any]]) -> collections.abc.Callable[[dict[str, Any]], dict[str, Any]]:
+    def register(
+        cls, event_type: type, from_version: int
+    ) -> "collections.abc.Callable[[collections.abc.Callable[[dict[str, Any]], dict[str, Any]]], collections.abc.Callable[[dict[str, Any]], dict[str, Any]]]":
+        def decorator(
+            func: "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
+        ) -> "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]":
             cls._registry[(event_type, from_version)] = func
             return func
+
         return decorator
 
     @classmethod
     def register_upcaster(
-        cls, event_type: type, from_version: int, upcaster_fn: collections.abc.Callable[[dict[str, Any]], dict[str, Any]]
+        cls,
+        event_type: type,
+        from_version: int,
+        upcaster_fn: "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
     ) -> None:
         cls._registry[(event_type, from_version)] = upcaster_fn
 

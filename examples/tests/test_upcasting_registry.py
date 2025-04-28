@@ -37,7 +37,9 @@ def test_upcaster_registry_applies_chain() -> None:
     EventUpcasterRegistry._registry.clear()
     EventUpcasterRegistry.register_upcaster(LegacyEventV2, 1, upcast_v1_to_v2)
     legacy_v1: dict[str, object] = {"foo": "bar", "version": 1}
-    event = LegacyEventV2.from_dict(legacy_v1)
+    result = LegacyEventV2.from_dict(legacy_v1)
+    assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
+    event = result.unwrap()
     assert event.bar == BAR_MAGIC_VALUE
     assert event.version == LATEST_VERSION
 
@@ -46,5 +48,8 @@ def test_upcaster_registry_missing_upcaster() -> None:
     """Should raise EventUpcastError or ValidationError if no upcaster is registered."""
     EventUpcasterRegistry._registry.clear()
     legacy_v1: dict[str, object] = {"foo": "bar", "version": 1}
-    with pytest.raises((EventUpcastError, ValidationError)):
-        LegacyEventV2.from_dict(legacy_v1)
+    result = LegacyEventV2.from_dict(legacy_v1)
+    from uno.core.errors.result import Failure
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, Exception)
+    assert "No upcaster registered" in str(result.error) or "No upcaster for" in str(result.error)

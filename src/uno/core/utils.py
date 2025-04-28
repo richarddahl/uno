@@ -13,13 +13,28 @@ from babel import dates, numbers
 from uno.core.config import GeneralConfig
 
 
-def import_from_path(module_name, file_path):
-    """Import a module given its name and file path."""
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
+from uno.core.logging.logger import LoggerService
+
+def import_from_path(module_name: str, file_path: str, logger: LoggerService | None = None) -> Any:
+    """Import a module given its name and file path. Logs errors via DI logger if provided."""
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+    except Exception as exc:
+        if logger and hasattr(logger, "structured_log"):
+            logger.structured_log(
+                "ERROR",
+                f"Failed to import module '{module_name}' from '{file_path}'",
+                name="uno.core.utils.import_from_path",
+                error=exc,
+                module_name=module_name,
+                file_path=file_path,
+                error_message=str(exc)
+            )
+        raise
 
 
 def snake_to_title(snake_str: str) -> str:

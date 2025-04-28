@@ -4,6 +4,8 @@ Entity base class for Uno's DDD model.
 from __future__ import annotations
 from typing import Any, Generic, TypeVar, Self
 from pydantic import BaseModel, Field, ConfigDict
+from uno.core.errors.result import Success, Failure
+import time
 
 T_ID = TypeVar("T_ID")
 
@@ -24,10 +26,21 @@ class Entity(BaseModel, Generic[T_ID]):
 
     Base class for all DDD entities in Uno.
     Entities have identity, equality by id, and are immutable.
+
+    Example:
+        class MyEntity(Entity[int]):
+            ...
+        data = {"id": 1, ...}
+        result = MyEntity.from_dict(data)
+        if isinstance(result, Success):
+            entity = result.value
+        else:
+            # handle error
+            ...
     """
     id: T_ID
-    created_at: float = Field(default_factory=lambda: __import__('time').time())
-    updated_at: float = Field(default_factory=lambda: __import__('time').time())
+    created_at: float = Field(default_factory=lambda: time.time())
+    updated_at: float = Field(default_factory=lambda: time.time())
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -51,9 +64,22 @@ class Entity(BaseModel, Generic[T_ID]):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
+    def from_dict(cls, data: dict[str, Any]) -> Success[Self, Exception] | Failure[Self, Exception]:
         """
-        Thin wrapper for Pydantic's `model_validate()`.
+        Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
         Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
+        Returns:
+            Success[Self, Exception](entity) if valid, Failure[Self, Exception](error) otherwise.
         """
-        return cls.model_validate(data)
+        try:
+            return Success[Self, Exception](cls.model_validate(data))
+        except Exception as exc:
+            return Failure[Self, Exception](Exception(f"Failed to create {cls.__name__} from dict: {exc}"))
+
+    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+        """
+        Validate the entity's invariants. Override in subclasses for custom validation.
+        Returns:
+            Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
+        """
+        return Success[None, Exception](None)

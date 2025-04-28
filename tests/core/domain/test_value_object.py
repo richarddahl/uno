@@ -35,8 +35,16 @@ def test_to_dict_and_from_dict():
     vo = FakeValueObject(x=1, y="foo")
     d = vo.to_dict()
     assert d == {"x": 1, "y": "foo"}
-    vo2 = FakeValueObject.from_dict(d)
+    result = FakeValueObject.from_dict(d)
+    assert result.is_success
+    vo2 = result.value
     assert vo == vo2
+
+def test_from_dict_failure():
+    # Missing required field
+    result = FakeValueObject.from_dict({"x": 1})
+    assert result.is_failure
+    assert isinstance(result.error, Exception)
 
 
 def test_invalid_extra_fields():
@@ -51,5 +59,7 @@ def test_none_and_unset_fields():
     vo = OptionalVO()
     d = vo.to_dict()
     assert "a" not in d and "b" not in d
-    vo2 = OptionalVO.from_dict({})
+    result = OptionalVO.from_dict({})
+    assert result.is_success
+    vo2 = result.value
     assert vo == vo2

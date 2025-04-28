@@ -19,6 +19,17 @@ class AggregateRoot(Entity[T_ID]):
 
     Aggregates are intentionally mutable to support event sourcing and transactional workflows.
     All state changes must be made via domain events and explicit mutation methods.
+
+    Example:
+        class MyAggregate(AggregateRoot[int]):
+            ...
+        events = [SomeCreated(...), SomeUpdated(...)]
+        result = MyAggregate.from_events(events)
+        if isinstance(result, Success):
+            agg = result.value
+        else:
+            # handle error
+            ...
     """
     _events: list[DomainEvent] = PrivateAttr(default_factory=list)
     version: int = 0
@@ -43,6 +54,14 @@ class AggregateRoot(Entity[T_ID]):
         Raise an exception if invariants are violated.
         """
         pass
+
+    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+        """
+        Validate the aggregate's invariants. Override in subclasses for custom validation.
+        Returns:
+            Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
+        """
+        return Success[None, Exception](None)
 
     def add_event(self, event: DomainEvent) -> Success[None, Exception] | Failure[None, Exception]:
         """
@@ -77,14 +96,21 @@ class AggregateRoot(Entity[T_ID]):
         self._is_deleted = False
 
     @classmethod
-    def from_events(cls, events: list[DomainEvent]) -> AggregateRoot:
+    def from_events(cls, events: list[DomainEvent]) -> Success[AggregateRoot, Exception] | Failure[AggregateRoot, Exception]:
         if not events:
-            raise ValueError("No events to rehydrate aggregate.")
-        instance = cls(id=getattr(events[0], "aggregate_id", None))
-        for event in events:
-            instance.apply_event(event)
-            instance.version += 1
-        return instance
+            return Failure[AggregateRoot, Exception](
+                Exception(f"No events to rehydrate aggregate for {cls.__name__}.")
+            )
+        try:
+            instance = cls(id=getattr(events[0], "aggregate_id", None))
+            for event in events:
+                instance.apply_event(event)
+                instance.version += 1
+            return Success[AggregateRoot, Exception](instance)
+        except Exception as exc:
+            return Failure[AggregateRoot, Exception](
+                Exception(f"Error rehydrating aggregate {cls.__name__} from events: {exc}")
+            )
 
     def assert_not_deleted(self) -> Success[None, Exception] | Failure[None, Exception]:
         if self.is_deleted:

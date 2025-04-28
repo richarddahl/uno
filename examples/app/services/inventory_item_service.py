@@ -49,13 +49,13 @@ class InventoryItemService:
         self.logger.info(f"InventoryItem renamed: {item_id} -> {new_name}")
         return Success(item)
 
-    def adjust_inventory_quantity(self, item_id: str, adjustment: int, reason: str | None = None) -> Result[InventoryItem, Exception]:
+    def adjust_inventory_quantity(self, item_id: str, adjustment: int) -> Result[InventoryItem, Exception]:
         result = self.repo.get(item_id)
         if isinstance(result, Failure):
             self.logger.warning(f"InventoryItem not found: {item_id}")
             return result
         item = result.value
-        adjust_result = item.adjust_quantity(adjustment, reason=reason)
+        adjust_result = item.adjust_quantity(adjustment)
         if isinstance(adjust_result, Failure):
             self.logger.warning(f"Failed to adjust InventoryItem quantity: {item_id} ({adjust_result.error})")
             return adjust_result

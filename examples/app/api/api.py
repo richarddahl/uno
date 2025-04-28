@@ -50,7 +50,9 @@ def app_factory() -> FastAPI:
     # --- Dependency Injection Setup ---
     from uno.core.di.container import ServiceCollection
 
-    service_collection = ServiceCollection(auto_register=False)  # Explicitly disable auto-registration
+    service_collection = ServiceCollection(
+        auto_register=False
+    )  # Explicitly disable auto-registration
     logging_config = LoggingConfig()
     logger_service = LoggerService(logging_config)
 
@@ -82,12 +84,13 @@ def app_factory() -> FastAPI:
         InventoryItemService,
         implementation=InventoryItemService,
     )
-    # Debug: Print all service registrations before building the resolver
-    print('DI registrations:')
-    for k, v in service_collection._registrations.items():
-        print(f'  {k}: {v.implementation} (params: {v.params})')
-    for k, v in service_collection._instances.items():
-        print(f'  Instance: {k}: {v}')
+    # Register VendorService with explicit dependencies
+    from examples.app.services.vendor_service import VendorService
+
+    service_collection.add_singleton(
+        VendorService,
+        implementation=VendorService,
+    )
     resolver = service_collection.build()
 
     # Resolve repositories via DI (use .get() for raw instance, not monad)
@@ -103,6 +106,11 @@ def app_factory() -> FastAPI:
     order_repo: InMemoryOrderRepository = resolver.resolve(
         InMemoryOrderRepository
     ).value
+
+    # Resolve VendorService via DI
+    from examples.app.services.vendor_service import VendorService
+
+    vendor_service: VendorService = resolver.resolve(VendorService).value
 
     # --- API Endpoints (rebind all endpoints here, using local repo variables) ---
 
@@ -133,17 +141,14 @@ def app_factory() -> FastAPI:
 
     @app.post("/vendors/", tags=["vendors"], response_model=VendorDTO, status_code=201)
     def create_vendor(data: VendorCreateDTO) -> VendorDTO:
-        result = vendor_repo.get(data.id)
-        if not isinstance(result, Failure):
-            raise HTTPException(
-                status_code=409, detail=f"Vendor already exists: {data.id}"
-            )
-        vendor = Vendor.create(
-            vendor_id=data.id, name=data.name, contact_email=data.contact_email
-        )
+        # Use the service layer for creation and error handling
+        result = vendor_service.create_vendor(data.id, data.name, data.contact_email)
+        if isinstance(result, Failure):
+            raise HTTPException(status_code=400, detail=str(result.error))
+        vendor = result.unwrap()
         vendor_repo.save(vendor)
         dto = VendorDTO(
-            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email
+            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email.value if hasattr(vendor.contact_email, 'value') else vendor.contact_email
         )
         return as_canonical_json(dto)
 
@@ -167,7 +172,7 @@ def app_factory() -> FastAPI:
             )
         vendor = result.value
         dto = VendorDTO(
-            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email
+            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email.value if hasattr(vendor.contact_email, 'value') else vendor.contact_email
         )
         return as_canonical_json(dto)
 
@@ -183,7 +188,7 @@ def app_factory() -> FastAPI:
         vendor.contact_email = data.contact_email
         vendor_repo.save(vendor)
         dto = VendorDTO(
-            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email
+            id=vendor.id, name=vendor.name, contact_email=vendor.contact_email.value if hasattr(vendor.contact_email, 'value') else vendor.contact_email
         )
         return as_canonical_json(dto)
 
@@ -191,7 +196,11 @@ def app_factory() -> FastAPI:
     def list_vendors() -> list[VendorDTO]:
         vendors = vendor_repo.all()
         return [
-            VendorDTO(id=v.id, name=v.name, contact_email=v.contact_email)
+            VendorDTO(
+                id=v.id,
+                name=v.name,
+                contact_email=v.contact_email.value if hasattr(v.contact_email, 'value') else v.contact_email
+            )
             for v in vendors
         ]
 

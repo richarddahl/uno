@@ -7,7 +7,7 @@ from uno.core.logging.config_service import LoggingConfigService
 from uno.core.logging.logger import LoggerService, LoggingConfig
 
 
-def test_logger_service_di_integration():
+def test_logger_service_di_integration() -> None:
     sc = ServiceCollection()
     config = LoggingConfig()
     sc.add_singleton(LoggingConfig, implementation=config)
@@ -15,7 +15,7 @@ def test_logger_service_di_integration():
     resolver = sc.build()
     result = resolver.resolve(LoggerService)
     if hasattr(result, "value"):
-        logger_service = result.value
+        logger_service: LoggerService = result.value  # type: ignore
     else:
         raise AssertionError(f"DI resolution failed: {result}")
     asyncio.run(logger_service.initialize())
@@ -24,13 +24,16 @@ def test_logger_service_di_integration():
     logger.info("DI logger integration works!")
     # Should be able to update config via LoggingConfigService
     config_service = LoggingConfigService(logger_service)
-    new_config = config_service.update_config(LEVEL="DEBUG")
+    update_result = config_service.update_config(LEVEL="DEBUG")
+    from uno.core.errors.result import Success
+    assert isinstance(update_result, Success)
+    new_config: LoggingConfig = update_result.value
     assert new_config.LEVEL == "DEBUG"
     # LoggerService should reflect the new config
-    assert logger_service._config.LEVEL == "DEBUG"
+    assert logger_service._config == new_config
 
 @pytest.mark.asyncio
-async def test_logger_service_lifecycle():
+async def test_logger_service_lifecycle() -> None:
     sc = ServiceCollection()
     config = LoggingConfig()
     sc.add_singleton(LoggingConfig, implementation=config)

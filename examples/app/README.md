@@ -68,6 +68,62 @@ app/
 
 ## Aggregates & API Endpoints
 
+### Value Objects: Strongly-Typed Domain Data
+
+Uno provides a canonical ValueObject base class for small, immutable, and validated domain concepts (e.g., Grade, EmailAddress). ValueObjects are:
+- Immutable and compared by value
+- Validated on creation (using Pydantic)
+- Provide `.to_dict()` and Uno-style error handling
+
+### Example: Grade and EmailAddress
+
+```python
+from uno.examples.app.domain.value_objects import Grade, EmailAddress
+
+g = Grade(value=95.5)  # valid
+# g = Grade(value=150)  # raises ValidationError
+
+e = EmailAddress(value="foo@bar.com")  # valid
+# e = EmailAddress(value="not-an-email")  # raises ValidationError
+```
+
+You can use value objects in your aggregates/entities for stronger invariants:
+
+```python
+from uno.examples.app.domain.value_objects import Grade
+from uno.examples.app.domain.inventory_lot import InventoryLot
+
+class MyLot(InventoryLot):
+    grade: Grade | None = None
+
+    # ...
+```
+
+### InventoryLot Blending & Traceability
+
+- **Blending:** Inventory lots can be combined, producing a new lot with a weighted average grade (e.g., protein %) and a complete list of all contributing vendors.
+- **Traceability:** Every blend operation records all source lots, grades, and vendors in an `InventoryLotsCombined` event. The resulting lot maintains a traceable history of all its origins.
+- **API Usage:**
+  - **POST /inventory/combine/** — Combine two lots (see API docs for schema)
+
+#### Example: Combine Two Lots
+
+```bash
+curl -X POST http://localhost:8000/inventory/combine/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "lot_ids": ["lot-1", "lot-2"],
+    "new_lot_id": "lot-3"
+  }'
+```
+
+**Result:**
+- The new lot's `grade` is a weighted average of the source lots.
+- The new lot's `_source_vendor_ids` contains all unique vendors from the sources.
+- The `InventoryLotsCombined` event records all source lot IDs, grades, and vendors for audit/compliance.
+
+---
+
 ### InventoryItem
 
 - **POST /inventory/** — Create an item
