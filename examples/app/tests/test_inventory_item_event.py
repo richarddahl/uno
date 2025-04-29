@@ -7,7 +7,7 @@ Covers Result-based construction, error context, versioning, and upcast behavior
 
 import pytest
 
-from examples.app.domain.inventory_item import (
+from examples.app.domain.inventory import (
     InventoryItemAdjusted,
     InventoryItemCreated,
     InventoryItemRenamed,

@@ -4,8 +4,9 @@
 In-memory event-sourced repository for InventoryItem (example vertical slice).
 Replace with a real event store for production/demo persistence.
 """
+
 from typing import Any, Dict
-from examples.app.domain.inventory_item import (
+from examples.app.domain.inventory import (
     InventoryItem,
     InventoryItemCreated,
     InventoryItemRenamed,
@@ -15,8 +16,10 @@ from examples.app.api.errors import InventoryItemNotFoundError
 from uno.core.errors import Success, Failure
 from uno.core.logging import LoggerService
 
+
 class InMemoryInventoryItemRepository:
     """A minimal in-memory event-sourced repo for InventoryItem."""
+
     def __init__(self, logger: LoggerService) -> None:
         self._events: dict[str, list[Any]] = {}
         self._logger = logger
@@ -24,7 +27,7 @@ class InMemoryInventoryItemRepository:
 
     def save(self, item: InventoryItem | Success | Failure) -> None:
         # Unwrap Result if needed
-        if hasattr(item, 'unwrap'):
+        if hasattr(item, "unwrap"):
             try:
                 item = item.unwrap()
             except Exception as e:
@@ -34,9 +37,13 @@ class InMemoryInventoryItemRepository:
         # For demo: append all events (in real ES, track new events only)
         self._events.setdefault(item.id, []).extend(item._domain_events)
         item._domain_events.clear()
-        self._logger.debug(f"Inventory item {item.id} saved with {len(item._domain_events)} events.")
+        self._logger.debug(
+            f"Inventory item {item.id} saved with {len(item._domain_events)} events."
+        )
 
-    def get(self, item_id: str) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
+    def get(
+        self, item_id: str
+    ) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
         events = self._events.get(item_id)
         if not events:
             self._logger.warning(f"InventoryItem not found: {item_id}")
@@ -44,7 +51,9 @@ class InMemoryInventoryItemRepository:
         item = None
         for event in events:
             if isinstance(event, InventoryItemCreated):
-                item = InventoryItem(id=event.item_id, name=event.name, quantity=event.quantity)
+                item = InventoryItem(
+                    id=event.item_id, name=event.name, quantity=event.quantity
+                )
             elif isinstance(event, InventoryItemRenamed) and item:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:

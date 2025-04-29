@@ -1,4 +1,4 @@
-from examples.app.domain.inventory_lot import InventoryLotAdjusted, InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit
+from examples.app.domain.inventory import InventoryLotAdjusted, InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit
 from examples.app.domain.value_objects import Quantity, Count
 from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError

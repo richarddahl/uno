@@ -8,7 +8,7 @@ Covers blending, traceability, and all error/success paths.
 import pytest
 from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError
-from examples.app.domain.inventory_lot import InventoryLot
+from examples.app.domain.inventory import InventoryLot
 from examples.app.domain.value_objects import Quantity, Count, CountUnit
 
 

@@ -4,8 +4,7 @@
 In-memory repository for InventoryLot aggregates (example/demo only).
 """
 import hashlib
-from typing import cast
-from examples.app.domain.inventory_lot import InventoryLot
+from examples.app.domain.inventory import InventoryLot
 from examples.app.api.errors import InventoryLotNotFoundError
 from uno.core.errors import Success, Failure
 from uno.core.logging import LoggerService

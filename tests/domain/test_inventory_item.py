@@ -1,5 +1,5 @@
 import pytest
-from examples.app.domain.inventory_item import InventoryItem
+from examples.app.domain.inventory import InventoryItem
 from uno.core.errors.result import Failure, Success
 from uno.core.errors.definitions import DomainValidationError
 
@@ -59,8 +59,10 @@ def test_adjust_quantity_negative():
 
 def test_unhandled_event_raises():
     item = InventoryItem.create("item-1", "Widget", 10).unwrap()
+
     class DummyEvent:
         pass
+
     with pytest.raises(DomainValidationError) as exc_info:
         item._apply_event(DummyEvent())
     assert "Unhandled event" in str(exc_info.value)

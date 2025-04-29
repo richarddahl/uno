@@ -1,18 +1,20 @@
 """
 Tests for event stream integrity and tamper detection in Uno event-sourced example domain.
 """
+
 import pytest
 from examples.app.persistence.repository import InMemoryInventoryItemRepository
-from examples.app.domain.inventory_item import InventoryItem
+from examples.app.domain.inventory import InventoryItem
 from uno.core.events.base_event import verify_event_stream_integrity
 
 
 def test_event_stream_integrity_and_tamper_detection():
     from uno.core.logging import LoggerService, LoggingConfig
+
     repo = InMemoryInventoryItemRepository(LoggerService(LoggingConfig()))
     # Create and persist events
     result = InventoryItem.create("item-1", "Corn", 100)
-    assert hasattr(result, 'unwrap'), f"Expected Result, got {type(result)}"
+    assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     item = result.unwrap()
     repo.save(item)
     events = repo._events[item.id]

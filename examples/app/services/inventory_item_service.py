@@ -7,8 +7,9 @@ Implements orchestration, error context propagation, and DI-ready business logic
 from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.logging import LoggerService
-from examples.app.domain.inventory_item import InventoryItem
+from examples.app.domain.inventory.item import InventoryItem
 from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
+from examples.app.domain.inventory.item import InventoryItem
 
 class InventoryItemService:
     """

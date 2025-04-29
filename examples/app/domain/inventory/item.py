@@ -1,7 +1,6 @@
-# SPDX-FileCopyrightText: 2025-present Richard Dahl <richard@dahl.us>
-# SPDX-License-Identifier: MIT
 """
-Domain model: InventoryItem aggregate and events (vertical slice reference).
+InventoryItem aggregate and related events for the inventory bounded context.
+
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
@@ -12,7 +11,6 @@ from uno.core.domain.event import DomainEvent
 from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
-
 
 # --- Events ---
 class InventoryItemCreated(DomainEvent):

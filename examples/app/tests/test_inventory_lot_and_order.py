@@ -7,13 +7,11 @@ Covers creation, adjustment, purchase, and sale flows, with canonical serializat
 
 import pytest
 
-from examples.app.domain.inventory_item import InventoryItem
-from examples.app.domain.inventory_lot import InventoryLot
+from examples.app.domain.inventory import InventoryItem
+from examples.app.domain.inventory import InventoryLot
 from examples.app.domain.order import Order
 from examples.app.domain.value_objects import Count, Quantity, CountUnit
-from examples.app.persistence.inventory_lot_repository import (
-    InMemoryInventoryLotRepository,
-)
+from examples.app.persistence.inventory_lot_repository import InMemoryInventoryLotRepository
 from examples.app.persistence.order_repository import InMemoryOrderRepository
 
 
@@ -104,7 +102,7 @@ def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -
     repo.save(fake_lot)
     assert repo.verify_integrity(fake_lot.id)
     # Tamper: replace event object with a different value (simulate tampering)
-    from examples.app.domain.inventory_lot import InventoryLotCreated
+    from examples.app.domain.inventory import InventoryLotCreated
     from examples.app.domain.value_objects import Quantity
 
     fake_lot._domain_events[0] = InventoryLotCreated(
@@ -136,14 +134,23 @@ def test_order_creation(fake_order: Order) -> None:
 
 def test_order_fulfillment_and_cancel(fake_order: Order) -> None:
     print("[DEBUG] fake_order before fulfill:", fake_order)
-    print("[DEBUG] fake_order._domain_events before fulfill:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events before fulfill:",
+        getattr(fake_order, "_domain_events", []),
+    )
     fake_order.fulfill(fulfilled_quantity=25)
     print("[DEBUG] fake_order after fulfill:", fake_order)
-    print("[DEBUG] fake_order._domain_events after fulfill:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events after fulfill:",
+        getattr(fake_order, "_domain_events", []),
+    )
     assert fake_order.is_fulfilled
     fake_order.cancel(reason="customer request")
     print("[DEBUG] fake_order after cancel:", fake_order)
-    print("[DEBUG] fake_order._domain_events after cancel:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events after cancel:",
+        getattr(fake_order, "_domain_events", []),
+    )
     assert fake_order.is_cancelled
 
 
@@ -151,11 +158,17 @@ def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
     from uno.core.logging import LoggerService, LoggingConfig
 
     print("[DEBUG] fake_order before repo.save:", fake_order)
-    print("[DEBUG] fake_order._domain_events before repo.save:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events before repo.save:",
+        getattr(fake_order, "_domain_events", []),
+    )
     repo = InMemoryOrderRepository(LoggerService(LoggingConfig()))
     repo.save(fake_order)
     print("[DEBUG] fake_order after repo.save:", fake_order)
-    print("[DEBUG] fake_order._domain_events after repo.save:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events after repo.save:",
+        getattr(fake_order, "_domain_events", []),
+    )
     assert repo.verify_integrity(fake_order.id)
     # Tamper: replace event object with a different value (simulate tampering)
     from examples.app.domain.order import OrderCreated
@@ -170,5 +183,8 @@ def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
         order_type=fake_order.order_type,
     )
     print("[DEBUG] fake_order after tampering:", fake_order)
-    print("[DEBUG] fake_order._domain_events after tampering:", getattr(fake_order, '_domain_events', []))
+    print(
+        "[DEBUG] fake_order._domain_events after tampering:",
+        getattr(fake_order, "_domain_events", []),
+    )
     assert not repo.verify_integrity(fake_order.id)
