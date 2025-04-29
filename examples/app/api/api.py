@@ -37,6 +37,8 @@ from examples.app.persistence.inventory_lot_repository import (
 from examples.app.persistence.order_repository import InMemoryOrderRepository
 from examples.app.persistence.repository import InMemoryInventoryItemRepository
 from examples.app.persistence.vendor_repository import InMemoryVendorRepository
+from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
+from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
 from uno.application.api_utils import as_canonical_json
 from uno.core.errors.definitions import DomainValidationError
@@ -58,14 +60,14 @@ def app_factory() -> FastAPI:
 
     # Register LoggerService as a singleton instance only (correctly)
     service_collection.add_instance(LoggerService, logger_service)
-    # Register repositories with correct constructor args
+    # Register repositories with correct constructor args and bind to protocol
     service_collection.add_singleton(
-        InMemoryInventoryItemRepository,
+        InventoryItemRepository,
         implementation=InMemoryInventoryItemRepository,
         logger=logger_service,
     )
     service_collection.add_singleton(
-        InMemoryVendorRepository,
+        VendorRepository,
         implementation=InMemoryVendorRepository,
         logger=logger_service,
     )
@@ -79,27 +81,21 @@ def app_factory() -> FastAPI:
         implementation=InMemoryOrderRepository,
         logger=logger_service,
     )
-    # Register InventoryItemService with explicit dependencies
+    # Register InventoryItemService and VendorService with protocol-based dependencies
     service_collection.add_singleton(
         InventoryItemService,
         implementation=InventoryItemService,
     )
-    # Register VendorService with explicit dependencies
     from examples.app.services.vendor_service import VendorService
-
     service_collection.add_singleton(
         VendorService,
         implementation=VendorService,
     )
     resolver = service_collection.build()
 
-    # Resolve repositories via DI (use .get() for raw instance, not monad)
-    repo: InMemoryInventoryItemRepository = resolver.resolve(
-        InMemoryInventoryItemRepository
-    ).value
-    vendor_repo: InMemoryVendorRepository = resolver.resolve(
-        InMemoryVendorRepository
-    ).value
+    # Resolve repositories via DI using protocol abstraction
+    repo: InventoryItemRepository = resolver.resolve(InventoryItemRepository).value
+    vendor_repo: VendorRepository = resolver.resolve(VendorRepository).value
     lot_repo: InMemoryInventoryLotRepository = resolver.resolve(
         InMemoryInventoryLotRepository
     ).value

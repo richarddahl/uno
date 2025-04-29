@@ -8,14 +8,14 @@ from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.logging import LoggerService
 from examples.app.domain.inventory_item import InventoryItem
-from examples.app.persistence.repository import InMemoryInventoryItemRepository
+from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
 
 class InventoryItemService:
     """
     Service for InventoryItem workflows.
     Orchestrates domain logic, repository, and error context propagation.
     """
-    def __init__(self, repo: InMemoryInventoryItemRepository, logger: LoggerService) -> None:
+    def __init__(self, repo: InventoryItemRepository, logger: LoggerService) -> None:
         self.repo = repo
         self.logger = logger
 

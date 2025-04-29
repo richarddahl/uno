@@ -8,10 +8,11 @@ import pytest
 from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.logging import LoggerService, LoggingConfig
+from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
 from examples.app.domain.inventory_item import InventoryItem
 from examples.app.services.inventory_item_service import InventoryItemService
 
-class FakeInventoryItemRepository:
+class FakeInventoryItemRepository(InventoryItemRepository):
     def __init__(self):
         self._items = {}
     def get(self, item_id: str):
@@ -32,7 +33,7 @@ def fake_repo() -> FakeInventoryItemRepository:
     return FakeInventoryItemRepository()
 
 @pytest.fixture
-def service(fake_repo: FakeInventoryItemRepository, fake_logger: LoggerService) -> InventoryItemService:
+def service(fake_repo: InventoryItemRepository, fake_logger: LoggerService) -> InventoryItemService:
     return InventoryItemService(fake_repo, fake_logger)
 
 def test_create_inventory_item_success(service: InventoryItemService) -> None:

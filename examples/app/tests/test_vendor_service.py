@@ -9,9 +9,10 @@ from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.logging import LoggerService, LoggingConfig
 from examples.app.domain.vendor import Vendor
+from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.vendor_service import VendorService
 
-class FakeVendorRepository:
+class FakeVendorRepository(VendorRepository):
     def __init__(self):
         self._vendors = {}
     def get(self, vendor_id: str):
@@ -28,11 +29,11 @@ def fake_logger() -> LoggerService:
     return LoggerService(LoggingConfig())
 
 @pytest.fixture
-def fake_repo() -> FakeVendorRepository:
+def fake_repo() -> VendorRepository:
     return FakeVendorRepository()
 
 @pytest.fixture
-def service(fake_repo: FakeVendorRepository, fake_logger: LoggerService) -> VendorService:
+def service(fake_repo: VendorRepository, fake_logger: LoggerService) -> VendorService:
     return VendorService(fake_repo, fake_logger)
 
 def test_create_vendor_success(service: VendorService) -> None:

@@ -8,14 +8,14 @@ from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.logging import LoggerService
 from examples.app.domain.vendor import Vendor
-from examples.app.persistence.vendor_repository import InMemoryVendorRepository
+from examples.app.persistence.vendor_repository_protocol import VendorRepository
 
 class VendorService:
     """
     Service for Vendor workflows.
     Orchestrates domain logic, repository, and error context propagation.
     """
-    def __init__(self, repo: InMemoryVendorRepository, logger: LoggerService) -> None:
+    def __init__(self, repo: VendorRepository, logger: LoggerService) -> None:
         self.repo = repo
         self.logger = logger
 
