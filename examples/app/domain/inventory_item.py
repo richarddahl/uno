@@ -16,19 +16,156 @@ from uno.core.errors.definitions import DomainValidationError
 
 # --- Events ---
 class InventoryItemCreated(DomainEvent):
+    """
+    Event: InventoryItem was created.
+
+    Usage:
+        result = InventoryItemCreated.create(
+            item_id="A100",
+            name="Widget",
+            quantity=100,
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     item_id: str
     name: str
     quantity: int
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        item_id: str,
+        name: str,
+        quantity: int,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details={"item_id": item_id}))
+            if not name:
+                return Failure(DomainValidationError("name is required", details={"name": name}))
+            if not isinstance(quantity, int) or quantity < 0:
+                return Failure(DomainValidationError("quantity must be a non-negative int", details={"quantity": quantity}))
+            event = cls(
+                item_id=item_id,
+                name=name,
+                quantity=quantity,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create InventoryItemCreated", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        """
+        Upcast event to target version. Stub for future event versioning.
+        """
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 class InventoryItemRenamed(DomainEvent):
+    """
+    Event: InventoryItem was renamed.
+
+    Usage:
+        result = InventoryItemRenamed.create(
+            item_id="sku-123",
+            new_name="Gadget",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     item_id: str
     new_name: str
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        item_id: str,
+        new_name: str,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details={"item_id": item_id}))
+            if not new_name:
+                return Failure(DomainValidationError("new_name is required", details={"new_name": new_name}))
+            event = cls(
+                item_id=item_id,
+                new_name=new_name,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create InventoryItemRenamed", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        """
+        Upcast event to target version. Stub for future event versioning.
+        """
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 class InventoryItemAdjusted(DomainEvent):
+    """
+    Event: InventoryItem was adjusted.
+
+    Usage:
+        result = InventoryItemAdjusted.create(
+            item_id="sku-123",
+            adjustment=5,
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     item_id: str
     adjustment: int  # positive or negative
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        item_id: str,
+        adjustment: int,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details={"item_id": item_id}))
+            if not isinstance(adjustment, int):
+                return Failure(DomainValidationError("adjustment must be an int", details={"adjustment": adjustment}))
+            event = cls(
+                item_id=item_id,
+                adjustment=adjustment,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create InventoryItemAdjusted", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        """
+        Upcast event to target version. Stub for future event versioning.
+        """
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 # --- Aggregate ---
