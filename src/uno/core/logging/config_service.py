@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from uno.core.errors.base import FrameworkError
-from uno.core.logging.logger import LoggerService, LoggingConfig
+
 from uno.core.errors.result import Result, Success, Failure
 
 
@@ -23,20 +23,17 @@ class LoggingConfigService:
     """
     Service for managing and updating logging configuration at runtime.
     """
-    def __init__(self, logger_service: LoggerService) -> None:
-        self._logger_service = logger_service
+    def __init__(self, logger_service):
+        from uno.core.logging.logger import LoggerService
+        self._logger_service: LoggerService = logger_service
         self._config = logger_service._config
 
-    def get_config(self) -> LoggingConfig:
-        """Return the current logging configuration (as a pydantic object)."""
+    def get_config(self):
+        from uno.core.logging.logger import LoggingConfig
         return self._config
 
-    def update_config(self, **kwargs: Any) -> Result[LoggingConfig, LoggingConfigUpdateError]:
-        """
-        Update the logging configuration at runtime. Supported fields are those in LoggingConfig.
-        Applies changes immediately to all loggers and handlers via LoggerService.reload_config().
-        Returns Result[LoggingConfig, LoggingConfigUpdateError] with error context and logs errors.
-        """
+    def update_config(self, **kwargs: Any):
+        from uno.core.logging.logger import LoggingConfig
         valid_fields = set(type(self._config).model_fields.keys())
         invalid = [k for k in kwargs if k not in valid_fields]
         if invalid:

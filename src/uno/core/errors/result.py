@@ -26,6 +26,7 @@ from typing import (
 )
 
 from uno.core.errors.base import ErrorCode, FrameworkError, get_error_context
+from uno.core.errors.utils import serialize_enums
 
 T = TypeVar("T")
 E = TypeVar("E", bound=Exception)
@@ -236,12 +237,15 @@ class Success(Result[T, E], Generic[T, E]):
         Returns:
             A dictionary representation of the result
         """
+        from pydantic import BaseModel
         if isinstance(self.value, dict):
-            return {"status": "success", "data": self.value}
+            return {"status": "success", "data": serialize_enums(self.value)}
+        elif isinstance(self.value, BaseModel):
+            return {"status": "success", "data": serialize_enums(self.value.model_dump(exclude_none=True, exclude_unset=True, by_alias=True))}
         elif isinstance(self.value, HasToDict):
-            return {"status": "success", "data": self.value.to_dict()}
+            return {"status": "success", "data": serialize_enums(self.value.to_dict())}
         else:
-            return {"status": "success", "data": self.value}
+            return {"status": "success", "data": serialize_enums(self.value)}
 
     def __str__(self) -> str:
         """String representation of a successful result."""
@@ -381,7 +385,7 @@ class Failure(Result[T, E], Generic[T, E]):
             A dictionary representation of the result
         """
         if isinstance(self.error, FrameworkError):
-            return {"status": "error", "error": self.error.to_dict()}
+            return {"status": "error", "error": serialize_enums(self.error.to_dict())}
         else:
             # Create a generic error structure
             error_detail = {
@@ -395,7 +399,7 @@ class Failure(Result[T, E], Generic[T, E]):
                     if not key.startswith("_") and key not in error_detail:
                         error_detail[key] = value
 
-            return {"status": "error", "error": error_detail}
+            return {"status": "error", "error": serialize_enums(error_detail)}
 
     def __str__(self) -> str:
         """String representation of a failed result."""

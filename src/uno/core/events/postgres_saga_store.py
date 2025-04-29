@@ -23,7 +23,10 @@ class PostgresSagaStore(SagaStore):
             ON CONFLICT (saga_id) DO UPDATE
             SET status = $3, data = $4, updated_at = now()
             """,
-            saga_id, saga_type, status, json.dumps(data)
+            saga_id, saga_type, status, (
+                json.dumps(data.model_dump(by_alias=True, exclude_unset=True, exclude_none=True))
+                if hasattr(data, "model_dump") else json.dumps(data)
+            )
         )
 
     async def load_state(self, saga_id: str) -> SagaState | None:

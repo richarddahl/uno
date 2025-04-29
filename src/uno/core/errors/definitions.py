@@ -643,7 +643,17 @@ class DomainError(FrameworkError):
         super().__init__(message=message, error_code=code, **context)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"message": self.message, "code": self.code, "details": self.details}
+        from pydantic import BaseModel
+        def serialize_detail(val):
+            if isinstance(val, BaseModel):
+                return val.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+            elif isinstance(val, dict):
+                return {k: serialize_detail(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [serialize_detail(v) for v in val]
+            else:
+                return val
+        return {"message": self.message, "code": self.code, "details": serialize_detail(self.details)}
 
 
 class DomainValidationError(DomainError):

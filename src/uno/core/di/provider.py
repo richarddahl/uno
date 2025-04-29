@@ -9,7 +9,7 @@ to provide enhanced dependency injection functionality, including proper scoping
 automatic dependency resolution, and improved lifecycle management.
 """
 
-from uno.core.logging.logger import LoggerService
+
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
@@ -28,6 +28,7 @@ from uno.core.di.interfaces import (
 from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
 from uno.core.errors.result import Failure, Result, Success
+from uno.core.logging.logger import LoggerService
 
 # Import EventBusProtocol only from type checking to avoid circular imports
 if TYPE_CHECKING:
@@ -742,7 +743,6 @@ async def configure_base_services() -> None:
 
     # Register LoggerService as a singleton
     from uno.core.logging.logger import LoggerService
-
     services.add_singleton(LoggerService, implementation=LoggerService)
 
     # Register database provider

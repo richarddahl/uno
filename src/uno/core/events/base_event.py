@@ -6,6 +6,7 @@ All domain/integration events should inherit from this class.
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -59,7 +60,10 @@ class DomainEvent(BaseModel):
     previous_hash: str | None = None
     event_hash: str | None = None
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={Enum: lambda e: e.value},
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -102,15 +106,24 @@ class DomainEvent(BaseModel):
         Returns:
             Self: The event instance with its event_hash set.
         """
-        import json
         from uno.core.di import ServiceProvider, get_service_provider
         from uno.core.services.hash_service_protocol import HashServiceProtocol
         from uno.core.services.default_hash_service import DefaultHashService
 
+        import json
         d = self.model_dump(
-            exclude={"event_hash"}, exclude_none=True, exclude_unset=True
+            exclude={"event_hash"},
+            exclude_none=True,
+            exclude_unset=True,
+            by_alias=True,
         )
-        payload = json.dumps(d, sort_keys=True, separators=(",", ":"))
+        import json
+        def enum_encoder(obj):
+            if isinstance(obj, Enum):
+                return obj.value
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+        payload = json.dumps(d, sort_keys=True, separators=(",", ":"), default=enum_encoder)
+
         hash_service = None
         try:
             provider = get_service_provider()

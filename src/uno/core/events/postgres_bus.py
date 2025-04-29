@@ -24,7 +24,10 @@ class PostgresBus:
 
     async def publish(self, payload: dict[str, Any]) -> None:
         assert self._conn is not None
-        data = json.dumps(payload)
+        if hasattr(payload, "model_dump"):
+            data = json.dumps(payload.model_dump(by_alias=True, exclude_unset=True, exclude_none=True))
+        else:
+            data = json.dumps(payload)
         await self._conn.execute(f"""
             INSERT INTO {self._table} (payload) VALUES ($1)
         """, data)
