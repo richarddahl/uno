@@ -17,27 +17,107 @@ from examples.app.domain.value_objects import EmailAddress
 # --- Events ---
 class VendorCreated(DomainEvent):
     """
-    Event representing the creation of a Vendor aggregate.
-    Attributes:
-        vendor_id: Unique identifier for the vendor.
-        name: Name of the vendor.
-        contact_email: Contact email for the vendor.
+    Event: Vendor was created.
+
+    Usage:
+        result = VendorCreated.create(
+            vendor_id="V100",
+            name="Acme Corp",
+            contact_email="info@acme.com",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
     """
     vendor_id: str
     name: str
     contact_email: str  # Serialized as primitive for event persistence
+    version: int = 1
+    model_config = {"frozen": True}
+
+    @classmethod
+    def create(
+        cls,
+        vendor_id: str,
+        name: str,
+        contact_email: str,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not vendor_id:
+                return Failure(DomainValidationError("vendor_id is required", details=get_error_context()))
+            if not name:
+                return Failure(DomainValidationError("name is required", details=get_error_context()))
+            if not contact_email:
+                return Failure(DomainValidationError("contact_email is required", details=get_error_context()))
+            event = cls(
+                vendor_id=vendor_id,
+                name=name,
+                contact_email=contact_email,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create VendorCreated", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 class VendorUpdated(DomainEvent):
     """
-    Event representing an update to a Vendor aggregate.
-    Attributes:
-        vendor_id: Unique identifier for the vendor.
-        name: Updated name.
-        contact_email: Updated contact email.
+    Event: Vendor was updated.
+
+    Usage:
+        result = VendorUpdated.create(
+            vendor_id="V100",
+            name="Acme Corp",
+            contact_email="info@acme.com",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
     """
     vendor_id: str
     name: str
     contact_email: str  # Serialized as primitive for event persistence
+    version: int = 1
+    model_config = {"frozen": True}
+
+    @classmethod
+    def create(
+        cls,
+        vendor_id: str,
+        name: str,
+        contact_email: str,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not vendor_id:
+                return Failure(DomainValidationError("vendor_id is required", details=get_error_context()))
+            if not name:
+                return Failure(DomainValidationError("name is required", details=get_error_context()))
+            if not contact_email:
+                return Failure(DomainValidationError("contact_email is required", details=get_error_context()))
+            event = cls(
+                vendor_id=vendor_id,
+                name=name,
+                contact_email=contact_email,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create VendorUpdated", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 # --- Aggregate ---
 class Vendor(AggregateRoot[str]):

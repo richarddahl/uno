@@ -19,6 +19,25 @@ from uno.core.errors.result import Success, Failure
 
 # --- Events ---
 class OrderCreated(DomainEvent):
+    """
+    Event: Order was created.
+
+    Usage:
+        result = OrderCreated.create(
+            order_id="O100",
+            item_id="A100",
+            lot_id="L100",
+            vendor_id="V100",
+            quantity=10,
+            price=25.0,
+            order_type="purchase",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     order_id: str
     item_id: str
     lot_id: str
@@ -26,16 +45,141 @@ class OrderCreated(DomainEvent):
     quantity: int
     price: float
     order_type: Literal["purchase", "sale"]
+    version: int = 1
+    model_config = {"frozen": True}
+
+    @classmethod
+    def create(
+        cls,
+        order_id: str,
+        item_id: str,
+        lot_id: str,
+        vendor_id: str,
+        quantity: int,
+        price: float,
+        order_type: str,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not order_id:
+                return Failure(DomainValidationError("order_id is required", details=get_error_context()))
+            if not item_id:
+                return Failure(DomainValidationError("item_id is required", details=get_error_context()))
+            if not lot_id:
+                return Failure(DomainValidationError("lot_id is required", details=get_error_context()))
+            if not vendor_id:
+                return Failure(DomainValidationError("vendor_id is required", details=get_error_context()))
+            if quantity < 0:
+                return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+            if price < 0:
+                return Failure(DomainValidationError("price must be non-negative", details=get_error_context()))
+            if order_type not in ("purchase", "sale"):
+                return Failure(DomainValidationError("order_type must be 'purchase' or 'sale'", details=get_error_context()))
+            event = cls(
+                order_id=order_id,
+                item_id=item_id,
+                lot_id=lot_id,
+                vendor_id=vendor_id,
+                quantity=quantity,
+                price=price,
+                order_type=order_type,
+                version=version,
+            )
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create OrderCreated", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        """
+        Upcast event to target version. Stub for future event versioning.
+        """
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 class OrderFulfilled(DomainEvent):
+    """
+    Event: Order was fulfilled.
+
+    Usage:
+        result = OrderFulfilled.create(
+            order_id="O100",
+            fulfilled_quantity=10,
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     order_id: str
     fulfilled_quantity: int
+    version: int = 1
+    model_config = {"frozen": True}
+
+    @classmethod
+    def create(
+        cls,
+        order_id: str,
+        fulfilled_quantity: int,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not order_id:
+                return Failure(DomainValidationError("order_id is required", details=get_error_context()))
+            if fulfilled_quantity < 0:
+                return Failure(DomainValidationError("fulfilled_quantity must be non-negative", details=get_error_context()))
+            event = cls(order_id=order_id, fulfilled_quantity=fulfilled_quantity, version=version)
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create OrderFulfilled", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 class OrderCancelled(DomainEvent):
+    """
+    Event: Order was cancelled.
+
+    Usage:
+        result = OrderCancelled.create(
+            order_id="O100",
+            reason="Customer request",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
     order_id: str
     reason: str | None = None
+    version: int = 1
+    model_config = {"frozen": True}
+
+    @classmethod
+    def create(
+        cls,
+        order_id: str,
+        reason: str | None = None,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        try:
+            if not order_id:
+                return Failure(DomainValidationError("order_id is required", details=get_error_context()))
+            event = cls(order_id=order_id, reason=reason, version=version)
+            return Success(event)
+        except Exception as exc:
+            return Failure(DomainValidationError("Failed to create OrderCancelled", details={"error": str(exc)}))
+
+    def upcast(self, target_version: int) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(DomainValidationError("Upcasting not implemented", details={"from": self.version, "to": target_version}))
 
 
 # --- Aggregate ---

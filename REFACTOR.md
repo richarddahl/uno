@@ -27,11 +27,29 @@ All progress, architectural decisions, and implementation notes for domain-drive
 - Lint/type warnings remain; Pydantic v2 and type hint sweep still needed.
 - Next: finalize infra error context, uno.sql/test handling, and publish migration guide.
 
+#### Progress Update (2025-04-29)
+- **All core domain events (Order, Vendor, Inventory, and cross-domain) have been refactored for:**
+    - Result-based construction (Success/Failure)
+    - Error context propagation
+    - Versioning and upcasting support
+    - Pydantic v2 compliance and type hint modernization
+    - Usage docstrings/examples
+- **Comprehensive tests** for event creation, error paths, and upcasting are present for all refactored events.
+- **Blockers:** Only infra/uno.sql-dependent event store tests remain as known blockers; all domain/service tests pass.
+
 #### Next Steps (as of 2025-04-29)
-1. Sweep and refactor all remaining domain events for Result-based construction, error context propagation, versioning, and docstrings/tests (follow InventoryLotCreated/Adjusted pattern).
-2. Address lint/type issues, unused imports, and ensure Pydantic v2/type hint compliance throughout domain and event modules.
-3. Fix or skip uno.sql-dependent infrastructure tests so all tests can pass in environments without Postgres/uno.sql.
-4. Finalize and publish documentation and migration guide for Uno event sourcing, error handling, and DDD patterns.
+1. **Bounded Contexts:**
+    - Begin modularizing domain packages to support bounded contexts.
+    - Document context boundaries and integration patterns.
+2. **Infra Error Context & Logging:**
+    - Sweep all infrastructure/integration modules for Result/Failure, error context propagation, and strict DI logging.
+    - Fix or skip uno.sql-dependent infra tests (use pytest.skip if uno.sql unavailable).
+3. **Documentation & Testing:**
+    - Finalize and publish domain/event sourcing migration guide and user docs.
+    - Expand tests for error paths, upcasting, and event store roundtrips.
+4. **Type/Lint Modernization:**
+    - Sweep for Pydantic v2/type hint modernization and address all lint/type warnings.
+    - Ensure full idiomatic Python 3.13+ compliance throughout.
 
 ## 1. Refactor & Migration Checklist
 
@@ -99,9 +117,9 @@ All progress, architectural decisions, and implementation notes for domain-drive
 > **Progress:**
 > All major aggregates (InventoryItem, InventoryLot, Vendor) and value objects (Grade, EmailAddress, Money, Quantity, Count, Mass, Volume, Dimension, AlcoholContent) now use Result-based construction, error context propagation, modern type hints, and Pydantic v2. Immutability and validation contracts are enforced on construction. Usage examples and docstrings are present for all major types. Minor types may be swept for uniformity, but functional and documentation completeness is achieved for all core domain types.
 
-- [x] Refactor all inventory domain event classes for:
-    - Explicit context propagation
+- [x] Refactor all domain events for:
     - Result-based construction (Success/Failure)
+    - Error context propagation
     - Versioning and upcasting support
     - Pydantic v2 compliance and type hint modernization
     - Canonical serialization/deserialization
