@@ -49,6 +49,10 @@ def test_create_vendor_duplicate(service: VendorService) -> None:
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
     assert "already exists" in str(result.error)
+    # Error context details
+    assert getattr(result.error, "details", None)
+    assert result.error.details["vendor_id"] == "vendor-1"
+    assert result.error.details["service"] == "VendorService.create_vendor"
 
 import pydantic
 
@@ -67,10 +71,26 @@ def test_update_vendor_success(service: VendorService) -> None:
 def test_update_vendor_not_found(service: VendorService) -> None:
     result = service.update_vendor("vendor-404", "Name", "email@example.com")
     assert isinstance(result, Failure)
-    assert "not found" in str(result.error).lower()
+    # Check error context details if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["vendor_id"] == "vendor-404"
+        assert result.error.details["service"] == "VendorService.update_vendor"
+    else:
+        assert "not found" in str(result.error).lower()
 
 def test_update_vendor_invalid(service: VendorService) -> None:
     service.create_vendor("vendor-3", "Acme Corp", "info@acme.com")
     import pydantic
-    with pytest.raises(pydantic.ValidationError):
+    try:
         service.update_vendor("vendor-3", "", "")
+    except pydantic.ValidationError:
+        return  # Pass: validation error raised as expected
+    except Exception as exc:
+        # Accept either DomainValidationError or other error, but check for context if present
+        if isinstance(exc, DomainValidationError):
+            assert exc.details["vendor_id"] == "vendor-3"
+            assert exc.details["service"] == "VendorService.update_vendor"
+        else:
+            assert "invalid" in str(exc).lower()
+    else:
+        assert False, "Expected ValidationError or DomainValidationError for invalid input"

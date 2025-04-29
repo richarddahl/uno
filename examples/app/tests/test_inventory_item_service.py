@@ -49,11 +49,20 @@ def test_create_inventory_item_duplicate(service: InventoryItemService) -> None:
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
     assert "already exists" in str(result.error)
+    # Error context details
+    assert getattr(result.error, "details", None)
+    assert result.error.details["item_id"] == "sku-1"
+    assert result.error.details["service"] == "InventoryItemService.create_inventory_item"
 
 def test_create_inventory_item_invalid(service: InventoryItemService) -> None:
     result = service.create_inventory_item("sku-2", "", -1)
     assert isinstance(result, Failure)
-    assert isinstance(result.error, DomainValidationError) or "invalid" in str(result.error).lower()
+    # Accept either DomainValidationError or other error, but check for context if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["item_id"] == "sku-2"
+        assert result.error.details["service"] == "InventoryItemService.create_inventory_item"
+    else:
+        assert "invalid" in str(result.error).lower()
 
 def test_rename_inventory_item_success(service: InventoryItemService) -> None:
     service.create_inventory_item("sku-3", "Widget", 5)
@@ -64,13 +73,23 @@ def test_rename_inventory_item_success(service: InventoryItemService) -> None:
 def test_rename_inventory_item_not_found(service: InventoryItemService) -> None:
     result = service.rename_inventory_item("sku-404", "Gadget")
     assert isinstance(result, Failure)
-    assert "not found" in str(result.error).lower()
+    # Check error context details if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["item_id"] == "sku-404"
+        assert result.error.details["service"] == "InventoryItemService.rename_inventory_item"
+    else:
+        assert "not found" in str(result.error).lower()
 
 def test_rename_inventory_item_invalid(service: InventoryItemService) -> None:
     service.create_inventory_item("sku-4", "Widget", 5)
     result = service.rename_inventory_item("sku-4", "")
     assert isinstance(result, Failure)
-    assert "invalid" in str(result.error).lower() or isinstance(result.error, DomainValidationError)
+    # Accept either DomainValidationError or other error, but check for context if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["item_id"] == "sku-4"
+        assert result.error.details["service"] == "InventoryItemService.rename_inventory_item"
+    else:
+        assert "invalid" in str(result.error).lower()
 
 def test_adjust_inventory_quantity_success(service) -> None:
     service.create_inventory_item("sku-5", "Widget", 5)
@@ -88,9 +107,19 @@ def test_adjust_inventory_quantity_invalid(service) -> None:
     service.create_inventory_item("sku-7", "Widget", 5)
     result = service.adjust_inventory_quantity("sku-7", -99)
     assert isinstance(result, Failure)
-    assert "invalid" in str(result.error).lower() or isinstance(result.error, DomainValidationError)
+    # Accept either DomainValidationError or other error, but check for context if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["item_id"] == "sku-7"
+        assert result.error.details["service"] == "InventoryItemService.adjust_inventory_quantity"
+    else:
+        assert "invalid" in str(result.error).lower()
 
 def test_adjust_inventory_quantity_not_found(service) -> None:
     result = service.adjust_inventory_quantity("sku-404", 1)
     assert isinstance(result, Failure)
-    assert "not found" in str(result.error).lower()
+    # Check error context details if present
+    if isinstance(result.error, DomainValidationError):
+        assert result.error.details["item_id"] == "sku-404"
+        assert result.error.details["service"] == "InventoryItemService.adjust_inventory_quantity"
+    else:
+        assert "not found" in str(result.error).lower()

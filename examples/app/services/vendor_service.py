@@ -20,35 +20,77 @@ class VendorService:
         self.logger = logger
 
     def create_vendor(self, vendor_id: str, name: str, contact_email: str) -> Result[Vendor, Exception]:
-        # Check for existing vendor
+        """
+        Create a new Vendor. Returns Success(Vendor) or Failure(DomainValidationError) with error context.
+        """
         result = self.repo.get(vendor_id)
         if not isinstance(result, Failure):
-            self.logger.warning(f"Vendor already exists: {vendor_id}")
-            return Failure(DomainValidationError(f"Vendor already exists: {vendor_id}", details={"vendor_id": vendor_id}))
-        # Create domain aggregate
+            self.logger.warning({
+                "event": "vendor_exists",
+                "vendor_id": vendor_id,
+                "service": "VendorService.create_vendor"
+            })
+            return Failure(DomainValidationError(
+                f"Vendor already exists: {vendor_id}",
+                details={"vendor_id": vendor_id, "service": "VendorService.create_vendor"}
+            ))
         from examples.app.domain.value_objects import EmailAddress
         email_vo = EmailAddress(value=contact_email)
         vendor_result = Vendor.create(vendor_id=vendor_id, name=name, contact_email=email_vo)
         if isinstance(vendor_result, Failure):
-            self.logger.warning(f"Failed to create Vendor: {vendor_id} ({vendor_result.error})")
-            return vendor_result
+            self.logger.warning({
+                "event": "vendor_create_failed",
+                "vendor_id": vendor_id,
+                "error": str(vendor_result.error),
+                "service": "VendorService.create_vendor"
+            })
+            err = vendor_result.error
+            if isinstance(err, DomainValidationError):
+                err.details = {**err.details, "vendor_id": vendor_id, "service": "VendorService.create_vendor"}
+            return Failure(err)
         vendor = vendor_result.unwrap()
         self.repo.save(vendor)
-        self.logger.info(f"Vendor created: {vendor_id}")
+        self.logger.info({
+            "event": "vendor_created",
+            "vendor_id": vendor_id,
+            "service": "VendorService.create_vendor"
+        })
         return Success(vendor)
 
     def update_vendor(self, vendor_id: str, name: str, contact_email: str) -> Result[Vendor, Exception]:
+        """
+        Update a Vendor. Returns Success(Vendor) or Failure(DomainValidationError) with error context.
+        """
         result = self.repo.get(vendor_id)
         if isinstance(result, Failure):
-            self.logger.warning(f"Vendor not found: {vendor_id}")
-            return result
+            self.logger.warning({
+                "event": "vendor_not_found",
+                "vendor_id": vendor_id,
+                "service": "VendorService.update_vendor"
+            })
+            err = result.error
+            if isinstance(err, DomainValidationError):
+                err.details = {**err.details, "vendor_id": vendor_id, "service": "VendorService.update_vendor"}
+            return Failure(err)
         vendor = result.value
         from examples.app.domain.value_objects import EmailAddress
         email_vo = EmailAddress(value=contact_email)
         update_result = vendor.update(name, email_vo)
         if isinstance(update_result, Failure):
-            self.logger.warning(f"Failed to update Vendor: {vendor_id} ({update_result.error})")
-            return update_result
+            self.logger.warning({
+                "event": "vendor_update_failed",
+                "vendor_id": vendor_id,
+                "error": str(update_result.error),
+                "service": "VendorService.update_vendor"
+            })
+            err = update_result.error
+            if isinstance(err, DomainValidationError):
+                err.details = {**err.details, "vendor_id": vendor_id, "service": "VendorService.update_vendor"}
+            return Failure(err)
         self.repo.save(vendor)
-        self.logger.info(f"Vendor updated: {vendor_id}")
+        self.logger.info({
+            "event": "vendor_updated",
+            "vendor_id": vendor_id,
+            "service": "VendorService.update_vendor"
+        })
         return Success(vendor)
