@@ -9,14 +9,14 @@ to provide enhanced dependency injection functionality, including proper scoping
 automatic dependency resolution, and improved lifecycle management.
 """
 
-
 import threading
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 if TYPE_CHECKING:
-    from uno.core.events.events import EventBusProtocol, EventBus
+    from uno.core.events.bus import EventBus, EventBusProtocol
+    from uno.core.logging.logger import LoggerService
 
-from uno.core.di.container import ServiceCollection, ServiceScope, ServiceResolver
+from uno.core.di.container import ServiceCollection, ServiceResolver, ServiceScope
 from uno.core.di.interfaces import (
     ConfigProtocol,
     DatabaseProviderProtocol,
@@ -28,11 +28,7 @@ from uno.core.di.interfaces import (
 from uno.core.errors.base import FrameworkError
 from uno.core.errors.definitions import DependencyResolutionError
 from uno.core.errors.result import Failure, Result, Success
-from uno.core.logging.logger import LoggerService
 
-# Import EventBusProtocol only from type checking to avoid circular imports
-if TYPE_CHECKING:
-    from uno.core.events.events import EventBus
 
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
@@ -71,7 +67,7 @@ class ServiceProvider:
 
     def __init__(
         self,
-        logger: LoggerService,
+        logger: "LoggerService",
         services: ServiceCollection | None = None,
     ) -> None:
         """
@@ -375,7 +371,7 @@ class ServiceProvider:
         self._initialized = False
         self._logger.info("Service provider shut down")
 
-    async def create_scope(self, scope_id: str | None = None):
+    async def create_scope(self, scope_id: str | None = None) -> "Scope":
         """
         Create a new async DI scope. Use as:
             async with provider.create_scope() as scope:
@@ -498,9 +494,12 @@ class ServiceProvider:
         Returns:
             The event bus service
         """
+        from uno.core.events.bus import EventBusProtocol
+
         return self.get_service(EventBusProtocol)
 
-    def get_vector_config(self):
+    '''
+    def get_vector_config(self) -> VectorConfigServiceProtocol:
         """
         Get the vector configuration service.
 
@@ -512,7 +511,7 @@ class ServiceProvider:
 
         return self.get_service(VectorConfigServiceProtocol)
 
-    def get_vector_update_service(self):
+    def get_vector_update_service(self) -> VectorUpdateServiceProtocol:
         """
         Get the vector update service.
 
@@ -524,7 +523,7 @@ class ServiceProvider:
 
         return self.get_service(VectorUpdateServiceProtocol)
 
-    def get_batch_vector_update_service(self):
+    def get_batch_vector_update_service(self) -> BatchVectorUpdateServiceProtocol:
         """
         Get the batch vector update service.
 
@@ -536,7 +535,9 @@ class ServiceProvider:
 
         return self.get_service(BatchVectorUpdateServiceProtocol)
 
-    def get_vector_search_service(self, entity_type, table_name, repository=None):
+    def get_vector_search_service(
+        self, entity_type, table_name, repository=None
+    ) -> VectorSearchServiceProtocol:
         """
         Get a vector search service for a specific entity type.
 
@@ -554,7 +555,9 @@ class ServiceProvider:
         factory = self.get_service(VectorSearchServiceFactoryProtocol)
         return factory.create_search_service(entity_type, table_name, repository)
 
-    def get_rag_service(self, vector_search):
+    def get_rag_service(
+        self, vector_search: VectorSearchServiceProtocol
+    ) -> RAGServiceProtocol:
         """
         Get a RAG service using a vector search service.
 
@@ -569,6 +572,7 @@ class ServiceProvider:
 
         factory = self.get_service(RAGServiceFactoryProtocol)
         return factory.create_rag_service(vector_search)
+    '''
 
 
 """
@@ -599,6 +603,7 @@ def get_service_provider() -> ServiceProvider:
         with _service_provider_lock:
             if _service_provider is None:
                 from uno.core.logging.logger import LoggerService, LoggingConfig
+
                 logger = LoggerService(LoggingConfig())
                 _service_provider = ServiceProvider(logger=logger)
     return _service_provider
@@ -615,7 +620,7 @@ def reset_global_service_provider() -> None:
 
 
 # Generic thread-safe singleton pattern for any class (for future use)
-def get_singleton(cls, *args, **kwargs):
+def get_singleton(cls, *args, **kwargs) -> T:
     """
     Generic thread-safe singleton factory for any class.
     Usage: instance = get_singleton(MyClass, ...)
@@ -702,7 +707,14 @@ async def configure_base_services() -> None:
     services = ServiceCollection()
 
     # Register configuration service using DI (no direct uno_settings import)
-    from uno.core.config import general_config, application_config, database_config, security_config, api_config, vector_search_config
+    from uno.core.config import (
+        general_config,
+        application_config,
+        database_config,
+        security_config,
+        api_config,
+        vector_search_config,
+    )
 
     class UnoConfig(ConfigProtocol):
         """Configuration provider implementation."""
@@ -727,11 +739,11 @@ async def configure_base_services() -> None:
     services.add_singleton(ConfigProtocol, UnoConfig)
 
     # Register all config objects as singletons in DI
-    from uno.core.config.general import GeneralConfig
+    from uno.core.config.api import APIConfig
     from uno.core.config.application import ApplicationConfig
     from uno.core.config.database import DatabaseConfig
+    from uno.core.config.general import GeneralConfig
     from uno.core.config.security import SecurityConfig
-    from uno.core.config.api import APIConfig
     from uno.core.config.vector_search import VectorSearchConfig
 
     services.add_singleton(GeneralConfig, general_config)
@@ -752,7 +764,6 @@ async def configure_base_services() -> None:
     # Register database engine and session providers
     register_database_services(services)
 
-
     # Register SQL emitter factory
     from uno.sql.services import SQLEmitterFactoryService
 
@@ -764,14 +775,16 @@ async def configure_base_services() -> None:
         SQLEmitterFactoryService,
         config=UnoConfig(),
         # Use DI-injected LoggerService; downstream must call get_logger("uno.sql") if needed
-    logger=logger_service,
+        logger=logger_service,
     )
 
     # Register SQL execution service
     from uno.sql.services import SQLExecutionService
 
     services.add_singleton(
-        SQLExecutionProtocol, SQLExecutionService, logger=logger_service  # Use DI-injected LoggerService; downstream must call get_logger("uno.sql") if needed
+        SQLExecutionProtocol,
+        SQLExecutionService,
+        logger=logger_service,  # Use DI-injected LoggerService; downstream must call get_logger("uno.sql") if needed
     )
 
     # Register schema manager
@@ -781,7 +794,7 @@ async def configure_base_services() -> None:
         DTOManagerProtocol,
         DTOManagerService,
         # Use DI-injected LoggerService; downstream must call get_logger("uno.schema") if needed
-    logger=logger_service,
+        logger=logger_service,
     )
 
     # Register event bus
@@ -800,8 +813,9 @@ async def configure_base_services() -> None:
     from uno.domain.factory import DomainRegistry
 
     services.add_singleton(
-        DomainRegistry, DomainRegistry, # Use DI-injected LoggerService; downstream must call get_logger("uno.domain") if needed
-    logger=logger_service
+        DomainRegistry,
+        DomainRegistry,  # Use DI-injected LoggerService; downstream must call get_logger("uno.domain") if needed
+        logger=logger_service,
     )
 
     # Configure the service provider
@@ -814,9 +828,7 @@ async def configure_base_services() -> None:
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
-        logger_service.debug(
-            f"Vector search provider not available: {e}"
-        )
+        logger_service.debug(f"Vector search provider not available: {e}")
         pass
 
     # Register queries provider
