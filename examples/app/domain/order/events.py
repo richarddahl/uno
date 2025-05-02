@@ -13,6 +13,7 @@ from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
 from pydantic import ConfigDict
 
+
 class PaymentReceived(DomainEvent):
     # Inherits FrameworkBaseModel via DomainEvent
     """
@@ -99,7 +100,7 @@ class OrderCreated(DomainEvent):
     Usage:
         result = OrderCreated.create(
             order_id="O100",
-            item_id="A100",
+            aggregate_id="A100",
             lot_id="L100",
             vendor_id="V100",
             quantity=Quantity(10),
@@ -114,7 +115,7 @@ class OrderCreated(DomainEvent):
     """
 
     order_id: str
-    item_id: str
+    aggregate_id: str
     lot_id: str
     vendor_id: str
     quantity: Quantity
@@ -127,7 +128,7 @@ class OrderCreated(DomainEvent):
     def create(
         cls,
         order_id: str,
-        item_id: str,
+        aggregate_id: str,
         lot_id: str,
         vendor_id: str,
         quantity: Quantity | Count | float | int,
@@ -144,10 +145,10 @@ class OrderCreated(DomainEvent):
                         "order_id is required", details=get_error_context()
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details=get_error_context()
+                        "aggregate_id is required", details=get_error_context()
                     )
                 )
             if not lot_id:
@@ -199,7 +200,7 @@ class OrderCreated(DomainEvent):
                 )
             event = cls(
                 order_id=order_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
                 quantity=q,

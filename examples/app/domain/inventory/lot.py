@@ -28,7 +28,7 @@ class InventoryLotCreated(DomainEvent):
     Usage:
         result = InventoryLotCreated.create(
             lot_id="123",
-            item_id="A100",
+            aggregate_id="A100",
             quantity=Quantity.from_count(Count.from_each(10)),
             vendor_id="VEND01",
             purchase_price=100.0,
@@ -45,7 +45,7 @@ class InventoryLotCreated(DomainEvent):
     version: ClassVar[int] = 1  # Canonical event version field
 
     lot_id: str
-    item_id: str
+    aggregate_id: str
     vendor_id: str | None = None
     quantity: Quantity
     purchase_price: float | None = None  # If purchased
@@ -68,7 +68,7 @@ class InventoryLotCreated(DomainEvent):
     def create(
         cls,
         lot_id: str,
-        item_id: str,
+        aggregate_id: str,
         quantity: Quantity,
         vendor_id: str | None = None,
         purchase_price: float | None = None,
@@ -82,10 +82,11 @@ class InventoryLotCreated(DomainEvent):
                         "lot_id is required", details={"lot_id": lot_id}
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             if not isinstance(quantity, Quantity):
@@ -97,7 +98,7 @@ class InventoryLotCreated(DomainEvent):
                 )
             event = cls(
                 lot_id=lot_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 quantity=quantity,
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
@@ -212,7 +213,7 @@ class InventoryLotsCombined(DomainEvent):
             source_grades=[Grade("A"), Grade("B")],
             source_vendor_ids=["VEND01", "VEND02"],
             new_lot_id="lot-3",
-            item_id="A100",
+            aggregate_id="A100",
             combined_quantity=Quantity.from_count(Count.from_each(20)),
             blended_grade=Grade("A"),
             blended_vendor_ids=["VEND01", "VEND02"],
@@ -230,7 +231,7 @@ class InventoryLotsCombined(DomainEvent):
     source_grades: list[Grade | None]
     source_vendor_ids: list[str]
     new_lot_id: str
-    item_id: str
+    aggregate_id: str
     combined_quantity: Quantity
     blended_grade: Grade | None
     blended_vendor_ids: list[str]
@@ -251,7 +252,7 @@ class InventoryLotsCombined(DomainEvent):
         source_grades: list[Grade | None],
         source_vendor_ids: list[str],
         new_lot_id: str,
-        item_id: str,
+        aggregate_id: str,
         combined_quantity: Quantity,
         blended_grade: Grade | None,
         blended_vendor_ids: list[str],
@@ -268,10 +269,11 @@ class InventoryLotsCombined(DomainEvent):
                         },
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             if not isinstance(combined_quantity, Quantity):
@@ -286,7 +288,7 @@ class InventoryLotsCombined(DomainEvent):
                 source_grades=source_grades,
                 source_vendor_ids=source_vendor_ids,
                 new_lot_id=new_lot_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 combined_quantity=combined_quantity,
                 blended_grade=blended_grade,
                 blended_vendor_ids=blended_vendor_ids,
@@ -321,7 +323,7 @@ class InventoryLotSplit(DomainEvent):
         result = InventoryLotSplit.create(
             source_lot_id="lot-1",
             new_lot_ids=["lot-2", "lot-3"],
-            item_id="item-xyz",
+            aggregate_id="item-xyz",
             split_quantities=[Quantity.from_count(Count.from_each(5)), Quantity.from_count(Count.from_each(5))],
             reason="customer request"
         )
@@ -343,7 +345,7 @@ class InventoryLotSplit(DomainEvent):
 
     source_lot_id: str
     new_lot_ids: list[str]
-    item_id: str
+    aggregate_id: str
     split_quantities: list[Quantity]
     reason: str | None = None  # v2: Optional explanation for why the lot was split
     version: int = 1  # default to v1 for backward compatibility with tests
@@ -354,7 +356,7 @@ class InventoryLotSplit(DomainEvent):
         cls,
         source_lot_id: str,
         new_lot_ids: list[str],
-        item_id: str,
+        aggregate_id: str,
         split_quantities: list[Quantity],
         reason: str | None = None,
         version: int = 1,
@@ -370,10 +372,11 @@ class InventoryLotSplit(DomainEvent):
                         },
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             if not split_quantities or len(split_quantities) != len(new_lot_ids):
@@ -390,7 +393,7 @@ class InventoryLotSplit(DomainEvent):
             event_kwargs = {
                 "source_lot_id": source_lot_id,
                 "new_lot_ids": new_lot_ids,
-                "item_id": item_id,
+                "aggregate_id": aggregate_id,
                 "split_quantities": split_quantities,
                 "reason": reason,
             }
@@ -469,7 +472,7 @@ EventUpcasterRegistry.register_upcaster(
 
 # --- Aggregate ---
 class InventoryLot(AggregateRoot[str]):
-    item_id: str
+    aggregate_id: str
     vendor_id: str | None = None
     quantity: Quantity
     purchase_price: float | None = None
@@ -481,7 +484,7 @@ class InventoryLot(AggregateRoot[str]):
     def create(
         cls,
         lot_id: str,
-        item_id: str,
+        aggregate_id: str,
         quantity: int | Quantity,
         vendor_id: str | None = None,
         purchase_price: float | None = None,
@@ -493,10 +496,10 @@ class InventoryLot(AggregateRoot[str]):
                         "lot_id is required", details=get_error_context()
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details=get_error_context()
+                        "aggregate_id is required", details=get_error_context()
                     )
                 )
             if isinstance(quantity, int):
@@ -510,14 +513,14 @@ class InventoryLot(AggregateRoot[str]):
                 )
             lot = cls(
                 id=lot_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 quantity=quantity,
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
             )
             event = InventoryLotCreated(
                 lot_id=lot_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 quantity=quantity,
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
@@ -551,7 +554,7 @@ class InventoryLot(AggregateRoot[str]):
 
     def _apply_event(self, event: DomainEvent) -> None:
         if isinstance(event, InventoryLotCreated):
-            self.item_id = event.item_id
+            self.aggregate_id = event.aggregate_id
             self.quantity = event.quantity
             self.vendor_id = event.vendor_id
             self.purchase_price = event.purchase_price
@@ -563,7 +566,7 @@ class InventoryLot(AggregateRoot[str]):
                     Count.from_each(self.quantity.value.value + event.adjustment)
                 )
         elif isinstance(event, InventoryLotsCombined):
-            self.item_id = event.item_id
+            self.aggregate_id = event.aggregate_id
             self.quantity = event.combined_quantity
             self.vendor_id = None
             self.grade = event.blended_grade
@@ -584,7 +587,7 @@ class InventoryLot(AggregateRoot[str]):
                     "Cannot combine a lot with itself", details=get_error_context()
                 )
             )
-        if self.item_id != other.item_id:
+        if self.aggregate_id != other.aggregate_id:
             return Failure(
                 DomainValidationError(
                     "Cannot combine lots with different items",
@@ -628,7 +631,7 @@ class InventoryLot(AggregateRoot[str]):
 
         new_lot = InventoryLot(
             id=new_lot_id,
-            item_id=self.item_id,
+            aggregate_id=self.aggregate_id,
             vendor_id=None,
             quantity=combined_quantity,
             grade=blended_grade,
@@ -639,7 +642,7 @@ class InventoryLot(AggregateRoot[str]):
             source_grades=[self.grade, other.grade],
             source_vendor_ids=source_vendor_ids,
             new_lot_id=new_lot_id,
-            item_id=self.item_id,
+            aggregate_id=self.aggregate_id,
             combined_quantity=combined_quantity,
             blended_grade=blended_grade,
             blended_vendor_ids=list(vendor_ids),
@@ -692,7 +695,7 @@ class InventoryLot(AggregateRoot[str]):
         for qty_obj, lot_id in zip(split_qty_objs, new_lot_ids):
             new_lot = InventoryLot(
                 id=lot_id,
-                item_id=self.item_id,
+                aggregate_id=self.aggregate_id,
                 vendor_id=self.vendor_id,
                 quantity=qty_obj,
                 purchase_price=self.purchase_price,
@@ -702,7 +705,7 @@ class InventoryLot(AggregateRoot[str]):
         event = InventoryLotSplit(
             source_lot_id=self.id,
             new_lot_ids=new_lot_ids,
-            item_id=self.item_id,
+            aggregate_id=self.aggregate_id,
             split_quantities=split_qty_objs,
         )
         for lot in new_lots:

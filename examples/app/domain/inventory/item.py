@@ -22,14 +22,10 @@ class InventoryItemCreated(DomainEvent):
     Event: InventoryItem was created.
     model_config = ConfigDict(frozen=True)
     version: ClassVar[int] = 1  # Canonical event version field
-            "Volume": lambda v: v.model_dump() if hasattr(v, 'model_dump') else v.value if hasattr(v, 'value') else v,
-            "Dimension": lambda d: d.model_dump() if hasattr(d, 'model_dump') else d.value if hasattr(d, 'value') else d,
-        },
-    )
 
     Usage:
         result = InventoryItemCreated.create(
-            item_id="A100",
+            aggregate_id="A100",
             name="Widget",
             quantity=Quantity.from_count(100),
         )
@@ -40,15 +36,19 @@ class InventoryItemCreated(DomainEvent):
             ...
     """
 
-    item_id: str
+    aggregate_id: str
     name: str
     quantity: Quantity
     version: int = 1
 
+    @property
+    def aggregate_id(self) -> str:
+        return self.aggregate_id
+
     @classmethod
     def create(
         cls,
-        item_id: str,
+        aggregate_id: str,
         name: str,
         quantity: int | float | Quantity | Count,
         version: int = 1,
@@ -56,10 +56,11 @@ class InventoryItemCreated(DomainEvent):
         from examples.app.domain.value_objects import Quantity, Count
 
         try:
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             if not name:
@@ -88,7 +89,7 @@ class InventoryItemCreated(DomainEvent):
                     )
                 )
             event = cls(
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 name=name,
                 quantity=q,
                 version=version,
@@ -123,7 +124,7 @@ class InventoryItemRenamed(DomainEvent):
 
     Usage:
         result = InventoryItemRenamed.create(
-            item_id="sku-123",
+            aggregate_id="sku-123",
             new_name="Gadget",
         )
         if isinstance(result, Success):
@@ -133,22 +134,27 @@ class InventoryItemRenamed(DomainEvent):
             ...
     """
 
-    item_id: str
+    aggregate_id: str
     new_name: str
     version: int = 1
+
+    @property
+    def aggregate_id(self) -> str:
+        return self.aggregate_id
 
     @classmethod
     def create(
         cls,
-        item_id: str,
+        aggregate_id: str,
         new_name: str,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         try:
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             if not new_name:
@@ -158,7 +164,7 @@ class InventoryItemRenamed(DomainEvent):
                     )
                 )
             event = cls(
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 new_name=new_name,
                 version=version,
             )
@@ -192,7 +198,7 @@ class InventoryItemAdjusted(DomainEvent):
 
     Usage:
         result = InventoryItemAdjusted.create(
-            item_id="sku-123",
+            aggregate_id="sku-123",
             adjustment=5,
         )
         if isinstance(result, Success):
@@ -202,24 +208,29 @@ class InventoryItemAdjusted(DomainEvent):
             ...
     """
 
-    item_id: str
+    aggregate_id: str
     adjustment: int | float  # delta, can be negative or positive
     version: int = 1
+
+    @property
+    def aggregate_id(self) -> str:
+        return self.aggregate_id
 
     @classmethod
     def create(
         cls,
-        item_id: str,
+        aggregate_id: str,
         adjustment: int | float,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         from examples.app.domain.value_objects import Count
 
         try:
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details={"item_id": item_id}
+                        "aggregate_id is required",
+                        details={"aggregate_id": aggregate_id},
                     )
                 )
             # Accept int, float, or Count
@@ -235,7 +246,7 @@ class InventoryItemAdjusted(DomainEvent):
                     )
                 )
             event = cls(
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 adjustment=adj,
                 version=version,
             )
@@ -272,15 +283,15 @@ class InventoryItem(AggregateRoot[str]):
 
     @classmethod
     def create(
-        cls, item_id: str, name: str, quantity: int | float | Quantity | Count
+        cls, aggregate_id: str, name: str, quantity: int | float | Quantity | Count
     ) -> Result[Self, Exception]:
         from examples.app.domain.value_objects import Count, Quantity
 
         try:
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details=get_error_context()
+                        "aggregate_id is required", details=get_error_context()
                     )
                 )
             if not name:
@@ -309,8 +320,10 @@ class InventoryItem(AggregateRoot[str]):
                         details=get_error_context(),
                     )
                 )
-            item = cls(id=item_id, name=name, quantity=q)
-            event = InventoryItemCreated(item_id=item_id, name=name, quantity=q)
+            item = cls(id=aggregate_id, name=name, quantity=q)
+            event = InventoryItemCreated(
+                aggregate_id=aggregate_id, name=name, quantity=q
+            )
             item._record_event(event)
             return Success(item)
         except Exception as e:
@@ -333,7 +346,7 @@ class InventoryItem(AggregateRoot[str]):
                         "new_name is required", details=get_error_context()
                     )
                 )
-            event = InventoryItemRenamed(item_id=self.id, new_name=new_name)
+            event = InventoryItemRenamed(aggregate_id=self.id, new_name=new_name)
             self._record_event(event)
             return Success(None)
         except Exception as e:
@@ -355,7 +368,7 @@ class InventoryItem(AggregateRoot[str]):
         logger.info(
             {
                 "event": "adjust_quantity_entry",
-                "item_id": self.id,
+                "aggregate_id": self.id,
                 "current_quantity": self.quantity.value.value,
                 "adjustment": adjustment,
                 "adjustment_type": type(adjustment).__name__,
@@ -387,12 +400,12 @@ class InventoryItem(AggregateRoot[str]):
                 )
             # Do NOT mutate self.quantity here!
             # Only record the event; state will be updated in _apply_event
-            event = InventoryItemAdjusted(item_id=self.id, adjustment=adj_value)
+            event = InventoryItemAdjusted(aggregate_id=self.id, adjustment=adj_value)
             self._record_event(event)
             logger.info(
                 {
                     "event": "adjust_quantity_success",
-                    "item_id": self.id,
+                    "aggregate_id": self.id,
                     "new_quantity": self.quantity.value.value + adj_value,
                 }
             )
@@ -447,10 +460,23 @@ class InventoryItem(AggregateRoot[str]):
         from examples.app.domain.value_objects import Quantity
 
         if not self.name or not isinstance(self.name, str):
-            return Failure(DomainValidationError("name must be a non-empty string", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "name must be a non-empty string", details=get_error_context()
+                )
+            )
         if self.quantity is None or not isinstance(self.quantity, Quantity):
-            return Failure(DomainValidationError("quantity must be a Quantity value object", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "quantity must be a Quantity value object",
+                    details=get_error_context(),
+                )
+            )
         if self.quantity.value.value < 0:
-            return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "quantity must be non-negative", details=get_error_context()
+                )
+            )
         # Add more invariants as needed
         return Success(None)

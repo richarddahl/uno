@@ -19,7 +19,7 @@ from examples.app.persistence.order_repository import InMemoryOrderRepository
 
 @pytest.fixture
 def fake_item() -> InventoryItem:
-    result = InventoryItem.create(item_id="item-1", name="Widget", quantity=100)
+    result = InventoryItem.create(aggregate_id="item-1", name="Widget", quantity=100)
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     value = result.unwrap()
     return value
@@ -29,7 +29,7 @@ def fake_item() -> InventoryItem:
 def fake_lot(fake_item: InventoryItem) -> InventoryLot:
     result = InventoryLot.create(
         lot_id="lot-1",
-        item_id=fake_item.id,
+        aggregate_id=fake_item.id,
         quantity=Quantity.from_count(50.0),
         vendor_id="vendor-1",
         purchase_price=10.0,
@@ -45,7 +45,7 @@ def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
 
     result = Order.create(
         order_id="order-1",
-        item_id=fake_item.id,
+        aggregate_id=fake_item.id,
         lot_id=fake_lot.id,
         vendor_id="vendor-1",
         quantity=Quantity.from_count(25.0),
@@ -58,7 +58,7 @@ def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
 
 
 def test_inventory_lot_creation(fake_lot: InventoryLot) -> None:
-    assert fake_lot.item_id == "item-1"
+    assert fake_lot.aggregate_id == "item-1"
     assert fake_lot.vendor_id == "vendor-1"
     assert fake_lot.quantity.type == "count"
     assert fake_lot.quantity.value.value == 50.0
@@ -66,7 +66,7 @@ def test_inventory_lot_creation(fake_lot: InventoryLot) -> None:
     assert fake_lot.purchase_price == 10.0
     # Canonical serialization
     data = fake_lot.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
-    assert data["item_id"] == "item-1"
+    assert data["aggregate_id"] == "item-1"
     assert data["vendor_id"] == "vendor-1"
     # Quantity is a dict with 'type' and 'value' (which is a dict for Count)
     qval = data["quantity"]
@@ -100,7 +100,7 @@ def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -
 
     fake_lot._domain_events[0] = InventoryLotCreated(
         lot_id=fake_lot.id,
-        item_id=fake_lot.item_id,
+        aggregate_id=fake_lot.aggregate_id,
         vendor_id=fake_lot.vendor_id,
         quantity=Quantity.from_count(999.0),  # tampered value
         purchase_price=fake_lot.purchase_price,
@@ -111,7 +111,7 @@ def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -
 def test_order_creation(fake_order: Order) -> None:
     from examples.app.domain.value_objects import Quantity, Money
 
-    assert fake_order.item_id == "item-1"
+    assert fake_order.aggregate_id == "item-1"
     assert fake_order.lot_id == "lot-1"
     assert fake_order.vendor_id == "vendor-1"
     assert isinstance(fake_order.quantity, Quantity)
@@ -121,7 +121,7 @@ def test_order_creation(fake_order: Order) -> None:
     assert fake_order.order_type == "sale"
     # Canonical serialization
     data = fake_order.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
-    assert data["item_id"] == "item-1"
+    assert data["aggregate_id"] == "item-1"
     assert data["lot_id"] == "lot-1"
     assert data["vendor_id"] == "vendor-1"
     assert data["quantity"]["value"]["value"] == 25.0
@@ -138,7 +138,7 @@ def test_order_replay_restores_value_objects(fake_order: Order) -> None:
     events = [
         OrderCreated(
             order_id=fake_order.id,
-            item_id=fake_order.item_id,
+            aggregate_id=fake_order.aggregate_id,
             lot_id=fake_order.lot_id,
             vendor_id=fake_order.vendor_id,
             quantity=Quantity.from_count(25.0),
@@ -173,7 +173,9 @@ def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
     tampered_order = repo._orders[fake_order.id]
     events = list(getattr(tampered_order, "_domain_events", []))
     first_event = events[0]
-    tampered_event = first_event.model_copy(update={"quantity": Quantity.from_count(999.0)})
+    tampered_event = first_event.model_copy(
+        update={"quantity": Quantity.from_count(999.0)}
+    )
     events[0] = tampered_event
     setattr(tampered_order, "_domain_events", events)
     assert not repo.verify_integrity(fake_order.id)  # Should now fail

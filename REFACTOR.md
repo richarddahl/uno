@@ -73,7 +73,8 @@ All API endpoints and service methods must now use the Result monad (`Success`/`
 
 ### Migration Guide: Endpoint Error Handling
 
-#### Before (legacy pattern):
+#### Before (legacy pattern)
+
 ```python
 @app.get("/resource/{id}")
 def get_resource(id: str):
@@ -83,7 +84,8 @@ def get_resource(id: str):
     return item
 ```
 
-#### After (Result-based pattern):
+#### After (Result-based pattern)
+
 ```python
 @app.get("/resource/{id}")
 def get_resource(id: str):
@@ -99,6 +101,7 @@ def get_resource(id: str):
 - Imports must be sorted, deduplicated, and unused imports removed.
 
 ### Example: Modernized Vendor Endpoint
+
 ```python
 @app.get("/vendors/{vendor_id}", response_model=VendorDTO)
 def get_vendor(vendor_id: str) -> VendorDTO:
@@ -110,12 +113,14 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 ```
 
 ### Complexity & Import Cleanup
+
 - Remove all unused DTO, domain, and error imports
 - Remove unused local variables and logger setup if not used by endpoints
 - Ensure import block is sorted and formatted
 - Remove duplicate or shadowed imports at the bottom of the file
 
 ### Checklist for Future Endpoint Modernization
+
 - [x] Use Result-based error handling for all repository/service calls
 - [x] Raise HTTPException only at API boundary, using error context from Failure
 - [x] Use Pydantic v2 and modern type hints for all DTOs
@@ -146,13 +151,18 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 - [x] VendorEmailUpdated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
 - [x] VendorCreated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
 - [x] Implement canonical event serialization (strict, versioned)
-- [ ] Implement event upcasting and migration registry
-- [ ] Implement snapshotting (pluggable, strategy-driven)
+- [x] Implement event upcasting and migration registry  
+  - EventUpcasterRegistry and versioned upcasting are implemented in uno.core.events.base_event and used in event classes (see InventoryLotSplit, inventory_upcasting.py for usage examples).
+- [x] Implement snapshotting (pluggable, strategy-driven)  
+  - Snapshotting is implemented in uno.core.events.snapshots with pluggable strategies and store interfaces (see EventCountSnapshotStrategy, TimeBasedSnapshotStrategy, CompositeSnapshotStrategy, SnapshotStore).
+
 - [ ] Complete event store integrations (in-memory, Postgres, etc.)
 - [ ] Ensure all event replay logic reconstructs correct types (aggregate, value object, event)
 - [ ] Add event store roundtrip and error propagation tests
 - [ ] Document canonical event tampering/testing patterns for Uno users
+    - Document how to mutate aggregates and events for test purposes using Uno idioms.
 - [ ] Add note about logging output in tests and how to suppress if needed (pytest caplog, logging config)
+    - Ensure all test logs are suppressible/configurable for CI environments.
 
 - [ ] Implement or stub `uno.sql` for Postgres event store tests, or update tests to skip if not available
 
@@ -399,8 +409,11 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 ### 2. Event Sourcing Infrastructure
 
 - [ ] Implement canonical event serialization (strict, versioned)
-- [ ] Implement event upcasting and migration registry
-- [ ] Implement snapshotting (pluggable, strategy-driven)
+- [x] Implement event upcasting and migration registry  
+  - EventUpcasterRegistry and versioned upcasting are implemented in uno.core.events.base_event and used in event classes (see InventoryLotSplit, inventory_upcasting.py for usage examples).
+- [x] Implement snapshotting (pluggable, strategy-driven)  
+  - Snapshotting is implemented in uno.core.events.snapshots with pluggable strategies and store interfaces (see EventCountSnapshotStrategy, TimeBasedSnapshotStrategy, CompositeSnapshotStrategy, SnapshotStore).
+
 - [ ] Complete event store integrations (in-memory, Postgres, etc.)
 - [ ] Ensure all event replay logic reconstructs correct types (aggregate, value object, event)
 - [ ] Add event store roundtrip and error propagation tests

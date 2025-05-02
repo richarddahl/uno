@@ -12,10 +12,10 @@ def test_create_success():
     assert item.quantity.value.value == 10
 
 
-def test_create_missing_item_id():
+def test_create_missing_aggregate_id():
     result = InventoryItem.create("", "Widget", 10)
     assert isinstance(result, Failure)
-    assert "item_id is required" in str(result.error)
+    assert "aggregate_id is required" in str(result.error)
     assert result.error is not None
     assert getattr(result.error, "details", None) is not None
 

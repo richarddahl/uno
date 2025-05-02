@@ -46,7 +46,7 @@ class Order(Entity[str]):
 
         dummy = cls(
             id=id,
-            item_id="PLACEHOLDER",
+            aggregate_id="PLACEHOLDER",
             lot_id="PLACEHOLDER",
             vendor_id="PLACEHOLDER",
             quantity=Quantity.from_count(0),
@@ -57,7 +57,7 @@ class Order(Entity[str]):
             dummy._apply_event(event)
         return dummy
 
-    item_id: str
+    aggregate_id: str
     lot_id: str
     vendor_id: str
     quantity: Quantity
@@ -74,7 +74,7 @@ class Order(Entity[str]):
     def create(
         cls,
         order_id: str,
-        item_id: str,
+        aggregate_id: str,
         lot_id: str,
         vendor_id: str,
         quantity: Quantity | Count | float | int,
@@ -90,10 +90,10 @@ class Order(Entity[str]):
                         "order_id is required", details=get_error_context()
                     )
                 )
-            if not item_id:
+            if not aggregate_id:
                 return Failure(
                     DomainValidationError(
-                        "item_id is required", details=get_error_context()
+                        "aggregate_id is required", details=get_error_context()
                     )
                 )
             if not lot_id:
@@ -138,7 +138,7 @@ class Order(Entity[str]):
                 )
             order = cls(
                 id=order_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
                 quantity=q,
@@ -147,7 +147,7 @@ class Order(Entity[str]):
             )
             event = OrderCreated(
                 order_id=order_id,
-                item_id=item_id,
+                aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
                 quantity=q,
@@ -183,7 +183,7 @@ class Order(Entity[str]):
         if isinstance(event, OrderCreated):
             # All field assignments here use object.__setattr__ to bypass Pydantic's frozen model restriction.
             # This is intentional and safe ONLY for event replay/rehydration.
-            object.__setattr__(self, "item_id", event.item_id)
+            object.__setattr__(self, "aggregate_id", event.aggregate_id)
             object.__setattr__(self, "lot_id", event.lot_id)
             object.__setattr__(self, "vendor_id", event.vendor_id)
             # Accept Quantity, Count, int, float for replay
@@ -228,15 +228,38 @@ class Order(Entity[str]):
         from examples.app.domain.value_objects import Money, Quantity
 
         if self.quantity is None or not isinstance(self.quantity, Quantity):
-            return Failure(DomainValidationError("quantity must be a Quantity value object", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "quantity must be a Quantity value object",
+                    details=get_error_context(),
+                )
+            )
         if self.quantity.value.value < 0:
-            return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "quantity must be non-negative", details=get_error_context()
+                )
+            )
         if self.price is None or not isinstance(self.price, Money):
-            return Failure(DomainValidationError("price must be a Money value object", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "price must be a Money value object", details=get_error_context()
+                )
+            )
         if self.order_type not in ("purchase", "sale"):
-            return Failure(DomainValidationError(f"order_type must be 'purchase' or 'sale', got {self.order_type}", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    f"order_type must be 'purchase' or 'sale', got {self.order_type}",
+                    details=get_error_context(),
+                )
+            )
         if self.is_fulfilled and self.is_cancelled:
-            return Failure(DomainValidationError("Order cannot be both fulfilled and cancelled", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "Order cannot be both fulfilled and cancelled",
+                    details=get_error_context(),
+                )
+            )
         # Add more invariants as needed
         return Success(None)
 

@@ -1,6 +1,7 @@
 """
 Tests for Order aggregate event replay and round-trip serialization.
 """
+
 import pytest
 from examples.app.domain.order.order import Order
 from examples.app.domain.order.events import OrderCreated, OrderFulfilled
@@ -8,12 +9,13 @@ from examples.app.domain.value_objects import Quantity, Money, Currency
 from examples.app.domain.value_objects import Count
 from uno.core.errors.result import Success
 
+
 @pytest.fixture
 def order_events():
     return [
         OrderCreated(
             order_id="O1",
-            item_id="I1",
+            aggregate_id="I1",
             lot_id="L1",
             vendor_id="V1",
             quantity=Quantity.from_count(10),
@@ -21,8 +23,8 @@ def order_events():
             order_type="purchase",
         ),
         OrderFulfilled(order_id="O1", fulfilled_quantity=10),
-
     ]
+
 
 def test_order_replay_from_events(order_events):
     order = Order.replay_from_events("O1", order_events)

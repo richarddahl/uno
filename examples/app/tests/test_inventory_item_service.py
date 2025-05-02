@@ -20,8 +20,8 @@ class FakeInventoryItemRepository(InventoryItemRepository):
     def __init__(self):
         self._items = {}
 
-    def get(self, item_id: str):
-        item = self._items.get(item_id)
+    def get(self, aggregate_id: str):
+        item = self._items.get(aggregate_id)
         if item:
             return Success(item)
         return Failure(Exception("not found"))
@@ -65,7 +65,7 @@ def test_create_inventory_item_duplicate(service: InventoryItemService) -> None:
     assert "already exists" in str(result.error)
     # Error context details
     assert getattr(result.error, "details", None)
-    assert result.error.details["item_id"] == "sku-1"
+    assert result.error.details["aggregate_id"] == "sku-1"
     assert (
         result.error.details["service"] == "InventoryItemService.create_inventory_item"
     )
@@ -76,7 +76,7 @@ def test_create_inventory_item_invalid(service: InventoryItemService) -> None:
     assert isinstance(result, Failure)
     # Accept either DomainValidationError or other error, but check for context if present
     if isinstance(result.error, DomainValidationError):
-        assert result.error.details["item_id"] == "sku-2"
+        assert result.error.details["aggregate_id"] == "sku-2"
         assert (
             result.error.details["service"]
             == "InventoryItemService.create_inventory_item"
@@ -97,7 +97,7 @@ def test_rename_inventory_item_not_found(service: InventoryItemService) -> None:
     assert isinstance(result, Failure)
     # Check error context details if present
     if isinstance(result.error, DomainValidationError):
-        assert result.error.details["item_id"] == "sku-404"
+        assert result.error.details["aggregate_id"] == "sku-404"
         assert (
             result.error.details["service"]
             == "InventoryItemService.rename_inventory_item"
@@ -112,7 +112,7 @@ def test_rename_inventory_item_invalid(service: InventoryItemService) -> None:
     assert isinstance(result, Failure)
     # Accept either DomainValidationError or other error, but check for context if present
     if isinstance(result.error, DomainValidationError):
-        assert result.error.details["item_id"] == "sku-4"
+        assert result.error.details["aggregate_id"] == "sku-4"
         assert (
             result.error.details["service"]
             == "InventoryItemService.rename_inventory_item"
@@ -152,7 +152,7 @@ def test_adjust_inventory_quantity_invalid(service) -> None:
     assert isinstance(result, Failure)
     # Accept either DomainValidationError or other error, but check for context if present
     if isinstance(result.error, DomainValidationError):
-        assert result.error.details["item_id"] == "sku-7"
+        assert result.error.details["aggregate_id"] == "sku-7"
         assert (
             result.error.details["service"]
             == "InventoryItemService.adjust_inventory_quantity"
@@ -166,7 +166,7 @@ def test_adjust_inventory_quantity_not_found(service) -> None:
     assert isinstance(result, Failure)
     # Check error context details if present
     if isinstance(result.error, DomainValidationError):
-        assert result.error.details["item_id"] == "sku-404"
+        assert result.error.details["aggregate_id"] == "sku-404"
         assert (
             result.error.details["service"]
             == "InventoryItemService.adjust_inventory_quantity"

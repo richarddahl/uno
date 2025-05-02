@@ -182,13 +182,25 @@ class InMemoryEventStore(EventStore[E]):
             # Apply filters
             filtered_events = all_events
             
+            # Filter by aggregate_id if provided
             if aggregate_id:
                 filtered_events = [e for e in filtered_events 
-                                 if getattr(e, "aggregate_id", None) == aggregate_id]
-            
+                                  if getattr(e, "aggregate_id", None) == aggregate_id]
+                self.logger.structured_log(
+                    "DEBUG",
+                    f"After aggregate_id filter '{aggregate_id}': {[getattr(e, 'event_type', None) for e in filtered_events]}",
+                    name="uno.events.inmem"
+                )
+
+            # Filter by event_type if provided (ensure string match, event_type may be class property)
             if event_type:
                 filtered_events = [e for e in filtered_events 
-                                 if getattr(e, "event_type", None) == event_type]
+                                  if (getattr(e, "event_type", None) == event_type or type(e).__name__ == event_type)]
+                self.logger.structured_log(
+                    "DEBUG",
+                    f"After event_type filter '{event_type}': {[type(e).__name__ for e in filtered_events]}",
+                    name="uno.events.inmem"
+                )
             
             if since_version is not None:
                 filtered_events = [e for e in filtered_events 

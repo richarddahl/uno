@@ -25,7 +25,9 @@ class InMemoryInventoryItemRepository:
         self._logger = logger
         self._logger.debug("InMemoryInventoryItemRepository initialized.")
 
-    def save(self, item: InventoryItem | Success | Failure) -> Success[None, None] | Failure[None, Exception]:
+    def save(
+        self, item: InventoryItem | Success | Failure
+    ) -> Success[None, None] | Failure[None, Exception]:
         # Unwrap Result if needed
         if hasattr(item, "unwrap"):
             try:
@@ -43,27 +45,27 @@ class InMemoryInventoryItemRepository:
         return Success(None)
 
     def get(
-        self, item_id: str
+        self, aggregate_id: str
     ) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
-        events = self._events.get(item_id)
+        events = self._events.get(aggregate_id)
         if not events:
-            self._logger.warning(f"InventoryItem not found: {item_id}")
-            return Failure(InventoryItemNotFoundError(item_id))
+            self._logger.warning(f"InventoryItem not found: {aggregate_id}")
+            return Failure(InventoryItemNotFoundError(aggregate_id))
         item = None
         for event in events:
             if isinstance(event, InventoryItemCreated):
                 item = InventoryItem(
-                    id=event.item_id, name=event.name, quantity=event.quantity
+                    id=event.aggregate_id, name=event.name, quantity=event.quantity
                 )
             elif isinstance(event, InventoryItemRenamed) and item:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:
                 item.quantity += event.adjustment
-        self._logger.debug(f"Fetched inventory item: {item_id}")
+        self._logger.debug(f"Fetched inventory item: {aggregate_id}")
         if item is not None:
             return Success(item)
         else:
-            return Failure(InventoryItemNotFoundError(item_id))
+            return Failure(InventoryItemNotFoundError(aggregate_id))
 
     def all_ids(self) -> list[str]:
         ids = list(self._events.keys())

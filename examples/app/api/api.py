@@ -10,7 +10,9 @@ from pydantic import BaseModel, Field
 
 from examples.app.api.dtos import InventoryItemDTO
 from examples.app.api.vendor_dtos import VendorDTO
-from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
+from examples.app.persistence.inventory_item_repository_protocol import (
+    InventoryItemRepository,
+)
 from examples.app.persistence.repository import InMemoryInventoryItemRepository
 from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
@@ -78,7 +80,7 @@ def app_factory() -> FastAPI:
             InventoryItemService
         ).value
         result = inventory_item_service.create_inventory_item(
-            item_id=data.id, name=data.name, quantity=data.quantity
+            aggregate_id=data.id, name=data.name, quantity=data.quantity
         )
         if isinstance(result, Failure):
             error = result.error
@@ -88,8 +90,12 @@ def app_factory() -> FastAPI:
                 raise HTTPException(status_code=409, detail=str(error))
             raise HTTPException(status_code=422, detail=str(error))
         item = result.unwrap()
-                # Extract primitive int value from Quantity value object for DTO
-        qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
+        # Extract primitive int value from Quantity value object for DTO
+        qty = (
+            item.quantity.value.value
+            if hasattr(item.quantity, "value") and hasattr(item.quantity.value, "value")
+            else int(item.quantity)
+        )
         dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
         return dto
 
@@ -111,15 +117,19 @@ def app_factory() -> FastAPI:
         return dto
 
     @app.get(
-        "/inventory/{item_id}", tags=["inventory"], response_model=InventoryItemDTO
+        "/inventory/{aggregate_id}", tags=["inventory"], response_model=InventoryItemDTO
     )
-    def get_inventory_item(item_id: str) -> InventoryItemDTO:
-        result = repo.get(item_id)
+    def get_inventory_item(aggregate_id: str) -> InventoryItemDTO:
+        result = repo.get(aggregate_id)
         if isinstance(result, Failure):
             raise result.error
         item = result.unwrap()
         # Extract primitive int value from Quantity value object for DTO
-        qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
+        qty = (
+            item.quantity.value.value
+            if hasattr(item.quantity, "value") and hasattr(item.quantity.value, "value")
+            else int(item.quantity)
+        )
         dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
         return dto
 

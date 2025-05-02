@@ -12,8 +12,8 @@ from examples.app.domain.inventory import InventoryLot
 from examples.app.domain.value_objects import Quantity, Count, CountUnit
 
 
-def make_lot(lot_id: str, item_id: str, quantity: float) -> InventoryLot:
-    result = InventoryLot.create(lot_id, item_id, Quantity.from_count(quantity))
+def make_lot(lot_id: str, aggregate_id: str, quantity: float) -> InventoryLot:
+    result = InventoryLot.create(lot_id, aggregate_id, Quantity.from_count(quantity))
     assert isinstance(result, Success)
     return result.value
 
@@ -25,7 +25,7 @@ def test_combine_success() -> None:
     assert isinstance(result, Success)
     combined = result.value
     assert combined.id == "lot3"
-    assert combined.item_id == "corn"
+    assert combined.aggregate_id == "corn"
     assert combined.quantity.type == "count"
     assert combined.quantity.value == Count(value=300.0, unit=CountUnit.EACH)
     # Vendor and price should be None (blended)
@@ -75,7 +75,9 @@ def test_combine_with_grades_and_vendors() -> None:
     if hasattr(event, "blended_vendor_ids"):
         assert set(event.blended_vendor_ids) == {"vendorA", "vendorB"}
     # Blending is traceable in both lot and event
-    assert combined.grade is not None and (not hasattr(event, "blended_grade") or event.blended_grade is not None)
+    assert combined.grade is not None and (
+        not hasattr(event, "blended_grade") or event.blended_grade is not None
+    )
     if hasattr(event, "blended_grade"):
         assert combined.grade.value == event.blended_grade.value
     if hasattr(event, "blended_vendor_ids"):

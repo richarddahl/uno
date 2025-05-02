@@ -18,32 +18,32 @@ from uno.core.errors.result import Failure, Success
 
 def test_inventory_item_created_create_success() -> None:
     result = InventoryItemCreated.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         name="Widget",
         quantity=10,
     )
     assert isinstance(result, Success)
     event = result.value
-    assert event.item_id == "sku-123"
+    assert event.aggregate_id == "sku-123"
     assert event.name == "Widget"
     assert event.quantity.value.value == 10
     assert event.version == 1
 
 
-def test_inventory_item_created_create_failure_missing_item_id() -> None:
+def test_inventory_item_created_create_failure_missing_aggregate_id() -> None:
     result = InventoryItemCreated.create(
-        item_id="",
+        aggregate_id="",
         name="Widget",
         quantity=10,
     )
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
-    assert "item_id" in result.error.details
+    assert "aggregate_id" in result.error.details
 
 
 def test_inventory_item_created_create_failure_missing_name() -> None:
     result = InventoryItemCreated.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         name="",
         quantity=10,
     )
@@ -54,7 +54,7 @@ def test_inventory_item_created_create_failure_missing_name() -> None:
 
 def test_inventory_item_created_create_failure_invalid_quantity() -> None:
     result = InventoryItemCreated.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         name="Widget",
         quantity=-1,
     )
@@ -65,7 +65,7 @@ def test_inventory_item_created_create_failure_invalid_quantity() -> None:
 
 def test_inventory_item_created_upcast_identity() -> None:
     result = InventoryItemCreated.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         name="Widget",
         quantity=10,
     )
@@ -78,7 +78,7 @@ def test_inventory_item_created_upcast_identity() -> None:
 
 def test_inventory_item_created_upcast_unimplemented() -> None:
     result = InventoryItemCreated.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         name="Widget",
         quantity=10,
     )
@@ -93,29 +93,29 @@ def test_inventory_item_created_upcast_unimplemented() -> None:
 
 def test_inventory_item_adjusted_create_success() -> None:
     result = InventoryItemAdjusted.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         adjustment=5,
     )
     assert isinstance(result, Success)
     event = result.value
-    assert event.item_id == "sku-123"
+    assert event.aggregate_id == "sku-123"
     assert event.adjustment == 5
     assert event.version == 1
 
 
-def test_inventory_item_adjusted_create_failure_missing_item_id() -> None:
+def test_inventory_item_adjusted_create_failure_missing_aggregate_id() -> None:
     result = InventoryItemAdjusted.create(
-        item_id="",
+        aggregate_id="",
         adjustment=5,
     )
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
-    assert "item_id" in result.error.details
+    assert "aggregate_id" in result.error.details
 
 
 def test_inventory_item_adjusted_create_failure_invalid_adjustment() -> None:
     result = InventoryItemAdjusted.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         adjustment="not-an-int",
     )
     assert isinstance(result, Failure)
@@ -125,7 +125,7 @@ def test_inventory_item_adjusted_create_failure_invalid_adjustment() -> None:
 
 def test_inventory_item_adjusted_upcast_identity() -> None:
     result = InventoryItemAdjusted.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         adjustment=5,
     )
     assert isinstance(result, Success)
@@ -137,7 +137,7 @@ def test_inventory_item_adjusted_upcast_identity() -> None:
 
 def test_inventory_item_adjusted_upcast_unimplemented() -> None:
     result = InventoryItemAdjusted.create(
-        item_id="sku-123",
+        aggregate_id="sku-123",
         adjustment=5,
     )
     assert isinstance(result, Success)
