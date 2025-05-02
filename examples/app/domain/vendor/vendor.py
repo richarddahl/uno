@@ -114,3 +114,19 @@ class Vendor(AggregateRoot[str]):
             self.contact_email = EmailAddress(value=event.contact_email)
         else:
             raise ValueError(f"Unsupported event type: {type(event)}")
+
+    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+        """
+        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
+        """
+        from uno.core.errors.result import Success, Failure
+        from uno.core.errors.definitions import DomainValidationError
+        from uno.core.errors.base import get_error_context
+        from examples.app.domain.value_objects import EmailAddress
+
+        if not self.name or not isinstance(self.name, str):
+            return Failure(DomainValidationError("name must be a non-empty string", details=get_error_context()))
+        if not self.contact_email or not isinstance(self.contact_email, EmailAddress):
+            return Failure(DomainValidationError("contact_email must be an EmailAddress value object", details=get_error_context()))
+        # Add more invariants as needed
+        return Success(None)

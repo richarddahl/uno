@@ -25,6 +25,13 @@ from uno.core.errors.result import Failure, Success
 
 
 class Order(Entity[str]):
+    """
+    Order aggregate root.
+
+    Note: to_dict() is always canonical and contract-compliant (see Uno DDD base classes).
+    Use to_dict() for all serialization needs.
+    """
+
     @classmethod
     def replay_from_events(cls, id: str, events: list[DomainEvent]) -> "Order":
         """
@@ -36,6 +43,7 @@ class Order(Entity[str]):
             Direct mutation is only permitted in this tightly controlled context; all other code should treat the model as immutable.
         """
         from examples.app.domain.value_objects import Quantity, Money, Currency
+
         dummy = cls(
             id=id,
             item_id="PLACEHOLDER",
@@ -59,13 +67,8 @@ class Order(Entity[str]):
     is_cancelled: bool = False
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
-    def to_canonical_dict(self) -> dict:
-        """
-        Return a JSON-serializable dict using Uno's canonical contract.
-        """
-        return self.model_dump(
-            mode="json", exclude_none=True, exclude_unset=True, by_alias=True
-        )
+    # Note: to_dict() is always canonical and contract-compliant (see Uno DDD base classes).
+    # No need for a separate to_dict. Use to_dict() for all serialization needs.
 
     @classmethod
     def create(
@@ -187,18 +190,24 @@ class Order(Entity[str]):
             if isinstance(event.quantity, Quantity):
                 object.__setattr__(self, "quantity", event.quantity)
             elif isinstance(event.quantity, Count | int | float):
-                object.__setattr__(self, "quantity", Quantity.from_count(event.quantity))
+                object.__setattr__(
+                    self, "quantity", Quantity.from_count(event.quantity)
+                )
             else:
                 raise DomainValidationError(
                     "Invalid quantity type for replay", details=get_error_context()
                 )
-            object.__setattr__(self, "price", (
-                event.price
-                if isinstance(event.price, Money)
-                else Money.from_value(
-                    event.price, currency=getattr(event.price, "currency", "USD")
-                ).unwrap()
-            ))
+            object.__setattr__(
+                self,
+                "price",
+                (
+                    event.price
+                    if isinstance(event.price, Money)
+                    else Money.from_value(
+                        event.price, currency=getattr(event.price, "currency", "USD")
+                    ).unwrap()
+                ),
+            )
             object.__setattr__(self, "order_type", event.order_type)
         elif isinstance(event, OrderFulfilled):
             object.__setattr__(self, "is_fulfilled", True)
@@ -208,5 +217,27 @@ class Order(Entity[str]):
             raise DomainValidationError(
                 f"Unhandled event: {event}", details=get_error_context()
             )
+
+    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+        """
+        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
+        """
+        from uno.core.errors.result import Success, Failure
+        from uno.core.errors.definitions import DomainValidationError
+        from uno.core.errors.base import get_error_context
+        from examples.app.domain.value_objects import Money, Quantity
+
+        if self.quantity is None or not isinstance(self.quantity, Quantity):
+            return Failure(DomainValidationError("quantity must be a Quantity value object", details=get_error_context()))
+        if self.quantity.value.value < 0:
+            return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+        if self.price is None or not isinstance(self.price, Money):
+            return Failure(DomainValidationError("price must be a Money value object", details=get_error_context()))
+        if self.order_type not in ("purchase", "sale"):
+            return Failure(DomainValidationError(f"order_type must be 'purchase' or 'sale', got {self.order_type}", details=get_error_context()))
+        if self.is_fulfilled and self.is_cancelled:
+            return Failure(DomainValidationError("Order cannot be both fulfilled and cancelled", details=get_error_context()))
+        # Add more invariants as needed
+        return Success(None)
 
     # Canonical serialization already handled by AggregateRoot/Entity base

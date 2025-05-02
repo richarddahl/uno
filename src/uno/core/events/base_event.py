@@ -32,14 +32,14 @@ def uno_json_encoder(obj: Any) -> Any:
     if isinstance(obj, decimal.Decimal):
         return float(obj)
     if isinstance(obj, FrameworkBaseModel):
-        if hasattr(obj, "to_canonical_dict") and callable(obj.to_canonical_dict):
-            return obj.to_canonical_dict()
+        if hasattr(obj, "to_dict") and callable(obj.to_dict):
+            return obj.to_dict()
         return obj.model_dump(mode="json", exclude_none=True, exclude_unset=True, by_alias=True)
-    if hasattr(obj, "to_canonical_dict") and callable(obj.to_canonical_dict):
-        return obj.to_canonical_dict()
+    if hasattr(obj, "to_dict") and callable(obj.to_dict):
+        return obj.to_dict()
     if hasattr(obj, "__dict__"):
         return obj.__dict__
-    raise RuntimeError(f"Object of type {type(obj)} is not JSON serializable. Implement to_canonical_dict or inherit FrameworkBaseModel.")
+    raise RuntimeError(f"Object of type {type(obj)} is not JSON serializable. Implement to_dict or inherit FrameworkBaseModel.")
 
 
 class DomainEvent(FrameworkBaseModel):

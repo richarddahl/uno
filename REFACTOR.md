@@ -1,52 +1,213 @@
 # Uno Refactor & Migration Master Plan
 
-_Last updated: 2025-04-29_
+_Last updated: 2025-05-02_
 
 **THIS IS THE CANONICAL REFACTOR PLAN FOR UNO.**
-All progress, architectural decisions, and implementation notes for domain-driven design (DDD), event sourcing, and all related refactorization must be tracked here. Do not use or update any other plan/checklist files. This file supersedes all previous event sourcing or DDD plans (including EVENT_REFACTOR_PLAN.md).
+All progress, architectural decisions, and implementation notes for domain-driven design (DDD), event sourcing, and all related refactorization must be tracked here. This file supersedes all previous event sourcing or DDD plans.
 
 ---
 
-## Next Focus
-- [x] Refactor service layer for Result/Failure, error context propagation, and repository protocols (done)
-- [x] Complete DI integration for API/services using repository protocols (done)
-- [x] All API/service tests pass (done)
-- [ ] Fix or skip event store tests that require uno.sql (infra dependency)
-- [ ] Sweep for Pydantic v2 and type hint modernization
-- [ ] Address remaining lint/type warnings
-- [ ] Finalize and publish documentation/migration guide
+## 1. Executive Summary
+
+Uno is undergoing a comprehensive modernization and refactor to ensure:
+
+- Full Result monad-based error handling and context propagation
+- Strict dependency injection (DI) for all logging, config, and infrastructure
+- Pydantic v2 compliance and modern Python 3.13+ idioms throughout
+- Robust event sourcing, domain-driven design, and modularity
+- Complete, actionable documentation and test coverage
 
 ---
 
-### Status Update (2025-04-29)
-- InventoryLotCreated, InventoryLotsCombined, and InventoryLotSplit events refactored to use Result-based construction, error context propagation, versioning, upcast methods, and have full test coverage (success, failure, upcast).
-- Domain event modernization pattern established (see InventoryLotAdjusted, InventoryLotCreated, InventoryLotsCombined, and InventoryLotSplit).
-- Core logging, config, CLI, and DI integration now use Result/Failure and error context propagation.
-- All CLI commands robust against config errors (no exceptions leak to user).
-- Test suite: all core/CLI/DI tests pass. Remaining failures are due to missing uno.sql (event store infra).
-- Lint/type warnings remain; Pydantic v2 and type hint sweep still needed.
-- Next: finalize infra error context, uno.sql/test handling, and publish migration guide.
+## 2. Progress Snapshot
 
-#### Progress Update (2025-04-29)
-- **All core domain events (Order, Vendor, Inventory, and cross-domain) have been refactored for:**
-    - Result-based construction (Success/Failure)
-    - Error context propagation
-    - Versioning and upcasting support
-    - Pydantic v2 compliance and type hint modernization
-    - Usage docstrings/examples
-- **Comprehensive tests** for event creation, error paths, and upcasting are present for all refactored events.
-- **Blockers:** Only infra/uno.sql-dependent event store tests remain as known blockers; all domain/service tests pass.
+- All core domain events (Inventory, Order, Vendor, etc.) are refactored for Result-based construction, error context, versioning, and Pydantic v2
+- Service layer and CLI are DI-compliant and propagate error context
+- Most core and middleware logging is DI-injected, structured, and tested
+- Remaining blockers: uno.sql-dependent event store tests, infra error context propagation, full documentation/testing sweep
 
-#### Next Steps (as of 2025-04-29)
-1. **Bounded Contexts:**
-    - Begin modularizing domain packages to support bounded contexts.
-    - Document context boundaries and integration patterns.
-2. **Infra Error Context & Logging:**
-    - Sweep all infrastructure/integration modules for Result/Failure, error context propagation, and strict DI logging.
-    - Fix or skip uno.sql-dependent infra tests (use pytest.skip if uno.sql unavailable).
+---
+
+## 3. Master Refactor Checklist
+
+### 3.1 Core Architecture (DI, Logging, Config)
+
+- [x] Migrate all core services, middleware, and event infra to DI-injected LoggerService (no global loggers)
+- [x] Remove all legacy/global/fallback logger usage (except DI bootstrap exception)
+- [ ] Migrate all remaining infra/event modules/utilities to strict DI logging
+- [ ] Complete DI integration tests and performance benchmarks
+- [ ] Expose LoggingConfigService via admin/CLI
+- [ ] Finalize and publish DI/logging migration guide
+
+### 3.2 Domain & Events
+
+- [x] Refactor all aggregate roots, value objects, and domain events for Result-based construction, error context propagation, versioning/upcasting, and Pydantic v2
+- [ ] Modernize remaining events (Order, Vendor, Payment, etc.) for Result-based construction, error context, versioning/upcasting, and Pydantic v2 idioms
+- [ ] Finalize value object/DTO replay consistency for all aggregates
+- [ ] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts)
+- [ ] Expand/complete error/upcast tests for all aggregates/events
+- [ ] Add/expand tests for domain invariants, error paths, and event upcasting/migration
+- [ ] Document replay patterns, invariants, and best practices
+
+### 3.3 Event Sourcing Infrastructure
+
+- [x] Refactor InMemoryEventStore for strict DI logging
+- [ ] Implement canonical event serialization (strict, versioned)
+- [ ] Implement event upcasting and migration registry
+- [ ] Implement snapshotting (pluggable, strategy-driven)
+- [ ] Complete event store integrations (in-memory, Postgres, etc.)
+- [ ] Ensure all event replay logic reconstructs correct types (aggregate, value object, event)
+- [ ] Add event store roundtrip and error propagation tests
+- [ ] Implement or stub `uno.sql` for Postgres event store tests, or update tests to skip if not available
+
+### **Phase 2: Enable Domain Modeling**
+
+#### 3.4 Domain Modeling and Event Sourcing Enablement
+
+- [ ] **Migrate Example App Domain to Bounded Contexts (Highest Priority)**
+    - Move each major domain area (e.g., Inventory, Vendor, Order) into its own subpackage under `domain/`.
+    - Ensure each context has its own `events.py`, aggregates/entities, and (if needed) value_objects.
+    - Refactor imports and references throughout the app, tests, and API to use the new context subpackages.
+    - Keep only truly cross-context value objects/events at the root.
+    - Add a `README.md` or docstring to each context package describing its boundary and purpose.
+    - Update documentation and onboarding to reflect the new structure.
+
+  **Example Target Structure:**
+
+  ```text
+  domain/
+    inventory/
+      __init__.py
+      events.py
+      item.py
+      lot.py
+    vendor/
+      __init__.py
+      events.py
+      vendor.py
+    order/
+      __init__.py
+      events.py
+      order.py
+    value_objects.py   # Only for cross-context types
+    events.py          # Only for cross-context events
+    __init__.py
+  ```
+
+- [ ] **Publish a Domain Modeling Quickstart Guide**
+    - Step-by-step instructions for creating aggregates, value objects, and events in Uno.
+    - Example: “How to model an InventoryItem aggregate and associated events.”
+- [ ] **Provide Reference Templates and Stubs**
+    - Ready-to-use code templates for aggregates, value objects, and events (with type hints, Pydantic v2, Result monad usage).
+    - Example: `templates/domain/aggregate.py`, `templates/domain/event.py`
+- [ ] **Document Event Sourcing Patterns**
+    - How to define and use upcasting, versioning, and canonical serialization.
+    - Example: “How to implement upcast methods for evolving events.”
+- [ ] **Show Best Practices for Invariants and Validation**
+    - How to implement `validate()` and enforce invariants in aggregates and value objects.
+    - Example: “How to guarantee business rules at the domain layer.”
+- [ ] **Create a “Domain-Only” Test Harness**
+    - Tools or scripts to run/test domain logic and event replay in isolation (no infra/api required).
+    - Example: pytest-based test harness for replaying events and asserting invariants.
+- [ ] **Publish Example Domains**
+    - At least one fully worked example (e.g., Inventory, Orders) with tests, docstrings, and commentary.
+- [ ] **Provide Mock/Stubs for Infra/API**
+    - Allow app teams to run domain logic and tests without waiting for infra/api.
+    - Example: dummy repository and event bus interfaces.
+- [ ] **Set Up Communication Channel for Feedback**
+    - Invite early adopters to provide feedback and request help/examples.
+
+- [ ] Develop guidelines for domain-driven design and event sourcing
+- [ ] Create examples and tutorials for domain modeling and event sourcing
+
+### **Phase 3: Build Infrastructure/API/UI**
+
+#### 3.5 Infrastructure and API Development
+
+- [ ] Develop infrastructure components (e.g., databases, messaging systems)
+- [ ] Build API and UI components
+- [ ] Integrate infrastructure, API, and UI components
+
+### **Phase 4: Integrate and Document**
+
+#### 3.6 Integration and Documentation
+
+- [ ] Integrate all components and test the entire system
+- [ ] Document the entire system, including architecture, components, and APIs
+
+---
+
+## 4. Blockers & Risks
+
+- [ ] **Event Store Integration:** Postgres event store tests may be blocked due to missing `uno.sql` module. Must implement/stub or update tests to skip if not available.
+- [ ] **Documentation:** Logging/DI migration guide and user docs need to be finalized.
+- [ ] **Performance:** Logging and DI performance benchmarks outstanding.
+- [ ] **Modern Python:** Sweep for Pydantic deprecation warnings, update type hints, and ensure idiomatic 3.13+ usage.
+- [ ] **Lint:** Sweep for unused imports and fix warnings after all refactors.
+
+---
+
+## 5. Milestones & Priorities
+
+### Immediate (Sprint)
+
+- Finalize infra error context propagation and uno.sql/test handling
+- [x] Sweep for Pydantic v2/type hint modernization and fix all lint/type warnings
+    - All core code now uses modern Python 3.13+ type hints (PEP 604, etc.) and Pydantic v2 idioms. Legacy modules are excluded from modernization and will be deleted after refactor completion.
+- Finalize and publish documentation/migration guide
+
+### Short-Term
+
+- Complete event sourcing infrastructure and DI logging migration
+- Add/expand integration and error handling tests
+- Complete documentation and user guides
+- Benchmark logging and DI performance
+
+### Long-Term
+
+- Complete domain model implementation and event sourcing
+- Create infrastructure integrations
+- Add comprehensive tests and benchmarks
+- Consolidate duplicated code and remove deprecated modules
+
+---
+
+## 6. Reference: Principles & Patterns
+
+- All code must use DI for logging/configuration, never global state (except DI bootstrap)
+- All error handling must use Result monad and propagate context
+- Use Pydantic v2 and modern Python 3.13+ idioms (PEP 604, etc.)
+- No legacy code should be registered or imported unless refactored for DI, config, and error handling compliance
+- Strict separation of bounded contexts and modularity
+- Comprehensive, up-to-date documentation is required for all public APIs and patterns
+
+---
+
+## 7. Notes & Changelog
+
+- CircuitBreakerMiddleware, MetricsMiddleware, InMemoryEventStore, and EventHandlerRegistry are fully migrated to DI-injected LoggerService
+- All event and domain abstractions are DI-injectable, use structured logging, and monad-based error handling
+- Canonical event serialization and hash chaining are enforced for all persistence and transport
+- Event upcasting and migration are first-class, with registry-based versioning
+- Snapshots are pluggable and strategy-driven
+- Performance benchmarks and DI integration tests are still outstanding
+- This checklist is a living document. Update it as implementation progresses. Mark items as complete [x] when they pass review and testing.
+
+---
+
+1. **Domain Modernization:**
+    - Finalize value object/DTO replay consistency for all aggregates (ensure event replay reconstructs correct types).
+    - Sweep all aggregates for invariant enforcement and validation (implement/expand `validate()` contracts).
+    - Expand test coverage for error paths and upcasting, especially for edge/failure cases.
+    - Document and publish usage examples for domain modeling, Result error handling, and event sourcing best practices.
+2. **Event Sourcing Infrastructure:**
+    - EventHandlerRegistry and event bus use strict DI logging (complete).
+    - Fix or skip uno.sql-dependent event store tests (use pytest.skip if uno.sql unavailable).
+    - Finalize and publish migration/user guide and usage examples for event sourcing, upcasting, and error context propagation.
+    - Benchmark event sourcing operations for performance regressions and logging overhead.
 3. **Documentation & Testing:**
-    - Finalize and publish domain/event sourcing migration guide and user docs.
-    - Expand tests for error paths, upcasting, and event store roundtrips.
+    - Expand tests for event store roundtrips, upcasting, and error propagation.
+    - Ensure all error context propagation is consistent and logged (manual and via LoggerService/ErrorLoggingService).
 4. **Type/Lint Modernization:**
     - Sweep for Pydantic v2/type hint modernization and address all lint/type warnings.
     - Ensure full idiomatic Python 3.13+ compliance throughout.
@@ -73,8 +234,8 @@ All progress, architectural decisions, and implementation notes for domain-drive
 ### 1.2 Error Handling & Context Propagation
 
 - [x] Implement Result monad and error context propagation in domain layer
-    - Entity, AggregateRoot, and ValueObject now use Result-based error handling and context propagation throughout.
-    - All core domain tests updated to assert on Success/Failure and error context.
+  - Entity, AggregateRoot, and ValueObject now use Result-based error handling and context propagation throughout.
+  - All core domain tests updated to assert on Success/Failure and error context.
 - [x] Implement Result monad and error context propagation in API/handlers
 - [x] Refactor all service layer methods to use Result and propagate error context (repository protocols, DI, and error context propagation complete; tested and passing)
 - [ ] Refactor all infrastructure/integration modules for error context propagation (service layer done; infra next)
@@ -83,12 +244,13 @@ All progress, architectural decisions, and implementation notes for domain-drive
 - [x] Event bus/adapters now handle both exceptions and Result monad failures, logging all errors consistently
 
 #### Domain Model Modernization (2025-04-28)
+
 - AggregateRoot, Entity, and ValueObject refactored for:
-    - Result-based error handling (Success/Failure, never raise)
-    - Error context propagation in all Failure cases
-    - Modern Python idioms, type hints, and Pydantic v2 compliance
-    - Usage examples and improved docstrings
-    - Immutability and validation contracts
+  - Result-based error handling (Success/Failure, never raise)
+  - Error context propagation in all Failure cases
+  - Modern Python idioms, type hints, and Pydantic v2 compliance
+  - Usage examples and improved docstrings
+  - Immutability and validation contracts
 - All core domain tests updated for Result contract and error path assertions
 - 221/226 tests pass (remaining: infra/uno.sql dependency)
 - [x] Fixed event sourcing/DTO mismatch for Vendor aggregate: EmailAddress value object is now correctly reconstructed from event data, resolving API and test failures.
@@ -108,27 +270,29 @@ All progress, architectural decisions, and implementation notes for domain-drive
 **All progress, TODOs, and status for domain, DDD, and event sourcing must be tracked here.**
 
 ### 1. Aggregate Roots, Value Objects, and Events Modernization
+
 - [x] Refactor all aggregate roots and value objects for:
-    - Result-based construction and error context propagation (never raise, always return Success/Failure)
-    - Modern Python idioms, PEP 604 type hints, and Pydantic v2 compliance
-    - Immutability and validation contracts (`validate()` on all aggregates/VOs)
-    - Usage examples and improved docstrings
+  - Result-based construction and error context propagation (never raise, always return Success/Failure)
+  - Modern Python idioms, PEP 604 type hints, and Pydantic v2 compliance
+  - Immutability and validation contracts (`validate()` on all aggregates/VOs)
+  - Usage examples and improved docstrings
 
 > **Progress:**
 > All major aggregates (InventoryItem, InventoryLot, Vendor) and value objects (Grade, EmailAddress, Money, Quantity, Count, Mass, Volume, Dimension, AlcoholContent) now use Result-based construction, error context propagation, modern type hints, and Pydantic v2. Immutability and validation contracts are enforced on construction. Usage examples and docstrings are present for all major types. Minor types may be swept for uniformity, but functional and documentation completeness is achieved for all core domain types.
 
 - [x] Refactor all domain events for:
-    - Result-based construction (Success/Failure)
-    - Error context propagation
-    - Versioning and upcasting support
-    - Pydantic v2 compliance and type hint modernization
-    - Canonical serialization/deserialization
-    - Event upcasting and migration patterns
+  - Result-based construction (Success/Failure)
+  - Error context propagation
+  - Versioning and upcasting support
+  - Pydantic v2 compliance and type hint modernization
+  - Canonical serialization/deserialization
+  - Event upcasting and migration patterns
 
 > **Progress:**
-> All inventory domain events (InventoryItemCreated, InventoryItemRenamed, InventoryItemAdjusted, InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit, InventoryLotAdjusted) are fully modernized: they use Result-based construction, propagate error context, support versioning and upcasting, are Pydantic v2 compliant, and have usage docstrings/examples. Canonical serialization is handled by Pydantic. 
+> All inventory domain events (InventoryItemCreated, InventoryItemRenamed, InventoryItemAdjusted, InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit, InventoryLotAdjusted) are fully modernized: they use Result-based construction, propagate error context, support versioning and upcasting, are Pydantic v2 compliant, and have usage docstrings/examples. Canonical serialization is handled by Pydantic.
 >
 > **Remaining events to modernize:**
+>
 > - Order events: OrderCreated, OrderFulfilled, OrderCancelled
 > - Vendor events: VendorCreated, VendorUpdated, VendorEmailUpdated
 > - PaymentReceived
@@ -137,6 +301,7 @@ All progress, architectural decisions, and implementation notes for domain-drive
 > These events need Result-based construction, error context propagation, versioning/upcasting, and Pydantic v2 idioms for full modernization.
 
 ### 2. Event Sourcing Infrastructure
+
 - [ ] Implement canonical event serialization (strict, versioned)
 - [ ] Implement event upcasting and migration registry
 - [ ] Implement snapshotting (pluggable, strategy-driven)
@@ -145,24 +310,28 @@ All progress, architectural decisions, and implementation notes for domain-drive
 - [ ] Add event store roundtrip and error propagation tests
 
 ### 3. Bounded Contexts & Modularity
+
 - [ ] Support for bounded contexts (modular domain packages)
 - [ ] Document context boundaries, integration points, and isolation patterns
 
 ### 4. Validation, Invariants, and Testing
+
 - [ ] Expand custom `validate()` contracts for all aggregates and value objects
 - [ ] Ensure all domain validation errors propagate context via Failure
 - [ ] Add/expand tests for domain invariants, error paths, and event upcasting/migration
 
 ### 5. Documentation & Best Practices
+
 - [ ] Finalize and expand documentation for:
-    - Domain modeling, DDD, and event sourcing in Uno
-    - Result error handling and error context propagation
-    - Event upcasting, migration, and serialization
-    - Usage examples for all core domain types
-    - Bounded contexts and modularity
+  - Domain modeling, DDD, and event sourcing in Uno
+  - Result error handling and error context propagation
+  - Event upcasting, migration, and serialization
+  - Usage examples for all core domain types
+  - Bounded contexts and modularity
 - [ ] Provide reference implementations and migration guides
 
 ### 6. Performance & Modernization
+
 - [ ] Benchmark domain/event sourcing operations for performance regressions
 - [ ] Sweep for Pydantic v2, type hints, and lint/type warning resolution across all domain and infra modules
 - [ ] Remove unused imports and fix all lint/type warnings
@@ -214,9 +383,42 @@ All progress, architectural decisions, and implementation notes for domain-drive
 ---
 
 **Note:**
+
 - As of 2025-04-28, event bus and adapters now fully support monad-based error handling. All handler errors—whether raised as exceptions or returned as `Failure`—are logged via DI-LoggerService using structured logging. Saga/event bus tests now robustly assert error logging and error context propagation. Temporary debug prints have been removed for clean output.
 
 ## 1. Core Components & Roadmap
+
+---
+
+### 1.2 Domain Consistency, Validation, and Testing Audit (2025-04-29)
+
+#### **1.2.1 Value Object/DTO Replay Consistency**
+
+- [x] Inventory domain: All events and replay logic reconstruct correct value object types (see InventoryLot, Quantity, Grade, etc.)
+- [ ] Audit all other aggregates (Order, Vendor, Payment, etc.) for event replay consistency (VO/DTO types)
+- [ ] Add/expand tests to assert value object types after replay
+- [ ] Document replay patterns and pitfalls for complex value objects
+
+#### **1.2.2 Aggregate Validation Contracts**
+
+- [x] Inventory domain: All aggregates and value objects implement/expand `validate()` contracts (invariants enforced)
+- [ ] Sweep all other aggregates for missing/weak validation logic
+- [ ] Add/expand tests for invariant violations and validation failures
+- [ ] Document best practices for aggregate and VO validation
+
+#### **1.2.3 Test Coverage for Error Paths and Upcasting**
+
+- [x] Inventory domain: Comprehensive tests for error paths, upcasting, and edge/failure cases
+- [ ] Expand/complete error/upcast tests for all other aggregates/events
+- [ ] Ensure all domain invariants and error contexts are asserted in tests
+
+#### **1.2.4 Domain Modeling & Validation Documentation**
+
+- [ ] Add usage examples for domain modeling, Result error handling, and event sourcing best practices
+- [ ] Document validation/invariant enforcement patterns
+- [ ] Publish migration/usage guide for developers
+
+---
 
 ### 1.1 Error Handling (`uno.core.errors`)
 
@@ -589,12 +791,17 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 #### Domain Refactor Roadmap (Q2 2025)
 
 ##### Service Layer Modernization Checklist
+
 - [ ] Ensure every `Failure` returned from service methods includes contextual details in `DomainValidationError.details`.
 - [ ] Add or improve error context details in all `Failure` returns (consider a helper for standardization).
 - [ ] Expand/verify test coverage for all error paths (repo, domain, logging), asserting error context.
 - [ ] Refactor to use repository interfaces/protocols for service/infra decoupling.
 - [ ] Update log messages to use structured format for critical events/errors.
 - [ ] Apply this service layer pattern to all remaining aggregates/services.
+
+---
+
+**Note:** Legacy code is excluded from all modernization, linting, and type hint sweeps. It will be deleted once the refactor is complete.
 - [ ] Add/update docstrings/examples for service methods showing error handling.
 
 - Canonical plan: see EVENT_REFACTOR_PLAN.md for all event sourcing and DDD progress, decisions, and implementation notes.
@@ -602,7 +809,8 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 - [ ] Sweep all aggregates for value object/DTO consistency (ensure all event replay reconstructs correct types)
 - [ ] Refactor event classes for explicit context propagation and Result-based construction
 - [ ] Expand domain validation and invariant enforcement (validate() contracts for all aggregates/value objects)
-- [ ] Modernize all type hints (PEP 604, Uno conventions) and Pydantic usage (v2 compliance)
+- [x] Modernize all type hints (PEP 604, Uno conventions) and Pydantic usage (v2 compliance)
+    - Core modules fully updated; legacy code is excluded and will be removed.
 - [ ] Add/complete documentation for domain modeling, Result error handling, and event sourcing best practices
 - [ ] Add integration tests for event store roundtrips and error propagation
 - [ ] Finalize user/developer documentation for Uno domain modeling, Result error handling, and best practices

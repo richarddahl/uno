@@ -60,9 +60,9 @@ class EventStore(EventStoreProtocol[E], Generic[E]):
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
         Canonical event serialization for storage, hashing, and transport.
-        Always uses to_canonical_dict() for serialization.
+        Always uses to_dict() for serialization.
         """
-        return event.to_canonical_dict()
+        return event.to_dict()
     
     async def save_event(self, event: E) -> Result[None, Exception]:
         """
