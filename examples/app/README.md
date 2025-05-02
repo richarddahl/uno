@@ -36,7 +36,7 @@ For a detailed walkthrough, see the [Domain Modeling Guide](../../docs/examples_
 
 - **Aggregates:** `InventoryItem`, `Vendor` (add your own easily)
 - **Event Sourcing:** All state changes are recorded as domain events
-- **API Layer:** RESTful endpoints for all aggregates via FastAPI
+- **API Layer:** RESTful endpoints for all aggregates via FastAPI, with Result-based error handling and error context propagation (see below)
 - **Serialization:** Canonical DTOs using Pydantic v2
 - **Testing:** End-to-end tests for all API endpoints
 - **Extensibility:** Add new aggregates/events/endpoints with minimal boilerplate
@@ -48,9 +48,9 @@ For a detailed walkthrough, see the [Domain Modeling Guide](../../docs/examples_
 
 Uno encourages:
 - **Explicit domain modeling**: Aggregates, events, and value objects are first-class.
-- **Loose coupling**: DI for all services and repositories.
+- **Loose coupling**: Dependency Injection (DI) for all services and repositories. Service registration order matters: LoggerService must be registered before services that depend on it.
 - **Event sourcing**: Every state change is an event; aggregates replay their history.
-- **Structured logging** and **centralized config** (see Uno core docs).
+- **Structured logging** and **centralized config** (see Uno core docs). LoggerService is injected into all services for consistent, contextual logging.
 
 ---
 
@@ -91,6 +91,12 @@ app/
 
 3. **Explore the API:**
    - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for Swagger UI
+
+4. **Run all tests:**
+
+   ```bash
+   hatch run test:testV
+   ```
 
 ---
 
@@ -246,11 +252,14 @@ curl -X PUT http://localhost:8000/vendors/vendor-1 \
 
 ## Testing
 
-Run all end-to-end tests:
+Run all end-to-end and API tests:
 
 ```bash
-hatch run test:test-examplesV
+hatch run test:testV
 ```
+
+- Some infrastructure tests (e.g., those requiring uno.sql) are skipped if dependencies are unavailable.
+- All domain, service, and API tests should pass after DI and logger registration fixes.
 
 ---
 
@@ -260,3 +269,15 @@ SPDX-License-Identifier: MIT
 
 ---
 _This integrated example is for onboarding, regression, and demonstration purposes. For framework core logic, see `uno/core/`. For focused/legacy examples, see the top-level `examples/` directory._
+
+---
+
+## Modern API and Service Layer Idioms
+
+- **Result-based Error Handling:** All service and API methods return `Result`, `Success`, or `Failure`. Errors are propagated with context and only converted to HTTP exceptions at the API boundary.
+- **Dependency Injection:** All services receive dependencies (including `LoggerService`) via DI. Register `LoggerService` before other services in your DI container.
+- **Type Hints & Pydantic v2:** All DTOs and domain models use Pydantic v2 and modern Python type hints (`str`, `int`, `X | Y` not `Union[X, Y]`).
+- **Logging:** Use the injected logger for all business and API logic. Avoid print statements.
+- **Testing:** Use pytest with fixtures and follow the `Fake`/`Mock` naming convention for test objects.
+
+For migration guides and advanced usage, see `../../REFACTOR.md`.

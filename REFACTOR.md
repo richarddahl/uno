@@ -55,6 +55,75 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 
 ### 3.3 Event Sourcing Infrastructure
 
+### 3.4 API & Service Layer Modernization
+
+- [x] Sweep API module for unused imports and excessive complexity
+- [x] Refactor all endpoints to use Result-based error handling idioms
+- [x] Remove unused imports and variables, and ensure imports are sorted/formatted
+- [x] Ensure all DTOs, Pydantic models, and type hints are modern and compliant
+- [x] Document endpoint modernization and provide migration guide
+
+---
+
+## API & Service Layer Result/Error Handling Modernization
+
+### Overview
+
+All API endpoints and service methods must now use the Result monad (`Success`/`Failure`) for error handling and context propagation. Direct exceptions are only raised at the API boundary when converting a `Failure` to an HTTP error. All repository/service methods return `Result`, and endpoints unwrap or propagate errors in a consistent, idiomatic way.
+
+### Migration Guide: Endpoint Error Handling
+
+#### Before (legacy pattern):
+```python
+@app.get("/resource/{id}")
+def get_resource(id: str):
+    item = repo.get(id)  # May return None or raise
+    if not item:
+        raise HTTPException(status_code=404, detail="Not found")
+    return item
+```
+
+#### After (Result-based pattern):
+```python
+@app.get("/resource/{id}")
+def get_resource(id: str):
+    result = repo.get(id)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=404, detail=str(result.error))
+    item = result.unwrap()
+    return item
+```
+
+- All endpoints must check for `Failure` and raise an appropriate HTTP error, propagating error context.
+- All DTO and Pydantic model usage must be Pydantic v2 compliant, with modern type hints (PEP 604).
+- Imports must be sorted, deduplicated, and unused imports removed.
+
+### Example: Modernized Vendor Endpoint
+```python
+@app.get("/vendors/{vendor_id}", response_model=VendorDTO)
+def get_vendor(vendor_id: str) -> VendorDTO:
+    result = vendor_repo.get(vendor_id)
+    if isinstance(result, Failure):
+        raise HTTPException(status_code=404, detail=f"Vendor not found: {vendor_id}")
+    vendor = result.value
+    return VendorDTO(id=vendor.id, name=vendor.name, contact_email=vendor.contact_email.value)
+```
+
+### Complexity & Import Cleanup
+- Remove all unused DTO, domain, and error imports
+- Remove unused local variables and logger setup if not used by endpoints
+- Ensure import block is sorted and formatted
+- Remove duplicate or shadowed imports at the bottom of the file
+
+### Checklist for Future Endpoint Modernization
+- [x] Use Result-based error handling for all repository/service calls
+- [x] Raise HTTPException only at API boundary, using error context from Failure
+- [x] Use Pydantic v2 and modern type hints for all DTOs
+- [x] Remove unused/legacy imports and variables
+- [x] Ensure all code is idiomatic, clean, and maintainable
+
+---
+
 - [x] Refactor InMemoryEventStore for strict DI logging
 - [x] Modernize event bus and publisher for type hints, docstrings, and DI logging
 - [x] All event infra uses Result-based error handling and structured logging
