@@ -106,36 +106,6 @@ class DomainEvent(FrameworkBaseModel):
         json_encoders={Enum: lambda e: e.value},
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def _upcast_if_needed(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Pydantic model-wide validator: Upcast event data dict to the latest version before model instantiation.
-        This ensures all events are always validated and constructed in their canonical, most recent form.
-
-        Args:
-            data (dict[str, Any]): The raw event data (possibly old version).
-        Returns:
-            dict[str, Any]: The upcasted event data, ready for model validation.
-        Raises:
-            ValueError: If no upcaster exists for the required version transition.
-        """
-        data_version = data.get("version", 1)
-        target_version = getattr(cls, "__version__", 1)
-        if data_version < target_version:
-            try:
-                data = EventUpcasterRegistry.apply(
-                    cls, data, data_version, target_version
-                )
-            except Exception as e:
-                from uno.core.errors.definitions import EventUpcastError
-
-                raise EventUpcastError(
-                    event_type=cls.__name__,
-                    from_version=data_version,
-                    to_version=target_version,
-                ) from e
-        return data
 
     @model_validator(mode="after")
     def _set_event_hash(self) -> Self:

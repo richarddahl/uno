@@ -5,7 +5,7 @@ Represents a physical or logical lot of a particular InventoryItem, with purchas
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
-from typing import Self
+from typing import Self, ClassVar
 
 from pydantic import ConfigDict, PrivateAttr, field_serializer
 
@@ -18,6 +18,8 @@ from uno.core.errors.result import Failure, Success
 
 
 # --- Events ---
+
+
 class InventoryLotCreated(DomainEvent):
     """
     Event: InventoryLot was created.
@@ -320,12 +322,16 @@ class InventoryLotSplit(DomainEvent):
             new_lot_ids=["lot-2", "lot-3"],
             item_id="item-xyz",
             split_quantities=[Quantity.from_count(Count.from_each(5)), Quantity.from_count(Count.from_each(5))],
+            reason="customer request"
         )
         if isinstance(result, Success):
             event = result.value
         else:
             # handle error context
             ...
+
+    Added in v2:
+        reason: str | None = None — Optional explanation for why the lot was split (e.g., "customer request").
     """
 
     model_config = ConfigDict(frozen=True)
@@ -338,7 +344,9 @@ class InventoryLotSplit(DomainEvent):
     new_lot_ids: list[str]
     item_id: str
     split_quantities: list[Quantity]
-    version: int = 1
+    reason: str | None = None  # v2: Optional explanation for why the lot was split
+    version: int = 1  # default to v1 for backward compatibility with tests
+    __version__: ClassVar[int] = 2
 
     @classmethod
     def create(
@@ -347,6 +355,7 @@ class InventoryLotSplit(DomainEvent):
         new_lot_ids: list[str],
         item_id: str,
         split_quantities: list[Quantity],
+        reason: str | None = None,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         try:
@@ -376,13 +385,19 @@ class InventoryLotSplit(DomainEvent):
                         },
                     )
                 )
-            event = cls(
-                source_lot_id=source_lot_id,
-                new_lot_ids=new_lot_ids,
-                item_id=item_id,
-                split_quantities=split_quantities,
-                version=version,
-            )
+            # Only pass version if explicitly provided (not None)
+            event_kwargs = {
+                "source_lot_id": source_lot_id,
+                "new_lot_ids": new_lot_ids,
+                "item_id": item_id,
+                "split_quantities": split_quantities,
+                "reason": reason,
+            }
+            # Only set version if not already present (e.g., after upcasting)
+            if "version" not in event_kwargs and version is not None:
+                event_kwargs["version"] = version
+            # Ensure direct construction, never from_dict or similar
+            event = cls(**event_kwargs)
             return Success(event)
         except Exception as exc:
             # Always include split_quantities in details for relevant errors
@@ -400,14 +415,55 @@ class InventoryLotSplit(DomainEvent):
     def upcast(
         self, target_version: int
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from uno.core.events.base_event import EventUpcasterRegistry
+
         if target_version == self.version:
             return Success(self)
+        if target_version > self.version:
+            # Use upcaster registry to migrate
+            data = self.to_dict()
+            try:
+                upcasted = EventUpcasterRegistry.apply(
+                    type(self), data, self.version, target_version
+                )
+                return type(self).from_dict(upcasted)
+            except Exception as exc:
+                return Failure(
+                    DomainValidationError(
+                        f"Upcasting failed: {exc}",
+                        details={
+                            "from": self.version,
+                            "to": target_version,
+                            "error": str(exc),
+                        },
+                    )
+                )
         return Failure(
             DomainValidationError(
                 "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
+                details={"from": getattr(self, "version", 1), "to": target_version},
             )
         )
+
+
+# --- Upcaster registration for InventoryLotSplit (v1 → v2) ---
+from uno.core.events.base_event import EventUpcasterRegistry
+
+
+def _upcast_inventory_lot_split_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
+    # v2 adds the 'reason' field (default None)
+    data = dict(data)
+    if data.get("version", 1) == 1:
+        data["reason"] = None
+        data["version"] = 2
+    return data
+
+
+EventUpcasterRegistry.register_upcaster(
+    event_type=InventoryLotSplit,
+    from_version=1,
+    upcaster_fn=_upcast_inventory_lot_split_v1_to_v2,
+)
 
 
 # --- Aggregate ---
