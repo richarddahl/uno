@@ -22,9 +22,11 @@ Welcome! This quickstart will help you model your own domain in Uno using modern
 5. **Write tests for your domain logic:**
     - See [`tests/`](tests/) for pytest-based examples.
     - Run all example tests with:
+
       ```bash
       hatch run test:testV
       ```
+
 6. **No infrastructure or API required!**
    You can model, test, and validate your entire domain layer in isolation.
 
@@ -47,6 +49,7 @@ For a detailed walkthrough, see the [Domain Modeling Guide](../../docs/examples_
 ## Uno DDD & Event Sourcing Philosophy
 
 Uno encourages:
+
 - **Explicit domain modeling**: Aggregates, events, and value objects are first-class.
 - **Loose coupling**: Dependency Injection (DI) for all services and repositories. Service registration order matters: LoggerService must be registered before services that depend on it.
 - **Event sourcing**: Every state change is an event; aggregates replay their history.
@@ -81,6 +84,7 @@ app/
    ```bash
    python -m examples.app
    ```
+
    _Note: This does not support hot reload._
 
    **For hot reload during development:**
@@ -105,6 +109,7 @@ app/
 ### Value Objects: Strongly-Typed Domain Data
 
 Uno provides a canonical ValueObject base class for small, immutable, and validated domain concepts (e.g., Grade, EmailAddress). ValueObjects are:
+
 - Immutable and compared by value
 - Validated on creation (using Pydantic)
 - Provide `.to_dict()` and Uno-style error handling
@@ -152,6 +157,7 @@ curl -X POST http://localhost:8000/inventory/combine/ \
 ```
 
 **Result:**
+
 - The new lot's `grade` is a weighted average of the source lots.
 - The new lot's `_source_vendor_ids` contains all unique vendors from the sources.
 - The `InventoryLotsCombined` event records all source lot IDs, grades, and vendors for audit/compliance.
@@ -174,6 +180,7 @@ curl -X POST http://localhost:8000/inventory/ \
 ```
 
 **Response:**
+
 ```json
 {
   "id": "sku-123",
@@ -208,6 +215,7 @@ curl -X POST http://localhost:8000/vendors/ \
 ```
 
 **Response:**
+
 ```json
 {
   "id": "vendor-1",
