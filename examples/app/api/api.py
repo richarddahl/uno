@@ -9,42 +9,16 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from examples.app.api.dtos import InventoryItemDTO
-from examples.app.api.errors import (
-    InventoryItemNotFoundError,
-    InventoryLotNotFoundError,
-    OrderNotFoundError,
-    VendorNotFoundError,
-)
-from examples.app.api.inventory_lot_dtos import (
-    InventoryLotAdjustDTO,
-    InventoryLotCreateDTO,
-    InventoryLotDTO,
-)
-from examples.app.api.order_dtos import (
-    OrderCancelDTO,
-    OrderCreateDTO,
-    OrderDTO,
-    OrderFulfillDTO,
-)
 from examples.app.api.vendor_dtos import VendorDTO
-from examples.app.domain.inventory import InventoryItem
-from examples.app.domain.inventory.lot import InventoryLot
-from examples.app.domain.order import Order
-from examples.app.domain.vendor import Vendor
-from examples.app.persistence.inventory_item_repository_protocol import (
-    InventoryItemRepository,
-)
-from examples.app.persistence.inventory_lot_repository import (
-    InMemoryInventoryLotRepository,
-)
-from examples.app.persistence.order_repository import InMemoryOrderRepository
+from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
 from examples.app.persistence.repository import InMemoryInventoryItemRepository
 from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
+from examples.app.services.vendor_service import VendorService
 
+from uno.core.errors.result import Failure
 from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Result, Success
 from uno.core.logging import LoggerService, LoggingConfig
 
 
@@ -57,39 +31,26 @@ def app_factory() -> FastAPI:
     service_collection = ServiceCollection(
         auto_register=False
     )  # Explicitly disable auto-registration
+
+    # Register LoggerService first
     logging_config = LoggingConfig()
     logger_service = LoggerService(logging_config)
-
-    # Register LoggerService as a singleton instance only (correctly)
     service_collection.add_instance(LoggerService, logger_service)
+
     # Register repositories with correct constructor args and bind to protocol
     service_collection.add_singleton(
         InventoryItemRepository,
         implementation=InMemoryInventoryItemRepository,
-        logger=logger_service,
     )
     service_collection.add_singleton(
         VendorRepository,
         implementation=InMemoryVendorRepository,
-        logger=logger_service,
-    )
-    service_collection.add_singleton(
-        InMemoryInventoryLotRepository,
-        implementation=InMemoryInventoryLotRepository,
-        logger=logger_service,
-    )
-    service_collection.add_singleton(
-        InMemoryOrderRepository,
-        implementation=InMemoryOrderRepository,
-        logger=logger_service,
     )
     # Register InventoryItemService and VendorService with protocol-based dependencies
     service_collection.add_singleton(
         InventoryItemService,
         implementation=InventoryItemService,
     )
-    from examples.app.services.vendor_service import VendorService
-
     service_collection.add_singleton(
         VendorService,
         implementation=VendorService,
@@ -99,16 +60,8 @@ def app_factory() -> FastAPI:
     # Resolve repositories via DI using protocol abstraction
     repo: InventoryItemRepository = resolver.resolve(InventoryItemRepository).value
     vendor_repo: VendorRepository = resolver.resolve(VendorRepository).value
-    lot_repo: InMemoryInventoryLotRepository = resolver.resolve(
-        InMemoryInventoryLotRepository
-    ).value
-    order_repo: InMemoryOrderRepository = resolver.resolve(
-        InMemoryOrderRepository
-    ).value
 
     # Resolve VendorService via DI
-    from examples.app.services.vendor_service import VendorService
-
     vendor_service: VendorService = resolver.resolve(VendorService).value
 
     # --- API Endpoints (rebind all endpoints here, using local repo variables) ---
@@ -241,12 +194,3 @@ class VendorCreateDTO(BaseModel):
 class VendorUpdateDTO(BaseModel):
     name: str = Field(..., description="Vendor name")
     contact_email: str = Field(..., description="Contact email")
-
-
-from examples.app.api.errors import (
-    VendorNotFoundError,
-    InventoryItemNotFoundError,
-    InventoryLotNotFoundError,
-    OrderNotFoundError,
-)
-from uno.core.errors.result import Failure
