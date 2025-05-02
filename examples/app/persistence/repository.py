@@ -59,7 +59,10 @@ class InMemoryInventoryItemRepository:
             elif isinstance(event, InventoryItemAdjusted) and item:
                 item.quantity += event.adjustment
         self._logger.debug(f"Fetched inventory item: {item_id}")
-        return item
+        if item is not None:
+            return Success(item)
+        else:
+            return Failure(InventoryItemNotFoundError(item_id))
 
     def all_ids(self) -> list[str]:
         ids = list(self._events.keys())

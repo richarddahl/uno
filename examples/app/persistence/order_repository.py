@@ -18,8 +18,12 @@ class InMemoryOrderRepository:
         self._logger.debug("InMemoryOrderRepository initialized.")
 
     def get(self, order_id: str) -> Success[Order, None] | Failure[None, OrderNotFoundError]:
+        """
+        Retrieve an order by id. Returns Success[Order, None] if found, Failure[None, OrderNotFoundError] if not found.
+        """
         order = self._orders.get(order_id)
         if order is None:
+            self._logger.warning(f"Order not found: {order_id}")
             return Failure(OrderNotFoundError(order_id))
         self._logger.debug(f"Fetching order with id: {order_id} - Found: {order is not None}")
         return Success(order)

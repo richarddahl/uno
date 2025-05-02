@@ -60,12 +60,23 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 - [x] All event infra uses Result-based error handling and structured logging
 - [x] Remove legacy/unused code and ensure all docstrings are complete
 - [x] Pydantic v2/type hint modernization and lint/type warning sweep complete for event infra
+- [x] All core event and value object types use Pydantic v2 idioms and Result-based construction
+- [x] Event tampering and integrity tests must mutate the aggregate's `_domain_events` for in-memory repos (not just state or repo attributes)
+- [x] Canonical Uno approach: use `object.__setattr__` for event replay (internal), `.model_copy(update={...})` for test tampering, never `setattr()`
+- [x] Sweep all service and infra modules for Result/Failure and error context propagation (in progress)
+  - InMemoryInventoryItemRepository.get now always returns Success or Failure, never a raw item, and propagates error context in all error paths.
+  - InMemoryInventoryLotRepository.get now always returns Success or Failure, never a raw lot, and propagates error context in all error paths.
+  - VendorRepository.get is now explicitly documented to always return Success or Failure, never a raw vendor, and error context is propagated.
+  - InMemoryOrderRepository.get now always returns Success or Failure, never a raw order, and propagates error context in all error paths.
 - [ ] Implement canonical event serialization (strict, versioned)
 - [ ] Implement event upcasting and migration registry
 - [ ] Implement snapshotting (pluggable, strategy-driven)
 - [ ] Complete event store integrations (in-memory, Postgres, etc.)
 - [ ] Ensure all event replay logic reconstructs correct types (aggregate, value object, event)
 - [ ] Add event store roundtrip and error propagation tests
+- [ ] Document canonical event tampering/testing patterns for Uno users
+- [ ] Add note about logging output in tests and how to suppress if needed (pytest caplog, logging config)
+
 - [ ] Implement or stub `uno.sql` for Postgres event store tests, or update tests to skip if not available
 
 ### **Phase 2: Enable Domain Modeling**
@@ -915,11 +926,15 @@ _This checklist is a living document. Update it as implementation progresses. Ma
 - Serialization is now fully modern, idiomatic, and consistent with Uno and Pydantic v2 best practices.
 - All tests for value objects and events pass, confirming the migration is complete and stable.
 - All event replay and aggregate rehydration logic is robust to both dict and object forms for value objects (e.g., Count in Quantity), enabling round-trip serialization and event sourcing.
+- Event tampering for integrity tests must mutate the aggregate's `_domain_events` (not just state or repo attributes) for in-memory event stores.
+- Canonical Uno: use `object.__setattr__` for event replay (internal), `.model_copy(update={...})` for tampering in tests, never `setattr()`.
 - Only uno.sql-dependent infrastructure tests remain as blockers; all domain and event tests pass.
+- Logging output in tests comes from DI-injected LoggerService; suppress with pytest `caplog` or logging config if needed.
 
 ### Impact
 
 - Future value objects and events should always use Pydantic v2 serialization idioms and never rely on `json_encoders`.
+- Event sourcing and integrity checks must operate at the event log level, not just state.
 - This change enables forward compatibility, type safety, and easier maintenance for all domain serialization logic.
 
 ---

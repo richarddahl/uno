@@ -19,6 +19,7 @@ class InMemoryInventoryLotRepository:
     def get(self, lot_id: str) -> Success[InventoryLot, None] | Failure[None, InventoryLotNotFoundError]:
         lot = self._lots.get(lot_id)
         if lot is None:
+            self._logger.warning(f"InventoryLot not found: {lot_id}")
             return Failure(InventoryLotNotFoundError(lot_id))
         self._logger.debug(f"Fetching lot with id: {lot_id} - Found: {lot is not None}")
         return Success(lot)
