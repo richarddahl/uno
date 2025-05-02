@@ -107,21 +107,19 @@ class CountUnit(Enum):
 
 
 class Count(ValueObject):
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Enum: lambda e: e.value,
-            "Count": lambda c: c.model_dump()
-            if hasattr(c, "model_dump")
-            else c.value
-            if hasattr(c, "value")
-            else c,
-        },
-    )
+    model_config = ConfigDict(frozen=True)
 
     @pydantic.field_serializer('unit')
     def serialize_unit(self, unit: CountUnit, _info):
         return unit.name
+
+    @pydantic.field_serializer('value')
+    def serialize_value(self, value, _info):
+        return float(value)
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_count(self):
+        return {"value": float(self.value), "unit": self.unit.name}
 
     @classmethod
     def from_each(cls, each: float | int) -> "Count":
@@ -244,17 +242,19 @@ class MassUnit(Enum):
 
 
 class Mass(ValueObject):
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Enum: lambda e: e.value,
-            "Mass": lambda m: m.model_dump()
-            if hasattr(m, "model_dump")
-            else m.value
-            if hasattr(m, "value")
-            else m,
-        },
-    )
+    model_config = ConfigDict(frozen=True)
+
+    @pydantic.field_serializer('unit')
+    def serialize_unit(self, unit: MassUnit, _info):
+        return unit.name
+
+    @pydantic.field_serializer('amount')
+    def serialize_amount(self, amount, _info):
+        return float(amount)
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_mass(self):
+        return {"amount": float(self.amount), "unit": self.unit.name}
 
     amount: float
     unit: MassUnit
@@ -319,20 +319,21 @@ class VolumeUnit(Enum):
 
 
 class Volume(ValueObject):
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Enum: lambda e: e.value,
-            "Volume": lambda v: v.model_dump()
-            if hasattr(v, "model_dump")
-            else v.value
-            if hasattr(v, "value")
-            else v,
-        },
-    )
-
+    model_config = ConfigDict(frozen=True)
     amount: float
     unit: VolumeUnit
+
+    @pydantic.field_serializer('unit')
+    def serialize_unit(self, unit: VolumeUnit, _info):
+        return unit.name
+
+    @pydantic.field_serializer('amount')
+    def serialize_amount(self, amount, _info):
+        return float(amount)
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_volume(self):
+        return {"amount": float(self.amount), "unit": self.unit.name}
 
     @classmethod
     def from_value(
@@ -390,20 +391,21 @@ class DimensionUnit(Enum):
 
 
 class Dimension(ValueObject):
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Enum: lambda e: e.value,
-            "Dimension": lambda d: d.model_dump()
-            if hasattr(d, "model_dump")
-            else d.value
-            if hasattr(d, "value")
-            else d,
-        },
-    )
-
+    model_config = ConfigDict(frozen=True)
     amount: float
     unit: DimensionUnit
+
+    @pydantic.field_serializer('unit')
+    def serialize_unit(self, unit: DimensionUnit, _info):
+        return unit.name
+
+    @pydantic.field_serializer('amount')
+    def serialize_amount(self, amount, _info):
+        return float(amount)
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_dimension(self):
+        return {"amount": float(self.amount), "unit": self.unit.name}
 
     @classmethod
     def from_value(
@@ -594,14 +596,19 @@ class Currency(Enum):
 class Money(ValueObject):
     amount: Decimal
     currency: Currency
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Decimal: lambda d: float(d),
-            Enum: lambda e: e.value,
-            "Currency": lambda c: c.value if hasattr(c, "value") else str(c),
-        },
-    )
+    model_config = ConfigDict(frozen=True)
+
+    @pydantic.field_serializer('amount')
+    def serialize_amount(self, amount, _info):
+        return float(amount)
+
+    @pydantic.field_serializer('currency')
+    def serialize_currency(self, currency: Currency, _info):
+        return currency.value
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_money(self):
+        return {"amount": float(self.amount), "currency": self.currency.value}
 
     @classmethod
     def from_value(

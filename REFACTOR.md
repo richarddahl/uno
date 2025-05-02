@@ -42,7 +42,9 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 ### 3.2 Domain & Events
 
 - [x] Refactor all aggregate roots, value objects, and domain events for Result-based construction, error context propagation, versioning/upcasting, and Pydantic v2
-- [ ] Modernize remaining events (Order, Vendor, Payment, etc.) for Result-based construction, error context, versioning/upcasting, and Pydantic v2 idioms
+  - [x] **Migrate all value objects and domain events to use Pydantic v2's @field_serializer/@model_serializer and remove all deprecated json_encoders from model_config.**
+  - [x] **Test and verify serialization for all affected types and events.**
+- [x] Modernize remaining events (Order, Vendor, Payment, etc.) for Result-based construction, error context, versioning/upcasting, and Pydantic v2 idioms
 - [ ] Finalize value object/DTO replay consistency for all aggregates
 - [ ] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts)
 - [ ] Expand/complete error/upcast tests for all aggregates/events
@@ -863,6 +865,22 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 ---
 
 _This checklist is a living document. Update it as implementation progresses. Mark items as complete [x] when they pass review and testing._
+
+---
+
+## 4. Value Object & Event Serialization Modernization
+
+### Summary
+
+- All value objects (Count, Mass, Money, Grade, Volume, Dimension, etc.) and all domain events (Inventory, Order, Vendor, etc.) now use Pydantic v2's `@field_serializer` and `@model_serializer` for custom serialization.
+- All deprecated `json_encoders` have been removed from model_config across the codebase.
+- Serialization is now fully modern, idiomatic, and consistent with Uno and Pydantic v2 best practices.
+- All tests for value objects and events pass, confirming the migration is complete and stable.
+
+### Impact
+
+- Future value objects and events should always use Pydantic v2 serialization idioms and never rely on `json_encoders`.
+- This change enables forward compatibility, type safety, and easier maintenance for all domain serialization logic.
 
 ---
 

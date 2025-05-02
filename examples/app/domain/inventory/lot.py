@@ -7,18 +7,11 @@ Implements Uno canonical serialization, DDD, and event sourcing contracts.
 
 from typing import Self
 
-from pydantic import ConfigDict, PrivateAttr
+from pydantic import ConfigDict, PrivateAttr, field_serializer
 
+from examples.app.domain.value_objects import Count, Grade, Quantity
 from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.event import DomainEvent
-from examples.app.domain.value_objects import (
-    Count,
-    Dimension,
-    Grade,
-    Mass,
-    Quantity,
-    Volume,
-)
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
@@ -46,32 +39,8 @@ class InventoryLotCreated(DomainEvent):
             ...
     """
 
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Quantity: lambda q: q.model_dump() if hasattr(q, "model_dump") else str(q),
-            Count: lambda c: c.model_dump()
-            if hasattr(c, "model_dump")
-            else c.value
-            if hasattr(c, "value")
-            else c,
-            Mass: lambda m: m.model_dump()
-            if hasattr(m, "model_dump")
-            else m.value
-            if hasattr(m, "value")
-            else m,
-            Volume: lambda v: v.model_dump()
-            if hasattr(v, "model_dump")
-            else v.value
-            if hasattr(v, "value")
-            else v,
-            Dimension: lambda d: d.model_dump()
-            if hasattr(d, "model_dump")
-            else d.value
-            if hasattr(d, "value")
-            else d,
-        },
-    )
+    model_config = ConfigDict(frozen=True)
+
     lot_id: str
     item_id: str
     vendor_id: str | None = None
@@ -79,6 +48,18 @@ class InventoryLotCreated(DomainEvent):
     purchase_price: float | None = None  # If purchased
     sale_price: float | None = None  # If sold
     version: int = 1
+
+    @field_serializer("quantity")
+    def serialize_quantity(self, value, _info):
+        return value.model_dump(mode="json")
+
+    @field_serializer("purchase_price")
+    def serialize_purchase_price(self, value, _info):
+        return str(value) if value else None
+
+    @field_serializer("sale_price")
+    def serialize_sale_price(self, value, _info):
+        return str(value) if value else None
 
     @classmethod
     def create(
@@ -240,32 +221,8 @@ class InventoryLotsCombined(DomainEvent):
             ...
     """
 
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Quantity: lambda q: q.model_dump() if hasattr(q, "model_dump") else str(q),
-            Count: lambda c: c.model_dump()
-            if hasattr(c, "model_dump")
-            else c.value
-            if hasattr(c, "value")
-            else c,
-            Mass: lambda m: m.model_dump()
-            if hasattr(m, "model_dump")
-            else m.value
-            if hasattr(m, "value")
-            else m,
-            Volume: lambda v: v.model_dump()
-            if hasattr(v, "model_dump")
-            else v.value
-            if hasattr(v, "value")
-            else v,
-            Dimension: lambda d: d.model_dump()
-            if hasattr(d, "model_dump")
-            else d.value
-            if hasattr(d, "value")
-            else d,
-        },
-    )
+    model_config = ConfigDict(frozen=True)
+
     source_lot_ids: list[str]
     source_grades: list[Grade | None]
     source_vendor_ids: list[str]
@@ -275,6 +232,14 @@ class InventoryLotsCombined(DomainEvent):
     blended_grade: Grade | None
     blended_vendor_ids: list[str]
     version: int = 1
+
+    @field_serializer("combined_quantity")
+    def serialize_combined_quantity(self, value, _info):
+        return value.model_dump(mode="json")
+
+    @field_serializer("blended_grade")
+    def serialize_blended_grade(self, value, _info):
+        return str(value) if value else None
 
     @classmethod
     def create(
@@ -363,32 +328,11 @@ class InventoryLotSplit(DomainEvent):
             ...
     """
 
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            Quantity: lambda q: q.model_dump() if hasattr(q, "model_dump") else str(q),
-            Count: lambda c: c.model_dump()
-            if hasattr(c, "model_dump")
-            else c.value
-            if hasattr(c, "value")
-            else c,
-            Mass: lambda m: m.model_dump()
-            if hasattr(m, "model_dump")
-            else m.value
-            if hasattr(m, "value")
-            else m,
-            Volume: lambda v: v.model_dump()
-            if hasattr(v, "model_dump")
-            else v.value
-            if hasattr(v, "value")
-            else v,
-            Dimension: lambda d: d.model_dump()
-            if hasattr(d, "model_dump")
-            else d.value
-            if hasattr(d, "value")
-            else d,
-        },
-    )
+    model_config = ConfigDict(frozen=True)
+
+    @field_serializer("split_quantities")
+    def serialize_split_quantities(self, values, _info):
+        return [q.model_dump(mode="json") for q in values]
 
     source_lot_id: str
     new_lot_ids: list[str]
