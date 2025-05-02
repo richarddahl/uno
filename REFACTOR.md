@@ -46,12 +46,12 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
   - [x] **Test and verify serialization for all affected types and events.**
 - [x] Modernize remaining events (Order, Vendor, Payment, etc.) for Result-based construction, error context, versioning/upcasting, and Pydantic v2 idioms
 - [x] Finalize value object/DTO replay consistency for all aggregates
-- [x] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts) *(core aggregates complete; continue as new features are added)*
-- [x] Expand/complete error/upcast tests for all aggregates/events *(all current events covered; revisit for new events)*
-    - Upcasting is now explicit: legacy event dicts must be upcasted using the registry before constructing events.
-    - All upcasting tests have been updated to call the upcast registry on dicts before event construction. No automatic upcasting remains in event creation logic.
-- [x] Add/expand tests for domain invariants, error paths, and event upcasting/migration *(current coverage complete)*
-- [x] Document replay patterns, invariants, and best practices *(see section 4, below)*
+- [x] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts) _(core aggregates complete; continue as new features are added)_
+- [x] Expand/complete error/upcast tests for all aggregates/events _(all current events covered; revisit for new events)_
+  - Upcasting is now explicit: legacy event dicts must be upcasted using the registry before constructing events.
+  - All upcasting tests have been updated to call the upcast registry on dicts before event construction. No automatic upcasting remains in event creation logic.
+- [x] Add/expand tests for domain invariants, error paths, and event upcasting/migration _(current coverage complete)_
+- [x] Document replay patterns, invariants, and best practices _(see section 4, below)_
 
 ### 3.3 Event Sourcing Infrastructure
 
@@ -68,7 +68,15 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
   - InMemoryInventoryLotRepository.get now always returns Success or Failure, never a raw lot, and propagates error context in all error paths.
   - VendorRepository.get is now explicitly documented to always return Success or Failure, never a raw vendor, and error context is propagated.
   - InMemoryOrderRepository.get now always returns Success or Failure, never a raw order, and propagates error context in all error paths.
-- [ ] Implement canonical event serialization (strict, versioned)
+- [x] InventoryItemCreated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] InventoryLotCreated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] GradeAssignedToLot event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] MassMeasured event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] VolumeMeasured event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] PaymentReceived event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] VendorEmailUpdated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] VendorCreated event is fully compliant with canonical Uno event serialization (ConfigDict(frozen=True), version field, pydantic v2 idioms)
+- [x] Implement canonical event serialization (strict, versioned)
 - [ ] Implement event upcasting and migration registry
 - [ ] Implement snapshotting (pluggable, strategy-driven)
 - [ ] Complete event store integrations (in-memory, Postgres, etc.)
@@ -84,12 +92,12 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 #### 3.4 Domain Modeling and Event Sourcing Enablement
 
 - [ ] **Migrate Example App Domain to Bounded Contexts (Highest Priority)**
-    - Move each major domain area (e.g., Inventory, Vendor, Order) into its own subpackage under `domain/`.
-    - Ensure each context has its own `events.py`, aggregates/entities, and (if needed) value_objects.
-    - Refactor imports and references throughout the app, tests, and API to use the new context subpackages.
-    - Keep only truly cross-context value objects/events at the root.
-    - Add a `README.md` or docstring to each context package describing its boundary and purpose.
-    - Update documentation and onboarding to reflect the new structure.
+  - Move each major domain area (e.g., Inventory, Vendor, Order) into its own subpackage under `domain/`.
+  - Ensure each context has its own `events.py`, aggregates/entities, and (if needed) value_objects.
+  - Refactor imports and references throughout the app, tests, and API to use the new context subpackages.
+  - Keep only truly cross-context value objects/events at the root.
+  - Add a `README.md` or docstring to each context package describing its boundary and purpose.
+  - Update documentation and onboarding to reflect the new structure.
 
   **Example Target Structure:**
 
@@ -114,27 +122,27 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
   ```
 
 - [ ] **Publish a Domain Modeling Quickstart Guide**
-    - Step-by-step instructions for creating aggregates, value objects, and events in Uno.
-    - Example: “How to model an InventoryItem aggregate and associated events.”
+  - Step-by-step instructions for creating aggregates, value objects, and events in Uno.
+  - Example: “How to model an InventoryItem aggregate and associated events.”
 - [ ] **Provide Reference Templates and Stubs**
-    - Ready-to-use code templates for aggregates, value objects, and events (with type hints, Pydantic v2, Result monad usage).
-    - Example: `templates/domain/aggregate.py`, `templates/domain/event.py`
+  - Ready-to-use code templates for aggregates, value objects, and events (with type hints, Pydantic v2, Result monad usage).
+  - Example: `templates/domain/aggregate.py`, `templates/domain/event.py`
 - [ ] **Document Event Sourcing Patterns**
-    - How to define and use upcasting, versioning, and canonical serialization.
-    - Example: “How to implement upcast methods for evolving events.”
+  - How to define and use upcasting, versioning, and canonical serialization.
+  - Example: “How to implement upcast methods for evolving events.”
 - [ ] **Show Best Practices for Invariants and Validation**
-    - How to implement `validate()` and enforce invariants in aggregates and value objects.
-    - Example: “How to guarantee business rules at the domain layer.”
+  - How to implement `validate()` and enforce invariants in aggregates and value objects.
+  - Example: “How to guarantee business rules at the domain layer.”
 - [ ] **Create a “Domain-Only” Test Harness**
-    - Tools or scripts to run/test domain logic and event replay in isolation (no infra/api required).
-    - Example: pytest-based test harness for replaying events and asserting invariants.
+  - Tools or scripts to run/test domain logic and event replay in isolation (no infra/api required).
+  - Example: pytest-based test harness for replaying events and asserting invariants.
 - [ ] **Publish Example Domains**
-    - At least one fully worked example (e.g., Inventory, Orders) with tests, docstrings, and commentary.
+  - At least one fully worked example (e.g., Inventory, Orders) with tests, docstrings, and commentary.
 - [ ] **Provide Mock/Stubs for Infra/API**
-    - Allow app teams to run domain logic and tests without waiting for infra/api.
-    - Example: dummy repository and event bus interfaces.
+  - Allow app teams to run domain logic and tests without waiting for infra/api.
+  - Example: dummy repository and event bus interfaces.
 - [ ] **Set Up Communication Channel for Feedback**
-    - Invite early adopters to provide feedback and request help/examples.
+  - Invite early adopters to provide feedback and request help/examples.
 
 - [ ] Develop guidelines for domain-driven design and event sourcing
 - [ ] Create examples and tutorials for domain modeling and event sourcing
@@ -172,7 +180,7 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 
 - Finalize infra error context propagation and uno.sql/test handling
 - [x] Sweep for Pydantic v2/type hint modernization and fix all lint/type warnings (event infrastructure fully modernized)
-    - All core code now uses modern Python 3.13+ type hints (PEP 604, etc.) and Pydantic v2 idioms. Legacy modules are excluded from modernization and will be deleted after refactor completion.
+  - All core code now uses modern Python 3.13+ type hints (PEP 604, etc.) and Pydantic v2 idioms. Legacy modules are excluded from modernization and will be deleted after refactor completion.
 - Finalize and publish documentation/migration guide
 
 ### Short-Term
@@ -823,6 +831,7 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 ---
 
 **Note:** Legacy code is excluded from all modernization, linting, and type hint sweeps. It will be deleted once the refactor is complete.
+
 - [ ] Add/update docstrings/examples for service methods showing error handling.
 
 - Canonical plan: see EVENT_REFACTOR_PLAN.md for all event sourcing and DDD progress, decisions, and implementation notes.
@@ -831,7 +840,7 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 - [ ] Refactor event classes for explicit context propagation and Result-based construction
 - [ ] Expand domain validation and invariant enforcement (validate() contracts for all aggregates/value objects)
 - [x] Modernize all type hints (PEP 604, Uno conventions) and Pydantic usage (v2 compliance)
-    - Core modules fully updated; legacy code is excluded and will be removed.
+  - Core modules fully updated; legacy code is excluded and will be removed.
 - [ ] Add/complete documentation for domain modeling, Result error handling, and event sourcing best practices
 - [ ] Add integration tests for event store roundtrips and error propagation
 - [ ] Finalize user/developer documentation for Uno domain modeling, Result error handling, and best practices
@@ -857,10 +866,12 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 ---
 
 ### Recent Progress (2025-05-02)
+
 - Infrastructure/service layer sweep complete: All modules in `application/` and `cli/` are compliant with Uno error handling and logging requirements. No direct exceptions, all public methods use Result/Failure, and structured logging is present where required.
 - CLI code uses `typer.Exit` for process control, which is correct for CLI entrypoints. All business logic is delegated to services that use Result/Failure and structured logging.
 
 ### Next Steps
+
 1. **uno.sql-dependent infra tests:**
    - Implement or stub the `uno.sql` module for Postgres event store tests, or update those tests to skip if the dependency is not available. This will unblock CI and allow further refactoring.
 2. **Documentation:**
@@ -874,6 +885,7 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 ---
 
 #### Modernization Sweep Summary (2025-05-02)
+
 - All core event infrastructure modules (`bus.py`, `publisher.py`, `event_store.py`) have been fully modernized:
   - Modern Python 3.13+ type hints and Pydantic v2 idioms everywhere
   - Strict DI LoggerService usage, no global loggers
@@ -917,7 +929,24 @@ _This checklist is a living document. Update it as implementation progresses. Ma
 
 ---
 
-## 4. Value Object & Event Serialization Modernization
+## 4. Value Object & Event Serialization Modernization Checklist
+
+All core domain events are now fully compliant with Uno's canonical event serialization standards:
+
+- Use of `ConfigDict(frozen=True)`
+- Explicit `version: ClassVar[int] = 1` field
+- Pydantic v2 idioms throughout
+- Result-based construction and error context propagation
+- Canonical serialization via `model_dump`
+- Upcast method present on all events
+
+**Compliant Events:**
+
+- Inventory: InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit, GradeAssignedToLot, MassMeasured, VolumeMeasured, InventoryItemCreated, InventoryItemRenamed
+- Vendor: VendorCreated, VendorUpdated, VendorEmailUpdated
+- Order: OrderCreated, OrderCancelled, OrderFulfilled, PaymentReceived
+
+No further core domain events require modernization for serialization compliance.
 
 ### Summary
 

@@ -42,6 +42,7 @@ class InventoryLotCreated(DomainEvent):
     """
 
     model_config = ConfigDict(frozen=True)
+    version: ClassVar[int] = 1  # Canonical event version field
 
     lot_id: str
     item_id: str
