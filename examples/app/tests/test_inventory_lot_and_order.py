@@ -57,6 +57,8 @@ def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
         order_type="sale",
     )
     print("[DEBUG] Order.create result:", result)
+    if hasattr(result, "is_failure") and result.is_failure:
+        print("[ERROR] Order.create Failure:", getattr(result, 'error', None))
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     value = result.unwrap()
     print("[DEBUG] fake_order value:", value)
@@ -67,7 +69,8 @@ def test_inventory_lot_creation(fake_lot: InventoryLot) -> None:
     assert fake_lot.item_id == "item-1"
     assert fake_lot.vendor_id == "vendor-1"
     assert fake_lot.quantity.type == "count"
-    assert fake_lot.quantity.value == Count(value=50.0, unit=CountUnit.EACH)
+    assert fake_lot.quantity.value.value == 50.0
+    assert fake_lot.quantity.value.unit == CountUnit.EACH
     assert fake_lot.purchase_price == 10.0
     # Canonical serialization
     data = fake_lot.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
@@ -89,11 +92,8 @@ def test_inventory_lot_adjustment(fake_lot: InventoryLot) -> None:
     assert result.is_success, f"Expected Success, got {result}"
     lot = result.value
     assert lot.quantity.type == "count"
-    assert lot.quantity.value.model_dump(
-        exclude_none=True, exclude_unset=True, by_alias=True
-    ) == Count(value=40.0, unit=CountUnit.EACH).model_dump(
-        exclude_none=True, exclude_unset=True, by_alias=True
-    )
+    assert lot.quantity.value.value == 40.0
+    assert lot.quantity.value.unit == CountUnit.EACH
 
 
 def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -> None:
@@ -122,7 +122,7 @@ def test_order_creation(fake_order: Order) -> None:
     assert fake_order.lot_id == "lot-1"
     assert fake_order.vendor_id == "vendor-1"
     assert isinstance(fake_order.quantity, Quantity)
-    assert fake_order.quantity.value == 25.0
+    assert fake_order.quantity.value.value == 25.0  # Compare the float inside Count
     assert isinstance(fake_order.price, Money)
     assert float(fake_order.price.amount) == 12.0
     assert fake_order.order_type == "sale"
@@ -131,7 +131,8 @@ def test_order_creation(fake_order: Order) -> None:
     assert data["item_id"] == "item-1"
     assert data["lot_id"] == "lot-1"
     assert data["vendor_id"] == "vendor-1"
-    assert data["quantity"]["value"] == 25.0
+    assert data["quantity"]["value"]["value"] == 25.0
+    assert data["quantity"]["value"]["unit"] == "EACH"
     assert float(data["price"]["amount"]) == 12.0
     assert data["order_type"] == "sale"
 
@@ -151,11 +152,9 @@ def test_order_replay_restores_value_objects(fake_order: Order) -> None:
             order_type="sale",
         )
     ]
-    replayed = Order(id=fake_order.id)
-    for event in events:
-        replayed._apply_event(event)
+    replayed = Order.replay_from_events(fake_order.id, events)
     assert isinstance(replayed.quantity, Quantity)
-    assert replayed.quantity.value == 25.0
+    assert replayed.quantity.value.value == 25.0  # Compare the float inside Count
     assert isinstance(replayed.price, Money)
     assert float(replayed.price.amount) == 12.0
     assert replayed.order_type == "sale"

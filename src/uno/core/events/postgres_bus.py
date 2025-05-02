@@ -5,9 +5,10 @@ Postgres-backed EventBus and CommandBus for Uno using asyncpg.
 - Ensures durability and real-time delivery (best effort).
 """
 import asyncio
-from typing import Any, Callable, Awaitable
 import asyncpg
 import json
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 class PostgresBus:
     def __init__(self, dsn: str, channel: str, table: str) -> None:
@@ -25,7 +26,7 @@ class PostgresBus:
     async def publish(self, payload: dict[str, Any]) -> None:
         assert self._conn is not None
         if hasattr(payload, "model_dump"):
-            data = json.dumps(payload.model_dump(by_alias=True, exclude_unset=True, exclude_none=True))
+            data = json.dumps(payload.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True))
         else:
             data = json.dumps(payload)
         await self._conn.execute(f"""

@@ -7,6 +7,7 @@ Value objects for Uno example app: Grade, EmailAddress, etc.
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
+import pydantic
 from pydantic import (
     ConfigDict,
     EmailStr,
@@ -117,6 +118,10 @@ class Count(ValueObject):
             else c,
         },
     )
+
+    @pydantic.field_serializer('unit')
+    def serialize_unit(self, unit: CountUnit, _info):
+        return unit.name
 
     @classmethod
     def from_each(cls, each: float | int) -> "Count":

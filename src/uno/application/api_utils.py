@@ -18,15 +18,4 @@ from pydantic import BaseModel
 from typing import Any
 
 
-def as_canonical_json(obj: Any) -> Any:
-    """
-    Recursively serialize a Pydantic BaseModel or a list/dict of models using the Uno canonical contract.
-    This ensures all API responses are compliant with Uno's serialization requirements.
-    """
-    if isinstance(obj, BaseModel):
-        return obj.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
-    elif isinstance(obj, list):
-        return [as_canonical_json(item) for item in obj]
-    elif isinstance(obj, dict):
-        return {k: as_canonical_json(v) for k, v in obj.items()}
-    return obj
+

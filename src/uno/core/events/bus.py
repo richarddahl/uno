@@ -28,9 +28,9 @@ class InMemoryEventBus(EventBusProtocol):
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
         Canonical event serialization for storage, logging, and transport.
-        Always uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
+        Always uses to_canonical_dict() for serialization.
         """
-        return event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+        return event.to_canonical_dict()
 
     async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> Result[None, Exception]:
         try:

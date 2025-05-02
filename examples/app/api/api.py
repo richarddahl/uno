@@ -42,7 +42,7 @@ from examples.app.persistence.repository import InMemoryInventoryItemRepository
 from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
-from uno.application.api_utils import as_canonical_json
+
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.logging import LoggerService, LoggingConfig
@@ -138,7 +138,7 @@ def app_factory() -> FastAPI:
                 # Extract primitive int value from Quantity value object for DTO
         qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
         dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
-        return as_canonical_json(dto)
+        return dto
 
     @app.post("/vendors/", tags=["vendors"], response_model=VendorDTO, status_code=201)
     def create_vendor(data: VendorCreateDTO) -> VendorDTO:
@@ -155,7 +155,7 @@ def app_factory() -> FastAPI:
             if hasattr(vendor.contact_email, "value")
             else vendor.contact_email,
         )
-        return as_canonical_json(dto)
+        return dto
 
     @app.get(
         "/inventory/{item_id}", tags=["inventory"], response_model=InventoryItemDTO
@@ -168,7 +168,7 @@ def app_factory() -> FastAPI:
                 # Extract primitive int value from Quantity value object for DTO
         qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
         dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
-        return as_canonical_json(dto)
+        return dto
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
     def get_vendor(vendor_id: str) -> VendorDTO:
@@ -185,7 +185,7 @@ def app_factory() -> FastAPI:
             if hasattr(vendor.contact_email, "value")
             else vendor.contact_email,
         )
-        return as_canonical_json(dto)
+        return dto
 
     @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
     def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> VendorDTO:
@@ -205,7 +205,7 @@ def app_factory() -> FastAPI:
             if hasattr(vendor.contact_email, "value")
             else vendor.contact_email,
         )
-        return as_canonical_json(dto)
+        return dto
 
     @app.get("/vendors/", tags=["vendors"], response_model=list[VendorDTO])
     def list_vendors() -> list[VendorDTO]:

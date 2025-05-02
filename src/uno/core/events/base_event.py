@@ -6,24 +6,65 @@ All domain/integration events should inherit from this class.
 from __future__ import annotations
 
 import logging
+import uuid
+import time
+import json
+import decimal
+import enum
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from uno.core.base_model import FrameworkBaseModel
+from pydantic import Field, ConfigDict, model_validator
 
 from uno.core.errors.result import Failure, Success
 
 if TYPE_CHECKING:
     import collections.abc
-
-    from uno.core.di import get_service_provider
-    from uno.core.errors.definitions import EventUpcastError
     from uno.core.errors.result import Failure as FailureType, Success as SuccessType
     from uno.core.services.default_hash_service import DefaultHashService
     from uno.core.services.hash_service_protocol import HashServiceProtocol
 
 
-class DomainEvent(BaseModel):
+def uno_json_encoder(obj: Any) -> Any:
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    if isinstance(obj, FrameworkBaseModel):
+        if hasattr(obj, "to_canonical_dict") and callable(obj.to_canonical_dict):
+            return obj.to_canonical_dict()
+        return obj.model_dump(mode="json", exclude_none=True, exclude_unset=True, by_alias=True)
+    if hasattr(obj, "to_canonical_dict") and callable(obj.to_canonical_dict):
+        return obj.to_canonical_dict()
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
+    raise RuntimeError(f"Object of type {type(obj)} is not JSON serializable. Implement to_canonical_dict or inherit FrameworkBaseModel.")
+
+
+class DomainEvent(FrameworkBaseModel):
+    # --- Event class registry for dynamic resolution ---
+    _event_class_registry: ClassVar[dict[str, type["DomainEvent"]]] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Register by class name and event_type if available
+        DomainEvent._event_class_registry[cls.__name__] = cls
+        event_type = getattr(cls, "event_type", None)
+        if event_type and event_type != "domain_event":
+            DomainEvent._event_class_registry[event_type] = cls
+
+    @classmethod
+    def get_event_class(cls, event_type: str) -> type["DomainEvent"]:
+        """
+        Look up the event class by event_type or class name.
+        Raises KeyError if not found.
+        """
+        try:
+            return cls._event_class_registry[event_type]
+        except KeyError:
+            raise RuntimeError(f"No DomainEvent class registered for event_type '{event_type}'")
+
     """
     Uno canonical Pydantic base model for all events.
 
@@ -50,10 +91,10 @@ class DomainEvent(BaseModel):
     version: int = 1
     __version__: ClassVar[int] = 1
     event_id: str = Field(
-        default_factory=lambda: "evt_" + __import__("uuid").uuid4().hex
+        default_factory=lambda: "evt_" + uuid.uuid4().hex
     )
     event_type: ClassVar[str] = "domain_event"
-    timestamp: float = Field(default_factory=lambda: __import__("time").time())
+    timestamp: float = Field(default_factory=lambda: time.time())
     correlation_id: str | None = None
     causation_id: str | None = None
     metadata: dict[str, Any] = {}
@@ -104,25 +145,20 @@ class DomainEvent(BaseModel):
         Falls back to sha256 if DI is not available.
 
         Returns:
-            Self: The event instance with its event_hash set.
+            Self
+            None
         """
         from uno.core.di import ServiceProvider, get_service_provider
         from uno.core.services.hash_service_protocol import HashServiceProtocol
         from uno.core.services.default_hash_service import DefaultHashService
 
-        import json
         d = self.model_dump(
             exclude={"event_hash"},
             exclude_none=True,
             exclude_unset=True,
             by_alias=True,
         )
-        import json
-        def enum_encoder(obj):
-            if isinstance(obj, Enum):
-                return obj.value
-            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-        payload = json.dumps(d, sort_keys=True, separators=(",", ":"), default=enum_encoder)
+        payload = json.dumps(d, sort_keys=True, separators=(",", ":"), default=uno_json_encoder)
 
         hash_service = None
         try:

@@ -24,8 +24,7 @@ class PostgresSagaStore(SagaStore):
             SET status = $3, data = $4, updated_at = now()
             """,
             saga_id, saga_type, status, (
-                json.dumps(data.model_dump(by_alias=True, exclude_unset=True, exclude_none=True))
-                if hasattr(data, "model_dump") else json.dumps(data)
+                json.dumps(data.to_canonical_dict()) if hasattr(data, "to_canonical_dict") else json.dumps(data)
             )
         )
 

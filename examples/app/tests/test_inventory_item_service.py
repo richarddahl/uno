@@ -130,9 +130,20 @@ def test_adjust_inventory_quantity_success(service) -> None:
 
 def test_adjust_inventory_quantity_negative(service) -> None:
     service.create_inventory_item("sku-6", "Widget", 5)
-    result = service.adjust_inventory_quantity("sku-6", -3)
-    assert isinstance(result, Failure)
-    assert "resulting quantity cannot be negative" in str(result.error)
+    # Adjustment within bounds (should succeed)
+    result1 = service.adjust_inventory_quantity("sku-6", -3)
+    assert isinstance(result1, Success)
+    assert result1.value.quantity.value.value == 2
+
+    # Adjustment to exactly zero (should succeed)
+    result2 = service.adjust_inventory_quantity("sku-6", -2)
+    assert isinstance(result2, Success)
+    assert result2.value.quantity.value.value == 0
+
+    # Adjustment that would make quantity negative (should fail)
+    result3 = service.adjust_inventory_quantity("sku-6", -1)
+    assert isinstance(result3, Failure)
+    assert "resulting quantity cannot be negative" in str(result3.error)
 
 
 def test_adjust_inventory_quantity_invalid(service) -> None:

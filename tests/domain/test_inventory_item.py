@@ -46,7 +46,9 @@ def test_adjust_quantity_success():
     item = InventoryItem.create("item-1", "Widget", 10).unwrap()
     result = item.adjust_quantity(-5)
     assert isinstance(result, Success)
-    assert item.quantity.value == 5
+    for event in item._domain_events:
+        item._apply_event(event)
+    assert item.quantity.value.value == 5
 
 
 def test_adjust_quantity_negative():

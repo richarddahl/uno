@@ -1,6 +1,34 @@
 # Uno Integrated Example App
 
-This example demonstrates Uno's modern, production-ready approach to Domain-Driven Design (DDD), event sourcing, dependency injection, and API development in Python.
+## Domain Modeling Quickstart
+
+Welcome! This quickstart will help you model your own domain in Uno using modern DDD and event sourcing patterns.
+
+### Steps
+
+1. **Explore the example domain:**
+    - Aggregates: [`domain/inventory/item.py`](domain/inventory/item.py), [`domain/inventory/lot.py`](domain/inventory/lot.py)
+    - Events: [`domain/events.py`](domain/events.py)
+    - Value Objects: [`domain/value_objects.py`](domain/value_objects.py)
+2. **Create your own aggregate:**
+    - Copy the pattern from `InventoryItem` or `InventoryLot`.
+    - Use Pydantic v2, modern type hints, and the Result monad for all construction and error handling.
+3. **Define events for your aggregate:**
+    - See `PaymentReceived`, `GradeAssignedToLot`, etc. in `events.py`.
+    - Implement `create` and `upcast` classmethods.
+4. **Add value objects as needed:**
+    - See `Quantity`, `Grade`, `Count` in `value_objects.py`.
+    - Use validation and Pydantic idioms.
+5. **Write tests for your domain logic:**
+    - See [`tests/`](tests/) for pytest-based examples.
+    - Run all example tests with:
+      ```bash
+      hatch run test:testV
+      ```
+6. **No infrastructure or API required!**
+   You can model, test, and validate your entire domain layer in isolation.
+
+For a detailed walkthrough, see the [Domain Modeling Guide](../../docs/examples_app/domain_modeling.md).
 
 ---
 

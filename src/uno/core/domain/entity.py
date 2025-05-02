@@ -3,13 +3,14 @@ Entity base class for Uno's DDD model.
 """
 from __future__ import annotations
 from typing import Any, Generic, TypeVar, Self
-from pydantic import BaseModel, Field, ConfigDict
+from uno.core.base_model import FrameworkBaseModel
+from pydantic import Field, ConfigDict, model_validator
 from uno.core.errors.result import Success, Failure
 import time
 
 T_ID = TypeVar("T_ID")
 
-class Entity(BaseModel, Generic[T_ID]):
+class Entity(FrameworkBaseModel, Generic[T_ID]):
     """
     Uno canonical Pydantic base model for all entities.
 

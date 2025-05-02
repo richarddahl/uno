@@ -32,7 +32,7 @@ class InMemoryOrderRepository:
         hashes = self._event_hashes.get(order.id, [])
         prev_hash = hashes[-1] if hashes else ''
         for event in events[len(hashes):]:
-            event_bytes = str(event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)).encode()
+            event_bytes = str(event.to_canonical_dict()).encode()
             h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
             hashes.append(h)
             prev_hash = h
@@ -53,7 +53,7 @@ class InMemoryOrderRepository:
         hashes = self._event_hashes.get(order_id, [])
         prev_hash = ''
         for i, event in enumerate(events):
-            event_bytes = str(event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)).encode()
+            event_bytes = str(event.to_canonical_dict()).encode()
             h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
             if i >= len(hashes) or hashes[i] != h:
                 self._logger.error(f"Integrity check failed for order {order_id} at event {i}")

@@ -6,12 +6,13 @@ from __future__ import annotations
 
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict
+from uno.core.base_model import FrameworkBaseModel
+from pydantic import Field, ConfigDict, model_validator
 
 from uno.core.errors.result import Failure, Success
 
 
-class ValueObject(BaseModel):
+class ValueObject(FrameworkBaseModel):
     """
     Uno canonical Pydantic base model for all value objects.
 
