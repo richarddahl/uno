@@ -10,7 +10,10 @@ from uno.core.domain.event import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
-from .value_objects import EmailAddress, Grade, Mass, Volume
+from examples.app.domain.value_objects import EmailAddress, Grade, Mass, Volume
+
+# Re-export inventory lot events for test and domain imports
+from examples.app.domain.inventory.lot import InventoryLotCreated, InventoryLotsCombined, InventoryLotSplit
 
 class GradeAssignedToLot(DomainEvent):
     """

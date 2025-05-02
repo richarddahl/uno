@@ -109,11 +109,26 @@ class CountUnit(Enum):
 class Count(ValueObject):
     model_config = ConfigDict(frozen=True)
 
-    @pydantic.field_serializer('unit')
+    @field_validator("unit", mode="before")
+    @classmethod
+    def parse_unit(cls, v):
+        if isinstance(v, str):
+            v_lower = v.lower()
+            try:
+                return CountUnit(v_lower)
+            except ValueError:
+                # Try matching by name (e.g., "EACH")
+                for member in CountUnit:
+                    if member.name.lower() == v_lower:
+                        return member
+                raise
+        return v
+
+    @pydantic.field_serializer("unit")
     def serialize_unit(self, unit: CountUnit, _info):
         return unit.name
 
-    @pydantic.field_serializer('value')
+    @pydantic.field_serializer("value")
     def serialize_value(self, value, _info):
         return float(value)
 
@@ -244,11 +259,11 @@ class MassUnit(Enum):
 class Mass(ValueObject):
     model_config = ConfigDict(frozen=True)
 
-    @pydantic.field_serializer('unit')
+    @pydantic.field_serializer("unit")
     def serialize_unit(self, unit: MassUnit, _info):
         return unit.name
 
-    @pydantic.field_serializer('amount')
+    @pydantic.field_serializer("amount")
     def serialize_amount(self, amount, _info):
         return float(amount)
 
@@ -323,11 +338,11 @@ class Volume(ValueObject):
     amount: float
     unit: VolumeUnit
 
-    @pydantic.field_serializer('unit')
+    @pydantic.field_serializer("unit")
     def serialize_unit(self, unit: VolumeUnit, _info):
         return unit.name
 
-    @pydantic.field_serializer('amount')
+    @pydantic.field_serializer("amount")
     def serialize_amount(self, amount, _info):
         return float(amount)
 
@@ -395,11 +410,11 @@ class Dimension(ValueObject):
     amount: float
     unit: DimensionUnit
 
-    @pydantic.field_serializer('unit')
+    @pydantic.field_serializer("unit")
     def serialize_unit(self, unit: DimensionUnit, _info):
         return unit.name
 
-    @pydantic.field_serializer('amount')
+    @pydantic.field_serializer("amount")
     def serialize_amount(self, amount, _info):
         return float(amount)
 
@@ -532,8 +547,11 @@ class Quantity(ValueObject):
             raise ValueError("For type 'volume', value must be Volume")
         if t == "dimension" and not isinstance(v, Dimension):
             raise ValueError("For type 'dimension', value must be Dimension")
-        if t == "count" and not isinstance(v, Count):
-            raise ValueError("For type 'count', value must be Count")
+        if t == "count":
+            if isinstance(v, dict):
+                data["value"] = Count.model_validate(v)
+            elif not isinstance(v, Count):
+                raise ValueError("For type 'count', value must be Count or dict")
         return data
 
     @classmethod
@@ -598,11 +616,11 @@ class Money(ValueObject):
     currency: Currency
     model_config = ConfigDict(frozen=True)
 
-    @pydantic.field_serializer('amount')
+    @pydantic.field_serializer("amount")
     def serialize_amount(self, amount, _info):
         return float(amount)
 
-    @pydantic.field_serializer('currency')
+    @pydantic.field_serializer("currency")
     def serialize_currency(self, currency: Currency, _info):
         return currency.value
 
