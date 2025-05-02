@@ -1,7 +1,15 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 """
+Performance/benchmark tests in this file are only run if explicitly selected with '-m performance' or '-m benchmark'.
+The marker/skip logic is now centralized in tests/conftest.py.
+
 Benchmark for structured_log throughput in a simulated event handler loop.
+
+Performance/benchmark tests in this file are only run if explicitly selected.
+Add '-m performance' to your pytest command to include them:
+    hatch run test:testV -m performance
+Otherwise, these tests will be skipped by default.
 """
 import asyncio
 import pytest
@@ -17,6 +25,7 @@ def logger_service() -> LoggerService:
     yield logger_service
     asyncio.run(logger_service.dispose())
 
+@pytest.mark.performance
 def test_structured_log_event_handler_benchmark(benchmark, logger_service: LoggerService) -> None:
     event_context = {"event_type": "FakeEvent", "aggregate_id": "abc123", "version": 1}
 
@@ -31,6 +40,7 @@ def test_structured_log_event_handler_benchmark(benchmark, logger_service: Logge
                 )
     benchmark(log_structured_messages)
 
+@pytest.mark.performance
 def test_structured_log_complex_context_benchmark(benchmark, logger_service: LoggerService) -> None:
     complex_context = {
         "event_type": "FakeEvent",
@@ -51,6 +61,7 @@ def test_structured_log_complex_context_benchmark(benchmark, logger_service: Log
                 )
     benchmark(log_complex_messages)
 
+@pytest.mark.performance
 def test_structured_log_concurrent_benchmark(benchmark, logger_service: LoggerService) -> None:
     event_context = {"event_type": "FakeEvent", "aggregate_id": "abc123", "version": 1}
     async def log_structured_messages_async() -> None:

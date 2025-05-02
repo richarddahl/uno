@@ -1,6 +1,16 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+"""
+Performance/benchmark tests are only run if explicitly selected.
+Add '-m performance' or '-m benchmark' to your pytest command to include them:
+    hatch run test:testV -m performance
+    hatch run test:testV -m benchmark
+Otherwise, these tests will be skipped by default.
+
+To mark a test as performance/benchmark, use @pytest.mark.performance or @pytest.mark.benchmark_only.
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -17,6 +27,24 @@ from uno.core.di.container import ServiceCollection
 from uno.core.di.provider import ServiceProvider, get_service_provider
 from uno.core.services.hash_service_protocol import HashServiceProtocol
 from typing import Any
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "performance: mark test as performance/benchmark (skip unless -m performance or -m benchmark)"
+    )
+    config.addinivalue_line(
+        "markers", "benchmark_only: mark test as DI performance/benchmark (skip unless -m performance or -m benchmark)"
+    )
+
+def pytest_collection_modifyitems(config, items):
+    m_option = config.getoption("-m")
+    # Only run performance/benchmark tests if '-m performance' or '-m benchmark' is specified
+    if not m_option or ("performance" not in m_option and "benchmark" not in m_option):
+        skip_perf = pytest.mark.skip(reason="Skipped unless -m performance or -m benchmark is specified.")
+        for item in items:
+            if "performance" in item.keywords or "benchmark_only" in item.keywords:
+                item.add_marker(skip_perf)
 
 class FakeHashService(HashServiceProtocol):
     def hash_event(self, event: Any) -> str:

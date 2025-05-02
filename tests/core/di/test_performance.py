@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # uno framework
+"""
+Performance/benchmark tests in this file are only run if explicitly selected with '-m performance' or '-m benchmark'.
+The marker/skip logic is now centralized in tests/conftest.py.
+"""
+
 import time
 
 from uno.core.di.container import ServiceCollection
@@ -15,7 +20,11 @@ class SlowService:
         time.sleep(0.05)  # simulate slow construction
         self.value = 456
 
+import pytest
+
 def test_resolution_path_caching_speed():
+    """Performance: Path cache speed. Run with -m performance to include."""
+    
     services = ServiceCollection()
     services.add_singleton(FastService)
     resolver = services.build()
@@ -26,7 +35,11 @@ def test_resolution_path_caching_speed():
     assert isinstance(r2, Success)
     assert r1.value is r2.value  # Should always be the same singleton instance
 
+@pytest.mark.performance
+
 def test_prewarm_singletons_eagerly_instantiates():
+    """Performance: Singleton prewarm. Run with -m performance to include."""
+    
     services = ServiceCollection()
     services.add_singleton(SlowService)
     resolver = services.build()

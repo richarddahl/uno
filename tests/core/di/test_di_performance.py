@@ -9,7 +9,10 @@ Benchmarks:
 - LoggerService DI initialization
 - Override/mocking overhead
 
-Run with: hatch run test:testV -k test_di_performance
+**Performance/benchmark tests are only run if explicitly selected.**
+Add '-m benchmark' to your pytest command to include them:
+    hatch run test:testV -m benchmark
+Otherwise, these tests will be skipped by default.
 """
 
 import pytest
@@ -39,6 +42,7 @@ class DummyTransient:
 
 
 @pytest.mark.benchmark(group="di_singleton")
+@pytest.mark.benchmark_only
 @pytest.mark.asyncio
 async def test_singleton_resolution_benchmark(benchmark: BenchmarkFixture) -> None:
     services = ServiceCollection()
@@ -57,6 +61,7 @@ async def test_singleton_resolution_benchmark(benchmark: BenchmarkFixture) -> No
 
 
 @pytest.mark.benchmark(group="di_scoped")
+@pytest.mark.benchmark_only
 @pytest.mark.asyncio
 async def test_scoped_resolution_benchmark(benchmark: BenchmarkFixture) -> None:
     services = ServiceCollection()
@@ -76,6 +81,7 @@ async def test_scoped_resolution_benchmark(benchmark: BenchmarkFixture) -> None:
 
 
 @pytest.mark.benchmark(group="di_transient")
+@pytest.mark.benchmark_only
 @pytest.mark.asyncio
 async def test_transient_resolution_benchmark(benchmark: BenchmarkFixture) -> None:
     services = ServiceCollection()
@@ -94,6 +100,7 @@ async def test_transient_resolution_benchmark(benchmark: BenchmarkFixture) -> No
 
 
 @pytest.mark.benchmark(group="di_logger_init")
+@pytest.mark.benchmark_only
 @pytest.mark.asyncio
 async def test_logger_service_initialization_benchmark(
     benchmark: BenchmarkFixture,
@@ -108,6 +115,7 @@ async def test_logger_service_initialization_benchmark(
 
 
 @pytest.mark.benchmark(group="di_override")
+@pytest.mark.benchmark_only
 @pytest.mark.asyncio
 async def test_di_override_benchmark(benchmark: BenchmarkFixture) -> None:
     provider = DIHelper.create_test_provider()
@@ -138,3 +146,16 @@ def pytest_configure(config: Any) -> None:
         import pytest_benchmark
     except ImportError:
         pytest.skip("pytest-benchmark is required for DI performance benchmarks.")
+
+    # Register custom marker for performance/benchmark tests
+    config.addinivalue_line(
+        "markers", "benchmark_only: mark test as DI performance/benchmark (skip unless -m benchmark)"
+    )
+
+def pytest_collection_modifyitems(config, items):
+    # If '-m benchmark' is not in command line, skip all tests marked benchmark_only
+    if not config.getoption("-m") or "benchmark" not in config.getoption("-m"):
+        skip_benchmark = pytest.mark.skip(reason="Skipped unless -m benchmark is specified.")
+        for item in items:
+            if "benchmark_only" in item.keywords:
+                item.add_marker(skip_benchmark)

@@ -1,5 +1,13 @@
 import pytest
 
+"""
+Performance/benchmark tests in this file are only run if explicitly selected with '-m performance' or '-m benchmark'.
+The marker/skip logic is now centralized in tests/conftest.py.
+Add '-m performance' or '-m benchmark' to your pytest command to include them:
+    hatch run test:testV -m performance
+Otherwise, these tests will be skipped by default.
+"""
+
 from tests.core.logging.suppress_output import suppress_stdout_stderr
 from uno.core.logging.config_service import LoggingConfigService
 from uno.core.logging.logger import LoggerService, LoggingConfig
@@ -17,6 +25,7 @@ def logger_service():
     asyncio.run(logger_service.dispose())
 
 
+@pytest.mark.performance
 def test_logger_creation_benchmark(benchmark):
     def create_logger():
         # Always disable console output for test loggers
@@ -32,6 +41,7 @@ def test_logger_creation_benchmark(benchmark):
     benchmark(create_logger)
 
 
+@pytest.mark.performance
 def test_log_message_throughput(benchmark, logger_service):
     logger = logger_service.get_logger("bench.throughput")
 
@@ -43,6 +53,7 @@ def test_log_message_throughput(benchmark, logger_service):
     benchmark(log_messages)
 
 
+@pytest.mark.performance
 def test_config_reload_benchmark(benchmark, logger_service):
     config_service = LoggingConfigService(logger_service)
 

@@ -11,24 +11,22 @@ from examples.app.domain.inventory import InventoryItem
 from examples.app.domain.inventory import InventoryLot
 from examples.app.domain.order import Order
 from examples.app.domain.value_objects import Count, Quantity, CountUnit
-from examples.app.persistence.inventory_lot_repository import InMemoryInventoryLotRepository
+from examples.app.persistence.inventory_lot_repository import (
+    InMemoryInventoryLotRepository,
+)
 from examples.app.persistence.order_repository import InMemoryOrderRepository
 
 
 @pytest.fixture
 def fake_item() -> InventoryItem:
-    print("[DEBUG] Entering fake_item fixture")
     result = InventoryItem.create(item_id="item-1", name="Widget", quantity=100)
-    print("[DEBUG] InventoryItem.create result:", result)
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     value = result.unwrap()
-    print("[DEBUG] fake_item value:", value)
     return value
 
 
 @pytest.fixture
 def fake_lot(fake_item: InventoryItem) -> InventoryLot:
-    print("[DEBUG] Entering fake_lot fixture")
     result = InventoryLot.create(
         lot_id="lot-1",
         item_id=fake_item.id,
@@ -36,17 +34,15 @@ def fake_lot(fake_item: InventoryItem) -> InventoryLot:
         vendor_id="vendor-1",
         purchase_price=10.0,
     )
-    print("[DEBUG] InventoryLot.create result:", result)
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     value = result.unwrap()
-    print("[DEBUG] fake_lot value:", value)
     return value
 
 
 @pytest.fixture
 def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
-    print("[DEBUG] Entering fake_order fixture")
     from examples.app.domain.value_objects import Quantity, Money, Currency
+
     result = Order.create(
         order_id="order-1",
         item_id=fake_item.id,
@@ -56,12 +52,8 @@ def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
         price=Money.from_value(12.0, currency=Currency.USD).unwrap(),
         order_type="sale",
     )
-    print("[DEBUG] Order.create result:", result)
-    if hasattr(result, "is_failure") and result.is_failure:
-        print("[ERROR] Order.create Failure:", getattr(result, 'error', None))
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     value = result.unwrap()
-    print("[DEBUG] fake_order value:", value)
     return value
 
 
@@ -118,6 +110,7 @@ def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -
 
 def test_order_creation(fake_order: Order) -> None:
     from examples.app.domain.value_objects import Quantity, Money
+
     assert fake_order.item_id == "item-1"
     assert fake_order.lot_id == "lot-1"
     assert fake_order.vendor_id == "vendor-1"
@@ -141,6 +134,7 @@ def test_order_replay_restores_value_objects(fake_order: Order) -> None:
     # Simulate event replay for a new Order instance
     from examples.app.domain.order import Order, OrderCreated
     from examples.app.domain.value_objects import Quantity, Money, Currency
+
     events = [
         OrderCreated(
             order_id=fake_order.id,
@@ -159,60 +153,27 @@ def test_order_replay_restores_value_objects(fake_order: Order) -> None:
     assert float(replayed.price.amount) == 12.0
     assert replayed.order_type == "sale"
 
+
 def test_order_fulfillment_and_cancel(fake_order: Order) -> None:
-    print("[DEBUG] fake_order before fulfill:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events before fulfill:",
-        getattr(fake_order, "_domain_events", []),
-    )
     fake_order.fulfill(fulfilled_quantity=25)
-    print("[DEBUG] fake_order after fulfill:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events after fulfill:",
-        getattr(fake_order, "_domain_events", []),
-    )
     assert fake_order.is_fulfilled
     fake_order.cancel(reason="customer request")
-    print("[DEBUG] fake_order after cancel:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events after cancel:",
-        getattr(fake_order, "_domain_events", []),
-    )
     assert fake_order.is_cancelled
 
 
 def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
     from uno.core.logging import LoggerService, LoggingConfig
 
-    print("[DEBUG] fake_order before repo.save:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events before repo.save:",
-        getattr(fake_order, "_domain_events", []),
-    )
     repo = InMemoryOrderRepository(LoggerService(LoggingConfig()))
     repo.save(fake_order)
-    print("[DEBUG] fake_order after repo.save:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events after repo.save:",
-        getattr(fake_order, "_domain_events", []),
-    )
     assert repo.verify_integrity(fake_order.id)
     # Tamper: replace event object with a different value (simulate tampering)
-    from examples.app.domain.order import OrderCreated
-
-    from examples.app.domain.value_objects import Quantity
-    fake_order._domain_events[0] = OrderCreated(
-        order_id=fake_order.id,
-        item_id=fake_order.item_id,
-        lot_id=fake_order.lot_id,
-        vendor_id=fake_order.vendor_id,
-        quantity=Quantity.from_count(999.0),  # tampered value
-        price=fake_order.price,
-        order_type=fake_order.order_type,
-    )
-    print("[DEBUG] fake_order after tampering:", fake_order)
-    print(
-        "[DEBUG] fake_order._domain_events after tampering:",
-        getattr(fake_order, "_domain_events", []),
-    )
-    assert not repo.verify_integrity(fake_order.id)
+    # Tamper with the underlying event log on the aggregate itself
+    # This simulates a real-world tamper and should break the hash chain
+    tampered_order = repo._orders[fake_order.id]
+    events = list(getattr(tampered_order, "_domain_events", []))
+    first_event = events[0]
+    tampered_event = first_event.model_copy(update={"quantity": Quantity.from_count(999.0)})
+    events[0] = tampered_event
+    setattr(tampered_order, "_domain_events", events)
+    assert not repo.verify_integrity(fake_order.id)  # Should now fail

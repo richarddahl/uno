@@ -20,13 +20,8 @@ from uno.core.errors.result import Failure, Result, Success
 class InventoryItemCreated(DomainEvent):
     """
     Event: InventoryItem was created.
-    model_config = ConfigDict(
-        frozen=True,
-        json_encoders={
-            # Use same logic as value_objects.py
-            "Quantity": lambda q: q.model_dump() if hasattr(q, 'model_dump') else str(q),
-            "Count": lambda c: c.model_dump() if hasattr(c, 'model_dump') else c.value if hasattr(c, 'value') else c,
-            "Mass": lambda m: m.model_dump() if hasattr(m, 'model_dump') else m.value if hasattr(m, 'value') else m,
+    model_config = ConfigDict(frozen=True)
+    version: ClassVar[int] = 1  # Canonical event version field
             "Volume": lambda v: v.model_dump() if hasattr(v, 'model_dump') else v.value if hasattr(v, 'value') else v,
             "Dimension": lambda d: d.model_dump() if hasattr(d, 'model_dump') else d.value if hasattr(d, 'value') else d,
         },
