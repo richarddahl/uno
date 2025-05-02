@@ -30,7 +30,33 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 
 ## 3. Master Refactor Checklist
 
-### 3.1 Core Architecture (DI, Logging, Config)
+---
+
+## 4. SQL Emitter Modernization & Integration (2025-05-02)
+
+### Executive Summary
+
+The legacy SQL emitter module (src/legacy/infrastructure/sql/emitter.py and related) provides a flexible, DI-ready, Pydantic-based foundation for SQL generation and execution. It is well-suited for Uno's needs in event store schema management, migrations, and DB automation. This effort will modernize, relocate, and integrate the emitter into the Uno core/infrastructure, ensuring alignment with Uno's standards and extensibility goals.
+
+### Checklist: SQL Emitter Modernization & Integration
+
+- [ ] Move emitter and protocols to uno/infrastructure/sql or uno/core/sql (choose canonical location)
+- [ ] Update all imports to use Uno DI, config, and logging modules (no legacy/obsolete imports)
+- [ ] Modernize type hints and docstrings for Python 3.13 idioms and Uno code style
+- [ ] Ensure full Pydantic v2 compliance (ConfigDict, validators, etc)
+- [ ] Integrate emitter with event store for automated schema management (table creation, upgrades, dry-run)
+- [ ] Provide CLI or utility for running event store migrations using the emitter
+- [ ] Add/expand unit and integration tests for emitter, schema management, and observer patterns
+- [ ] Document emitter pattern and usage for DB schema/migration management in Uno docs
+- [ ] Deprecate or remove legacy/duplicate emitter code after migration
+
+### Notes
+
+- This effort is foundational for robust event sourcing, schema evolution, and DB automation in Uno.
+- Observer and function builder patterns should be preserved and documented for extensibility.
+- All modernization must adhere to Uno's DI, error handling, logging, config, and type/style rules.
+
+### 3.1 Core Architecture (DI, Logging, Config, Error Handling)
 
 - [x] Migrate all core services, middleware, and event infra to DI-injected LoggerService (no global loggers)
 - [x] Remove all legacy/global/fallback logger usage (except DI bootstrap exception)
@@ -160,9 +186,9 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 - [ ] Ensure all event replay logic reconstructs correct types (aggregate, value object, event)
 - [ ] Add event store roundtrip and error propagation tests
 - [ ] Document canonical event tampering/testing patterns for Uno users
-    - Document how to mutate aggregates and events for test purposes using Uno idioms.
+  - Document how to mutate aggregates and events for test purposes using Uno idioms.
 - [ ] Add note about logging output in tests and how to suppress if needed (pytest caplog, logging config)
-    - Ensure all test logs are suppressible/configurable for CI environments.
+  - Ensure all test logs are suppressible/configurable for CI environments.
 
 - [ ] Implement or stub `uno.sql` for Postgres event store tests, or update tests to skip if not available
 
