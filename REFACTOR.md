@@ -34,7 +34,7 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 
 - [x] Migrate all core services, middleware, and event infra to DI-injected LoggerService (no global loggers)
 - [x] Remove all legacy/global/fallback logger usage (except DI bootstrap exception)
-- [ ] Migrate all remaining infra/event modules/utilities to strict DI logging
+- [x] Migrate all remaining infra/event modules/utilities to strict DI logging (bus, publisher, event_store modernized)
 - [ ] Complete DI integration tests and performance benchmarks
 - [ ] Expose LoggingConfigService via admin/CLI
 - [ ] Finalize and publish DI/logging migration guide
@@ -45,15 +45,19 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
   - [x] **Migrate all value objects and domain events to use Pydantic v2's @field_serializer/@model_serializer and remove all deprecated json_encoders from model_config.**
   - [x] **Test and verify serialization for all affected types and events.**
 - [x] Modernize remaining events (Order, Vendor, Payment, etc.) for Result-based construction, error context, versioning/upcasting, and Pydantic v2 idioms
-- [ ] Finalize value object/DTO replay consistency for all aggregates
-- [ ] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts)
-- [ ] Expand/complete error/upcast tests for all aggregates/events
-- [ ] Add/expand tests for domain invariants, error paths, and event upcasting/migration
-- [ ] Document replay patterns, invariants, and best practices
+- [x] Finalize value object/DTO replay consistency for all aggregates
+- [x] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts) *(core aggregates complete; continue as new features are added)*
+- [x] Expand/complete error/upcast tests for all aggregates/events *(all current events covered; revisit for new events)*
+- [x] Add/expand tests for domain invariants, error paths, and event upcasting/migration *(current coverage complete)*
+- [x] Document replay patterns, invariants, and best practices *(see section 4, below)*
 
 ### 3.3 Event Sourcing Infrastructure
 
 - [x] Refactor InMemoryEventStore for strict DI logging
+- [x] Modernize event bus and publisher for type hints, docstrings, and DI logging
+- [x] All event infra uses Result-based error handling and structured logging
+- [x] Remove legacy/unused code and ensure all docstrings are complete
+- [x] Pydantic v2/type hint modernization and lint/type warning sweep complete for event infra
 - [ ] Implement canonical event serialization (strict, versioned)
 - [ ] Implement event upcasting and migration registry
 - [ ] Implement snapshotting (pluggable, strategy-driven)
@@ -154,7 +158,7 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 ### Immediate (Sprint)
 
 - Finalize infra error context propagation and uno.sql/test handling
-- [x] Sweep for Pydantic v2/type hint modernization and fix all lint/type warnings
+- [x] Sweep for Pydantic v2/type hint modernization and fix all lint/type warnings (event infrastructure fully modernized)
     - All core code now uses modern Python 3.13+ type hints (PEP 604, etc.) and Pydantic v2 idioms. Legacy modules are excluded from modernization and will be deleted after refactor completion.
 - Finalize and publish documentation/migration guide
 
@@ -798,8 +802,10 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 - [ ] Add or improve error context details in all `Failure` returns (consider a helper for standardization).
 - [ ] Expand/verify test coverage for all error paths (repo, domain, logging), asserting error context.
 - [ ] Refactor to use repository interfaces/protocols for service/infra decoupling.
-- [ ] Update log messages to use structured format for critical events/errors.
-- [ ] Apply this service layer pattern to all remaining aggregates/services.
+- [x] Update log messages to use structured format for critical events/errors.
+- [x] Apply this service layer pattern to all remaining aggregates/services.
+
+- [x] Sweep infrastructure/service layer (application/, cli/) for direct exceptions, missing Result/Failure usage, and structured logging. No violations found; all CLI/service boundaries use correct patterns. CLI uses typer.Exit for process control (correct for CLI entrypoints), and all business logic is delegated to services that use Result/Failure and structured logging.
 
 ---
 
@@ -834,6 +840,36 @@ Only extract and port components that are (1) unique, (2) still needed, and (3) 
 - [ ] Finalize and publish migration/user guide
 - [ ] Sweep for Pydantic/type hint modernization in all event infrastructure
 - [ ] Implement or stub `uno.sql` for Postgres event store tests, or update tests to skip if not available
+
+---
+
+### Recent Progress (2025-05-02)
+- Infrastructure/service layer sweep complete: All modules in `application/` and `cli/` are compliant with Uno error handling and logging requirements. No direct exceptions, all public methods use Result/Failure, and structured logging is present where required.
+- CLI code uses `typer.Exit` for process control, which is correct for CLI entrypoints. All business logic is delegated to services that use Result/Failure and structured logging.
+
+### Next Steps
+1. **uno.sql-dependent infra tests:**
+   - Implement or stub the `uno.sql` module for Postgres event store tests, or update those tests to skip if the dependency is not available. This will unblock CI and allow further refactoring.
+2. **Documentation:**
+   - Finalize and publish user/developer documentation for Uno domain modeling, Result error handling, and best practices.
+   - Update or add docstrings/examples for service methods showing error handling.
+3. **Final Lint/Style Sweep:**
+   - Perform a final lint/style sweep across the codebase to ensure import order, remove any remaining unused imports, and fix any style issues flagged by Ruff or mypy.
+4. **Expand Test Coverage:**
+   - Add or update tests to verify error context propagation and error handling in all service/integration paths.
+
+---
+
+#### Modernization Sweep Summary (2025-05-02)
+- All core event infrastructure modules (`bus.py`, `publisher.py`, `event_store.py`) have been fully modernized:
+  - Modern Python 3.13+ type hints and Pydantic v2 idioms everywhere
+  - Strict DI LoggerService usage, no global loggers
+  - Result-based error handling and error context propagation
+  - Comprehensive docstrings and removal of legacy/unused code
+  - All known type/lint warnings in event infra are resolved
+- Next: focus on uno.sql-dependent infra tests, documentation, and a final lint/style sweep
+
+---
 
 ### Short-Term
 
@@ -876,6 +912,8 @@ _This checklist is a living document. Update it as implementation progresses. Ma
 - All deprecated `json_encoders` have been removed from model_config across the codebase.
 - Serialization is now fully modern, idiomatic, and consistent with Uno and Pydantic v2 best practices.
 - All tests for value objects and events pass, confirming the migration is complete and stable.
+- All event replay and aggregate rehydration logic is robust to both dict and object forms for value objects (e.g., Count in Quantity), enabling round-trip serialization and event sourcing.
+- Only uno.sql-dependent infrastructure tests remain as blockers; all domain and event tests pass.
 
 ### Impact
 

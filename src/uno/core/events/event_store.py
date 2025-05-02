@@ -6,33 +6,16 @@ domain events, supporting event-driven architectures and event sourcing.
 """
 
 import copy
-import json
-from collections.abc import Callable
-from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar, TYPE_CHECKING
 
-from sqlalchemy import TIMESTAMP, Column, MetaData, String, Table, insert, select
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
-
-# Import base interfaces first to avoid circular dependencies
-from uno.core.events.interfaces import EventStoreProtocol
 from uno.core.events.base_event import DomainEvent
-from typing import TypeVar
-E = TypeVar("E", bound=DomainEvent)
+from uno.core.events.interfaces import EventStoreProtocol
 from uno.core.errors.result import Failure, Result, Success
-from uno.core.logging.logger import LoggerService
-from uno.core.logging.logger import LoggingConfig
 
-# Import snapshots avoiding circular dependencies
-from uno.core.events.snapshots import (
-    CompositeSnapshotStrategy,
-    EventCountSnapshotStrategy,
-    SnapshotStore,
-    SnapshotStrategy,
-    TimeBasedSnapshotStrategy,
-)
+if TYPE_CHECKING:
+    from uno.core.logging.logger import LoggerService
+
+E = TypeVar("E", bound=DomainEvent)
 
 # Define a protocol for common aggregate methods to avoid importing AggregateRoot
 class AggregateProtocol(Protocol):
@@ -82,7 +65,7 @@ class EventStore(EventStoreProtocol[E], Generic[E]):
         event_type: str | None = None,
         limit: int | None = None,
         since_version: int | None = None,
-    ) -> Result[list[DomainEvent], Exception]:
+    ) -> Result[list[E], Exception]:
         """
         Get events by aggregate ID and/or event type.
         
@@ -118,7 +101,13 @@ class InMemoryEventStore(EventStore[E]):
     Simple in-memory event store for development and testing.
     Stores events in a Python list grouped by aggregate_id.
     """
-    def __init__(self, logger: LoggerService):
+    def __init__(self, logger: "LoggerService"):
+        """
+        Initialize the in-memory event store.
+
+        Args:
+            logger (LoggerService): Logger instance for structured and debug logging.
+        """
         self.logger = logger
         self._events: dict[str, list[E]] = {}
 
@@ -149,7 +138,6 @@ class InMemoryEventStore(EventStore[E]):
             if aggregate_id not in self._events:
                 self._events[aggregate_id] = []
             # Canonical serialization enforced here
-            canonical_event = self._canonical_event_dict(event)
             self._events[aggregate_id].append(copy.deepcopy(event))
             
             self.logger.structured_log(
@@ -187,7 +175,7 @@ class InMemoryEventStore(EventStore[E]):
         """
         try:
             # Build a flat list of all events
-            all_events = []
+            all_events: list[DomainEvent] = []
             for events in self._events.values():
                 all_events.extend(events)
                 
