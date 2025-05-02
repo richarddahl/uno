@@ -164,17 +164,14 @@ class SQLTriggerBuilder:
         Raises:
             pydantic.ValidationError: If required parameters are missing or invalid
         """
-        try:
-            config = SQLTriggerBuilderConfig(
-                schema=self.schema or "",
-                table_name=self.table_name or "",
-                trigger_name=self.trigger_name or "",
-                function_name=self.function_name or "",
-                timing=self.timing or "",
-                operation=self.operation or ""
-            )
-        except ValidationError as e:
-            raise ValidationError("Invalid trigger configuration") from e
+        config = SQLTriggerBuilderConfig(
+            schema=self.schema or "",
+            table_name=self.table_name or "",
+            trigger_name=self.trigger_name or "",
+            function_name=self.function_name or "",
+            timing=self.timing or "",
+            operation=self.operation or ""
+        )
         return f"""
             CREATE TRIGGER {config.trigger_name}
             {config.timing} {config.operation} ON {config.schema}.{config.table_name}

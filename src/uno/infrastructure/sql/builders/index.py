@@ -176,16 +176,13 @@ class SQLIndexBuilder:
         Raises:
             pydantic.ValidationError: If required parameters are missing or invalid
         """
-        try:
-            # Validate required fields with Pydantic
-            config = SQLIndexBuilderConfig(
-                schema=self.schema or "",
-                table_name=self.table_name or "",
-                index_name=self.index_name or "",
-                columns=self.columns or [],
-            )
-        except ValidationError as e:
-            raise ValueError("Invalid configuration") from e
+        # Validate required fields with Pydantic
+        config = SQLIndexBuilderConfig(
+            schema=self.schema or "",
+            table_name=self.table_name or "",
+            index_name=self.index_name or "",
+            columns=self.columns or [],
+        )
 
         unique = "UNIQUE" if self.is_unique else ""
         include = (

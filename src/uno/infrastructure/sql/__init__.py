@@ -11,38 +11,16 @@ and other database objects.
 
 # Core SQL generation and execution components
 # SQL builders for functions and triggers
-from uno.sql.builders.function import SQLFunctionBuilder
-from uno.sql.builders.trigger import SQLTriggerBuilder
-from uno.sql.config import SQLConfig
-from uno.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
+from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
+from uno.infrastructure.sql.builders.index import SQLIndexBuilder
+from uno.infrastructure.sql.builders.trigger import SQLTriggerBuilder
 
-# Common SQL emitters
-from uno.sql.emitters import (
-    AlterGrants,
-    InsertMetaRecordTrigger,
-    RecordUserAuditFunction,
-)
+__all__ = [
+    "SQLFunctionBuilder",
+    "SQLIndexBuilder",
+    "SQLTriggerBuilder",
+]
 
-# Error types
-from uno.sql.errors import (
-    SQLConfigError,
-    SQLConfigInvalidError,
-    SQLEmitterError,
-    SQLEmitterInvalidConfigError,
-    SQLErrorCode,
-    SQLExecutionError,
-    SQLRegistryClassAlreadyExistsError,
-    SQLRegistryClassNotFoundError,
-    SQLStatementError,
-    SQLSyntaxError,
-    register_sql_errors,
-)
-from uno.sql.observers import LoggingSQLObserver, SQLObserver
-from uno.sql.registry import SQLConfigRegistry
-from uno.sql.statement import SQLStatement, SQLStatementType
-
-# Register SQL errors
-register_sql_errors()
 
 __all__ = [
     # Legacy components
