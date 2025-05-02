@@ -48,6 +48,8 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 - [x] Finalize value object/DTO replay consistency for all aggregates
 - [x] Sweep all aggregates for invariant enforcement and validation (`validate()` contracts) *(core aggregates complete; continue as new features are added)*
 - [x] Expand/complete error/upcast tests for all aggregates/events *(all current events covered; revisit for new events)*
+    - Upcasting is now explicit: legacy event dicts must be upcasted using the registry before constructing events.
+    - All upcasting tests have been updated to call the upcast registry on dicts before event construction. No automatic upcasting remains in event creation logic.
 - [x] Add/expand tests for domain invariants, error paths, and event upcasting/migration *(current coverage complete)*
 - [x] Document replay patterns, invariants, and best practices *(see section 4, below)*
 
