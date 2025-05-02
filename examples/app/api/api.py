@@ -135,7 +135,9 @@ def app_factory() -> FastAPI:
                 raise HTTPException(status_code=409, detail=str(error))
             raise HTTPException(status_code=422, detail=str(error))
         item = result.unwrap()
-        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=item.quantity)
+                # Extract primitive int value from Quantity value object for DTO
+        qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
+        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
         return as_canonical_json(dto)
 
     @app.post("/vendors/", tags=["vendors"], response_model=VendorDTO, status_code=201)
@@ -163,7 +165,9 @@ def app_factory() -> FastAPI:
         if isinstance(result, Failure):
             raise result.error
         item = result
-        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=item.quantity)
+                # Extract primitive int value from Quantity value object for DTO
+        qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
+        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
         return as_canonical_json(dto)
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)

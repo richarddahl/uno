@@ -7,7 +7,12 @@ Value objects for Uno example app: Grade, EmailAddress, etc.
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
-from pydantic import EmailStr, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    EmailStr,
+    field_validator,
+    model_validator,
+)
 
 from uno.core.domain.value_object import ValueObject
 from uno.core.errors.definitions import DomainValidationError
@@ -101,23 +106,34 @@ class CountUnit(Enum):
 
 
 class Count(ValueObject):
-    model_config: ClassVar = {"frozen": True, "json_encoders": {Enum: lambda e: e.value}}
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Enum: lambda e: e.value,
+            "Count": lambda c: c.model_dump()
+            if hasattr(c, "model_dump")
+            else c.value
+            if hasattr(c, "value")
+            else c,
+        },
+    )
 
     @classmethod
     def from_each(cls, each: float | int) -> "Count":
-        print(f"[DEBUG] Count.from_each: each={each} type={type(each)}")
-        # Accept anything castable to float
+        """
+        Create a Count value object from a float or int.
+        Accepts both float and int for compatibility with event replay and domain logic.
+        """
         try:
             value = float(each)
         except Exception:
             raise ValueError("Count value must be a non-negative float or int")
-        if value < 0:
+        if value < 0.0:
             raise ValueError("Count value must be a non-negative float or int")
         return cls(value=value, unit=CountUnit.EACH)
 
     value: float
     unit: CountUnit
-    model_config: ClassVar = {"frozen": True}
 
     @classmethod
     def from_value(
@@ -131,7 +147,9 @@ class Count(ValueObject):
                 DomainValidationError(
                     "Count value must be a number",
                     details={
-                        "value": value.model_dump() if hasattr(value, "model_dump") else value,
+                        "value": value.model_dump()
+                        if hasattr(value, "model_dump")
+                        else value,
                         "unit": unit.name if isinstance(unit, Enum) else unit,
                     },
                 )
@@ -221,9 +239,20 @@ class MassUnit(Enum):
 
 
 class Mass(ValueObject):
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Enum: lambda e: e.value,
+            "Mass": lambda m: m.model_dump()
+            if hasattr(m, "model_dump")
+            else m.value
+            if hasattr(m, "value")
+            else m,
+        },
+    )
+
     amount: float
     unit: MassUnit
-    model_config: ClassVar = {"frozen": True}
 
     @classmethod
     def from_value(
@@ -285,9 +314,20 @@ class VolumeUnit(Enum):
 
 
 class Volume(ValueObject):
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Enum: lambda e: e.value,
+            "Volume": lambda v: v.model_dump()
+            if hasattr(v, "model_dump")
+            else v.value
+            if hasattr(v, "value")
+            else v,
+        },
+    )
+
     amount: float
     unit: VolumeUnit
-    model_config: ClassVar = {"frozen": True}
 
     @classmethod
     def from_value(
@@ -345,9 +385,20 @@ class DimensionUnit(Enum):
 
 
 class Dimension(ValueObject):
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Enum: lambda e: e.value,
+            "Dimension": lambda d: d.model_dump()
+            if hasattr(d, "model_dump")
+            else d.value
+            if hasattr(d, "value")
+            else d,
+        },
+    )
+
     amount: float
     unit: DimensionUnit
-    model_config: ClassVar = {"frozen": True}
 
     @classmethod
     def from_value(
@@ -432,7 +483,33 @@ class Quantity(ValueObject):
     Uno idiomatic discriminated union using Pydantic 2.
     """
 
-    model_config: ClassVar = {"frozen": True, "json_encoders": {Enum: lambda e: e.value}}
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Enum: lambda e: e.value,
+            # Value objects: use model_dump() for Pydantic models, .value for primitives
+            "Count": lambda c: c.model_dump()
+            if hasattr(c, "model_dump")
+            else c.value
+            if hasattr(c, "value")
+            else c,
+            "Mass": lambda m: m.model_dump()
+            if hasattr(m, "model_dump")
+            else m.value
+            if hasattr(m, "value")
+            else m,
+            "Volume": lambda v: v.model_dump()
+            if hasattr(v, "model_dump")
+            else v.value
+            if hasattr(v, "value")
+            else v,
+            "Dimension": lambda d: d.model_dump()
+            if hasattr(d, "model_dump")
+            else d.value
+            if hasattr(d, "value")
+            else d,
+        },
+    )
 
     type: Literal["mass", "volume", "dimension", "count"]
     value: Mass | Volume | Dimension | Count
@@ -465,16 +542,19 @@ class Quantity(ValueObject):
         return cls(type="dimension", value=dimension)
 
     @classmethod
-    def from_count(cls, count: float | Count) -> "Quantity":
+    def from_count(cls, count: float | int | Count) -> "Quantity":
+        """
+        Create a Quantity of type 'count' from a float, int, or Count value.
+        Accepts both float and int for compatibility with event replay and domain logic.
+        """
         if isinstance(count, Count):
             return cls(type="count", value=count)
-        # Accept anything castable to float
         try:
             value = float(count)
         except Exception:
-            raise TypeError("Count must be a number")
+            raise TypeError("Count must be a float or int")
         if value < 0.0:
-            raise ValueError("Count must be a non-negative number")
+            raise ValueError("Count must be a non-negative float or int")
         return cls(type="count", value=Count.from_each(value))
 
     model_config: ClassVar = {"frozen": True}
@@ -509,7 +589,14 @@ class Currency(Enum):
 class Money(ValueObject):
     amount: Decimal
     currency: Currency
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            Decimal: lambda d: float(d),
+            Enum: lambda e: e.value,
+            "Currency": lambda c: c.value if hasattr(c, "value") else str(c),
+        },
+    )
 
     @classmethod
     def from_value(

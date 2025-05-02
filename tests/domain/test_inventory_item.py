@@ -9,7 +9,7 @@ def test_create_success():
     assert isinstance(result, Success)
     item = result.unwrap()
     assert item.name == "Widget"
-    assert item.quantity == 10
+    assert item.quantity.value.value == 10
 
 
 def test_create_missing_item_id():
@@ -46,7 +46,7 @@ def test_adjust_quantity_success():
     item = InventoryItem.create("item-1", "Widget", 10).unwrap()
     result = item.adjust_quantity(-5)
     assert isinstance(result, Success)
-    assert item.quantity == 5
+    assert item.quantity.value == 5
 
 
 def test_adjust_quantity_negative():

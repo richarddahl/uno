@@ -26,7 +26,7 @@ def test_inventory_item_created_create_success() -> None:
     event = result.value
     assert event.item_id == "sku-123"
     assert event.name == "Widget"
-    assert event.quantity == 10
+    assert event.quantity.value.value == 10
     assert event.version == 1
 
 
@@ -99,7 +99,7 @@ def test_inventory_item_adjusted_create_success() -> None:
     assert isinstance(result, Success)
     event = result.value
     assert event.item_id == "sku-123"
-    assert event.adjustment == 5
+    assert event.adjustment.value == 5
     assert event.version == 1
 
 

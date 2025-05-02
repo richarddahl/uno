@@ -8,6 +8,7 @@ from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.base import get_error_context
 from .value_objects import EmailAddress, Grade, Mass, Money, Volume
+from pydantic import ConfigDict
 
 
 class GradeAssignedToLot(DomainEvent):
@@ -29,7 +30,7 @@ class GradeAssignedToLot(DomainEvent):
     grade: Grade
     assigned_by: EmailAddress
     version: ClassVar[int] = 1
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
@@ -76,7 +77,7 @@ class MassMeasured(DomainEvent):
     mass: Mass
     measured_by: EmailAddress
     version: ClassVar[int] = 1
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
@@ -123,7 +124,7 @@ class VolumeMeasured(DomainEvent):
     volume: Volume
     measured_by: EmailAddress
     version: ClassVar[int] = 1
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
@@ -170,7 +171,7 @@ class PaymentReceived(DomainEvent):
     amount: Money
     received_from: EmailAddress
     version: ClassVar[int] = 1
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
@@ -217,7 +218,7 @@ class VendorEmailUpdated(DomainEvent):
     old_email: EmailAddress
     new_email: EmailAddress
     version: ClassVar[int] = 1
-    model_config: ClassVar = {"frozen": True}
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(

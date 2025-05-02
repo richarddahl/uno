@@ -46,13 +46,14 @@ def fake_lot(fake_item: InventoryItem) -> InventoryLot:
 @pytest.fixture
 def fake_order(fake_item: InventoryItem, fake_lot: InventoryLot) -> Order:
     print("[DEBUG] Entering fake_order fixture")
+    from examples.app.domain.value_objects import Quantity, Money, Currency
     result = Order.create(
         order_id="order-1",
         item_id=fake_item.id,
         lot_id=fake_lot.id,
         vendor_id="vendor-1",
-        quantity=25.0,
-        price=12.0,
+        quantity=Quantity.from_count(25.0),
+        price=Money.from_value(12.0, currency=Currency.USD).unwrap(),
         order_type="sale",
     )
     print("[DEBUG] Order.create result:", result)
@@ -116,21 +117,48 @@ def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -
 
 
 def test_order_creation(fake_order: Order) -> None:
+    from examples.app.domain.value_objects import Quantity, Money
     assert fake_order.item_id == "item-1"
     assert fake_order.lot_id == "lot-1"
     assert fake_order.vendor_id == "vendor-1"
-    assert fake_order.quantity == 25.0
-    assert fake_order.price == 12.0
+    assert isinstance(fake_order.quantity, Quantity)
+    assert fake_order.quantity.value == 25.0
+    assert isinstance(fake_order.price, Money)
+    assert float(fake_order.price.amount) == 12.0
     assert fake_order.order_type == "sale"
     # Canonical serialization
     data = fake_order.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
     assert data["item_id"] == "item-1"
     assert data["lot_id"] == "lot-1"
     assert data["vendor_id"] == "vendor-1"
-    assert data["quantity"] == 25.0
-    assert data["price"] == 12.0
+    assert data["quantity"]["value"] == 25.0
+    assert float(data["price"]["amount"]) == 12.0
     assert data["order_type"] == "sale"
 
+
+def test_order_replay_restores_value_objects(fake_order: Order) -> None:
+    # Simulate event replay for a new Order instance
+    from examples.app.domain.order import Order, OrderCreated
+    from examples.app.domain.value_objects import Quantity, Money, Currency
+    events = [
+        OrderCreated(
+            order_id=fake_order.id,
+            item_id=fake_order.item_id,
+            lot_id=fake_order.lot_id,
+            vendor_id=fake_order.vendor_id,
+            quantity=Quantity.from_count(25.0),
+            price=Money.from_value(12.0, currency=Currency.USD).unwrap(),
+            order_type="sale",
+        )
+    ]
+    replayed = Order(id=fake_order.id)
+    for event in events:
+        replayed._apply_event(event)
+    assert isinstance(replayed.quantity, Quantity)
+    assert replayed.quantity.value == 25.0
+    assert isinstance(replayed.price, Money)
+    assert float(replayed.price.amount) == 12.0
+    assert replayed.order_type == "sale"
 
 def test_order_fulfillment_and_cancel(fake_order: Order) -> None:
     print("[DEBUG] fake_order before fulfill:", fake_order)
@@ -173,12 +201,13 @@ def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
     # Tamper: replace event object with a different value (simulate tampering)
     from examples.app.domain.order import OrderCreated
 
+    from examples.app.domain.value_objects import Quantity
     fake_order._domain_events[0] = OrderCreated(
         order_id=fake_order.id,
         item_id=fake_order.item_id,
         lot_id=fake_order.lot_id,
         vendor_id=fake_order.vendor_id,
-        quantity=999.0,  # tampered value
+        quantity=Quantity.from_count(999.0),  # tampered value
         price=fake_order.price,
         order_type=fake_order.order_type,
     )

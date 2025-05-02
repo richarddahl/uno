@@ -11,17 +11,29 @@ from uno.core.domain.event import DomainEvent
 from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
+from examples.app.domain.value_objects import Quantity, Count
 
 # --- Events ---
 class InventoryItemCreated(DomainEvent):
     """
     Event: InventoryItem was created.
+    model_config = ConfigDict(
+        frozen=True,
+        json_encoders={
+            # Use same logic as value_objects.py
+            "Quantity": lambda q: q.model_dump() if hasattr(q, 'model_dump') else str(q),
+            "Count": lambda c: c.model_dump() if hasattr(c, 'model_dump') else c.value if hasattr(c, 'value') else c,
+            "Mass": lambda m: m.model_dump() if hasattr(m, 'model_dump') else m.value if hasattr(m, 'value') else m,
+            "Volume": lambda v: v.model_dump() if hasattr(v, 'model_dump') else v.value if hasattr(v, 'value') else v,
+            "Dimension": lambda d: d.model_dump() if hasattr(d, 'model_dump') else d.value if hasattr(d, 'value') else d,
+        },
+    )
 
     Usage:
         result = InventoryItemCreated.create(
             item_id="A100",
             name="Widget",
-            quantity=100,
+            quantity=Quantity.from_count(100),
         )
         if isinstance(result, Success):
             event = result.value
@@ -31,7 +43,7 @@ class InventoryItemCreated(DomainEvent):
     """
     item_id: str
     name: str
-    quantity: int
+    quantity: Quantity
     version: int = 1
 
     @classmethod
@@ -39,20 +51,30 @@ class InventoryItemCreated(DomainEvent):
         cls,
         item_id: str,
         name: str,
-        quantity: int,
+        quantity: int | float | Quantity | Count,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from examples.app.domain.value_objects import Quantity, Count
         try:
             if not item_id:
                 return Failure(DomainValidationError("item_id is required", details={"item_id": item_id}))
             if not name:
                 return Failure(DomainValidationError("name is required", details={"name": name}))
-            if not isinstance(quantity, int) or quantity < 0:
-                return Failure(DomainValidationError("quantity must be a non-negative int", details={"quantity": quantity}))
+            # Accept Quantity, Count, int, float
+            if isinstance(quantity, Quantity):
+                q = quantity
+            elif isinstance(quantity, Count):
+                q = Quantity.from_count(quantity)
+            elif isinstance(quantity, (int, float)):
+                if quantity < 0:
+                    return Failure(DomainValidationError("quantity must be non-negative", details={"quantity": quantity}))
+                q = Quantity.from_count(quantity)
+            else:
+                return Failure(DomainValidationError("quantity must be a Quantity, Count, int, or float", details={"quantity": quantity}))
             event = cls(
                 item_id=item_id,
                 name=name,
-                quantity=quantity,
+                quantity=q,
                 version=version,
             )
             return Success(event)
@@ -133,24 +155,30 @@ class InventoryItemAdjusted(DomainEvent):
             ...
     """
     item_id: str
-    adjustment: int  # positive or negative
+    adjustment: Count  # always a value object
     version: int = 1
 
     @classmethod
     def create(
         cls,
         item_id: str,
-        adjustment: int,
+        adjustment: int | float | Count,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from examples.app.domain.value_objects import Count
         try:
             if not item_id:
                 return Failure(DomainValidationError("item_id is required", details={"item_id": item_id}))
-            if not isinstance(adjustment, int):
-                return Failure(DomainValidationError("adjustment must be an int", details={"adjustment": adjustment}))
+            # Accept int, float, or Count
+            if isinstance(adjustment, Count):
+                adj = adjustment
+            elif isinstance(adjustment, (int, float)):
+                adj = Count.from_each(adjustment)
+            else:
+                return Failure(DomainValidationError("adjustment must be an int, float, or Count", details={"adjustment": adjustment}))
             event = cls(
                 item_id=item_id,
-                adjustment=adjustment,
+                adjustment=adj,
                 version=version,
             )
             return Success(event)
@@ -169,20 +197,30 @@ class InventoryItemAdjusted(DomainEvent):
 # --- Aggregate ---
 class InventoryItem(AggregateRoot[str]):
     name: str
-    quantity: int
+    quantity: Quantity
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def create(cls, item_id: str, name: str, quantity: int) -> Result[Self, Exception]:
+    def create(cls, item_id: str, name: str, quantity: int | float | Quantity | Count) -> Result[Self, Exception]:
+        from examples.app.domain.value_objects import Quantity, Count
         try:
             if not item_id:
                 return Failure(DomainValidationError("item_id is required", details=get_error_context()))
             if not name:
                 return Failure(DomainValidationError("name is required", details=get_error_context()))
-            if quantity < 0:
-                return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
-            item = cls(id=item_id, name=name, quantity=quantity)
-            event = InventoryItemCreated(item_id=item_id, name=name, quantity=quantity)
+            # Accept Quantity, Count, int, float
+            if isinstance(quantity, Quantity):
+                q = quantity
+            elif isinstance(quantity, Count):
+                q = Quantity.from_count(quantity)
+            elif isinstance(quantity, (int, float)):
+                if quantity < 0:
+                    return Failure(DomainValidationError("quantity must be non-negative", details=get_error_context()))
+                q = Quantity.from_count(quantity)
+            else:
+                return Failure(DomainValidationError("quantity must be a Quantity, Count, int, or float", details=get_error_context()))
+            item = cls(id=item_id, name=name, quantity=q)
+            event = InventoryItemCreated(item_id=item_id, name=name, quantity=q)
             item._record_event(event)
             return Success(item)
         except Exception as e:
@@ -198,12 +236,50 @@ class InventoryItem(AggregateRoot[str]):
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def adjust_quantity(self, adjustment: int) -> Result[None, Exception]:
+    def adjust_quantity(self, adjustment: int | float | Count) -> Result[None, Exception]:
+        from examples.app.domain.value_objects import Count
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info({
+            'event': 'adjust_quantity_entry',
+            'item_id': self.id,
+            'current_quantity': self.quantity.value.value,
+            'adjustment': adjustment,
+            'adjustment_type': type(adjustment).__name__
+        })
         try:
-            if self.quantity + adjustment < 0:
+            # Always convert adjustment to Count before any arithmetic
+            if isinstance(adjustment, Count):
+                adj_count = adjustment
+                adj_value = adjustment.value
+            elif isinstance(adjustment, (int, float)):
+                adj_value = float(adjustment)
+            else:
+                logger.error({'event': 'adjust_quantity_type_error', 'adjustment': adjustment, 'adjustment_type': type(adjustment).__name__})
+                return Failure(DomainValidationError("adjustment must be int, float, or Count", details=get_error_context()))
+            logger.info({'event': 'adjust_quantity_normalized', 'adj_value': adj_value})
+            # Check for negative before constructing the new Count (to control error message)
+            if self.quantity.value.value + adj_value < 0:
+                logger.warning({'event': 'adjust_quantity_negative_result', 'current_quantity': self.quantity.value.value, 'adj_value': adj_value})
                 return Failure(DomainValidationError("resulting quantity cannot be negative", details=get_error_context()))
-            event = InventoryItemAdjusted(item_id=self.id, adjustment=adjustment)
+            # Now it is safe to construct Count
+            if not isinstance(adjustment, Count):
+                if adj_value < 0:
+                    logger.info({'event': 'adjust_quantity_count_from_each', 'passed_value': abs(adj_value)})
+                    adj_count = Count.from_each(abs(adj_value))
+                    adj_count = Count(value=-adj_count.value, unit=adj_count.unit)
+                else:
+                    logger.info({'event': 'adjust_quantity_count_from_each', 'passed_value': adj_value})
+                    adj_count = Count.from_each(adj_value)
+            logger.info({'event': 'adjust_quantity_adj_count_constructed', 'adj_count_value': adj_count.value, 'adj_count_unit': adj_count.unit})
+            try:
+                _ = self.quantity.value + adj_count  # still check for arithmetic errors
+            except Exception as e:
+                logger.error({'event': 'adjust_quantity_arithmetic_error', 'error': str(e)})
+                return Failure(DomainValidationError(str(e), details=get_error_context()))
+            event = InventoryItemAdjusted(item_id=self.id, adjustment=adj_count)
             self._record_event(event)
+            logger.info({'event': 'adjust_quantity_success', 'item_id': self.id, 'new_quantity': self.quantity.value.value + adj_count.value})
             return Success(None)
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))
@@ -213,13 +289,17 @@ class InventoryItem(AggregateRoot[str]):
         self._apply_event(event)
 
     def _apply_event(self, event: DomainEvent) -> None:
+        from examples.app.domain.value_objects import Quantity
         if isinstance(event, InventoryItemCreated):
             self.name = event.name
-            self.quantity = event.quantity
+            self.quantity = event.quantity if isinstance(event.quantity, Quantity) else Quantity.from_count(event.quantity)
         elif isinstance(event, InventoryItemRenamed):
             self.name = event.new_name
         elif isinstance(event, InventoryItemAdjusted):
-            self.quantity += event.adjustment
+            if not hasattr(self.quantity, "value"):
+                raise DomainValidationError("InventoryItem.quantity is not a value object", details=get_error_context())
+            # event.adjustment is always a Count
+            self.quantity = Quantity.from_count(self.quantity.value + event.adjustment)
         else:
             raise DomainValidationError(f"Unhandled event: {event}", details=get_error_context())
 

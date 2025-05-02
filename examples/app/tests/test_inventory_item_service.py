@@ -54,7 +54,7 @@ def test_create_inventory_item_success(service: InventoryItemService) -> None:
     item = result.value
     assert item.id == "sku-1"
     assert item.name == "Widget"
-    assert item.quantity == 5
+    assert item.quantity.value.value == 5
 
 
 def test_create_inventory_item_duplicate(service: InventoryItemService) -> None:
@@ -125,14 +125,14 @@ def test_adjust_inventory_quantity_success(service) -> None:
     service.create_inventory_item("sku-5", "Widget", 5)
     result = service.adjust_inventory_quantity("sku-5", 3)
     assert isinstance(result, Success)
-    assert result.value.quantity == 8
+    assert result.value.quantity.value.value == 8
 
 
 def test_adjust_inventory_quantity_negative(service) -> None:
     service.create_inventory_item("sku-6", "Widget", 5)
     result = service.adjust_inventory_quantity("sku-6", -3)
-    assert isinstance(result, Success)
-    assert result.value.quantity == 2
+    assert isinstance(result, Failure)
+    assert "resulting quantity cannot be negative" in str(result.error)
 
 
 def test_adjust_inventory_quantity_invalid(service) -> None:
