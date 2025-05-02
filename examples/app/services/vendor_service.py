@@ -4,8 +4,8 @@
 Service layer for Vendor workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
-from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.definitions import DomainValidationError
+from uno.core.errors.result import Failure, Result, Success
 from uno.core.logging import LoggerService
 from examples.app.domain.vendor import Vendor
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
@@ -49,7 +49,16 @@ class VendorService:
                 err.details = {**err.details, "vendor_id": vendor_id, "service": "VendorService.create_vendor"}
             return Failure(err)
         vendor = vendor_result.unwrap()
-        self.repo.save(vendor)
+        save_result = self.repo.save(vendor)
+        if isinstance(save_result, Failure):
+            self.logger.error({
+                "event": "vendor_save_failed",
+                "vendor_id": vendor_id,
+                "error": str(save_result.error),
+                "service": "VendorService.create_vendor"
+            })
+            err = save_result.error
+            return Failure(err)
         self.logger.info({
             "event": "vendor_created",
             "vendor_id": vendor_id,
@@ -87,7 +96,16 @@ class VendorService:
             if isinstance(err, DomainValidationError):
                 err.details = {**err.details, "vendor_id": vendor_id, "service": "VendorService.update_vendor"}
             return Failure(err)
-        self.repo.save(vendor)
+        save_result = self.repo.save(vendor)
+        if isinstance(save_result, Failure):
+            self.logger.error({
+                "event": "vendor_save_failed",
+                "vendor_id": vendor_id,
+                "error": str(save_result.error),
+                "service": "VendorService.update_vendor"
+            })
+            err = save_result.error
+            return Failure(err)
         self.logger.info({
             "event": "vendor_updated",
             "vendor_id": vendor_id,

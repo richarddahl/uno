@@ -164,8 +164,8 @@ def app_factory() -> FastAPI:
         result = repo.get(item_id)
         if isinstance(result, Failure):
             raise result.error
-        item = result
-                # Extract primitive int value from Quantity value object for DTO
+        item = result.unwrap()
+        # Extract primitive int value from Quantity value object for DTO
         qty = item.quantity.value.value if hasattr(item.quantity, 'value') and hasattr(item.quantity.value, 'value') else int(item.quantity)
         dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
         return dto

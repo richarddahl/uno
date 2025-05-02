@@ -28,20 +28,25 @@ class InMemoryOrderRepository:
         self._logger.debug(f"Fetching order with id: {order_id} - Found: {order is not None}")
         return Success(order)
 
-    def save(self, order: Order) -> None:
-        self._orders[order.id] = order
-        self._logger.info(f"Saving order: {order.id}")
-        # Hash chain: hash each event with previous hash
-        events = getattr(order, '_domain_events', [])
-        hashes = self._event_hashes.get(order.id, [])
-        prev_hash = hashes[-1] if hashes else ''
-        for event in events[len(hashes):]:
-            event_bytes = str(event.to_dict()).encode()
-            h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
-            hashes.append(h)
-            prev_hash = h
-        self._event_hashes[order.id] = hashes
-        self._logger.debug(f"Order {order.id} saved with {len(events)} events.")
+    def save(self, order: Order) -> Success[None, None] | Failure[None, Exception]:
+        try:
+            self._orders[order.id] = order
+            self._logger.info(f"Saving order: {order.id}")
+            # Hash chain: hash each event with previous hash
+            events = getattr(order, '_domain_events', [])
+            hashes = self._event_hashes.get(order.id, [])
+            prev_hash = hashes[-1] if hashes else ''
+            for event in events[len(hashes):]:
+                event_bytes = str(event.to_dict()).encode()
+                h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
+                hashes.append(h)
+                prev_hash = h
+            self._event_hashes[order.id] = hashes
+            self._logger.debug(f"Order {order.id} saved with {len(events)} events.")
+            return Success(None)
+        except Exception as e:
+            self._logger.error(f"Error saving order {order.id}: {e}")
+            return Failure(e)
 
     def all_ids(self) -> list[str]:
         ids = list(self._orders.keys())

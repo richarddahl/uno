@@ -4,12 +4,11 @@
 Service layer for InventoryItem workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
-from uno.core.errors.result import Result, Success, Failure
 from uno.core.errors.definitions import DomainValidationError
+from uno.core.errors.result import Failure, Result, Success
 from uno.core.logging import LoggerService
 from examples.app.domain.inventory.item import InventoryItem
 from examples.app.persistence.inventory_item_repository_protocol import InventoryItemRepository
-from examples.app.domain.inventory.item import InventoryItem
 
 class InventoryItemService:
     """
@@ -49,7 +48,16 @@ class InventoryItemService:
                 err.details = {**err.details, "item_id": item_id, "service": "InventoryItemService.create_inventory_item"}
             return Failure(err)
         item = item_result.unwrap()
-        self.repo.save(item)
+        save_result = self.repo.save(item)
+        if isinstance(save_result, Failure):
+            self.logger.error({
+                "event": "inventory_item_save_failed",
+                "item_id": item_id,
+                "error": str(save_result.error),
+                "service": "InventoryItemService.create_inventory_item"
+            })
+            err = save_result.error
+            return Failure(err)
         self.logger.info({
             "event": "inventory_item_created",
             "item_id": item_id,
@@ -85,7 +93,16 @@ class InventoryItemService:
             if isinstance(err, DomainValidationError):
                 err.details = {**err.details, "item_id": item_id, "service": "InventoryItemService.rename_inventory_item"}
             return Failure(err)
-        self.repo.save(item)
+        save_result = self.repo.save(item)
+        if isinstance(save_result, Failure):
+            self.logger.error({
+                "event": "inventory_item_save_failed",
+                "item_id": item_id,
+                "error": str(save_result.error),
+                "service": "InventoryItemService.rename_inventory_item"
+            })
+            err = save_result.error
+            return Failure(err)
         self.logger.info({
             "event": "inventory_item_renamed",
             "item_id": item_id,
@@ -123,7 +140,17 @@ class InventoryItemService:
             if isinstance(err, DomainValidationError):
                 err.details = {**err.details, "item_id": item_id, "adjustment": adjustment, "service": "InventoryItemService.adjust_inventory_quantity"}
             return Failure(err)
-        self.repo.save(item)
+        save_result = self.repo.save(item)
+        if isinstance(save_result, Failure):
+            self.logger.error({
+                "event": "inventory_item_save_failed",
+                "item_id": item_id,
+                "adjustment": adjustment,
+                "error": str(save_result.error),
+                "service": "InventoryItemService.adjust_inventory_quantity"
+            })
+            err = save_result.error
+            return Failure(err)
         self.logger.info({
             "event": "inventory_item_quantity_adjusted",
             "item_id": item_id,
@@ -131,4 +158,3 @@ class InventoryItemService:
             "service": "InventoryItemService.adjust_inventory_quantity"
         })
         return Success(item)
-

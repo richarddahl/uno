@@ -12,7 +12,7 @@ from examples.app.api.errors import InventoryItemNotFoundError
 
 
 class InventoryItemRepository(Protocol):
-    def save(self, item: InventoryItem) -> None: ...
+    def save(self, item: InventoryItem) -> Success[None, None] | Failure[None, Exception]: ...
     def get(
         self, item_id: str
     ) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:

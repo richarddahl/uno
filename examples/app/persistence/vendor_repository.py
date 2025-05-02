@@ -27,19 +27,24 @@ class InMemoryVendorRepository:
         self._logger = logger
         self._logger.debug("InMemoryVendorRepository initialized.")
 
-    def save(self, vendor: Vendor) -> None:
+    def save(self, vendor: Vendor) -> Success[None, None] | Failure[None, Exception]:
         """
         Persist all new domain events for a Vendor aggregate.
 
         Args:
             vendor: The Vendor aggregate to save.
         """
-        self._logger.info(f"Saving vendor: {vendor.id}")
-        self._events.setdefault(vendor.id, []).extend(vendor._domain_events)
-        vendor._domain_events.clear()
-        self._logger.debug(
-            f"Vendor {vendor.id} saved with {len(vendor._domain_events)} events."
-        )
+        try:
+            self._logger.info(f"Saving vendor: {vendor.id}")
+            self._events.setdefault(vendor.id, []).extend(vendor._domain_events)
+            vendor._domain_events.clear()
+            self._logger.debug(
+                f"Vendor {vendor.id} saved with {len(vendor._domain_events)} events."
+            )
+            return Success(None)
+        except Exception as e:
+            self._logger.error(f"Error saving vendor {vendor.id}: {e}")
+            return Failure(e)
 
     def get(self, vendor_id: str) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
         """

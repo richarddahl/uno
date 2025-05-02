@@ -24,20 +24,25 @@ class InMemoryInventoryLotRepository:
         self._logger.debug(f"Fetching lot with id: {lot_id} - Found: {lot is not None}")
         return Success(lot)
 
-    def save(self, lot: InventoryLot) -> None:
-        self._lots[lot.id] = lot
-        self._logger.info(f"Saving lot: {lot.id}")
-        # Hash chain: hash each event with previous hash
-        events = getattr(lot, '_domain_events', [])
-        hashes = self._event_hashes.get(lot.id, [])
-        prev_hash = hashes[-1] if hashes else ''
-        for event in events[len(hashes):]:
-            event_bytes = str(event.to_dict()).encode()
-            h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
-            hashes.append(h)
-            prev_hash = h
-        self._event_hashes[lot.id] = hashes
-        self._logger.debug(f"Lot {lot.id} saved with {len(events)} events.")
+    def save(self, lot: InventoryLot) -> Success[None, None] | Failure[None, Exception]:
+        try:
+            self._lots[lot.id] = lot
+            self._logger.info(f"Saving lot: {lot.id}")
+            # Hash chain: hash each event with previous hash
+            events = getattr(lot, '_domain_events', [])
+            hashes = self._event_hashes.get(lot.id, [])
+            prev_hash = hashes[-1] if hashes else ''
+            for event in events[len(hashes):]:
+                event_bytes = str(event.to_dict()).encode()
+                h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
+                hashes.append(h)
+                prev_hash = h
+            self._event_hashes[lot.id] = hashes
+            self._logger.debug(f"Lot {lot.id} saved with {len(events)} events.")
+            return Success(None)
+        except Exception as e:
+            self._logger.error(f"Error saving lot {lot.id}: {e}")
+            return Failure(e)
 
     def all_ids(self) -> list[str]:
         ids = list(self._lots.keys())
