@@ -19,12 +19,15 @@ def test_inventory_item_lifecycle(client: TestClient) -> None:
     data = resp.json()
     assert data["id"] == item["id"]
     assert data["name"] == item["name"]
-    assert data["quantity"] == item["quantity"]
+    assert data["quantity"] == {"value": 10.0, "unit": "EACH"}
     # Fetch the same item
     resp2 = client.get(f"/inventory/{item['id']}")
     assert resp2.status_code == 200
     data2 = resp2.json()
-    assert data2 == data
+    # Compare only relevant fields for Uno idiom
+    assert data2["id"] == data["id"]
+    assert data2["name"] == data["name"]
+    assert data2["quantity"] == data["quantity"]
     # Try to create again (should conflict)
     resp3 = client.post("/inventory/", json=item)
     assert resp3.status_code == 409

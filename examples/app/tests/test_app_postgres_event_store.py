@@ -8,21 +8,32 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from uno.core.di.provider import reset_global_service_provider
+from uno.infrastructure.di.provider import reset_global_service_provider
 from uno.core.errors.result import Failure, Success
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.core.logging.logger import LoggerService, LoggingConfig
-from uno.core.di.providers.database import get_db_engine, get_db_session, register_database_services
-from uno.core.di import ServiceCollection, initialize_services, shutdown_services, get_service_provider
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.di.providers.database import (
+    get_db_engine,
+    get_db_session,
+    register_database_services,
+)
+from uno.infrastructure.di import (
+    ServiceCollection,
+    initialize_services,
+    shutdown_services,
+    get_service_provider,
+)
 
 # Import real domain events from the example app
 from examples.app.domain.inventory.events import MassMeasured, VolumeMeasured
 from examples.app.domain.value_objects import EmailAddress, Mass, Volume
 
+
 @pytest.fixture(scope="function")
 async def override_db_provider() -> None:
     reset_global_service_provider()
     import os
+
     os.environ["DB_BACKEND"] = "memory"
     services = ServiceCollection()
     register_database_services(services)
@@ -34,6 +45,7 @@ async def override_db_provider() -> None:
         reset_global_service_provider()
         if "DB_BACKEND" in os.environ:
             del os.environ["DB_BACKEND"]
+
 
 @pytest.fixture(scope="function")
 async def pg_event_store(override_db_provider):
@@ -48,6 +60,7 @@ async def pg_event_store(override_db_provider):
         async with engine.begin() as conn:
             await conn.run_sync(store.metadata.drop_all)
         reset_global_service_provider()
+
 
 @pytest.mark.asyncio
 async def test_save_and_get_mass_measured(pg_event_store):
@@ -66,6 +79,7 @@ async def test_save_and_get_mass_measured(pg_event_store):
     assert isinstance(events[0], MassMeasured)
     assert events[0].mass.value == 10.0
     assert events[0].mass.unit == "kg"
+
 
 @pytest.mark.asyncio
 async def test_save_and_get_volume_measured(pg_event_store):
@@ -89,6 +103,7 @@ async def test_save_and_get_volume_measured(pg_event_store):
     assert events[0].volume.value == 100.0
     assert events[0].volume.unit == "L"
 
+
 @pytest.mark.asyncio
 async def test_upcast_and_error_paths(pg_event_store):
     # Simulate an old-version event (no upcast implemented)
@@ -110,6 +125,7 @@ async def test_upcast_and_error_paths(pg_event_store):
     for e in events:
         upcast_result = e.upcast(target_version=1)
         assert isinstance(upcast_result, Failure)
+
 
 @pytest.mark.asyncio
 async def test_empty_event_stream(pg_event_store):

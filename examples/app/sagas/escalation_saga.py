@@ -1,15 +1,18 @@
 """
 Example EscalationSaga: demonstrates escalation/alerting and human-in-the-loop in Uno sagas.
 """
+
 from typing import Any
 from uno.core.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
+
 
 class EscalationSaga(Saga):
     """
     Orchestrates a process with escalation on repeated failure and human approval.
     """
+
     def __init__(self, logger: LoggerService | None = None) -> None:
         """
         Args:

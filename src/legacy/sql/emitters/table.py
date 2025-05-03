@@ -9,14 +9,18 @@ from typing import List, Set
 from sqlalchemy import Table, Column, UniqueConstraint, PrimaryKeyConstraint
 from sqlalchemy.schema import ForeignKeyConstraint
 
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder, SQLIndexBuilder
-from uno.sql.errors import (
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.builders import (
+    SQLFunctionBuilder,
+    SQLTriggerBuilder,
+    SQLIndexBuilder,
+)
+from uno.infrastructure.sql.errors import (
     SQLErrorCode,
     SQLEmitterError,
     SQLExecutionError,
-    SQLConfigError
+    SQLConfigError,
 )
 
 

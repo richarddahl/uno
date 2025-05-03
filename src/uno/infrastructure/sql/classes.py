@@ -23,7 +23,7 @@ from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 # Show deprecation warning
 warnings.warn(
-    "Importing from uno.sql.classes is deprecated. "
+    "Importing from uno.infrastructure.sql.classes is deprecated. "
     "Import from the appropriate modules instead.",
     DeprecationWarning,
     stacklevel=2,

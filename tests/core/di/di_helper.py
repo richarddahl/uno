@@ -14,9 +14,9 @@ in test environments, with proper isolation and cleanup.
 import contextlib
 import os
 
-from uno.core.config.general import GeneralConfig
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.config.general import GeneralConfig
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
 
 
 class DIHelper:
@@ -43,7 +43,8 @@ class DIHelper:
         """
         Create a clean, isolated ServiceProvider for testing.
         """
-        from uno.core.logging.logger import LoggerService, LoggingConfig
+        from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+
         logger = LoggerService(LoggingConfig())
         return ServiceProvider(logger=logger)
 
@@ -71,7 +72,9 @@ class DIHelper:
 
     @staticmethod
     @contextlib.contextmanager
-    def override_service(provider: ServiceProvider, service_type: type, mock_instance: object):
+    def override_service(
+        provider: ServiceProvider, service_type: type, mock_instance: object
+    ):
         """
         Temporarily override a service in the provider with a mock/double (sync context manager).
         """
@@ -87,7 +90,9 @@ class DIHelper:
 
     @staticmethod
     @contextlib.asynccontextmanager
-    async def async_override_service(provider: ServiceProvider, service_type: type, mock_instance: object):
+    async def async_override_service(
+        provider: ServiceProvider, service_type: type, mock_instance: object
+    ):
         """
         Temporarily override a service in the provider with a mock/double (async context manager).
         """
@@ -103,11 +108,15 @@ class DIHelper:
 
     @staticmethod
     @contextlib.contextmanager
-    def batch_override_services(provider: ServiceProvider, overrides: dict[type, object]):
+    def batch_override_services(
+        provider: ServiceProvider, overrides: dict[type, object]
+    ):
         """
         Context manager to override multiple services at once.
         """
-        originals = {k: provider._base_services._instances.get(k, None) for k in overrides}
+        originals = {
+            k: provider._base_services._instances.get(k, None) for k in overrides
+        }
         provider._base_services._instances.update(overrides)
         try:
             yield
@@ -119,7 +128,9 @@ class DIHelper:
                     provider._base_services._instances.pop(k, None)
 
     @staticmethod
-    def register_mock(provider: ServiceProvider, service_type: type, mock_instance: object) -> None:
+    def register_mock(
+        provider: ServiceProvider, service_type: type, mock_instance: object
+    ) -> None:
         """
         Register a mock/double for a service type in the provider.
         """
@@ -175,7 +186,8 @@ class DIHelper:
         """
         Create a clean, isolated ServiceProvider for testing.
         """
-        from uno.core.logging.logger import LoggerService, LoggingConfig
+        from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+
         logger = LoggerService(LoggingConfig())
         return ServiceProvider(logger=logger)
 

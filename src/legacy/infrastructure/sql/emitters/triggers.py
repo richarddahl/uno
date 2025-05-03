@@ -4,10 +4,9 @@
 
 """SQL emitters for triggers and trigger functions."""
 
-
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class RecordUserAuditFunction(SQLEmitter):

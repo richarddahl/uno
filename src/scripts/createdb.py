@@ -13,7 +13,7 @@ from uno.infrastructure.database.manager import (
 )
 from uno.meta.sqlconfigs import MetaTypeSQLConfig
 from uno.settings import uno_settings
-from uno.sql.emitters.database import (
+from uno.infrastructure.sql.emitters.database import (
     CreatePGULID,
     CreateRolesAndDatabase,
     CreateSchemasAndExtensions,
@@ -23,7 +23,7 @@ from uno.sql.emitters.database import (
     RevokeAndGrantPrivilegesAndSetSearchPaths,
     SetRole,
 )
-from uno.sql.emitters.table import InsertMetaRecordFunction
+from uno.infrastructure.sql.emitters.table import InsertMetaRecordFunction
 
 # Initialize a logger
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ if not logger.hasHandlers():
 engine_factory = SyncEngineFactory(logger=logger)
 
 # Import vector emitters
-from uno.sql.emitters.vector import (
+from uno.infrastructure.sql.emitters.vector import (
     CreateVectorTables,
     VectorIntegrationEmitter,
     VectorSQLEmitter,
@@ -69,6 +69,7 @@ init_db_manager = InitDBManager(
     sql_emitters=sql_emitters,
 )
 
+
 # Function to provide a connection for the new DBManager
 @contextmanager
 def get_db_connection():
@@ -78,25 +79,23 @@ def get_db_connection():
         db_user_pw=uno_settings.DB_USER_PW,
         db_host=uno_settings.DB_HOST,
         db_port=uno_settings.DB_PORT,
-        db_name=uno_settings.DB_NAME, 
+        db_name=uno_settings.DB_NAME,
         db_driver=uno_settings.DB_SYNC_DRIVER,
     )
     with engine_factory.create_sync_connection(conn_config) as conn:
         yield conn
 
+
 # The new DBManager for post-initialization DDL operations
 # This is optional and can be used for additional DDL operations after initialization
-ddl_manager = DBManager(
-    connection_provider=get_db_connection,
-    logger=logger
-)
+ddl_manager = DBManager(connection_provider=get_db_connection, logger=logger)
 
 if __name__ == "__main__":
     import psycopg
-    
+
     # Check if the user has adequate permissions
     logger.info(f"Running as database user: {uno_settings.DB_USER}")
-    
+
     # Check if the user has createdb privileges
     has_superuser = False
     try:
@@ -106,23 +105,27 @@ if __name__ == "__main__":
             cursor.execute("SELECT usesuper FROM pg_user WHERE usename = current_user")
             result = cursor.fetchone()
             has_superuser = result and result[0]
-            
+
         if not has_superuser:
-            logger.warning(f"User '{uno_settings.DB_USER}' is not a superuser. Some operations may fail.")
-            logger.warning("Consider using a superuser account or granting appropriate privileges.")
+            logger.warning(
+                f"User '{uno_settings.DB_USER}' is not a superuser. Some operations may fail."
+            )
+            logger.warning(
+                "Consider using a superuser account or granting appropriate privileges."
+            )
     except Exception as e:
         logger.warning(f"Could not check superuser status: {e}")
-    
+
     try:
         # First, create the database using the initialization manager
         logger.info("Creating database using initialization manager...")
         init_db_manager.create_db()
-        
+
         logger.info("Database initialization complete.")
-        
+
         # Set up vector search functionality
         logger.info("Setting up vector search functionality...")
-        
+
         try:
             # Connect to the database and set up vector functions
             with get_db_connection() as connection:
@@ -132,32 +135,40 @@ if __name__ == "__main__":
                 for statement in vector_extension.generate_sql():
                     logger.info(f"Executing {statement.name}...")
                     ddl_manager.execute_ddl(statement.sql)
-                
+
                 # Create vector tables
                 logger.info("Creating vector tables...")
                 vector_tables = CreateVectorTables(config=uno_settings, logger=logger)
                 for statement in vector_tables.generate_sql():
                     logger.info(f"Executing {statement.name}...")
                     ddl_manager.execute_ddl(statement.sql)
-                    
+
                 # Set up vector integration with other database features
                 logger.info("Setting up vector integration...")
-                vector_integration = VectorIntegrationEmitter(config=uno_settings, logger=logger)
+                vector_integration = VectorIntegrationEmitter(
+                    config=uno_settings, logger=logger
+                )
                 for statement in vector_integration.generate_sql():
                     logger.info(f"Executing {statement.name}...")
                     ddl_manager.execute_ddl(statement.sql)
-                    
+
             logger.info("Vector search setup complete. Database is ready for use.")
         except Exception as e:
             logger.error(f"Error setting up vector search: {e}")
-            logger.error("Please install the pgvector extension first. See INSTALL_PGVECTOR.md for instructions.")
+            logger.error(
+                "Please install the pgvector extension first. See INSTALL_PGVECTOR.md for instructions."
+            )
     except Exception as e:
         logger.error(f"Database creation failed: {e}")
-        
+
         if not has_superuser:
             logger.error("This is likely because your user lacks superuser privileges.")
             logger.error("Options:")
-            logger.error("1. Run PostgreSQL commands as a superuser to create the database")
+            logger.error(
+                "1. Run PostgreSQL commands as a superuser to create the database"
+            )
             logger.error("2. Grant createdb privileges to your user")
-            logger.error("3. Use the Docker setup which handles permissions automatically")
+            logger.error(
+                "3. Use the Docker setup which handles permissions automatically"
+            )
             logger.error("See docker/README.md for Docker setup instructions")

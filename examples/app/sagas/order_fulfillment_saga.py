@@ -7,7 +7,7 @@ from typing import Any
 from uno.core.events.saga_store import SagaState
 from uno.core.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
 
 
 class OrderFulfillmentSaga(Saga):
@@ -55,10 +55,9 @@ class OrderFulfillmentSaga(Saga):
                     status=self.status,
                 )
                 if self._command_bus:
-                    await self._command_bus.dispatch({
-                        "type": "ReserveInventory",
-                        "order_id": self.saga_id
-                    })
+                    await self._command_bus.dispatch(
+                        {"type": "ReserveInventory", "order_id": self.saga_id}
+                    )
             elif event["type"] == "InventoryReserved":
                 self.data["inventory_reserved"] = True
                 self.status = "waiting_payment"
@@ -69,10 +68,9 @@ class OrderFulfillmentSaga(Saga):
                     status=self.status,
                 )
                 if self._command_bus:
-                    await self._command_bus.dispatch({
-                        "type": "ProcessPayment",
-                        "order_id": self.saga_id
-                    })
+                    await self._command_bus.dispatch(
+                        {"type": "ProcessPayment", "order_id": self.saga_id}
+                    )
             elif event["type"] == "PaymentProcessed":
                 self.data["payment_processed"] = True
                 self.status = "completed"

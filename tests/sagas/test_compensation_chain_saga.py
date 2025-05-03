@@ -1,16 +1,18 @@
 """
 Integration test for CompensationChainSaga: demonstrates multi-step compensation in a Uno saga.
 """
+
 import pytest
 
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.command_bus import CommandBus
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggingConfig, LoggerService
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.logger import LoggingConfig, LoggerService
 from examples.app.sagas.compensation_chain_saga import CompensationChainSaga
+
 
 @pytest.mark.asyncio
 async def test_compensation_chain_saga() -> None:
@@ -28,14 +30,18 @@ async def test_compensation_chain_saga() -> None:
         saga_id = "comp-chain-1"
 
         # Step 1 completed
-        await manager.handle_event(saga_id, "CompensationChainSaga", {"type": "Step1Completed"})
+        await manager.handle_event(
+            saga_id, "CompensationChainSaga", {"type": "Step1Completed"}
+        )
         state = await saga_store.load_state(saga_id)
         assert state is not None
         assert state.status == "waiting_step2"
         assert state.data["step1_completed"] is True
 
         # Step 2 failed (should trigger compensation chain)
-        await manager.handle_event(saga_id, "CompensationChainSaga", {"type": "Step2Failed"})
+        await manager.handle_event(
+            saga_id, "CompensationChainSaga", {"type": "Step2Failed"}
+        )
         state = await saga_store.load_state(saga_id)
         assert state is None  # Saga should be cleaned up after compensation
 

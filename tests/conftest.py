@@ -22,29 +22,35 @@ import logging
 
 import pytest
 
-from uno.core.config.general import GeneralConfig
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider, get_service_provider
+from uno.infrastructure.config.general import GeneralConfig
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider, get_service_provider
 from uno.core.services.hash_service_protocol import HashServiceProtocol
 from typing import Any
 
 
 def pytest_configure(config):
     config.addinivalue_line(
-        "markers", "performance: mark test as performance/benchmark (skip unless -m performance or -m benchmark)"
+        "markers",
+        "performance: mark test as performance/benchmark (skip unless -m performance or -m benchmark)",
     )
     config.addinivalue_line(
-        "markers", "benchmark_only: mark test as DI performance/benchmark (skip unless -m performance or -m benchmark)"
+        "markers",
+        "benchmark_only: mark test as DI performance/benchmark (skip unless -m performance or -m benchmark)",
     )
+
 
 def pytest_collection_modifyitems(config, items):
     m_option = config.getoption("-m")
     # Only run performance/benchmark tests if '-m performance' or '-m benchmark' is specified
     if not m_option or ("performance" not in m_option and "benchmark" not in m_option):
-        skip_perf = pytest.mark.skip(reason="Skipped unless -m performance or -m benchmark is specified.")
+        skip_perf = pytest.mark.skip(
+            reason="Skipped unless -m performance or -m benchmark is specified."
+        )
         for item in items:
             if "performance" in item.keywords or "benchmark_only" in item.keywords:
                 item.add_marker(skip_perf)
+
 
 class FakeHashService(HashServiceProtocol):
     def hash_event(self, event: Any) -> str:
@@ -68,7 +74,9 @@ def initialize_di():
     # Create service collection
     test_services = ServiceCollection()
     test_services.add_instance(GeneralConfig, config)
-    test_services.add_singleton(HashServiceProtocol, FakeHashService)  # Register fake hash service
+    test_services.add_singleton(
+        HashServiceProtocol, FakeHashService
+    )  # Register fake hash service
 
     # Get the global provider and configure it
     provider = get_service_provider()
@@ -103,5 +111,3 @@ def service_provider():
 def config_instance():
     """Provide a test config instance."""
     return GeneralConfig(SITE_NAME="Uno Test Site")
-
-

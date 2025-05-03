@@ -3,11 +3,13 @@
 """
 In-memory repository for InventoryLot aggregates (example/demo only).
 """
+
 import hashlib
 from examples.app.domain.inventory import InventoryLot
 from examples.app.api.errors import InventoryLotNotFoundError
 from uno.core.errors import Success, Failure
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
+
 
 class InMemoryInventoryLotRepository:
     def __init__(self, logger: LoggerService) -> None:
@@ -16,7 +18,9 @@ class InMemoryInventoryLotRepository:
         self._logger = logger
         self._logger.debug("InMemoryInventoryLotRepository initialized.")
 
-    def get(self, lot_id: str) -> Success[InventoryLot, None] | Failure[None, InventoryLotNotFoundError]:
+    def get(
+        self, lot_id: str
+    ) -> Success[InventoryLot, None] | Failure[None, InventoryLotNotFoundError]:
         lot = self._lots.get(lot_id)
         if lot is None:
             self._logger.warning(f"InventoryLot not found: {lot_id}")
@@ -29,10 +33,10 @@ class InMemoryInventoryLotRepository:
             self._lots[lot.id] = lot
             self._logger.info(f"Saving lot: {lot.id}")
             # Hash chain: hash each event with previous hash
-            events = getattr(lot, '_domain_events', [])
+            events = getattr(lot, "_domain_events", [])
             hashes = self._event_hashes.get(lot.id, [])
-            prev_hash = hashes[-1] if hashes else ''
-            for event in events[len(hashes):]:
+            prev_hash = hashes[-1] if hashes else ""
+            for event in events[len(hashes) :]:
                 event_bytes = str(event.to_dict()).encode()
                 h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
                 hashes.append(h)
@@ -54,14 +58,16 @@ class InMemoryInventoryLotRepository:
         if lot is None:
             self._logger.warning(f"Lot not found for integrity check: {lot_id}")
             return False
-        events = getattr(lot, '_domain_events', [])
+        events = getattr(lot, "_domain_events", [])
         hashes = self._event_hashes.get(lot_id, [])
-        prev_hash = ''
+        prev_hash = ""
         for i, event in enumerate(events):
             event_bytes = str(event.to_dict()).encode()
             h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
             if i >= len(hashes) or hashes[i] != h:
-                self._logger.error(f"Integrity check failed for lot {lot_id} at event {i}")
+                self._logger.error(
+                    f"Integrity check failed for lot {lot_id} at event {i}"
+                )
                 return False
             prev_hash = h
         self._logger.info(f"Integrity check passed for lot {lot_id}")

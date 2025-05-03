@@ -4,9 +4,8 @@
 Unit tests for RelationshipCache with injected LoggerService.
 """
 
-
 """
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 from uno.core.infrastructure.database.relationship_loader import RelationshipCache, RelationshipCacheConfig
 
 class DummyQueryCache:

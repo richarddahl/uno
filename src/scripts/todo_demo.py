@@ -5,6 +5,7 @@
 """
 Demo script to showcase the TodoList bounded context.
 """
+
 import asyncio
 
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
@@ -12,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -91,6 +92,7 @@ async def run_demo(logger_service: LoggerService) -> None:
 def main() -> None:
     logger_service = LoggerService()
     asyncio.run(run_demo(logger_service))
+
 
 if __name__ == "__main__":
     main()

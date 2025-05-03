@@ -1,14 +1,16 @@
 """
 RetryMiddleware: Automatically retries failed event handlers.
 """
+
 import asyncio
 from collections.abc import Callable
 from typing import Any
 from uno.core.errors.result import Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 from dataclasses import dataclass, field
+
 
 @dataclass
 class RetryOptions:
@@ -21,21 +23,23 @@ class RetryOptions:
     def should_retry(self, error: Exception) -> bool:
         if not self.retryable_exceptions:
             return True
-        return any(isinstance(error, exc_type) for exc_type in self.retryable_exceptions)
+        return any(
+            isinstance(error, exc_type) for exc_type in self.retryable_exceptions
+        )
 
     def get_delay_ms(self, attempt: int) -> int:
-        delay = self.base_delay_ms * (self.backoff_factor ** attempt)
+        delay = self.base_delay_ms * (self.backoff_factor**attempt)
         return min(int(delay), self.max_delay_ms)
+
 
 class RetryMiddleware(EventHandlerMiddleware):
     """
     RetryMiddleware: Automatically retries failed event handlers.
     Requires a DI-injected LoggerService instance (strict DI).
     """
+
     def __init__(
-        self,
-        logger: LoggerService,
-        options: RetryOptions | None = None
+        self, logger: LoggerService, options: RetryOptions | None = None
     ) -> None:
         self.logger = logger
         self.options = options or RetryOptions()
@@ -43,7 +47,7 @@ class RetryMiddleware(EventHandlerMiddleware):
     async def process(
         self,
         context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]]
+        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
     ) -> Result[Any, Exception]:
         event = context.event
         attempt = 0
@@ -56,7 +60,7 @@ class RetryMiddleware(EventHandlerMiddleware):
                         f"Event {event.event_type} succeeded after {attempt + 1} attempts",
                         name="uno.events.middleware.retry",
                         event_id=event.event_id,
-                        aggregate_id=event.aggregate_id
+                        aggregate_id=event.aggregate_id,
                     )
                 elif attempt > 0:
                     self.logger.structured_log(
@@ -65,7 +69,7 @@ class RetryMiddleware(EventHandlerMiddleware):
                         name="uno.events.middleware.retry",
                         event_id=event.event_id,
                         aggregate_id=event.aggregate_id,
-                        error=result.error
+                        error=result.error,
                     )
                 return result
             if not self.options.should_retry(result.error):
@@ -75,7 +79,7 @@ class RetryMiddleware(EventHandlerMiddleware):
                     name="uno.events.middleware.retry",
                     error=result.error,
                     event_id=event.event_id,
-                    aggregate_id=event.aggregate_id
+                    aggregate_id=event.aggregate_id,
                 )
                 return result
             attempt += 1
@@ -87,6 +91,6 @@ class RetryMiddleware(EventHandlerMiddleware):
                 event_id=event.event_id,
                 aggregate_id=event.aggregate_id,
                 attempt=attempt,
-                delay_ms=delay_ms
+                delay_ms=delay_ms,
             )
             await asyncio.sleep(delay_ms / 1000)

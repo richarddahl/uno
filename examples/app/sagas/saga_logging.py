@@ -2,7 +2,9 @@
 Shared logger setup for Uno example sagas.
 Provides a DI-friendly logger for all saga classes.
 """
-from uno.core.logging import LoggerService, LoggingConfig
+
+from uno.infrastructure.logging import LoggerService, LoggingConfig
+
 
 def get_saga_logger(saga_name: str | None = None) -> LoggerService:
     # In real DI, this would come from the container

@@ -15,7 +15,7 @@ import os
 # SPDX-License-Identifier: MIT
 import sys
 
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 
 
 def init_database(

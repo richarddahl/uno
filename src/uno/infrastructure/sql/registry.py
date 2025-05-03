@@ -4,11 +4,13 @@
 
 """Registry for SQL configuration classes."""
 
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from sqlalchemy.engine import Connection
+from uno.core.errors import FrameworkError
+from uno.infrastructure.sql.interfaces import EngineFactoryProtocol  # DI protocol for engine factories
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
+if TYPE_CHECKING:
+    from uno.infrastructure.sql.config import SQLConfig
 
 
 class SQLConfigRegistry:
@@ -21,7 +23,7 @@ class SQLConfigRegistry:
         _registry: Dictionary of registered SQLConfig classes by name
     """
 
-    _registry: dict[str, type["SQLConfig"]] = {}
+    _registry: ClassVar[dict[str, type["SQLConfig"]]] = {}
 
     @classmethod
     def register(cls, config_class: type["SQLConfig"]) -> None:
@@ -32,7 +34,7 @@ class SQLConfigRegistry:
 
         Raises:
             FrameworkError: If a class with the same name already exists in the registry
-                     and it's not the same class
+                         and it's not the same class
         """
         if config_class.__name__ in cls._registry:
             # Skip if trying to register the same class again
@@ -69,52 +71,32 @@ class SQLConfigRegistry:
     @classmethod
     def emit_all(
         cls,
-        connection: Connection | None = None,
-        engine_factory: SyncEngineFactory | None = None,
-        config: ConnectionConfig | None = None,
-        exclude: list[str] = None,
+        connection: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
+        engine_factory: EngineFactoryProtocol | None = None,  # DI: injected, type-hinted with Protocol for extensibility
+        config: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
+        exclude: list[str] | None = None,
     ) -> None:
-        """Emit SQL for all registered SQLConfig classes.
+        """
+        Emit SQL for all registered SQLConfig classes.
 
         Args:
-            connection: Optional existing connection to use
-            engine_factory: Optional engine factory to create new connections
-            config: Optional connection configuration
+            connection: Existing connection to use (required; must be provided via DI)
+            engine_factory: (UNUSED, for DI compatibility only)
+            config: (UNUSED, for DI compatibility only)
             exclude: List of config class names to exclude
 
         Raises:
             FrameworkError: If SQL emission fails
         """
         exclude = exclude or []
-
-        # Use provided connection or create a new one
-        should_create_connection = connection is None
-
-        if should_create_connection:
-            if engine_factory is None:
-                engine_factory = SyncEngineFactory()
-
-            with sync_connection(
-                factory=engine_factory,
-                config=config,
-            ) as conn:
-                for name, config_cls in cls._registry.items():
-                    if name in exclude:
-                        continue
-                    config_instance = config_cls(
-                        connection_config=config, engine_factory=engine_factory
-                    )
-                    config_instance.emit_sql(conn)
-        else:
-            # Use the provided connection
-            for name, config_cls in cls._registry.items():
-                if name in exclude:
-                    continue
-                config_instance = config_cls(
-                    connection_config=config, engine_factory=engine_factory
-                )
-                config_instance.emit_sql(connection)
-
-
-# Import SQLConfig here to avoid circular import
-from uno.infrastructure.sql.config import SQLConfig  # noqa
+        if connection is None:
+            raise RuntimeError(
+                "emit_all requires a connection provided via DI; engine/connection construction is forbidden here."
+            )
+        for name, config_cls in cls._registry.items():
+            if name in exclude:
+                continue
+            config_instance = config_cls(
+                connection_config=config, engine_factory=engine_factory
+            )
+            config_instance.emit_sql(connection)

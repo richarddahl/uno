@@ -12,12 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from uno.database.config import ConnectionConfig
 from uno.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.sql.errors import (
+from uno.infrastructure.sql.errors import (
     SQLErrorCode,
     SQLRegistryClassNotFoundError,
     SQLRegistryClassAlreadyExistsError,
     SQLExecutionError,
-    SQLConfigError
+    SQLConfigError,
 )
 
 
@@ -127,4 +127,4 @@ class SQLConfigRegistry:
 
 
 # Import SQLConfig here to avoid circular import
-from uno.sql.config import SQLConfig  # noqa
+from uno.infrastructure.sql.config import SQLConfig  # noqa

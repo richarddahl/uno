@@ -3,24 +3,32 @@ import asyncio
 from unittest.mock import MagicMock
 from uno.core.events.middleware.metrics import MetricsMiddleware, EventMetrics
 from uno.core.events.handlers import EventHandlerContext
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 from uno.core.errors.result import Success, Failure
 from uno.core.events.base_event import DomainEvent
+
 
 class FakeEvent(DomainEvent):
     event_type: str = "FakeEvent"
     version: int = 1
 
-from uno.core.logging.logger import LoggingConfig
+
+from uno.infrastructure.logging.logger import LoggingConfig
 from typing import Any
+
 
 class FakeLoggerService(LoggerService):
     structured_log_calls: list[tuple[str, str, dict[str, Any]]]
+
     def __init__(self) -> None:
         super().__init__(LoggingConfig())
         self.structured_log_calls = []
-    def structured_log(self, level: str, message: str, *args: object, **kwargs: object) -> None:
+
+    def structured_log(
+        self, level: str, message: str, *args: object, **kwargs: object
+    ) -> None:
         self.structured_log_calls.append((level, message, kwargs))
+
 
 @pytest.fixture
 def fake_logger() -> FakeLoggerService:
@@ -29,17 +37,22 @@ def fake_logger() -> FakeLoggerService:
     yield logger
     asyncio.run(logger.dispose())
 
+
 @pytest.mark.asyncio
-async def test_metrics_middleware_records_success_and_failure(fake_logger: FakeLoggerService) -> None:
+async def test_metrics_middleware_records_success_and_failure(
+    fake_logger: FakeLoggerService,
+) -> None:
     # Arrange
     middleware = MetricsMiddleware(logger=fake_logger, report_interval_seconds=0.01)
     event = FakeEvent()
     context = EventHandlerContext(event=event)
-    
+
     async def succeeding_handler(ctx: EventHandlerContext) -> Success[str, Exception]:
         return Success("ok")
+
     async def failing_handler(ctx: EventHandlerContext) -> Failure[str, Exception]:
         return Failure(Exception("fail"))
+
     # Act
     await middleware.process(context, succeeding_handler)
     await middleware.process(context, failing_handler)
@@ -57,10 +70,15 @@ async def test_metrics_middleware_records_success_and_failure(fake_logger: FakeL
     assert metrics.max_duration_ms >= metrics.min_duration_ms
     assert metrics.average_duration_ms >= 0
     # Check logger calls for reporting
-    if not any("metrics" in call[1].lower() for call in fake_logger.structured_log_calls):
+    if not any(
+        "metrics" in call[1].lower() for call in fake_logger.structured_log_calls
+    ):
         print("Log calls:", fake_logger.structured_log_calls)
-    found = any("metrics" in call[1].lower() for call in fake_logger.structured_log_calls)
+    found = any(
+        "metrics" in call[1].lower() for call in fake_logger.structured_log_calls
+    )
     assert found or middleware.last_report_time > 0
+
 
 @pytest.mark.asyncio
 async def test_metrics_middleware_logs_report(fake_logger: FakeLoggerService) -> None:
@@ -68,15 +86,22 @@ async def test_metrics_middleware_logs_report(fake_logger: FakeLoggerService) ->
     middleware = MetricsMiddleware(logger=fake_logger, report_interval_seconds=0.0)
     event = FakeEvent()
     context = EventHandlerContext(event=event)
+
     async def handler(ctx: EventHandlerContext) -> Success[str, Exception]:
         return Success("ok")
+
     # Act
     await middleware.process(context, handler)
     # Assert
     # Should log a metrics report immediately due to interval=0.0
-    if not any("metrics" in call[1].lower() for call in fake_logger.structured_log_calls):
+    if not any(
+        "metrics" in call[1].lower() for call in fake_logger.structured_log_calls
+    ):
         print("Log calls:", fake_logger.structured_log_calls)
-    assert any("metrics" in call[1].lower() for call in fake_logger.structured_log_calls)
+    assert any(
+        "metrics" in call[1].lower() for call in fake_logger.structured_log_calls
+    )
+
 
 @pytest.mark.asyncio
 async def test_event_metrics_properties() -> None:

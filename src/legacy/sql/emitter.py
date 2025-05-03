@@ -17,16 +17,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from uno.database.config import ConnectionConfig
 from uno.database.engine.sync import SyncEngineFactory, sync_connection
 from uno.settings import uno_settings
-from uno.sql.errors import (
+from uno.infrastructure.sql.errors import (
     SQLErrorCode,
     SQLEmitterError,
     SQLExecutionError,
     SQLStatementError,
-    SQLSyntaxError
+    SQLSyntaxError,
 )
 
-from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.observers import SQLObserver, BaseObserver
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.observers import SQLObserver, BaseObserver
 
 # No additional imports needed
 
@@ -175,19 +175,21 @@ class SQLEmitter(BaseModel):
         db_name = None
         if self.config:
             db_name = self.config.DB_NAME
-            
+
         if db_name:
             # We need to handle the special case where we're dropping a database
             # In that case, we're connected to 'postgres' database but want to affect the target database
-            if self.__class__.__name__ == 'DropDatabaseAndRoles':
+            if self.__class__.__name__ == "DropDatabaseAndRoles":
                 # No need to set role when connected as postgres user to postgres db
-                self.logger.debug("Connected as postgres, no need to set role for dropping database")
+                self.logger.debug(
+                    "Connected as postgres, no need to set role for dropping database"
+                )
             else:
                 # For regular operations, set to the admin role for the target database
                 admin_role = f"{db_name}_admin"
                 connection.execute(text(f"SET ROLE {admin_role};"))
                 self.logger.debug(f"Set role to {admin_role}")
-            
+
         # Execute the statements
         for statement in statements:
             self.logger.debug(f"Executing SQL statement: {statement.name}")
@@ -195,7 +197,7 @@ class SQLEmitter(BaseModel):
 
     def emit_sql(
         self, connection: Connection, dry_run: bool = False
-    ) -> Optional[List[SQLStatement]]:
+    ) -> List[SQLStatement] | None:
         """Generate and optionally execute SQL statements.
 
         Args:
@@ -242,10 +244,10 @@ class SQLEmitter(BaseModel):
     def emit_with_connection(
         self,
         dry_run: bool = False,
-        factory: Optional[SyncEngineFactory] = None,
-        config: Optional[ConnectionConfig] = None,
+        factory: SyncEngineFactory | None = None,
+        config: ConnectionConfig | None = None,
         isolation_level: str = "AUTOCOMMIT",
-    ) -> Optional[List[SQLStatement]]:
+    ) -> list[SQLStatement] | None:
         """Execute SQL with a new connection from the factory.
 
         Args:
@@ -298,20 +300,21 @@ class SQLEmitter(BaseModel):
 
     def get_function_builder(self) -> "SQLFunctionBuilder":
         """Get a pre-configured SQL function builder with database name set.
-        
+
         Returns:
             SQLFunctionBuilder: A function builder with database name set
         """
-        from uno.sql.builders.function import SQLFunctionBuilder
+        from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
+
         builder = SQLFunctionBuilder()
-        
+
         if self.connection_config:
             builder.with_db_name(self.connection_config.db_name)
         elif self.config:
             builder.with_db_name(self.config.DB_NAME)
-            
+
         return builder
-        
+
     def format_sql_template(self, template: str, **kwargs) -> str:
         """Format an SQL template with variables.
 

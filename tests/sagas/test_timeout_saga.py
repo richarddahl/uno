@@ -5,12 +5,12 @@ Integration test for TimeoutSaga: demonstrates timeouts and retries in a Uno sag
 import pytest
 
 from examples.app.sagas.timeout_saga import TimeoutSaga
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 @pytest.mark.asyncio

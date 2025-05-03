@@ -1,17 +1,19 @@
 import pytest
 
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 class MyDep:
     def __init__(self) -> None:
         pass
 
+
 class MyService:
     def __init__(self, dep: MyDep):
         self.dep = dep
+
 
 @pytest.mark.asyncio
 async def test_resolution_cache_and_lazy_loading():
@@ -47,6 +49,7 @@ async def test_resolution_cache_and_lazy_loading():
     # Test that re-registering invalidates the cache
     class MyService2(MyService):
         pass
+
     services.add_singleton(MyService, MyService2)
     logger2 = LoggerService(LoggingConfig())
     provider2 = ServiceProvider(logger2)
@@ -56,6 +59,7 @@ async def test_resolution_cache_and_lazy_loading():
     assert s3.is_success
     assert isinstance(s3.value, MyService2)
 
+
 @pytest.mark.asyncio
 async def test_lazy_loading():
     """
@@ -64,23 +68,25 @@ async def test_lazy_loading():
     not lazily on first access.
     """
     services = ServiceCollection()
-    instantiation_counter = {'count': 0}
+    instantiation_counter = {"count": 0}
+
     class LazyDep:
         def __init__(self) -> None:
-            instantiation_counter['count'] += 1
+            instantiation_counter["count"] += 1
+
     services.add_singleton(LazyDep)
     logger = LoggerService(LoggingConfig())
     provider = ServiceProvider(logger)
     provider.configure_services(services)
     await provider.initialize()
     # Eager instantiation: singleton is created at initialization
-    assert instantiation_counter['count'] == 1
+    assert instantiation_counter["count"] == 1
     s = provider.get_service(LazyDep)
     assert s.is_success
     assert isinstance(s.value, LazyDep)
-    assert instantiation_counter['count'] == 1
+    assert instantiation_counter["count"] == 1
     # Subsequent gets do not re-instantiate
     s2 = provider.get_service(LazyDep)
     assert s2.is_success
     assert s2.value is s.value
-    assert instantiation_counter['count'] == 1
+    assert instantiation_counter["count"] == 1

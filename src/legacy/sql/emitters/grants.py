@@ -6,8 +6,8 @@
 
 from typing import List
 
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class AlterGrants(SQLEmitter):

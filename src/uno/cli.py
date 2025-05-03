@@ -65,8 +65,8 @@ class {name}(DomainEvent):
 def logging_config_show(ctx: typer.Context) -> None:
     """Show current Uno logging configuration."""
     try:
-        from uno.core.logging.config_service import LoggingConfigService
-        from uno.core.logging.factory import create_logger_factory
+        from uno.infrastructure.logging.config_service import LoggingConfigService
+        from uno.infrastructure.logging.factory import create_logger_factory
 
         factory = create_logger_factory()
         logger_service = factory.create("cli")
@@ -81,4 +81,3 @@ def logging_config_show(ctx: typer.Context) -> None:
 
 if __name__ == "__main__":
     app()
-

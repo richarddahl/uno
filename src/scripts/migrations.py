@@ -38,7 +38,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.settings import uno_settings
 

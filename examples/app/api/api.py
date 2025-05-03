@@ -8,8 +8,6 @@ Exposes endpoints for InventoryItem aggregate.
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from examples.app.api.dtos import InventoryItemDTO
-from examples.app.api.vendor_dtos import VendorDTO
 from examples.app.persistence.inventory_item_repository_protocol import (
     InventoryItemRepository,
 )
@@ -18,17 +16,16 @@ from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
 from examples.app.services.vendor_service import VendorService
-
-from uno.core.errors.result import Failure
 from uno.core.errors.definitions import DomainValidationError
-from uno.core.logging import LoggerService, LoggingConfig
+from uno.core.errors.result import Failure
+from uno.infrastructure.logging import LoggerService, LoggingConfig
 
 
 def app_factory() -> FastAPI:
     app = FastAPI(title="Uno Example App", version="0.2.0")
 
     # --- Dependency Injection Setup ---
-    from uno.core.di.container import ServiceCollection
+    from uno.infrastructure.di.container import ServiceCollection
 
     service_collection = ServiceCollection(
         auto_register=False
@@ -71,10 +68,10 @@ def app_factory() -> FastAPI:
     @app.post(
         "/inventory/",
         tags=["inventory"],
-        response_model=InventoryItemDTO,
+        response_model=dict,
         status_code=201,
     )
-    def create_inventory_item(data: InventoryItemCreateDTO) -> InventoryItemDTO:
+    def create_inventory_item(data: InventoryItemCreateDTO) -> dict:
         # Use DI to get the service
         inventory_item_service: InventoryItemService = resolver.resolve(
             InventoryItemService
@@ -90,68 +87,44 @@ def app_factory() -> FastAPI:
                 raise HTTPException(status_code=409, detail=str(error))
             raise HTTPException(status_code=422, detail=str(error))
         item = result.unwrap()
-        # Extract primitive int value from Quantity value object for DTO
-        qty = (
-            item.quantity.value.value
-            if hasattr(item.quantity, "value") and hasattr(item.quantity.value, "value")
-            else int(item.quantity)
-        )
-        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
-        return dto
+        d = item.model_dump()
+        if isinstance(d.get("quantity"), dict) and "value" in d["quantity"]:
+            d["quantity"] = d["quantity"]["value"]
+        return d
 
-    @app.post("/vendors/", tags=["vendors"], response_model=VendorDTO, status_code=201)
-    def create_vendor(data: VendorCreateDTO) -> VendorDTO:
+    @app.post("/vendors/", tags=["vendors"], response_model=dict, status_code=201)
+    def create_vendor(data: VendorCreateDTO) -> dict:
         # Use the service layer for creation and error handling
         result = vendor_service.create_vendor(data.id, data.name, data.contact_email)
         if isinstance(result, Failure):
             raise HTTPException(status_code=400, detail=str(result.error))
         vendor = result.unwrap()
         vendor_repo.save(vendor)
-        dto = VendorDTO(
-            id=vendor.id,
-            name=vendor.name,
-            contact_email=vendor.contact_email.value
-            if hasattr(vendor.contact_email, "value")
-            else vendor.contact_email,
-        )
-        return dto
+        return vendor.model_dump()
 
-    @app.get(
-        "/inventory/{aggregate_id}", tags=["inventory"], response_model=InventoryItemDTO
-    )
-    def get_inventory_item(aggregate_id: str) -> InventoryItemDTO:
+    @app.get("/inventory/{aggregate_id}", tags=["inventory"], response_model=dict)
+    def get_inventory_item(aggregate_id: str) -> dict:
         result = repo.get(aggregate_id)
         if isinstance(result, Failure):
             raise result.error
         item = result.unwrap()
-        # Extract primitive int value from Quantity value object for DTO
-        qty = (
-            item.quantity.value.value
-            if hasattr(item.quantity, "value") and hasattr(item.quantity.value, "value")
-            else int(item.quantity)
-        )
-        dto = InventoryItemDTO(id=item.id, name=item.name, quantity=qty)
-        return dto
+        d = item.model_dump()
+        if isinstance(d.get("quantity"), dict) and "value" in d["quantity"]:
+            d["quantity"] = d["quantity"]["value"]
+        return d
 
-    @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
-    def get_vendor(vendor_id: str) -> VendorDTO:
+    @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
+    def get_vendor(vendor_id: str) -> dict:
         result = vendor_repo.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(
                 status_code=404, detail=f"Vendor not found: {vendor_id}"
             )
         vendor = result.value
-        dto = VendorDTO(
-            id=vendor.id,
-            name=vendor.name,
-            contact_email=vendor.contact_email.value
-            if hasattr(vendor.contact_email, "value")
-            else vendor.contact_email,
-        )
-        return dto
+        return vendor.model_dump()
 
-    @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=VendorDTO)
-    def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> VendorDTO:
+    @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
+    def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> dict:
         result = vendor_repo.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(
@@ -161,28 +134,15 @@ def app_factory() -> FastAPI:
         vendor.name = data.name
         vendor.contact_email = data.contact_email
         vendor_repo.save(vendor)
-        dto = VendorDTO(
-            id=vendor.id,
-            name=vendor.name,
-            contact_email=vendor.contact_email.value
-            if hasattr(vendor.contact_email, "value")
-            else vendor.contact_email,
-        )
-        return dto
+        return vendor.model_dump()
 
-    @app.get("/vendors/", tags=["vendors"], response_model=list[VendorDTO])
-    def list_vendors() -> list[VendorDTO]:
+    @app.get("/vendors/", tags=["vendors"], response_model=list[dict])
+    def list_vendors() -> list[dict]:
         vendors = vendor_repo.all()
-        return [
-            VendorDTO(
-                id=v.id,
-                name=v.name,
-                contact_email=v.contact_email.value
-                if hasattr(v.contact_email, "value")
-                else v.contact_email,
-            )
-            for v in vendors
-        ]
+        result = []
+        for v in vendors:
+            result.append(v.model_dump())
+        return result
 
     # ...repeat for all other endpoints, rebinding vendor_repo, lot_repo, order_repo as needed...
 

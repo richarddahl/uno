@@ -4,18 +4,64 @@
 
 """Configuration for SQL generation and execution."""
 
+from __future__ import annotations
+
 import logging
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Table
-from sqlalchemy.engine import Connection
-from sqlalchemy.exc import SQLAlchemyError
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.infrastructure.sql.emitter import SQLEmitter
+if TYPE_CHECKING:
+    from uno.infrastructure.sql.engine import SyncEngineFactory
+    from uno.infrastructure.sql.interfaces import ConnectionConfigProtocol
+
+
+class ConnectionConfig(BaseModel):
+    """
+    Modernized configuration for database connections in Uno.
+    All values must be provided explicitly or via dependency injection/config system.
+    No legacy uno_settings dependency.
+    """
+
+    db_role: str
+    db_name: str
+    db_user_pw: str
+    db_host: str
+    db_port: int
+    db_driver: str
+    db_schema: str | None = None
+    pool_size: int | None = 5
+    max_overflow: int | None = 0
+    pool_timeout: int | None = 30
+    pool_recycle: int | None = 90
+    connect_args: dict[str, Any] | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+    def get_uri(self) -> str:
+        """
+        Construct a SQLAlchemy database URI from connection config.
+        Returns:
+            str: SQLAlchemy connection URI string
+        """
+        import urllib.parse
+
+        driver = self.db_driver
+        if driver.startswith("postgresql+"):
+            driver = driver.replace("postgresql+", "")
+        encoded_pw = urllib.parse.quote_plus(self.db_user_pw)
+        if "psycopg" in driver or "postgresql" in driver:
+            uri = f"postgresql+{driver}://{self.db_role}:{encoded_pw}@{self.db_host}:{self.db_port}/{self.db_name}"
+            return uri
+        else:
+            uri = f"{driver}://{self.db_role}:{encoded_pw}@{self.db_host}:{self.db_port}/{self.db_name}"
+            return uri
+
+
 from uno.infrastructure.sql.registry import SQLConfigRegistry
+from uno.core.errors.result import Failure, Result, Success
+from uno.infrastructure.sql.interfaces import EngineFactoryProtocol
 
 
 class SQLConfig(BaseModel):
@@ -34,19 +80,23 @@ class SQLConfig(BaseModel):
     """
 
     # Default emitters to use for this config
-    default_emitters: ClassVar[list[type[SQLEmitter]]] = []
+    default_emitters: ClassVar[list[type["SQLEmitter"]]] = []  # type: ignore
 
     # The table for which SQL is being generated
     table: ClassVar[Table | None] = None
 
     # Connection configuration
-    connection_config: ConnectionConfig | None = None
+    connection_config: ConnectionConfigProtocol | None = (
+        None  # DI: injected, type-hinted with Protocol for extensibility
+    )
 
     # Engine factory for creating connections
-    engine_factory: SyncEngineFactory | None = None
+    engine_factory: EngineFactoryProtocol | None = (
+        None  # Injected by DI, type-hinted with Protocol for extensibility
+    )
 
     # Emitter instances
-    emitters: list[SQLEmitter] = []
+    emitters: list["SQLEmitter"] = []  # type: ignore
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -96,13 +146,9 @@ class SQLConfig(BaseModel):
 
         try:
             if should_create_connection:
-                if self.engine_factory is None:
-                    self.engine_factory = SyncEngineFactory()
-
-                with sync_connection(
-                    factory=self.engine_factory, config=self.connection_config
-                ) as conn:
-                    self._emit_sql_internal(conn)
+                raise RuntimeError(
+                    "SQLConfig.emit_sql requires engine_factory (DI) and connection to be provided externally. Do not construct engine or connection in config."
+                )
             else:
                 self._emit_sql_internal(connection)
         except SQLAlchemyError as e:

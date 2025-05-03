@@ -12,50 +12,53 @@ from typing import List, Optional, Dict, Any, Tuple, TypeVar, Generic, Protocol,
 from sqlalchemy.engine import Connection
 from sqlalchemy import text
 
-from uno.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.database.session import DatabaseSessionProtocol
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 # Define a protocol for database connections that can execute queries
 class ExecutableConnection(Protocol):
     async def execute(self, statement, *args, **kwargs): ...
-    
+
+
 # Type alias for connections that can be either SQLAlchemy Connection or DatabaseSessionProtocol
 ConnectionType = Union[Connection, DatabaseSessionProtocol]
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class VectorSQLEmitter(SQLEmitter):
     """
     Emitter for creating pgvector extension and related database objects.
-    
+
     This emitter creates the pgvector extension, helper functions for
     vector operations, and necessary permissions.
     """
-    
+
     def generate_sql(self) -> List[SQLStatement]:
         """
         Generate SQL statements for setting up vector functionality.
-        
+
         Returns:
             List of SQL statements with metadata
         """
         statements = []
-        
+
         # Get config values safely
         if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
             db_schema = self.config.DB_SCHEMA
             db_name = self.config.DB_NAME
         else:
             from uno.settings import uno_settings
+
             db_schema = uno_settings.DB_SCHEMA
             db_name = uno_settings.DB_NAME
-            
+
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
         admin_role = f"{db_name}_admin"
-        
+
         # SQL for creating pgvector extension
         create_vector_extension_sql = f"""
         -- Create the pgvector extension
@@ -64,7 +67,7 @@ class VectorSQLEmitter(SQLEmitter):
         -- Set search path for the current session
         SET search_path TO {db_schema}, public;
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -73,7 +76,7 @@ class VectorSQLEmitter(SQLEmitter):
                 sql=create_vector_extension_sql,
             )
         )
-        
+
         # SQL for creating vector helper functions
         create_vector_functions_sql = f"""
         -- Create helper functions for vector operations in the schema
@@ -187,7 +190,7 @@ class VectorSQLEmitter(SQLEmitter):
         -- Grant execute permission on the function
         GRANT EXECUTE ON FUNCTION {db_schema}.create_embedding_trigger TO {admin_role};
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -196,7 +199,7 @@ class VectorSQLEmitter(SQLEmitter):
                 sql=create_vector_functions_sql,
             )
         )
-        
+
         # SQL for creating vector index management functions
         create_vector_index_functions_sql = f"""
         -- Create functions for managing vector indexes
@@ -263,7 +266,7 @@ class VectorSQLEmitter(SQLEmitter):
         -- Grant execute permission on the function
         GRANT EXECUTE ON FUNCTION {db_schema}.create_ivfflat_index TO {admin_role};
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -272,7 +275,7 @@ class VectorSQLEmitter(SQLEmitter):
                 sql=create_vector_index_functions_sql,
             )
         )
-        
+
         # SQL for creating vector search functions
         create_vector_search_functions_sql = f"""
         -- Create functions for vector similarity search
@@ -413,7 +416,7 @@ class VectorSQLEmitter(SQLEmitter):
         -- Grant execute permission on the function
         GRANT EXECUTE ON FUNCTION {db_schema}.hybrid_search TO {admin_role}, {writer_role}, {reader_role};
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -422,40 +425,41 @@ class VectorSQLEmitter(SQLEmitter):
                 sql=create_vector_search_functions_sql,
             )
         )
-        
+
         return statements
 
 
 class VectorIntegrationEmitter(SQLEmitter):
     """
     Emitter for integrating vector search with other database features.
-    
+
     This emitter creates functions and procedures that integrate vector search
     with other database features like graph database capabilities.
     """
-    
+
     def generate_sql(self) -> List[SQLStatement]:
         """
         Generate SQL statements for vector integration.
-        
+
         Returns:
             List of SQL statements with metadata
         """
         statements = []
-        
+
         # Get config values safely
         if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
             db_schema = self.config.DB_SCHEMA
             db_name = self.config.DB_NAME
         else:
             from uno.settings import uno_settings
+
             db_schema = uno_settings.DB_SCHEMA
             db_name = uno_settings.DB_NAME
-            
+
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
         admin_role = f"{db_name}_admin"
-        
+
         # SQL for integrating vector search with graph database
         integration_sql = f"""
         -- Function to perform hybrid vector and graph search
@@ -552,7 +556,7 @@ class VectorIntegrationEmitter(SQLEmitter):
         -- Grant permissions on the function
         GRANT EXECUTE ON FUNCTION {db_schema}.hybrid_graph_search TO {admin_role}, {writer_role}, {reader_role};
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -561,40 +565,41 @@ class VectorIntegrationEmitter(SQLEmitter):
                 sql=integration_sql,
             )
         )
-        
+
         return statements
 
 
 class CreateVectorTables(SQLEmitter):
     """
     Emitter for creating standard vector-enabled tables.
-    
+
     This emitter creates a standard set of tables for vector search capabilities
     like a documents table for RAG.
     """
-    
+
     def generate_sql(self) -> List[SQLStatement]:
         """
         Generate SQL statements for creating vector-enabled tables.
-        
+
         Returns:
             List of SQL statements with metadata
         """
         statements = []
-        
+
         # Get config values safely
         if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
             db_schema = self.config.DB_SCHEMA
             db_name = self.config.DB_NAME
         else:
             from uno.settings import uno_settings
+
             db_schema = uno_settings.DB_SCHEMA
             db_name = uno_settings.DB_NAME
-            
+
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
         admin_role = f"{db_name}_admin"
-        
+
         # SQL for creating a documents table for RAG
         create_documents_table_sql = f"""
         -- Create a documents table for RAG (Retrieval-Augmented Generation)
@@ -640,7 +645,7 @@ class CreateVectorTables(SQLEmitter):
         -- Create HNSW index
         SELECT {db_schema}.create_hnsw_index('documents', 'embedding');
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -649,7 +654,7 @@ class CreateVectorTables(SQLEmitter):
                 sql=create_documents_table_sql,
             )
         )
-        
+
         # SQL for creating a vector config table
         create_vector_config_table_sql = f"""
         -- Create a vector configuration table to manage entity embedding configs
@@ -691,7 +696,7 @@ class CreateVectorTables(SQLEmitter):
             ('documents', 1536, ARRAY['title', 'content'], 'hnsw', '{{"m": 16, "ef_construction": 64}}')
         ON CONFLICT (entity_type) DO NOTHING;
         """
-        
+
         # Add the statement to the list
         statements.append(
             SQLStatement(
@@ -700,28 +705,28 @@ class CreateVectorTables(SQLEmitter):
                 sql=create_vector_config_table_sql,
             )
         )
-        
+
         return statements
 
 
 class VectorSearchEmitter(SQLEmitter):
     """
     Emitter for vector search operations.
-    
+
     This emitter provides methods for executing vector similarity search,
     hybrid vector-graph search, and embedding generation.
     """
-    
+
     def __init__(
         self,
         table_name: str,
         column_name: str = "embedding",
         schema: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize vector search emitter.
-        
+
         Args:
             table_name: The database table name containing embeddings
             column_name: The column name containing embeddings (default: "embedding")
@@ -731,7 +736,7 @@ class VectorSearchEmitter(SQLEmitter):
         super().__init__(**kwargs)
         self.table_name = table_name
         self.column_name = column_name
-        
+
         # Get schema safely
         if schema:
             self._schema = schema
@@ -739,55 +744,64 @@ class VectorSearchEmitter(SQLEmitter):
             self._schema = self.config.DB_SCHEMA
         else:
             from uno.settings import uno_settings
+
             self._schema = uno_settings.DB_SCHEMA
-            
+
     @property
     def schema(self) -> str:
         """Get the database schema."""
         return self._schema
-    
+
     def search_sql(
         self,
         query_text: str,
         limit: int = 10,
         threshold: float = 0.7,
         metric: str = "cosine",
-        where_clause: Optional[str] = None
+        where_clause: Optional[str] = None,
     ) -> str:
         """
         Generate SQL for vector similarity search.
-        
+
         Args:
             query_text: The text to search for
             limit: Maximum number of results to return
             threshold: Minimum similarity score (0-1)
             metric: Distance metric to use (cosine, l2, dot)
             where_clause: Optional WHERE clause for filtering
-            
+
         Returns:
             SQL query for the search operation
         """
         # Determine operator based on metric
         op = "<->" if metric == "l2" else "<#>" if metric == "dot" else "<=>"
-        
+
         # Build the where clause
         where_conditions = []
         if threshold > 0:
             # Convert threshold to distance based on metric
             if metric == "cosine":
-                where_conditions.append(f"(1 - ({self.column_name} {op} {self.schema}.generate_embedding(:query_text))) >= :threshold")
+                where_conditions.append(
+                    f"(1 - ({self.column_name} {op} {self.schema}.generate_embedding(:query_text))) >= :threshold"
+                )
             elif metric == "l2":
-                where_conditions.append(f"({self.column_name} {op} {self.schema}.generate_embedding(:query_text)) <= :threshold")
+                where_conditions.append(
+                    f"({self.column_name} {op} {self.schema}.generate_embedding(:query_text)) <= :threshold"
+                )
             elif metric == "dot":
-                where_conditions.append(f"({self.column_name} {op} {self.schema}.generate_embedding(:query_text)) >= :threshold")
-        
+                where_conditions.append(
+                    f"({self.column_name} {op} {self.schema}.generate_embedding(:query_text)) >= :threshold"
+                )
+
         # Add custom where clause if provided
         if where_clause:
             where_conditions.append(where_clause)
-        
+
         # Build the complete where clause
-        where_part = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
-        
+        where_part = (
+            f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+        )
+
         # Build similarity expression based on metric
         if metric == "cosine":
             similarity_expr = f"(1 - ({self.column_name} {op} {self.schema}.generate_embedding(:query_text))) AS similarity"
@@ -797,13 +811,13 @@ class VectorSearchEmitter(SQLEmitter):
             similarity_expr = f"({self.column_name} {op} {self.schema}.generate_embedding(:query_text)) AS similarity"
         else:
             similarity_expr = f"(1 - ({self.column_name} {op} {self.schema}.generate_embedding(:query_text))) AS similarity"
-        
+
         # Build the order by clause
         if metric == "cosine" or metric == "dot":
             order_by = f"ORDER BY {self.column_name} {op} {self.schema}.generate_embedding(:query_text) DESC"
         else:
             order_by = f"ORDER BY {self.column_name} {op} {self.schema}.generate_embedding(:query_text) ASC"
-        
+
         sql = f"""
         SELECT 
             id::TEXT, 
@@ -814,31 +828,31 @@ class VectorSearchEmitter(SQLEmitter):
         {order_by}
         LIMIT :limit
         """
-        
+
         return sql
-    
+
     def hybrid_search_sql(
         self,
         query_text: str,
         graph_query: Optional[str] = None,
         limit: int = 10,
-        threshold: float = 0.7
+        threshold: float = 0.7,
     ) -> str:
         """
         Generate SQL for hybrid vector-graph search.
-        
+
         Args:
             query_text: The text to search for
             graph_query: Optional graph query for hybrid search
             limit: Maximum number of results to return
             threshold: Minimum similarity score (0-1)
-            
+
         Returns:
             SQL query for the hybrid search operation
         """
         # Determine if we have a graph query
         has_graph = graph_query is not None and graph_query.strip() != ""
-        
+
         # Basic vector search CTE (common table expression)
         vector_cte = f"""
         vector_results AS (
@@ -850,7 +864,7 @@ class VectorSearchEmitter(SQLEmitter):
             WHERE (1 - ({self.column_name} <=> {self.schema}.generate_embedding(:query_text))) >= :threshold
         )
         """
-        
+
         if has_graph:
             # Full hybrid search
             sql = f"""
@@ -891,21 +905,21 @@ class VectorSearchEmitter(SQLEmitter):
             ORDER BY similarity DESC
             LIMIT :limit
             """
-        
+
         return sql
-    
+
     def generate_embedding_sql(self, text: str) -> str:
         """
         Generate SQL for embedding text.
-        
+
         Args:
             text: The text to embed
-            
+
         Returns:
             SQL query for generating an embedding
         """
         return f"SELECT {self.schema}.generate_embedding(:text) AS embedding"
-    
+
     async def execute_search(
         self,
         connection: ConnectionType,
@@ -913,11 +927,11 @@ class VectorSearchEmitter(SQLEmitter):
         limit: int = 10,
         threshold: float = 0.7,
         metric: str = "cosine",
-        where_clause: Optional[str] = None
+        where_clause: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Execute a vector similarity search.
-        
+
         Args:
             connection: Database connection
             query_text: The text to search for
@@ -925,7 +939,7 @@ class VectorSearchEmitter(SQLEmitter):
             threshold: Minimum similarity score (0-1)
             metric: Distance metric to use (cosine, l2, dot)
             where_clause: Optional WHERE clause for filtering
-            
+
         Returns:
             List of search results
         """
@@ -934,18 +948,14 @@ class VectorSearchEmitter(SQLEmitter):
             limit=limit,
             threshold=threshold,
             metric=metric,
-            where_clause=where_clause
+            where_clause=where_clause,
         )
-        
-        params = {
-            "query_text": query_text,
-            "limit": limit,
-            "threshold": threshold
-        }
-        
+
+        params = {"query_text": query_text, "limit": limit, "threshold": threshold}
+
         result = await connection.execute(text(sql), params)
         rows = result.fetchall()
-        
+
         # Convert rows to result dictionaries
         search_results = []
         for row in rows:
@@ -953,32 +963,30 @@ class VectorSearchEmitter(SQLEmitter):
                 search_results.append(dict(row._mapping))
             else:
                 # Fall back for compatibility
-                search_results.append({
-                    "id": row[0],
-                    "similarity": row[1],
-                    "row_data": row[2]
-                })
-                
+                search_results.append(
+                    {"id": row[0], "similarity": row[1], "row_data": row[2]}
+                )
+
         return search_results
-    
+
     async def execute_hybrid_search(
         self,
         connection: ConnectionType,
         query_text: str,
         graph_query: Optional[str] = None,
         limit: int = 10,
-        threshold: float = 0.7
+        threshold: float = 0.7,
     ) -> List[Dict[str, Any]]:
         """
         Execute a hybrid vector-graph search.
-        
+
         Args:
             connection: Database connection
             query_text: The text to search for
             graph_query: Optional graph query for hybrid search
             limit: Maximum number of results to return
             threshold: Minimum similarity score (0-1)
-            
+
         Returns:
             List of search results
         """
@@ -986,18 +994,14 @@ class VectorSearchEmitter(SQLEmitter):
             query_text=query_text,
             graph_query=graph_query,
             limit=limit,
-            threshold=threshold
+            threshold=threshold,
         )
-        
-        params = {
-            "query_text": query_text,
-            "limit": limit,
-            "threshold": threshold
-        }
-        
+
+        params = {"query_text": query_text, "limit": limit, "threshold": threshold}
+
         result = await connection.execute(text(sql), params)
         rows = result.fetchall()
-        
+
         # Convert rows to result dictionaries
         search_results = []
         for row in rows:
@@ -1005,61 +1009,61 @@ class VectorSearchEmitter(SQLEmitter):
                 search_results.append(dict(row._mapping))
             else:
                 # Fall back for compatibility
-                search_results.append({
-                    "id": row[0],
-                    "similarity": row[1],
-                    "row_data": row[2],
-                    "graph_distance": row[3]
-                })
-                
+                search_results.append(
+                    {
+                        "id": row[0],
+                        "similarity": row[1],
+                        "row_data": row[2],
+                        "graph_distance": row[3],
+                    }
+                )
+
         return search_results
-    
+
     async def execute_generate_embedding(
-        self,
-        connection: ConnectionType,
-        text: str
+        self, connection: ConnectionType, text: str
     ) -> List[float]:
         """
         Generate an embedding vector for text.
-        
+
         Args:
             connection: Database connection
             text: The text to embed
-            
+
         Returns:
             Embedding vector as a list of floats
         """
         sql = self.generate_embedding_sql(text)
-        
+
         result = await connection.execute(text(sql), {"text": text})
         row = result.fetchone()
-        
+
         if row and row.embedding:
             # Convert from postgres vector type to list of floats
-            embedding_str = row.embedding.replace('[', '').replace(']', '')
-            return [float(val) for val in embedding_str.split(',')]
-        
+            embedding_str = row.embedding.replace("[", "").replace("]", "")
+            return [float(val) for val in embedding_str.split(",")]
+
         return []
 
 
 class VectorBatchEmitter(SQLEmitter):
     """
     Emitter for batch vector operations.
-    
+
     This emitter provides methods for batch vector operations such as
     updating embeddings for multiple entities at once.
     """
-    
+
     def __init__(
         self,
         entity_type: str,
         content_fields: List[str],
         schema: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize vector batch emitter.
-        
+
         Args:
             entity_type: Type of entities to process
             content_fields: Fields containing content to embed
@@ -1070,7 +1074,7 @@ class VectorBatchEmitter(SQLEmitter):
         self.entity_type = entity_type
         self.table_name = entity_type.lower()
         self.content_fields = content_fields
-        
+
         # Get schema safely
         if schema:
             self._schema = schema
@@ -1078,102 +1082,97 @@ class VectorBatchEmitter(SQLEmitter):
             self._schema = self.config.DB_SCHEMA
         else:
             from uno.settings import uno_settings
+
             self._schema = uno_settings.DB_SCHEMA
-            
+
     @property
     def schema(self) -> str:
         """Get the database schema."""
         return self._schema
-    
+
     def get_entity_count_sql(self) -> str:
         """
         Generate SQL to count entities.
-        
+
         Returns:
             SQL query to count entities
         """
         return f"SELECT COUNT(*) FROM {self.schema}.{self.table_name}"
-    
+
     def get_batch_sql(self, limit: int, offset: int) -> str:
         """
         Generate SQL to get a batch of entities.
-        
+
         Args:
             limit: Maximum number of entities to retrieve
             offset: Number of entities to skip
-            
+
         Returns:
             SQL query to get a batch of entities
         """
         select_fields = ["id"] + self.content_fields
         fields_str = ", ".join(select_fields)
-        
+
         return f"""
         SELECT {fields_str}
         FROM {self.schema}.{self.table_name}
         ORDER BY id
         LIMIT :limit OFFSET :offset
         """
-    
+
     def get_entities_by_ids_sql(self, entity_ids: List[str]) -> str:
         """
         Generate SQL to get entities by IDs.
-        
+
         Args:
             entity_ids: List of entity IDs to retrieve
-            
+
         Returns:
             SQL query to get entities by IDs
         """
         select_fields = ["id"] + self.content_fields
         fields_str = ", ".join(select_fields)
-        
+
         return f"""
         SELECT {fields_str}
         FROM {self.schema}.{self.table_name}
         WHERE id IN :ids
         """
-    
+
     async def execute_get_count(self, connection: ConnectionType) -> int:
         """
         Execute a query to count entities.
-        
+
         Args:
             connection: Database connection
-            
+
         Returns:
             Entity count
         """
         sql = self.get_entity_count_sql()
         result = await connection.execute(text(sql))
         return result.scalar() or 0
-    
+
     async def execute_get_batch(
-        self,
-        connection: ConnectionType,
-        limit: int,
-        offset: int
+        self, connection: ConnectionType, limit: int, offset: int
     ) -> List[Dict[str, Any]]:
         """
         Execute a query to get a batch of entities.
-        
+
         Args:
             connection: Database connection
             limit: Maximum number of entities to retrieve
             offset: Number of entities to skip
-            
+
         Returns:
             List of entities
         """
         sql = self.get_batch_sql(limit, offset)
-        result = await connection.execute(
-            text(sql),
-            {"limit": limit, "offset": offset}
-        )
-        
+        result = await connection.execute(text(sql), {"limit": limit, "offset": offset})
+
         rows = result.fetchall()
         entities = []
-        
+
         for row in rows:
             if hasattr(row, "_mapping"):
                 entities.append(dict(row._mapping))
@@ -1184,36 +1183,31 @@ class VectorBatchEmitter(SQLEmitter):
                     if i < len(row):
                         entity[field] = row[i]
                 entities.append(entity)
-        
+
         return entities
-    
+
     async def execute_get_entities_by_ids(
-        self,
-        connection: ConnectionType,
-        entity_ids: List[str]
+        self, connection: ConnectionType, entity_ids: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Execute a query to get entities by IDs.
-        
+
         Args:
             connection: Database connection
             entity_ids: List of entity IDs to retrieve
-            
+
         Returns:
             List of entities
         """
         if not entity_ids:
             return []
-            
+
         sql = self.get_entities_by_ids_sql(entity_ids)
-        result = await connection.execute(
-            text(sql),
-            {"ids": tuple(entity_ids)}
-        )
-        
+        result = await connection.execute(text(sql), {"ids": tuple(entity_ids)})
+
         rows = result.fetchall()
         entities = []
-        
+
         for row in rows:
             if hasattr(row, "_mapping"):
                 entities.append(dict(row._mapping))
@@ -1224,5 +1218,5 @@ class VectorBatchEmitter(SQLEmitter):
                     if i < len(row):
                         entity[field] = row[i]
                 entities.append(entity)
-        
+
         return entities

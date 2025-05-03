@@ -1,6 +1,7 @@
 """
 CircuitBreakerMiddleware: Prevents cascading failures using the circuit breaker pattern.
 """
+
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -9,7 +10,8 @@ from typing import Any
 from uno.core.errors.result import Success, Failure, Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
+
 
 @dataclass
 class CircuitBreakerState:
@@ -53,16 +55,18 @@ class CircuitBreakerState:
             return False
         return True
 
+
 class CircuitBreakerMiddleware(EventHandlerMiddleware):
     """
     CircuitBreakerMiddleware: Prevents cascading failures using the circuit breaker pattern.
     Requires a DI-injected LoggerService instance (strict DI).
     """
+
     def __init__(
         self,
         logger: LoggerService,
         event_types: list[str] | None = None,
-        options: CircuitBreakerState | None = None
+        options: CircuitBreakerState | None = None,
     ) -> None:
         self.logger = logger
         self.event_types = event_types
@@ -71,14 +75,14 @@ class CircuitBreakerMiddleware(EventHandlerMiddleware):
             lambda: CircuitBreakerState(
                 failure_threshold=self.options.failure_threshold,
                 recovery_timeout_seconds=self.options.recovery_timeout_seconds,
-                success_threshold=self.options.success_threshold
+                success_threshold=self.options.success_threshold,
             )
         )
 
     async def process(
         self,
         context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]]
+        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
     ) -> Result[Any, Exception]:
         event = context.event
         event_type = event.event_type
@@ -91,7 +95,7 @@ class CircuitBreakerMiddleware(EventHandlerMiddleware):
                 f"Circuit open for event type {event_type}, skipping event",
                 name="uno.events.middleware.circuit_breaker",
                 event_id=event.event_id,
-                aggregate_id=event.aggregate_id
+                aggregate_id=event.aggregate_id,
             )
             return Failure(Exception(f"Circuit open for event type {event_type}"))
         result = await next_middleware(context)
@@ -99,13 +103,16 @@ class CircuitBreakerMiddleware(EventHandlerMiddleware):
             circuit.record_success()
         else:
             circuit.record_failure()
-            if circuit.state == CircuitBreakerState.OPEN and circuit.failure_count == circuit.failure_threshold:
+            if (
+                circuit.state == CircuitBreakerState.OPEN
+                and circuit.failure_count == circuit.failure_threshold
+            ):
                 self.logger.structured_log(
                     "WARNING",
                     f"Circuit opened for event type {event_type} after {circuit.failure_threshold} failures",
                     name="uno.events.middleware.circuit_breaker",
                     event_id=event.event_id,
                     aggregate_id=event.aggregate_id,
-                    error=result.error
+                    error=result.error,
                 )
         return result

@@ -6,9 +6,9 @@
 
 import types
 
-from uno.core.di.container import ServiceScope
-from uno.core.di.decorators import framework_service
-from uno.core.di.discovery import discover_services, get_class_metadata
+from uno.infrastructure.di.container import ServiceScope
+from uno.infrastructure.di.decorators import framework_service
+from uno.infrastructure.di.discovery import discover_services, get_class_metadata
 
 
 # Dummy service for testing
@@ -17,6 +17,7 @@ def make_dummy_service():
     class DummyService:
         def __init__(self):
             pass
+
         def hello(self):
             return "world"
 
@@ -35,6 +36,7 @@ def test_framework_service_decorator_sets_attributes():
 
 def test_discover_services_registers_service():
     import sys
+
     dummy_service = make_dummy_service()
     # Create a fake module and inject the service
     module = types.ModuleType("fake_module")
@@ -43,7 +45,7 @@ def test_discover_services_registers_service():
     sys.modules["fake_module"] = module
     try:
         # Patch find_modules to return our fake module name
-        import uno.core.di.discovery as discovery_mod
+        import uno.infrastructure.di.discovery as discovery_mod
 
         discovery_mod.importlib.import_module = lambda name: module
         discovery_mod.find_modules = lambda name: ["fake_module"]
@@ -53,6 +55,7 @@ def test_discover_services_registers_service():
         resolver = services.build()
         result = resolver.resolve(dummy_service)
         from uno.core.errors.result import Success
+
         assert isinstance(result, Success)
         instance = result.value
         assert isinstance(instance, dummy_service)

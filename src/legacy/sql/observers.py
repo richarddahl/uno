@@ -7,7 +7,7 @@
 import logging
 from typing import List, Protocol
 
-from uno.sql.statement import SQLStatement
+from uno.infrastructure.sql.statement import SQLStatement
 
 
 class SQLObserver(Protocol):

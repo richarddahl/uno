@@ -10,12 +10,15 @@ from typing import Any
 
 from babel import dates, numbers
 
-from uno.core.config import GeneralConfig
+from uno.infrastructure.config import GeneralConfig
 
 
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 
-def import_from_path(module_name: str, file_path: str, logger: LoggerService | None = None) -> Any:
+
+def import_from_path(
+    module_name: str, file_path: str, logger: LoggerService | None = None
+) -> Any:
     """Import a module given its name and file path. Logs errors via DI logger if provided."""
     try:
         spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -32,7 +35,7 @@ def import_from_path(module_name: str, file_path: str, logger: LoggerService | N
                 error=exc,
                 module_name=module_name,
                 file_path=file_path,
-                error_message=str(exc)
+                error_message=str(exc),
             )
         raise
 

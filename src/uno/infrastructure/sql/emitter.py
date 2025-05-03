@@ -4,19 +4,25 @@
 
 """Base class and protocols for SQL emitters."""
 
-from typing import Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import Table
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 
-from uno.core.config import UnoConfig
-from uno.core.di import inject
 from uno.core.errors import FrameworkError
-from uno.core.logging import get_logger
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
+from uno.core.interfaces import ConfigProtocol
+from uno.infrastructure.logging import LoggerService
+from uno.infrastructure.sql.interfaces import (
+    EngineFactoryProtocol,
+)  # DI protocol for engine factories
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Connection
+
+    from uno.infrastructure.sql.engine import SyncEngineFactory
+from uno.infrastructure.sql.interfaces import ConnectionConfigProtocol
 from uno.infrastructure.sql.observers import BaseObserver, SQLObserver
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
@@ -37,12 +43,13 @@ class SQLExecutor(Protocol):
     """Protocol for objects that can execute SQL statements."""
 
     def execute_sql(
-        self, connection: Connection, statements: list[SQLStatement]
+        self, connection: "Connection", statements: list["SQLStatement"]
     ) -> None:
-        """Execute SQL statements on a connection.
+        """
+        Execute SQL statements on a connection.
 
         Args:
-            connection: Database connection
+            connection: Database connection (must be provided via DI)
             statements: List of SQL statements to execute
         """
         ...
@@ -79,45 +86,73 @@ class SQLEmitter(BaseModel):
     table: Table | None = None
 
     # Database configuration
-    connection_config: ConnectionConfig | None = None
-
+    connection_config: object | None = (
+        None  # DI: must be injected; runtime-checked for protocol compliance (see validator)
+    )
     # Configuration settings
-    config: UnoConfig | None = None
+    config: object | None = None  # DI: must be injected; runtime-checked for protocol compliance (see validator)
 
     # Logger for this emitter
     logger: Any
 
     # Engine factory for creating connections
-    engine_factory: SyncEngineFactory | None = None
-
+    engine_factory: object | None = None  # DI: injected; runtime-checked for protocol compliance (see validator)
     # Observers for SQL operations - using BaseObserver which is a concrete class
     observers: list[BaseObserver] = []
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @inject
     def __init__(self, **data):
-        logger = data.pop("logger", None) or get_logger(__name__)
-        config = data.pop("config", None) or UnoConfig()
+        logger = data.pop("logger", None) or LoggerService().get_logger(__name__)
+        config = data.pop("config", None)
+        if config is None:
+            raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **data)
 
     @model_validator(mode="before")
     def initialize_connection_config(cls, values: dict) -> dict:
-        """Initialize connection_config if not provided.
+        """Initialize connection_config and config if not provided and check protocol compliance at runtime.
 
         Args:
             values: Dictionary of field values
 
         Returns:
             Updated dictionary of field values
+        Raises:
+            TypeError: If connection_config or config does not implement required protocol attributes/methods
         """
-        if "connection_config" not in values or values["connection_config"] is None:
-            config = values.get("config", UnoConfig())
-            values["connection_config"] = ConnectionConfig(
-                db_name=config.DB_NAME,
-                db_user_pw=config.DB_USER_PW,
-                db_driver=config.DB_SYNC_DRIVER,
-            )
+        conn = values.get("connection_config")
+        if conn is not None:
+            # Duck-type check for minimal protocol compliance
+            required_attrs = [
+                "get_uri",
+                "db_name",
+                "db_user_pw",
+                "db_driver",
+                "db_role",
+                "db_host",
+                "db_port",
+            ]
+            for attr in required_attrs:
+                if not hasattr(conn, attr):
+                    raise TypeError(f"connection_config must implement '{attr}' (protocol check failed)")
+        config = values.get("config")
+        if config is not None:
+            required_config_attrs = [
+                "DB_NAME",
+                "DB_USER_PW",
+                "DB_SYNC_DRIVER",
+                "DB_SCHEMA",
+            ]
+            for attr in required_config_attrs:
+                if not hasattr(config, attr):
+                    raise TypeError(f"config must implement '{attr}' (protocol check failed)")
+        engine_factory = values.get("engine_factory")
+        if engine_factory is not None:
+            required_factory_attrs = ["create_engine"]
+            for attr in required_factory_attrs:
+                if not hasattr(engine_factory, attr):
+                    raise TypeError(f"engine_factory must implement '{attr}' (protocol check failed)")
         return values
 
     def generate_sql(self) -> list[SQLStatement]:
@@ -227,8 +262,9 @@ class SQLEmitter(BaseModel):
     def emit_with_connection(
         self,
         dry_run: bool = False,
-        factory: SyncEngineFactory | None = None,
-        config: ConnectionConfig | None = None,
+        factory: EngineFactoryProtocol
+        | None = None,  # DI: injected, type-hinted with Protocol for extensibility
+        config: "ConnectionConfig | None" = None,
         isolation_level: str = "AUTOCOMMIT",
     ) -> list[SQLStatement] | None:
         """Execute SQL with a new connection from the factory.

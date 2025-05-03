@@ -9,23 +9,25 @@ from datetime import datetime, UTC
 from uno.core.events.event_store import EventStore
 from uno.core.events.base_event import DomainEvent
 from uno.core.errors.result import Result, Success, Failure
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from sqlalchemy import text, select, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import Table, Column, String, Integer, TIMESTAMP, MetaData
 import sqlalchemy as sa
-from uno.core.di import get_service_provider
+from uno.infrastructure.di import get_service_provider
 
 
 E = TypeVar("E", bound=DomainEvent)
+
 
 class PostgresEventStore(EventStore[E], Generic[E]):
     """
     Production-grade Postgres event store for Uno.
     Implements canonical event persistence, replay, and concurrency control.
     """
+
     def __init__(
         self,
         db_session: AsyncSession | None = None,
@@ -46,7 +48,9 @@ class PostgresEventStore(EventStore[E], Generic[E]):
             Column("version", Integer, index=True, nullable=False),
             Column("timestamp", TIMESTAMP, nullable=False),
             Column("payload", JSONB, nullable=False),
-            sa.UniqueConstraint("aggregate_id", "version", name=f"uq_{self.table_name}_agg_ver"),
+            sa.UniqueConstraint(
+                "aggregate_id", "version", name=f"uq_{self.table_name}_agg_ver"
+            ),
         )
         if logger_factory:
             self.logger = logger_factory("eventstore_postgres")
@@ -65,7 +69,9 @@ class PostgresEventStore(EventStore[E], Generic[E]):
                     version = getattr(event, "version", None)
                     event_type = getattr(event, "event_type", None)
                     if not aggregate_id or version is None or not event_type:
-                        raise ValueError("Event must have aggregate_id, version, event_type")
+                        raise ValueError(
+                            "Event must have aggregate_id, version, event_type"
+                        )
                     row = {
                         "id": str(uuid4()),
                         "aggregate_id": aggregate_id,
@@ -151,7 +157,9 @@ class PostgresEventStore(EventStore[E], Generic[E]):
         """
         try:
             async with self.db_session as session:
-                stmt = select(self.table).where(self.table.c.aggregate_id == aggregate_id)
+                stmt = select(self.table).where(
+                    self.table.c.aggregate_id == aggregate_id
+                )
                 if event_types:
                     stmt = stmt.where(self.table.c.event_type.in_(event_types))
                 stmt = stmt.order_by(self.table.c.version)

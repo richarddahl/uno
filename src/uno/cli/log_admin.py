@@ -5,11 +5,12 @@ Allows inspection and runtime update of logging configuration using LoggingConfi
 """
 
 import typer
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.factory import create_logger_factory
-from uno.core.logging.logger import LoggingConfig
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.factory import create_logger_factory
+from uno.infrastructure.logging.logger import LoggingConfig
 
 app = typer.Typer(help="Uno Logging Configuration Admin CLI")
+
 
 class CLIContext:
     def __init__(self):
@@ -18,10 +19,12 @@ class CLIContext:
         self.logger_service = factory.create("cli")
         self.config_service = LoggingConfigService(self.logger_service)
 
+
 @app.callback()
 def main(ctx: typer.Context):
     """Initialize CLI context with DI logger and config services."""
     ctx.obj = CLIContext()
+
 
 @app.command()
 def get_field(ctx: typer.Context, field: str):
@@ -34,16 +37,20 @@ def get_field(ctx: typer.Context, field: str):
         raise typer.Exit(code=1)
     typer.echo(f"{field}: {value}")
 
+
 @app.command()
 def schema(ctx: typer.Context):
     """Show the logging config schema (fields, types, defaults)."""
     import json
+
     typer.echo(json.dumps(LoggingConfig.model_json_schema(), indent=2))
+
 
 @app.command()
 def restore_defaults(ctx: typer.Context):
     """Restore logging config to defaults (dev environment)."""
-    from uno.core.logging.logger import Dev
+    from uno.infrastructure.logging.logger import Dev
+
     config_service = ctx.obj.config_service
     logger_service = ctx.obj.logger_service
     config = Dev()
@@ -51,6 +58,7 @@ def restore_defaults(ctx: typer.Context):
     logger_service._configure_root_logger()
     typer.echo("Restored logging config to development defaults:")
     typer.echo(config.model_dump_json(indent=2))
+
 
 @app.command()
 def validate(ctx: typer.Context):
@@ -64,6 +72,7 @@ def validate(ctx: typer.Context):
         typer.echo(f"Logging config is INVALID: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
+
 @app.command()
 def show(ctx: typer.Context):
     """Show the current logging configuration."""
@@ -71,13 +80,24 @@ def show(ctx: typer.Context):
     config = config_service.get_config()
     typer.echo(config.model_dump_json(indent=2))
 
+
 @app.command()
 def set(
     ctx: typer.Context,
-    level: str | None = typer.Option(None, help="Set the log level (e.g. INFO, DEBUG, ERROR)"),
-    json_format: bool = typer.Option(None, "--json-format/--no-json-format", help="Enable/disable JSON log output"),
-    console_output: bool = typer.Option(None, "--console-output/--no-console-output", help="Enable/disable console output"),
-    file_output: bool = typer.Option(None, "--file-output/--no-file-output", help="Enable/disable file output"),
+    level: str | None = typer.Option(
+        None, help="Set the log level (e.g. INFO, DEBUG, ERROR)"
+    ),
+    json_format: bool = typer.Option(
+        None, "--json-format/--no-json-format", help="Enable/disable JSON log output"
+    ),
+    console_output: bool = typer.Option(
+        None,
+        "--console-output/--no-console-output",
+        help="Enable/disable console output",
+    ),
+    file_output: bool = typer.Option(
+        None, "--file-output/--no-file-output", help="Enable/disable file output"
+    ),
     file_path: str | None = typer.Option(None, help="Set log file path"),
 ):
     """Update logging configuration at runtime."""
@@ -97,12 +117,14 @@ def set(
         typer.echo("No config fields provided to update.", err=True)
         raise typer.Exit(code=1)
     from uno.core.errors.result import Success, Failure
+
     result = config_service.update_config(**update)
     if isinstance(result, Failure):
         typer.echo(f"Error updating logging config: {result.error}", err=True)
         raise typer.Exit(code=2)
     typer.echo("Updated logging configuration:")
     typer.echo(result.value.model_dump_json(indent=2))
+
 
 if __name__ == "__main__":
     app()

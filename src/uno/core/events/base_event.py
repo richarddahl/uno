@@ -34,12 +34,16 @@ def uno_json_encoder(obj: Any) -> Any:
     if isinstance(obj, FrameworkBaseModel):
         if hasattr(obj, "to_dict") and callable(obj.to_dict):
             return obj.to_dict()
-        return obj.model_dump(mode="json", exclude_none=True, exclude_unset=True, by_alias=True)
+        return obj.model_dump(
+            mode="json", exclude_none=True, exclude_unset=True, by_alias=True
+        )
     if hasattr(obj, "to_dict") and callable(obj.to_dict):
         return obj.to_dict()
     if hasattr(obj, "__dict__"):
         return obj.__dict__
-    raise RuntimeError(f"Object of type {type(obj)} is not JSON serializable. Implement to_dict or inherit FrameworkBaseModel.")
+    raise RuntimeError(
+        f"Object of type {type(obj)} is not JSON serializable. Implement to_dict or inherit FrameworkBaseModel."
+    )
 
 
 class DomainEvent(FrameworkBaseModel):
@@ -63,7 +67,9 @@ class DomainEvent(FrameworkBaseModel):
         try:
             return cls._event_class_registry[event_type]
         except KeyError:
-            raise RuntimeError(f"No DomainEvent class registered for event_type '{event_type}'")
+            raise RuntimeError(
+                f"No DomainEvent class registered for event_type '{event_type}'"
+            )
 
     """
     Uno canonical Pydantic base model for all events.
@@ -90,9 +96,7 @@ class DomainEvent(FrameworkBaseModel):
 
     version: int = 1
     __version__: ClassVar[int] = 1
-    event_id: str = Field(
-        default_factory=lambda: "evt_" + uuid.uuid4().hex
-    )
+    event_id: str = Field(default_factory=lambda: "evt_" + uuid.uuid4().hex)
     event_type: ClassVar[str] = "domain_event"
     timestamp: float = Field(default_factory=lambda: time.time())
     correlation_id: str | None = None
@@ -106,7 +110,6 @@ class DomainEvent(FrameworkBaseModel):
         json_encoders={Enum: lambda e: e.value},
     )
 
-
     @model_validator(mode="after")
     def _set_event_hash(self) -> Self:
         """
@@ -118,7 +121,7 @@ class DomainEvent(FrameworkBaseModel):
             Self
             None
         """
-        from uno.core.di import ServiceProvider, get_service_provider
+        from uno.infrastructure.di import ServiceProvider, get_service_provider
         from uno.core.services.hash_service_protocol import HashServiceProtocol
         from uno.core.services.default_hash_service import DefaultHashService
 
@@ -128,7 +131,9 @@ class DomainEvent(FrameworkBaseModel):
             exclude_unset=True,
             by_alias=True,
         )
-        payload = json.dumps(d, sort_keys=True, separators=(",", ":"), default=uno_json_encoder)
+        payload = json.dumps(
+            d, sort_keys=True, separators=(",", ":"), default=uno_json_encoder
+        )
 
         hash_service = None
         try:

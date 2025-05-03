@@ -4,7 +4,6 @@
 
 """Registry for SQL configuration classes."""
 
-
 from sqlalchemy.engine import Connection
 
 from uno.infrastructure.database.config import ConnectionConfig
@@ -117,4 +116,4 @@ class SQLConfigRegistry:
 
 
 # Import SQLConfig here to avoid circular import
-from uno.sql.config import SQLConfig  # noqa
+from uno.infrastructure.sql.config import SQLConfig  # noqa

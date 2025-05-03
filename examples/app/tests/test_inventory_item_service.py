@@ -8,7 +8,7 @@ Covers all Result-based success and error paths, including validation and error 
 import pytest
 from uno.core.errors.result import Success, Failure
 from uno.core.errors.definitions import DomainValidationError
-from uno.core.logging import LoggerService, LoggingConfig
+from uno.infrastructure.logging import LoggerService, LoggingConfig
 from examples.app.persistence.inventory_item_repository_protocol import (
     InventoryItemRepository,
 )

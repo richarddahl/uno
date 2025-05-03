@@ -12,7 +12,7 @@ from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
 from examples.app.domain.value_objects import EmailAddress
 from uno.core.errors.result import Failure, Success
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
 
 
 class InMemoryVendorRepository:
@@ -46,7 +46,9 @@ class InMemoryVendorRepository:
             self._logger.error(f"Error saving vendor {vendor.id}: {e}")
             return Failure(e)
 
-    def get(self, vendor_id: str) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
+    def get(
+        self, vendor_id: str
+    ) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
         """
         Retrieve a Vendor aggregate by replaying its event stream.
 
@@ -65,11 +67,17 @@ class InMemoryVendorRepository:
                 vendor = Vendor(
                     id=event.vendor_id,
                     name=event.name,
-                    contact_email=EmailAddress(value=event.contact_email) if isinstance(event.contact_email, str) else event.contact_email,
+                    contact_email=EmailAddress(value=event.contact_email)
+                    if isinstance(event.contact_email, str)
+                    else event.contact_email,
                 )
             elif isinstance(event, VendorUpdated) and vendor:
                 vendor.name = event.name
-                vendor.contact_email = EmailAddress(value=event.contact_email) if isinstance(event.contact_email, str) else event.contact_email
+                vendor.contact_email = (
+                    EmailAddress(value=event.contact_email)
+                    if isinstance(event.contact_email, str)
+                    else event.contact_email
+                )
         self._logger.debug(f"Fetched vendor: {vendor_id}")
         return Success(vendor)
 

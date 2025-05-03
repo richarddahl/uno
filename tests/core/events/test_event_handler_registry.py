@@ -4,6 +4,7 @@
 Tests for EventHandlerRegistry with strict DI-injected LoggerService.
 Verifies that handler registration, logging, and error context propagation work as expected.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,8 +13,12 @@ from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.bus import InMemoryEventBus
 from uno.core.events.context import EventHandlerContext
-from uno.core.events.handlers import EventHandler, EventHandlerRegistry, EventHandlerDecorator
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.core.events.handlers import (
+    EventHandler,
+    EventHandlerRegistry,
+    EventHandlerDecorator,
+)
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from typing import Any
 
 
@@ -25,9 +30,11 @@ class FakeLoggerService(LoggerService):
     def structured_log(self, level: str, msg: str, **kwargs: Any) -> None:
         self.logs.append((level, msg, kwargs))
 
+
 class DummyHandler(EventHandler):
     async def handle(self, context: ErrorContext) -> Success[str, Exception]:
         return Success("ok")
+
 
 @pytest.mark.asyncio
 async def test_registry_registers_and_logs() -> None:
@@ -41,30 +48,34 @@ async def test_registry_registers_and_logs() -> None:
     handlers = registry.get_handlers("TestEvent")
     assert handler in handlers
 
+
 from uno.core.events.bus import InMemoryEventBus
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.context import EventHandlerContext
 from uno.core.errors.result import Failure
 
+
 class FakeEvent(DomainEvent):
     event_type = "FailEvent"
+
 
 @pytest.mark.asyncio
 async def test_registry_error_logging() -> None:
     class FailingHandler(EventHandler):
         async def handle(self, context: EventHandlerContext) -> Failure[str, Exception]:
             raise ValueError("fail!")
+
     logger = FakeLoggerService()
     handler = FailingHandler()
     # Subscribe via AsyncEventHandlerAdapter to ensure bus can call it
     from uno.core.async_utils import AsyncEventHandlerAdapter
+
     bus = InMemoryEventBus(logger)
     bus.subscribe("FailEvent", AsyncEventHandlerAdapter(handler, logger))
     event = FakeEvent()
     await bus.publish(event)
     # Should log error
     assert any(
-        "fail!" in str(msg)
-        or any("fail!" in str(val) for val in kwargs.values())
+        "fail!" in str(msg) or any("fail!" in str(val) for val in kwargs.values())
         for _, msg, kwargs in logger.logs
     )

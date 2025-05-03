@@ -1,15 +1,18 @@
 """
 Example TimeoutSaga: demonstrates how to implement timeouts and retries in a Uno saga.
 """
+
 from typing import Any
 from uno.core.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
+
 
 class TimeoutSaga(Saga):
     """
     Orchestrates a process with a timeout and retry pattern.
     """
+
     def __init__(self, logger: LoggerService | None = None) -> None:
         """
         Args:

@@ -1,6 +1,7 @@
 """
 MetricsMiddleware: Collects metrics about event handler performance.
 """
+
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -9,7 +10,8 @@ from typing import Any
 from uno.core.errors.result import Result
 from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.interfaces import EventHandlerMiddleware
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
+
 
 @dataclass
 class EventMetrics:
@@ -17,7 +19,7 @@ class EventMetrics:
     success_count: int = 0
     failure_count: int = 0
     total_duration_ms: float = 0.0
-    min_duration_ms: float = float('inf')
+    min_duration_ms: float = float("inf")
     max_duration_ms: float = 0.0
 
     @property
@@ -42,15 +44,15 @@ class EventMetrics:
         self.min_duration_ms = min(self.min_duration_ms, duration_ms)
         self.max_duration_ms = max(self.max_duration_ms, duration_ms)
 
+
 class MetricsMiddleware(EventHandlerMiddleware):
     """
     MetricsMiddleware: Collects metrics about event handler performance.
     Requires a DI-injected LoggerService instance (strict DI).
     """
+
     def __init__(
-        self,
-        logger: LoggerService,
-        report_interval_seconds: float = 60.0
+        self, logger: LoggerService, report_interval_seconds: float = 60.0
     ) -> None:
         self.logger = logger
         self.report_interval_seconds = report_interval_seconds
@@ -60,7 +62,7 @@ class MetricsMiddleware(EventHandlerMiddleware):
     async def process(
         self,
         context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]]
+        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
     ) -> Result[Any, Exception]:
         event = context.event
         start_time = time.time()
@@ -86,6 +88,8 @@ class MetricsMiddleware(EventHandlerMiddleware):
                 failure_count=metrics.failure_count,
                 success_rate=f"{metrics.success_rate:.2f}%",
                 avg_duration_ms=f"{metrics.average_duration_ms:.2f}ms",
-                min_duration_ms=f"{metrics.min_duration_ms:.2f}ms" if metrics.min_duration_ms != float('inf') else "N/A",
-                max_duration_ms=f"{metrics.max_duration_ms:.2f}ms"
+                min_duration_ms=f"{metrics.min_duration_ms:.2f}ms"
+                if metrics.min_duration_ms != float("inf")
+                else "N/A",
+                max_duration_ms=f"{metrics.max_duration_ms:.2f}ms",
             )

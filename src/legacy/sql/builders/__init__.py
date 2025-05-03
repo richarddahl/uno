@@ -11,9 +11,9 @@ This package provides builder classes for constructing SQL statements
 with proper validation and formatting.
 """
 
-from uno.sql.builders.function import SQLFunctionBuilder
-from uno.sql.builders.trigger import SQLTriggerBuilder
-from uno.sql.builders.index import SQLIndexBuilder
+from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
+from uno.infrastructure.sql.builders.trigger import SQLTriggerBuilder
+from uno.infrastructure.sql.builders.index import SQLIndexBuilder
 
 # Defines the public API of the module, specifying the symbols that will be
 # exported when `from module import *` is used.

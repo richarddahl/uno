@@ -8,38 +8,42 @@ The marker/skip logic is now centralized in tests/conftest.py.
 
 import time
 
-from uno.core.di.container import ServiceCollection
+from uno.infrastructure.di.container import ServiceCollection
 
 
 class FastService:
     def __init__(self):
         self.value = 123
 
+
 class SlowService:
     def __init__(self):
         time.sleep(0.05)  # simulate slow construction
         self.value = 456
 
+
 import pytest
+
 
 def test_resolution_path_caching_speed():
     """Performance: Path cache speed. Run with -m performance to include."""
-    
+
     services = ServiceCollection()
     services.add_singleton(FastService)
     resolver = services.build()
     r1 = resolver.resolve(FastService)
     r2 = resolver.resolve(FastService)
     from uno.core.errors.result import Success
+
     assert isinstance(r1, Success)
     assert isinstance(r2, Success)
     assert r1.value is r2.value  # Should always be the same singleton instance
 
-@pytest.mark.performance
 
+@pytest.mark.performance
 def test_prewarm_singletons_eagerly_instantiates():
     """Performance: Singleton prewarm. Run with -m performance to include."""
-    
+
     services = ServiceCollection()
     services.add_singleton(SlowService)
     resolver = services.build()

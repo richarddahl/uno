@@ -4,7 +4,7 @@
 
 """Base class and protocols for SQL emitters."""
 
-# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
+# from uno.infrastructure.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 import time
 from typing import ClassVar, Protocol
@@ -17,8 +17,8 @@ from sqlalchemy.sql import text
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
 from uno.settings import uno_settings
-from uno.sql.observers import BaseObserver, SQLObserver
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.observers import BaseObserver, SQLObserver
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 # No additional imports needed
 
@@ -98,9 +98,11 @@ class SQLEmitter(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     def __init__(self, **data):
-        logger = data.pop('logger', None)
+        logger = data.pop("logger", None)
         if logger is None:
-            raise ValueError("Logger must be provided to SQLEmitter via DI or constructor argument.")
+            raise ValueError(
+                "Logger must be provided to SQLEmitter via DI or constructor argument."
+            )
         super().__init__(logger=logger, **data)
 
     @model_validator(mode="before")
@@ -302,7 +304,7 @@ class SQLEmitter(BaseModel):
         Returns:
             SQLFunctionBuilder: A function builder with database name set
         """
-        from uno.sql.builders.function import SQLFunctionBuilder
+        from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
 
         builder = SQLFunctionBuilder()
 

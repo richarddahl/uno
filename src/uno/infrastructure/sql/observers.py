@@ -4,7 +4,7 @@
 
 """SQL observers for monitoring and logging SQL operations."""
 
-# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
+# from uno.infrastructure.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 from typing import Protocol
 
@@ -108,7 +108,9 @@ class LoggingSQLObserver(BaseObserver):
             logger: Logger to use for logging
         """
         if logger is None:
-            raise ValueError("Logger must be provided to LoggingSQLObserver via DI or constructor argument.")
+            raise ValueError(
+                "Logger must be provided to LoggingSQLObserver via DI or constructor argument."
+            )
         self.logger = logger
 
     def on_sql_generated(self, source: str, statements: list[SQLStatement]) -> None:

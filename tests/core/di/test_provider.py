@@ -3,30 +3,36 @@
 # uno framework
 import pytest
 
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceLifecycle, get_service_provider
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceLifecycle, get_service_provider
 
 
 class CounterSingleton:
     def __init__(self):
         CounterSingleton.counter += 1
+
     counter = 0
+
 
 class ErrorSingleton:
     def __init__(self):
         raise RuntimeError("Singleton error!")
+
 
 @pytest.mark.asyncio
 async def test_provider_validation_hook_blocks_init():
     provider = get_service_provider()
     services = ServiceCollection()
     services.add_singleton(SimpleService)
+
     def fail_validation(sc):
         raise ValueError("Provider invalid!")
+
     services.add_validation(fail_validation)
     provider.configure_services(services)
     with pytest.raises(ValueError):
         await provider.initialize()
+
 
 @pytest.mark.asyncio
 async def test_provider_validation_hook_passes():
@@ -96,6 +102,7 @@ async def test_scoped_service_raises_outside_scope():
     result = provider.get_service(FakeService)
     from uno.core.errors.definitions import ScopeError
     from uno.core.errors.result import Failure
+
     assert isinstance(result, Failure)
     assert isinstance(result.error, ScopeError)
 
@@ -110,6 +117,7 @@ async def test_scoped_service_resolves_inside_scope():
     async with await provider.create_scope() as scope:
         result = scope.get_service(FakeService)
         from uno.core.errors.result import Success
+
         assert isinstance(result, Success)
         s = result.value
         assert isinstance(s, FakeService)
@@ -125,6 +133,7 @@ async def test_transient_service_resolves_anywhere():
     r1 = provider.get_service(SimpleService)
     r2 = provider.get_service(SimpleService)
     from uno.core.errors.result import Success
+
     assert isinstance(r1, Success)
     assert isinstance(r2, Success)
     s1 = r1.value
@@ -147,6 +156,7 @@ async def test_shutdown_disposes_services_in_reverse_order():
     async with await provider.create_scope() as scope:
         r = scope.get_service(FakeService)
         from uno.core.errors.result import Success
+
         assert isinstance(r, Success)
         s: FakeService = r.value
         assert isinstance(s, FakeService)
@@ -163,6 +173,7 @@ async def test_resolve_singleton_service():
     r1 = provider.get_service(SimpleService)
     r2 = provider.get_service(SimpleService)
     from uno.core.errors.result import Success
+
     assert isinstance(r1, Success)
     assert isinstance(r2, Success)
     s1 = r1.value
@@ -186,12 +197,14 @@ def test_prewarm_singletons_instantiates_all_singletons():
     services.add_singleton(CounterSingleton)
     provider.configure_services(services)
     import asyncio
+
     asyncio.run(provider.initialize())
     provider.prewarm_singletons()
     assert CounterSingleton.counter == 1
     # Second call should not increment
     provider.prewarm_singletons()
     assert CounterSingleton.counter == 1
+
 
 def test_prewarm_singletons_is_idempotent():
     provider = get_service_provider()
@@ -200,11 +213,13 @@ def test_prewarm_singletons_is_idempotent():
     services.add_singleton(CounterSingleton)
     provider.configure_services(services)
     import asyncio
+
     asyncio.run(provider.initialize())
     provider.prewarm_singletons()
     provider.prewarm_singletons()
     provider.prewarm_singletons()
     assert CounterSingleton.counter == 1
+
 
 def test_prewarm_singletons_surfaces_errors():
     provider = get_service_provider()
@@ -212,6 +227,7 @@ def test_prewarm_singletons_surfaces_errors():
     services.add_singleton(ErrorSingleton)
     provider.configure_services(services)
     import asyncio
+
     asyncio.run(provider.initialize())
     # Should not raise, but error is logged (cannot assert logs here)
     provider.prewarm_singletons()

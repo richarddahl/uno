@@ -89,7 +89,7 @@ def test_inventory_lot_adjustment(fake_lot: InventoryLot) -> None:
 
 
 def test_inventory_lot_hash_chain_and_tamper_detection(fake_lot: InventoryLot) -> None:
-    from uno.core.logging import LoggerService, LoggingConfig
+    from uno.infrastructure.logging import LoggerService, LoggingConfig
 
     repo = InMemoryInventoryLotRepository(LoggerService(LoggingConfig()))
     repo.save(fake_lot)
@@ -162,7 +162,7 @@ def test_order_fulfillment_and_cancel(fake_order: Order) -> None:
 
 
 def test_order_hash_chain_and_tamper_detection(fake_order: Order) -> None:
-    from uno.core.logging import LoggerService, LoggingConfig
+    from uno.infrastructure.logging import LoggerService, LoggingConfig
 
     repo = InMemoryOrderRepository(LoggerService(LoggingConfig()))
     repo.save(fake_order)

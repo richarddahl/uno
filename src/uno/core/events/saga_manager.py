@@ -5,7 +5,7 @@ Saga orchestration engine for Uno event sourcing.
 from typing import Any, Type
 from uno.core.events.sagas import Saga
 from uno.core.events.saga_store import SagaStore, SagaState
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.provider import ServiceProvider
 
 
 class SagaManager:

@@ -1,15 +1,18 @@
 """
 Example ParallelStepsSaga: demonstrates fork/join (parallel step) orchestration in Uno sagas.
 """
+
 from typing import Any
 from uno.core.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
+
 
 class ParallelStepsSaga(Saga):
     """
     Orchestrates a process where multiple independent steps must complete before proceeding.
     """
+
     def __init__(self, logger: LoggerService | None = None) -> None:
         """
         Args:
@@ -49,7 +52,11 @@ class ParallelStepsSaga(Saga):
                     status=self.status,
                 )
             # Join when both are done
-            if self.data["step_a_done"] and self.data["step_b_done"] and not self.data["joined"]:
+            if (
+                self.data["step_a_done"]
+                and self.data["step_b_done"]
+                and not self.data["joined"]
+            ):
                 self.data["joined"] = True
                 self.status = "joined"
                 self.logger.structured_log(

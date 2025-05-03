@@ -15,7 +15,7 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
 
 from uno.infrastructure.database.session import DatabaseSessionProtocol
-from uno.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.emitter import SQLEmitter
 
 T = TypeVar("T")
 
@@ -27,7 +27,7 @@ class ExecutableConnection(Protocol):
 
 # Type alias for connections that can be either SQLAlchemy Connection or DatabaseSessionProtocol
 ConnectionType = Union[Connection, DatabaseSessionProtocol]
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class VectorSQLEmitter(SQLEmitter):

@@ -3,6 +3,7 @@ EventPublisher implementation for Uno event sourcing framework.
 
 Provides a concrete, DI-friendly, and testable event publisher that delegates to an injected event bus.
 """
+
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar, Generic
 
@@ -11,9 +12,10 @@ from uno.core.events.interfaces import EventBusProtocol, EventPublisherProtocol
 from uno.core.errors.result import Failure, Result
 
 if TYPE_CHECKING:
-    from uno.core.logging.logger import LoggerService
+    from uno.infrastructure.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
+
 
 class EventPublisher(EventPublisherProtocol, Generic[E]):
     """
@@ -28,6 +30,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         - All public methods return a Result type for error propagation.
         - Errors are logged using structured logging when possible.
     """
+
     def __init__(
         self,
         event_bus: EventBusProtocol,
@@ -41,7 +44,8 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
             logger (LoggerService | None): Logger for structured/debug logging. Defaults to a new LoggerService if not provided.
         """
         self.event_bus = event_bus
-        from uno.core.logging.logger import LoggerService, Dev
+        from uno.infrastructure.logging.logger import LoggerService, Dev
+
         self.logger = logger or LoggerService(Dev())
         self.logger = logger or LoggerService(Dev())
 
@@ -70,7 +74,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
             self.logger.structured_log(
                 "DEBUG",
                 "Publishing event (canonical)",
-                event=self._canonical_event_dict(event)
+                event=self._canonical_event_dict(event),
             )
             result = await self.event_bus.publish(event)
             if result.is_success:
@@ -96,7 +100,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
                 self.logger.structured_log(
                     "DEBUG",
                     "Publishing event (canonical)",
-                    event=self._canonical_event_dict(event)
+                    event=self._canonical_event_dict(event),
                 )
             result = await self.event_bus.publish_many(events)
             if result.is_success:

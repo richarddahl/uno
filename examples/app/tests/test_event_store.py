@@ -7,7 +7,7 @@ Covers event append, replay, error propagation, and type safety.
 
 import pytest
 from uno.core.events.event_store import InMemoryEventStore
-from uno.core.logging import LoggerService, LoggingConfig
+from uno.infrastructure.logging import LoggerService, LoggingConfig
 from uno.core.errors.result import Success, Failure
 from examples.app.domain.inventory import (
     InventoryItem,

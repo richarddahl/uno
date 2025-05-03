@@ -6,16 +6,17 @@ using the event sourcing pattern. Integrates with Uno's DI, logging, error, and 
 """
 
 from typing import Generic, TypeVar
-from uno.core.di.decorators import framework_service
+from uno.infrastructure.di.decorators import framework_service
 from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.repository import Repository
 from uno.core.events.event_store import EventStoreProtocol
 from uno.core.events.publisher import EventPublisherProtocol
 from uno.core.errors.result import Result, Success, Failure
 from uno.core.events.deleted_event import DeletedEvent
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 
 T = TypeVar("T", bound=AggregateRoot)
+
 
 @framework_service(service_type=Repository)
 class EventSourcedRepository(Generic[T], Repository[T]):
@@ -24,8 +25,9 @@ class EventSourcedRepository(Generic[T], Repository[T]):
 
     Loads aggregates by replaying events from the event store, and saves aggregates
     by persisting new events and publishing them via the event bus/publisher.
-    All dependencies are injected via Uno DI. For configuration, inject a specific config class or use uno.core.config.get_config as needed.
+    All dependencies are injected via Uno DI. For configuration, inject a specific config class or use uno.infrastructure.config.get_config as needed.
     """
+
     def __init__(
         self,
         aggregate_type: type[T],
@@ -56,8 +58,10 @@ class EventSourcedRepository(Generic[T], Repository[T]):
             events_result = await self.event_store.get_events_by_aggregate_id(id)
             if not events_result.is_success:
                 self.logger.structured_log(
-                    "ERROR", f"Failed to load events for aggregate {id}",
-                    aggregate_id=id, error=events_result.error
+                    "ERROR",
+                    f"Failed to load events for aggregate {id}",
+                    aggregate_id=id,
+                    error=events_result.error,
                 )
                 return Failure(events_result.error)
             events = events_result.value
@@ -67,8 +71,10 @@ class EventSourcedRepository(Generic[T], Repository[T]):
             return Success(aggregate)
         except Exception as exc:
             self.logger.structured_log(
-                "ERROR", f"Exception loading aggregate {id}",
-                aggregate_id=id, exc_info=exc
+                "ERROR",
+                f"Exception loading aggregate {id}",
+                aggregate_id=id,
+                exc_info=exc,
             )
             return Failure(exc)
 
@@ -79,23 +85,29 @@ class EventSourcedRepository(Generic[T], Repository[T]):
             Success(list of aggregates) or Failure(error)
         """
         try:
-            events_result = await self.event_store.get_events_by_type(self.aggregate_type.__name__)
+            events_result = await self.event_store.get_events_by_type(
+                self.aggregate_type.__name__
+            )
             if not events_result.is_success:
                 self.logger.structured_log(
-                    "ERROR", f"Failed to load events for aggregate type {self.aggregate_type.__name__}",
-                    error=events_result.error
+                    "ERROR",
+                    f"Failed to load events for aggregate type {self.aggregate_type.__name__}",
+                    error=events_result.error,
                 )
                 return Failure(events_result.error)
             all_events = events_result.value
             aggregates: dict[str, list] = {}
             for event in all_events:
                 aggregates.setdefault(event.aggregate_id, []).append(event)
-            result = [self.aggregate_type.from_events(evts) for evts in aggregates.values()]
+            result = [
+                self.aggregate_type.from_events(evts) for evts in aggregates.values()
+            ]
             return Success(result)
         except Exception as exc:
             self.logger.structured_log(
-                "ERROR", f"Exception listing aggregates for {self.aggregate_type.__name__}",
-                exc_info=exc
+                "ERROR",
+                f"Exception listing aggregates for {self.aggregate_type.__name__}",
+                exc_info=exc,
             )
             return Failure(exc)
 
@@ -111,26 +123,36 @@ class EventSourcedRepository(Generic[T], Repository[T]):
                 save_result = await self.event_store.save_event(event)
                 if not save_result.is_success:
                     self.logger.structured_log(
-                        "ERROR", f"Failed to save event {event.event_type}",
-                        event_id=event.event_id, aggregate_id=event.aggregate_id, error=save_result.error
+                        "ERROR",
+                        f"Failed to save event {event.event_type}",
+                        event_id=event.event_id,
+                        aggregate_id=event.aggregate_id,
+                        error=save_result.error,
                     )
                     return Failure(save_result.error)
                 publish_result = await self.event_publisher.publish(event)
                 if not publish_result.is_success:
                     self.logger.structured_log(
-                        "ERROR", f"Failed to publish event {event.event_type}",
-                        event_id=event.event_id, aggregate_id=event.aggregate_id, error=publish_result.error
+                        "ERROR",
+                        f"Failed to publish event {event.event_type}",
+                        event_id=event.event_id,
+                        aggregate_id=event.aggregate_id,
+                        error=publish_result.error,
                     )
                     return Failure(publish_result.error)
             self.logger.structured_log(
-                "INFO", f"Aggregate {entity.id} persisted with {len(new_events)} new events.",
-                aggregate_id=entity.id, event_count=len(new_events)
+                "INFO",
+                f"Aggregate {entity.id} persisted with {len(new_events)} new events.",
+                aggregate_id=entity.id,
+                event_count=len(new_events),
             )
             return Success(None)
         except Exception as exc:
             self.logger.structured_log(
-                "ERROR", f"Exception persisting aggregate {entity.id}",
-                aggregate_id=entity.id, exc_info=exc
+                "ERROR",
+                f"Exception persisting aggregate {entity.id}",
+                aggregate_id=entity.id,
+                exc_info=exc,
             )
             return Failure(exc)
 
@@ -142,47 +164,58 @@ class EventSourcedRepository(Generic[T], Repository[T]):
             Success(None) if deleted, Failure(error) otherwise.
         """
         self.logger.structured_log(
-            "INFO", f"Aggregate {id} removal requested (event sourcing: soft delete)",
-            aggregate_id=id
+            "INFO",
+            f"Aggregate {id} removal requested (event sourcing: soft delete)",
+            aggregate_id=id,
         )
         try:
             aggregate_result = await self.get_by_id(id)
             if not aggregate_result.is_success:
                 self.logger.structured_log(
-                    "ERROR", f"Failed to load aggregate {id} for deletion",
-                    aggregate_id=id, error=aggregate_result.error
+                    "ERROR",
+                    f"Failed to load aggregate {id} for deletion",
+                    aggregate_id=id,
+                    error=aggregate_result.error,
                 )
                 return Failure(aggregate_result.error)
             aggregate = aggregate_result.value
             if aggregate is None:
                 self.logger.structured_log(
-                    "WARNING", f"Aggregate {id} not found for deletion (no-op)",
-                    aggregate_id=id
+                    "WARNING",
+                    f"Aggregate {id} not found for deletion (no-op)",
+                    aggregate_id=id,
                 )
                 return Success(None)
             deleted_event = DeletedEvent(aggregate_id=id)
             save_result = await self.event_store.save_event(deleted_event)
             if not save_result.is_success:
                 self.logger.structured_log(
-                    "ERROR", f"Failed to save DeletedEvent for aggregate {id}",
-                    aggregate_id=id, error=save_result.error
+                    "ERROR",
+                    f"Failed to save DeletedEvent for aggregate {id}",
+                    aggregate_id=id,
+                    error=save_result.error,
                 )
                 return Failure(save_result.error)
             publish_result = await self.event_publisher.publish(deleted_event)
             if not publish_result.is_success:
                 self.logger.structured_log(
-                    "ERROR", f"Failed to publish DeletedEvent for aggregate {id}",
-                    aggregate_id=id, error=publish_result.error
+                    "ERROR",
+                    f"Failed to publish DeletedEvent for aggregate {id}",
+                    aggregate_id=id,
+                    error=publish_result.error,
                 )
                 return Failure(publish_result.error)
             self.logger.structured_log(
-                "INFO", f"Aggregate {id} marked as deleted (DeletedEvent emitted)",
-                aggregate_id=id
+                "INFO",
+                f"Aggregate {id} marked as deleted (DeletedEvent emitted)",
+                aggregate_id=id,
             )
             return Success(None)
         except Exception as exc:
             self.logger.structured_log(
-                "ERROR", f"Exception during aggregate {id} soft delete",
-                aggregate_id=id, exc_info=exc
+                "ERROR",
+                f"Exception during aggregate {id} soft delete",
+                aggregate_id=id,
+                exc_info=exc,
             )
             return Failure(exc)

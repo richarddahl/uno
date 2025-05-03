@@ -3,7 +3,7 @@
 # uno framework
 import pytest
 
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.provider import ServiceProvider
 from tests.core.di.di_helper import DIHelper
 
 
@@ -11,9 +11,11 @@ class Dummy:
     def __init__(self):
         self.value = 1
 
+
 class Dummy2:
     def __init__(self):
         self.value = 2
+
 
 def test_create_test_provider_isolated():
     p1 = DIHelper.create_test_provider()
@@ -21,6 +23,7 @@ def test_create_test_provider_isolated():
     assert isinstance(p1, ServiceProvider)
     assert p1 is not p2
     assert not p1._initialized
+
 
 def test_initialize_test_provider_sets_env(monkeypatch):
     monkeypatch.delenv("ENV", raising=False)
@@ -30,6 +33,7 @@ def test_initialize_test_provider_sets_env(monkeypatch):
     assert provider._initialized is False
     assert provider._base_services._instances is not None
     assert provider._base_services._registrations is not None
+
 
 @pytest.mark.asyncio
 async def test_setup_test_services_and_override_service():
@@ -56,12 +60,15 @@ def test_reset_di_state():
     # Should not raise
     DIHelper.reset_di_state()
 
+
 @pytest.mark.asyncio
 async def test_async_override_service():
     provider = DIHelper.create_test_provider()
+
     class Dummy:
         def __init__(self):
             self.value = 1
+
     dummy1 = Dummy()
     dummy2 = Dummy()
     DIHelper.register_mock(provider, Dummy, dummy1)
@@ -73,19 +80,23 @@ async def test_async_override_service():
     assert Dummy in provider._base_services._instances
     assert provider._base_services._instances[Dummy] is dummy1
 
+
 @pytest.fixture
 def di_provider():
     provider = DIHelper.create_test_provider()
     yield provider
     DIHelper.reset_di_state()
 
+
 def test_di_provider_fixture(di_provider):
     class Dummy:
         pass
+
     dummy = Dummy()
     DIHelper.register_mock(di_provider, Dummy, dummy)
     assert Dummy in di_provider._base_services._instances
     assert di_provider._base_services._instances[Dummy] is dummy
+
 
 # ---
 # Best Practices and Usage Examples

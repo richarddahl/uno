@@ -7,7 +7,7 @@ import sys
 from typing import Protocol, runtime_checkable
 
 # Local application
-from uno.core.di.resolver import ServiceResolver
+from uno.infrastructure.di.resolver import ServiceResolver
 from uno.core.errors.definitions import (
     CircularDependencyError,
     ServiceNotFoundError,
@@ -123,7 +123,9 @@ def test_circular_dependency_raises():
     result = resolver.resolve(A)
     assert isinstance(result, Failure)
     from uno.core.errors.definitions import ServiceRegistrationError
+
     assert isinstance(result.error, (CircularDependencyError, ServiceRegistrationError))
+
 
 def test_circular_dependency_with_factories_returns_failure():
     """Test that resolving a circular dependency via factories returns a Failure (not CircularDependencyError)."""
@@ -133,4 +135,5 @@ def test_circular_dependency_with_factories_returns_failure():
     result = resolver.resolve(A)
     assert isinstance(result, Failure)
     from uno.core.errors.definitions import ServiceRegistrationError
+
     assert isinstance(result.error, (ServiceNotFoundError, ServiceRegistrationError))

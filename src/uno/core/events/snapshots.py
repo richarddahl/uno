@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from uno.core.domain.core import AggregateRoot
-    from uno.core.logging.logger import LoggerService
+    from uno.infrastructure.logging.logger import LoggerService
 
 # Application imports
 from uno.core.errors.result import Failure, Result, Success
@@ -351,7 +351,9 @@ class FileSystemSnapshotStore(SnapshotStore):
         Canonical snapshot serialization for storage and integrity.
         Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True) (Uno contract, Pydantic v2 compliant).
         """
-        return aggregate.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+        return aggregate.model_dump(
+            exclude_none=True, exclude_unset=True, by_alias=True
+        )
 
     async def save_snapshot(self, aggregate: AggregateRoot) -> Result[None, Exception]:
         """

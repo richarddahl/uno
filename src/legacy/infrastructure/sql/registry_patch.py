@@ -4,8 +4,8 @@
 
 """Patch for making registry registrations idempotent."""
 
-from uno.sql.config import SQLConfig
-from uno.sql.registry import SQLConfigRegistry
+from uno.infrastructure.sql.config import SQLConfig
+from uno.infrastructure.sql.registry import SQLConfigRegistry
 
 # Save the original register method
 original_register = SQLConfigRegistry.register

@@ -16,9 +16,9 @@ Otherwise, these tests will be skipped by default.
 """
 
 import pytest
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from tests.core.di.di_helper import DIHelper
 import time
 
@@ -149,13 +149,17 @@ def pytest_configure(config: Any) -> None:
 
     # Register custom marker for performance/benchmark tests
     config.addinivalue_line(
-        "markers", "benchmark_only: mark test as DI performance/benchmark (skip unless -m benchmark)"
+        "markers",
+        "benchmark_only: mark test as DI performance/benchmark (skip unless -m benchmark)",
     )
+
 
 def pytest_collection_modifyitems(config, items):
     # If '-m benchmark' is not in command line, skip all tests marked benchmark_only
     if not config.getoption("-m") or "benchmark" not in config.getoption("-m"):
-        skip_benchmark = pytest.mark.skip(reason="Skipped unless -m benchmark is specified.")
+        skip_benchmark = pytest.mark.skip(
+            reason="Skipped unless -m benchmark is specified."
+        )
         for item in items:
             if "benchmark_only" in item.keywords:
                 item.add_marker(skip_benchmark)

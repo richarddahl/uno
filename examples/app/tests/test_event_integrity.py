@@ -9,7 +9,7 @@ from uno.core.events.base_event import verify_event_stream_integrity
 
 
 def test_event_stream_integrity_and_tamper_detection():
-    from uno.core.logging import LoggerService, LoggingConfig
+    from uno.infrastructure.logging import LoggerService, LoggingConfig
 
     repo = InMemoryInventoryItemRepository(LoggerService(LoggingConfig()))
     # Create and persist events

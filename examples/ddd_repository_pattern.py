@@ -5,7 +5,10 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import declarative_base
 
-from uno.core.di.interfaces import DomainRepositoryProtocol, RepositoryProtocol
+from uno.core.interfaces import (
+    DomainRepositoryProtocol,
+    RepositoryProtocol,
+)
 
 # SQLAlchemy Base
 Base = declarative_base()

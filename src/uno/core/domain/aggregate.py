@@ -109,7 +109,7 @@ class AggregateRoot(Entity[T_ID]):
             return Success[AggregateRoot, Exception](instance)
         except Exception as exc:
             return Failure[AggregateRoot, Exception](
-                Exception(f"Error rehydrating aggregate {cls.__name__} from events: {exc}")
+                Exception(f"Error rehydrating aggregate {cls.__name__} from core.events: {exc}")
             )
 
     def assert_not_deleted(self) -> Success[None, Exception] | Failure[None, Exception]:

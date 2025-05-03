@@ -8,20 +8,30 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from uno.core.di.provider import reset_global_service_provider
+from uno.infrastructure.di.provider import reset_global_service_provider
 
 from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 # --- Fixtures ---
 
 
 import os
-from uno.core.di.providers.database import get_db_engine, get_db_session, register_database_services
-from uno.core.di import ServiceCollection, initialize_services, shutdown_services, get_service_provider
+from uno.infrastructure.di.providers.database import (
+    get_db_engine,
+    get_db_session,
+    register_database_services,
+)
+from uno.infrastructure.di import (
+    ServiceCollection,
+    initialize_services,
+    shutdown_services,
+    get_service_provider,
+)
+
 
 # --- Fast, isolated unit test fixture using in-memory SQLite ---
 @pytest.fixture(scope="function")
@@ -44,6 +54,7 @@ async def override_db_provider() -> None:
         if "DB_BACKEND" in os.environ:
             del os.environ["DB_BACKEND"]
 
+
 @pytest.fixture(scope="function")
 async def pg_event_store(override_db_provider):
     # Use the overridden in-memory engine/session for fast tests
@@ -60,6 +71,7 @@ async def pg_event_store(override_db_provider):
         async with engine.begin() as conn:
             await conn.run_sync(store.metadata.drop_all)
         reset_global_service_provider()
+
 
 # --- Integration test fixture using real Postgres backend ---
 @pytest.fixture(scope="function")

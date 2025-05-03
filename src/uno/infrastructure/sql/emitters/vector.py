@@ -11,11 +11,9 @@ hybrid vector-graph search.
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
-from uno.core.config import UnoConfig
-from uno.core.di import inject
+from uno.core.interfaces import ConfigProtocol
 from uno.core.errors import FrameworkError
-from uno.core.logging import get_logger
-from uno.infrastructure.database.session import DatabaseSessionProtocol
+from uno.infrastructure.logging import LoggerService
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 from typing import Any, Protocol, TypeVar
@@ -28,8 +26,8 @@ class ExecutableConnection(Protocol):
     async def execute(self, statement, *args, **kwargs): ...
 
 
-# Type alias for connections that can be either SQLAlchemy Connection or DatabaseSessionProtocol
-ConnectionType = Connection | DatabaseSessionProtocol
+# Type alias for connections that can execute SQLAlchemy Core statements
+ConnectionType = Connection
 
 
 class VectorSQLEmitter(SQLEmitter):
@@ -711,14 +709,13 @@ class VectorSearchEmitter(SQLEmitter):
     hybrid vector-graph search, and embedding generation.
     """
 
-    @inject
     def __init__(
         self,
         table_name: str,
         column_name: str = "embedding",
         schema: str | None = None,
         logger: Any = None,
-        config: UnoConfig | None = None,
+        config: ConfigProtocol | None = None,
         **kwargs,
     ):
         """
@@ -727,13 +724,14 @@ class VectorSearchEmitter(SQLEmitter):
         Args:
             table_name: The database table name containing embeddings
             column_name: The column name containing embeddings (default: "embedding")
-            schema: Optional database schema name (defaults to UnoConfig.DB_SCHEMA)
+            schema: Optional database schema name (defaults to config-provided value)
             logger: Logger instance (DI or fallback)
-            config: UnoConfig instance (DI or fallback)
+            config: ConfigProtocol instance (DI required)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or get_logger(__name__)
-        config = config or UnoConfig()
+        logger = logger or LoggerService().get_logger(__name__)
+        if config is None:
+            raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)
         self.table_name = table_name
         self.column_name = column_name
@@ -770,7 +768,16 @@ class VectorSearchEmitter(SQLEmitter):
         Returns:
             SQLAlchemy Select statement
         """
-        from sqlalchemy import Table, MetaData, column, select, func, text, bindparam, cast
+        from sqlalchemy import (
+            Table,
+            MetaData,
+            column,
+            select,
+            func,
+            text,
+            bindparam,
+            cast,
+        )
 
         schema = self._schema
         metadata = MetaData()
@@ -793,7 +800,9 @@ class VectorSearchEmitter(SQLEmitter):
             "l2": "<->",
             "dot": "<#>",
         }.get(metric, "<=>")
-        distance_expr = text(f"{self.column_name} {op} {schema}.generate_embedding(:query_text)")
+        distance_expr = text(
+            f"{self.column_name} {op} {schema}.generate_embedding(:query_text)"
+        )
 
         if metric == "cosine":
             similarity_expr = (1 - distance_expr).label("similarity")
@@ -829,7 +838,6 @@ class VectorSearchEmitter(SQLEmitter):
             .limit(bindparam("limit"))
         )
         return stmt
-
 
     def hybrid_search_sql(
         self,
@@ -955,7 +963,8 @@ class VectorSearchEmitter(SQLEmitter):
             where_clause=where_clause,
         )
 
-        # Compile the SQLAlchemy statement for the current dialect
+        search_results = []
+        for row in connection.execute(stmt):
             if hasattr(row, "_mapping"):
                 search_results.append(dict(row._mapping))
             else:
@@ -1051,14 +1060,13 @@ class VectorBatchEmitter(SQLEmitter):
     updating embeddings for multiple entities at once.
     """
 
-    @inject
     def __init__(
         self,
         entity_type: str,
         content_fields: list[str],
         schema: str | None = None,
         logger: Any = None,
-        config: UnoConfig | None = None,
+        config: ConfigProtocol | None = None,
         **kwargs,
     ):
         """
@@ -1067,13 +1075,14 @@ class VectorBatchEmitter(SQLEmitter):
         Args:
             entity_type: Type of entities to process
             content_fields: Fields containing content to embed
-            schema: Optional database schema name (defaults to UnoConfig.DB_SCHEMA)
+            schema: Optional database schema name (defaults to config-provided value)
             logger: Logger instance (DI or fallback)
-            config: UnoConfig instance (DI or fallback)
+            config: ConfigProtocol instance (DI required)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or get_logger(__name__)
-        config = config or UnoConfig()
+        logger = logger or LoggerService().get_logger(__name__)
+        if config is None:
+            raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)
         self.entity_type = entity_type
         self.table_name = entity_type.lower()
@@ -1116,7 +1125,7 @@ class VectorBatchEmitter(SQLEmitter):
         fields_str = ", ".join(select_fields)
 
     async def execute_get_entities_by_ids(
-        self, connection: ConnectionType, entity_ids: list[str]
+        self, connection: Connection, entity_ids: list[str]
     ) -> list[dict[str, Any]]:
         """
         Execute a query to get entities by IDs.
@@ -1132,7 +1141,10 @@ class VectorBatchEmitter(SQLEmitter):
             return []
 
         stmt = self.get_entities_by_ids_sql()
-        compiled = stmt.compile(dialect=connection.engine.dialect, compile_kwargs={"render_postcompile": True})
+        compiled = stmt.compile(
+            dialect=connection.engine.dialect,
+            compile_kwargs={"render_postcompile": True},
+        )
         sql_str = str(compiled)
         params = compiled.params
         params["ids"] = list(entity_ids)

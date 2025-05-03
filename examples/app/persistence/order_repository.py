@@ -3,21 +3,27 @@
 """
 In-memory repository for Order aggregates (example/demo only).
 """
+
 import hashlib
 from typing import cast
 from examples.app.domain.order import Order
 from examples.app.api.errors import OrderNotFoundError
 from uno.core.errors import Success, Failure
-from uno.core.logging import LoggerService
+from uno.infrastructure.logging import LoggerService
+
 
 class InMemoryOrderRepository:
     def __init__(self, logger: LoggerService) -> None:
         self._orders: dict[str, Order] = {}
-        self._event_hashes: dict[str, list[str]] = {}  # order_id -> list of event hashes
+        self._event_hashes: dict[
+            str, list[str]
+        ] = {}  # order_id -> list of event hashes
         self._logger = logger
         self._logger.debug("InMemoryOrderRepository initialized.")
 
-    def get(self, order_id: str) -> Success[Order, None] | Failure[None, OrderNotFoundError]:
+    def get(
+        self, order_id: str
+    ) -> Success[Order, None] | Failure[None, OrderNotFoundError]:
         """
         Retrieve an order by id. Returns Success[Order, None] if found, Failure[None, OrderNotFoundError] if not found.
         """
@@ -25,7 +31,9 @@ class InMemoryOrderRepository:
         if order is None:
             self._logger.warning(f"Order not found: {order_id}")
             return Failure(OrderNotFoundError(order_id))
-        self._logger.debug(f"Fetching order with id: {order_id} - Found: {order is not None}")
+        self._logger.debug(
+            f"Fetching order with id: {order_id} - Found: {order is not None}"
+        )
         return Success(order)
 
     def save(self, order: Order) -> Success[None, None] | Failure[None, Exception]:
@@ -33,10 +41,10 @@ class InMemoryOrderRepository:
             self._orders[order.id] = order
             self._logger.info(f"Saving order: {order.id}")
             # Hash chain: hash each event with previous hash
-            events = getattr(order, '_domain_events', [])
+            events = getattr(order, "_domain_events", [])
             hashes = self._event_hashes.get(order.id, [])
-            prev_hash = hashes[-1] if hashes else ''
-            for event in events[len(hashes):]:
+            prev_hash = hashes[-1] if hashes else ""
+            for event in events[len(hashes) :]:
                 event_bytes = str(event.to_dict()).encode()
                 h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
                 hashes.append(h)
@@ -58,14 +66,16 @@ class InMemoryOrderRepository:
         if order is None:
             self._logger.warning(f"Order not found for integrity check: {order_id}")
             return False
-        events = getattr(order, '_domain_events', [])
+        events = getattr(order, "_domain_events", [])
         hashes = self._event_hashes.get(order_id, [])
-        prev_hash = ''
+        prev_hash = ""
         for i, event in enumerate(events):
             event_bytes = str(event.to_dict()).encode()
             h = hashlib.sha256(prev_hash.encode() + event_bytes).hexdigest()
             if i >= len(hashes) or hashes[i] != h:
-                self._logger.error(f"Integrity check failed for order {order_id} at event {i}")
+                self._logger.error(
+                    f"Integrity check failed for order {order_id} at event {i}"
+                )
                 return False
             prev_hash = h
         self._logger.info(f"Integrity check passed for order {order_id}")

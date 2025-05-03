@@ -4,7 +4,14 @@
 
 """SQL emitters for table-level operations."""
 
-from sqlalchemy import PrimaryKeyConstraint, UniqueConstraint, MetaData, Table, insert, text, IdentifierPreparer, postgresql
+from sqlalchemy import (
+    PrimaryKeyConstraint,
+    UniqueConstraint,
+    MetaData,
+    Table,
+    insert,
+    text,
+)
 from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
@@ -309,7 +316,7 @@ class InsertPermission(SQLEmitter):
         for op in ["SELECT", "INSERT", "UPDATE", "DELETE"]:
             insert_stmt = insert(permission_table).values(
                 meta_type_id=text("NEW.id"),
-                operation=text(f"'{op}'::{self.config.DB_SCHEMA}.sqloperation")
+                operation=text(f"'{op}'::{self.config.DB_SCHEMA}.sqloperation"),
             )
             compiled = insert_stmt.compile(compile_kwargs={"literal_binds": True})
             sql_stmts.append(str(compiled))
@@ -498,8 +505,7 @@ class InsertGroupForTenant(SQLEmitter):
             schema=self.config.DB_SCHEMA,
         )
         insert_stmt = insert(group_table).values(
-            tenant_id=text("NEW.id"),
-            name=text("NEW.name")
+            tenant_id=text("NEW.id"), name=text("NEW.name")
         )
         compiled_insert = insert_stmt.compile(compile_kwargs={"literal_binds": True})
         insert_sql = str(compiled_insert)

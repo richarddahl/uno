@@ -4,11 +4,16 @@ Integration test for ParallelStepsSaga: demonstrates fork/join orchestration in 
 
 import pytest
 
-from uno.core.di import ServiceCollection, ServiceProvider
-from uno.core.logging import LoggingConfig, LoggerService, LoggingConfigService
+from uno.infrastructure.di import ServiceCollection, ServiceProvider
+from uno.infrastructure.logging import (
+    LoggingConfig,
+    LoggerService,
+    LoggingConfigService,
+)
 from uno.core.events.saga_store import InMemorySagaStore
 from uno.core.events.saga_manager import SagaManager
 from examples.app.sagas.parallel_steps_saga import ParallelStepsSaga
+
 
 @pytest.mark.asyncio
 async def test_parallel_steps_saga() -> None:
@@ -26,7 +31,9 @@ async def test_parallel_steps_saga() -> None:
         saga_id = "parallel-1"
 
         # Complete step A
-        await manager.handle_event(saga_id, "ParallelStepsSaga", {"type": "StepACompleted"})
+        await manager.handle_event(
+            saga_id, "ParallelStepsSaga", {"type": "StepACompleted"}
+        )
         state = await saga_store.load_state(saga_id)
         assert state is not None
         assert state.data["step_a_done"] is True
@@ -35,7 +42,9 @@ async def test_parallel_steps_saga() -> None:
         assert state.status == "waiting_parallel"
 
         # Complete step B
-        await manager.handle_event(saga_id, "ParallelStepsSaga", {"type": "StepBCompleted"})
+        await manager.handle_event(
+            saga_id, "ParallelStepsSaga", {"type": "StepBCompleted"}
+        )
         state = await saga_store.load_state(saga_id)
         assert state.data["step_a_done"] is True
         assert state.data["step_b_done"] is True

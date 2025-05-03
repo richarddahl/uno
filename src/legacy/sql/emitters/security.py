@@ -7,9 +7,9 @@
 import textwrap
 from typing import List
 
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
-from uno.sql.builders import SQLFunctionBuilder
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.builders import SQLFunctionBuilder
 
 
 class RowLevelSecurity(SQLEmitter):
@@ -367,9 +367,7 @@ class CreateRLSFunctions(SQLEmitter):
             JOIN {schema_name}.permission tp ON ugr.role_id = tp.id
             WHERE u.id = session_user_id AND tp.is_active = TRUE;
         END;
-        """.format(
-            schema_name=schema_name
-        )
+        """.format(schema_name=schema_name)
 
         permissible_groups_sql = (
             SQLFunctionBuilder()

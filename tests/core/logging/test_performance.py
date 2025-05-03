@@ -9,8 +9,8 @@ Otherwise, these tests will be skipped by default.
 """
 
 from tests.core.logging.suppress_output import suppress_stdout_stderr
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 @pytest.fixture

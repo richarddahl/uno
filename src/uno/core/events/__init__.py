@@ -53,7 +53,7 @@ __all__ = [
     "EventPriority",
     "EventStore",
     "InMemoryEventStore",
-    "CoreEventHandler",  # Aliased from events module
+    "CoreEventHandler",  # Aliased from core.events module
     "get_event_bus",
     "get_event_publisher",
     "get_event_store",

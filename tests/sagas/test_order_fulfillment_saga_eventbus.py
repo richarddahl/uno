@@ -1,15 +1,17 @@
 """
 Integration test: OrderFulfillmentSaga reacts to events published on the EventBus.
 """
+
 import pytest
 from examples.app.sagas.order_fulfillment_saga import OrderFulfillmentSaga
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.event_bus import EventBus
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+
 
 @pytest.mark.asyncio
 async def test_order_fulfillment_saga_eventbus() -> None:

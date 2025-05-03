@@ -1,13 +1,15 @@
 """
 Unit tests for InMemoryEventStore with strict DI-LoggerService injection.
 """
+
 import pytest
 from unittest.mock import MagicMock
 import unittest.mock
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.event_store import InMemoryEventStore
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 from uno.core.errors.result import Success, Failure
+
 
 class FakeEvent(DomainEvent):
     event_type: str = "fake_event"
@@ -15,10 +17,12 @@ class FakeEvent(DomainEvent):
     version: int
     foo: str
 
+
 def make_logger():
     logger = MagicMock(spec=LoggerService)
     logger.structured_log = MagicMock()
     return logger
+
 
 @pytest.mark.asyncio
 async def test_save_event_success():
@@ -28,8 +32,11 @@ async def test_save_event_success():
     res = await store.save_event(event)
     assert isinstance(res, Success)
     logger.structured_log.assert_any_call(
-        "INFO", f"Saved event {event.event_type} for aggregate {event.aggregate_id}", name="uno.events.inmem"
+        "INFO",
+        f"Saved event {event.event_type} for aggregate {event.aggregate_id}",
+        name="uno.events.inmem",
     )
+
 
 @pytest.mark.asyncio
 async def test_save_event_failure():
@@ -43,6 +50,7 @@ async def test_save_event_failure():
     logger.structured_log.assert_any_call(
         "ERROR", unittest.mock.ANY, name="uno.events.inmem", error=res.error
     )
+
 
 @pytest.mark.asyncio
 async def test_get_events_filters_and_logs():
@@ -60,6 +68,7 @@ async def test_get_events_filters_and_logs():
         "INFO", "Retrieved 1 events from store", name="uno.events.inmem"
     )
 
+
 @pytest.mark.asyncio
 async def test_get_events_by_aggregate_id_success():
     logger = make_logger()
@@ -70,6 +79,7 @@ async def test_get_events_by_aggregate_id_success():
     assert isinstance(res, Success)
     events = res.unwrap()
     assert len(events) == 1 and events[0].aggregate_id == "agg-1"
+
 
 @pytest.mark.asyncio
 async def test_get_events_by_aggregate_id_failure():

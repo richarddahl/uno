@@ -4,13 +4,14 @@ Integration test for EscalationSaga: demonstrates escalation/alerting and human-
 
 import pytest
 
-from uno.core.di.container import ServiceCollection
-from uno.core.di.provider import ServiceProvider
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
-from uno.core.logging.config_service import LoggingConfigService
-from uno.core.logging.logger import LoggingConfig, LoggerService
+from uno.infrastructure.logging.config_service import LoggingConfigService
+from uno.infrastructure.logging.logger import LoggingConfig, LoggerService
 from examples.app.sagas.escalation_saga import EscalationSaga
+
 
 @pytest.mark.asyncio
 async def test_escalation_saga() -> None:
@@ -37,7 +38,9 @@ async def test_escalation_saga() -> None:
         assert state.data["escalated"] is True
 
         # Simulate human approval
-        await manager.handle_event(saga_id, "EscalationSaga", {"type": "EscalationApproved"})
+        await manager.handle_event(
+            saga_id, "EscalationSaga", {"type": "EscalationApproved"}
+        )
         state = await saga_store.load_state(saga_id)
         assert state is None  # State should be deleted after saga completion/approval
 

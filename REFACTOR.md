@@ -19,6 +19,95 @@ Uno is undergoing a comprehensive modernization and refactor to ensure:
 
 ---
 
+## Protocol-Based Dependency Injection (DI) Refactor
+
+**Date:** 2025-05-03
+
+**Summary:**  
+All DI/extension points in Uno now use Protocols (Python interfaces) for type hints and accept concrete implementations via DI at runtime. This ensures loose coupling, extensibility, testability, and avoids circular import/type hint issues.
+
+**Rationale:**  
+
+- Protocols define only the required interface, not implementation.
+- Concrete classes are injected by the DI container or factory.
+- This is idiomatic Python and Uno best practice for modern, testable, and maintainable code.
+
+**Migration Steps:**  
+
+---
+
+### Protocol Sweep & Refactor Plan (2025-05-03)
+
+**Objective:**
+Ensure all DI/extension points in Uno infrastructure and SQL modules use Protocols for type hints, per Uno and modern Python best practices. This guarantees loose coupling, testability, and avoids circular imports.
+
+**Steps:**
+1. **Protocol Audit**
+   - Sweep all infrastructure modules (especially `uno/infrastructure/sql/`) for any class or function that accepts or returns a concrete class where a Protocol should be used.
+   - Identify all config, factory, connection, and emitter interfaces that lack a corresponding Protocol.
+2. **Protocol Definition**
+   - For each missing Protocol (e.g., `ConnectionConfigProtocol`), define it in `uno/infrastructure/sql/interfaces.py` or `uno/core/interfaces/` as appropriate.
+   - Protocols should only specify the minimal required attributes/methods for consumers.
+3. **Type Hint Refactor**
+   - Update all type hints in configs, factories, emitters, services, and registries to use the new Protocols.
+   - Move all implementation-only imports to `if TYPE_CHECKING:` blocks to prevent circular imports.
+4. **Documentation & Comments**
+   - Add a comment at each injection/extension point:  
+     `# DI: injected, type-hinted with Protocol for extensibility`
+   - Document each Protocol in code and in REFACTOR.md.
+5. **Testing & Lint**
+   - Run all tests and lint/type checks.
+   - Fix any issues related to Protocol usage, type hints, or circular imports.
+6. **Migration Guide**
+   - Add a migration note to REFACTOR.md describing the rationale and pattern for Protocol-based DI.
+
+**Immediate Next Steps:**
+- [ ] Define `ConnectionConfigProtocol` with required methods/attributes (e.g., `get_uri`, `db_name`, etc.).
+- [ ] Refactor all usages of `ConnectionConfig` to type against `ConnectionConfigProtocol` except for the implementation itself.
+- [ ] Sweep for any other missing Protocols in SQL infra and update type hints.
+- [ ] Add/expand docstrings and comments as above.
+
+---
+
+
+- [>] Sweep codebase for all DI/extension points (factories, emitters, repositories, services, loggers, etc.).
+    - [x] SQLEmitterFactoryProtocol (found)
+    - [x] RepositoryProtocol / DomainRepositoryProtocol (found)
+    - [x] ConfigProtocol (found)
+    - [x] DatabaseProviderProtocol (found)
+    - [x] DBManagerProtocol (found)
+    - [x] LoggerServiceFactory (found)
+    - [x] EngineFactoryProtocol (defined in src/uno/infrastructure/sql/interfaces.py)
+    - [x] EventStoreProtocol (found and in use in core/events/event_store.py)
+    - [ ] Others (sweep ongoing)
+- [] Define Protocols for each interface in shared modules.
+- [>] Update all type hints to use Protocols, not concrete classes.
+    - [x] registry.py: engine_factory uses EngineFactoryProtocol
+    - [x] emitter.py: engine_factory and factory args use EngineFactoryProtocol
+- [] Remove all `"ClassName" | None` and similar string union hints.
+- [] Use `TYPE_CHECKING` for implementation-only references.
+- [] Add comments at each injection/extension point:  
+  `# DI: injected, type-hinted with Protocol for extensibility`
+- [] Run all tests and lint checks.
+
+**Example:**
+
+```python
+# interfaces.py
+from typing import Protocol
+
+class EngineFactoryProtocol(Protocol):
+    def get_engine(self) -> object: ...
+
+# config.py
+from uno.infrastructure.sql.interfaces import EngineFactoryProtocol
+
+class SQLConfig(BaseModel):
+    engine_factory: EngineFactoryProtocol | None = None  # DI: injected
+```
+
+---
+
 ## 2. Progress Snapshot
 
 - All core domain events (Inventory, Order, Vendor, etc.) are refactored for Result-based construction, error context, versioning, and Pydantic v2
@@ -40,15 +129,22 @@ The legacy SQL emitter module (src/legacy/infrastructure/sql/emitter.py and rela
 
 ### Checklist: SQL Emitter Modernization & Integration
 
+- [x] Modernize and test SQL builders (function, index, trigger) with Pydantic v2, Python 3.13 type hints, Uno error handling, and full unit test coverage
 - [ ] Move emitter and protocols to uno/infrastructure/sql or uno/core/sql (choose canonical location)
-- [ ] Update all imports to use Uno DI, config, and logging modules (no legacy/obsolete imports)
-- [ ] Modernize type hints and docstrings for Python 3.13 idioms and Uno code style
-- [ ] Ensure full Pydantic v2 compliance (ConfigDict, validators, etc)
+- [ ] Update all emitter imports to use Uno DI, config, and logging modules (no legacy/obsolete imports)
+- [ ] Modernize emitter type hints and docstrings for Python 3.13 idioms and Uno code style
+- [ ] Ensure full Pydantic v2 compliance for emitter (ConfigDict, validators, etc)
 - [ ] Integrate emitter with event store for automated schema management (table creation, upgrades, dry-run)
 - [ ] Provide CLI or utility for running event store migrations using the emitter
 - [ ] Add/expand unit and integration tests for emitter, schema management, and observer patterns
 - [ ] Document emitter pattern and usage for DB schema/migration management in Uno docs
 - [ ] Deprecate or remove legacy/duplicate emitter code after migration
+
+#### Progress Summary (2025-05-03)
+
+- All SQL builders are fully modernized, validated, and tested.
+- Builder tests pass and are decoupled from legacy/infra dependencies.
+- Next: Begin emitter module modernization and integration as per checklist below.
 
 ### Notes
 
@@ -64,6 +160,64 @@ The legacy SQL emitter module (src/legacy/infrastructure/sql/emitter.py and rela
 - [ ] Complete DI integration tests and performance benchmarks
 - [ ] Expose LoggingConfigService via admin/CLI
 - [ ] Finalize and publish DI/logging migration guide
+
+---
+
+### 3.1.1 Core vs Infrastructure: Migration Structure & Plan (2025-05-03)
+
+**Objective:**
+Separate pure domain logic (core) from technical implementation (infrastructure) for maximal testability, maintainability, and DDD/clean architecture compliance.
+
+#### Recommended Folder Structure
+
+```
+uno/
+  core/
+    domain/           # Entities, value objects, aggregates, domain events
+    events/           # Domain events & upcasting
+    errors.py         # Domain errors/exceptions
+    interfaces/       # (Optional) Ports for DI, config, logging, repo, etc.
+  infrastructure/
+    di/               # DI container implementation
+    logging/          # Logging implementation
+    config/           # Config loading/validation
+    sql/              # SQL emitters, DB adapters
+    ...
+  api/                # Presentation layer (REST, CLI, etc)
+  app.py              # Bootstrap
+```
+
+- `core` contains **only** business logic, domain errors, and interfaces/ports (no framework or infra dependencies).
+- `infrastructure` implements the interfaces/ports defined in `core` and may depend on external libraries/frameworks.
+
+#### Migration Steps
+
+1. **Identify core domain logic:**
+   - Move all entities, value objects, domain events, aggregates, and domain errors into `core/domain` and `core/events`.
+2. **Move technical implementations:**
+   - Move DI, logging, config, SQL emitters/adapters, and other technical modules to `infrastructure/`.
+3. **Define interfaces/ports in core:**
+   - For services (e.g., logging, config, repo), define abstract base classes or protocols in `core/interfaces`.
+   - Ensure domain logic depends only on interfaces, not implementations.
+4. **Update imports:**
+   - Update all imports to use the new structure. `infrastructure` may import from `core`, but never the reverse.
+5. **Refactor DI/bootstrap:**
+   - Bind infrastructure implementations to core interfaces at app startup (in `app.py` or DI container config).
+6. **Test:**
+   - Run all tests. Add/expand tests to ensure separation is correct and no infra leaks into core.
+7. **Document:**
+   - Update this REFACTOR.md and developer docs to reflect the new structure and migration rationale.
+
+#### Rationale
+
+- **Separation of concerns:** Keeps business rules isolated from technical details.
+- **Testability:** Core can be tested without DB, network, or external dependencies.
+- **Replaceability:** Infrastructure can be swapped (e.g., new DB, new logger) without touching domain logic.
+- **Maintainability:** Clear boundaries make code easier to reason about and evolve.
+
+#### Master Checklist Addition
+
+- [ ] Migrate to canonical core/infrastructure separation as per "3.1.1 Core vs Infrastructure: Migration Structure & Plan"
 
 ### 3.2 Domain & Events
 
@@ -389,13 +543,15 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 
 ### 1.3 Modern Python & Type Hints
 
-- [ ] Sweep for Pydantic v2 modernization (no deprecated patterns)
-- [ ] Sweep and update all type hints for compliance with Uno conventions (PEP 604, etc.)
+- [x] Sweep for Pydantic v2 modernization (no deprecated patterns)
+- [x] Sweep for string union type hints ("ClassName" | None, etc.) and replace with X | None or Protocol. (done)
+- [x] Protocol DI refactor complete: all major extension points use Protocols and type hints are modernized.
 - [ ] Remove unused imports and fix lint warnings
 
 ### 1.4 Performance & Testing
 
 ---
+{{ ... }}
 
 ## Domain & Event Sourcing Refactor: Canonical Roadmap (Q2 2025)
 
@@ -1073,6 +1229,65 @@ No further core domain events require modernization for serialization compliance
 - Future value objects and events should always use Pydantic v2 serialization idioms and never rely on `json_encoders`.
 - Event sourcing and integrity checks must operate at the event log level, not just state.
 - This change enables forward compatibility, type safety, and easier maintenance for all domain serialization logic.
+
+---
+
+## 5. DTO Removal and Canonical Serialization Pattern
+
+### Executive Summary
+
+**Legacy dedicated DTO classes have been removed from Uno.**
+
+- **Why:** With Uno's adoption of Pydantic v2 and canonical domain models, dedicated DTOs (Data Transfer Objects) are now redundant and a code smell. All domain models are already strongly typed, validated, and serializable.
+- **Pattern:** Use your canonical Pydantic domain models for all serialization and transport between layers (domain → infrastructure, domain → API, etc.).
+- **How:** Use `.to_dict()` or `.model_dump()` on your domain models for API or infrastructure serialization. There is no need to create or maintain parallel DTO classes.
+
+### Rationale
+
+- **Single Source of Truth:** Domain models (Pydantic subclasses) are the single, canonical contract for all data transfer and validation.
+- **No Redundancy:** Dedicated DTOs that simply mirror domain models add boilerplate and maintenance burden without improving separation or safety.
+- **Flexible Serialization:** Pydantic's field inclusion/exclusion, aliasing, and model composition provide all the flexibility needed for API or external contracts.
+- **Versioning & Upcasting:** Use Uno's canonical upcast/versioning patterns on domain models for backward compatibility—not parallel DTOs.
+
+### Migration Guide
+
+- **Remove all `*_dtos.py` and `*_DTO` classes** that simply duplicate domain models.
+- **Update API and service layer code** to import and use domain models directly. Return `model.to_dict()` or `model.model_dump()` for serialization.
+- **If you need a different shape for external APIs,** use Pydantic's model composition or custom serializers, not a parallel DTO class.
+- **Document this pattern** in your project for future contributors (see this section).
+
+#### Example (Before → After)
+
+**Before:**
+```python
+# order_dtos.py
+class OrderDTO(BaseModel): ...
+
+# api.py
+from .order_dtos import OrderDTO
+...
+def get_order(...):
+    ...
+    return OrderDTO(**order.dict())
+```
+
+**After:**
+```python
+# api.py
+from uno.core.domain.order import Order
+...
+def get_order(...):
+    ...
+    return order.to_dict()  # or order.model_dump()
+```
+
+### When Might a DTO Still Be Useful?
+- If your API/data contract differs significantly from your internal model (e.g., field renaming, flattening, aggregating data from multiple models).
+- For long-term backward compatibility, consider versioned Pydantic models instead of DTOs.
+
+### Summary
+- **Default:** Use domain models everywhere. Dedicated DTOs are a code smell in Uno.
+- **Migration:** Remove legacy DTOs, update all code to use domain models, and document this pattern.
 
 ---
 

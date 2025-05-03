@@ -2,7 +2,7 @@ from typing import Any, Callable, TypeVar, cast
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.interfaces import EventBusProtocol
 from uno.core.events.priority import EventPriority
-from uno.core.logging.logger import LoggerService
+from uno.infrastructure.logging.logger import LoggerService
 
 HandlerFnT = TypeVar("HandlerFnT")
 
@@ -26,6 +26,7 @@ def subscribe(
     Returns:
         Decorated handler
     """
+
     def decorator(handler: HandlerFnT) -> HandlerFnT:
         bus = event_bus or get_event_bus()
         bus.subscribe(
@@ -40,9 +41,10 @@ def subscribe(
             handler=str(handler),
             event_type=str(event_type),
             topic_pattern=topic_pattern,
-            priority=str(priority)
+            priority=str(priority),
         )
         return handler
+
     return decorator
 
 
@@ -78,8 +80,9 @@ def register_event_handler(
         handler=str(handler),
         event_type=str(event_type),
         topic_pattern=topic_pattern,
-        priority=str(priority)
+        priority=str(priority),
     )
+
 
 # Import get_event_bus from factory to avoid circular import at module top-level
 from uno.core.events.factory import get_event_bus

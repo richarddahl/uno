@@ -1,6 +1,7 @@
 """
 EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 """
+
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 from uno.core.events.base_event import DomainEvent
@@ -8,7 +9,7 @@ from uno.core.events.interfaces import EventBusProtocol
 from uno.core.errors.result import Result, Success
 
 if TYPE_CHECKING:
-    from uno.core.logging.logger import LoggerService
+    from uno.infrastructure.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -28,6 +29,7 @@ class InMemoryEventBus(EventBusProtocol):
     Type Parameters:
         - E: DomainEvent (or subclass)
     """
+
     def __init__(self, logger: LoggerService) -> None:
         """
         Initialize the in-memory event bus.
@@ -50,7 +52,9 @@ class InMemoryEventBus(EventBusProtocol):
         """
         return event.to_dict()
 
-    async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> Result[None, Exception]:
+    async def publish(
+        self, event: E, metadata: dict[str, Any] | None = None
+    ) -> Result[None, Exception]:
         """
         Publish a single event to all subscribers.
 
@@ -68,6 +72,7 @@ class InMemoryEventBus(EventBusProtocol):
             for handler in self._subscribers.get(event.event_type, []):
                 result = await handler(event)
                 from uno.core.errors.result import Failure
+
                 if isinstance(result, Failure):
                     exc = result.error
                     if hasattr(self.logger, "structured_log"):
@@ -76,9 +81,9 @@ class InMemoryEventBus(EventBusProtocol):
                             f"Failed to publish event: {event}",
                             name="uno.events.bus",
                             error=exc,
-                            event_id=getattr(event, 'event_id', None),
-                            event_type=getattr(event, 'event_type', None),
-                            error_message=str(exc)
+                            event_id=getattr(event, "event_id", None),
+                            event_type=getattr(event, "event_type", None),
+                            error_message=str(exc),
                         )
                     else:
                         self.logger.error(f"Failed to publish event: {event} - {exc}")
@@ -91,9 +96,9 @@ class InMemoryEventBus(EventBusProtocol):
                     f"Failed to publish event: {event}",
                     name="uno.events.bus",
                     error=exc,
-                    event_id=getattr(event, 'event_id', None),
-                    event_type=getattr(event, 'event_type', None),
-                    error_message=str(exc)
+                    event_id=getattr(event, "event_id", None),
+                    event_type=getattr(event, "event_type", None),
+                    error_message=str(exc),
                 )
             else:
                 self.logger.error(f"Failed to publish event: {event} - {exc}")
@@ -113,7 +118,9 @@ class InMemoryEventBus(EventBusProtocol):
                 await self.publish(event)
             return Success(None)
         except Exception as exc:
-            self.logger.error(f"Failed to publish events: {events} - {exc}", exc_info=True)
+            self.logger.error(
+                f"Failed to publish events: {events} - {exc}", exc_info=True
+            )
             return Success(None)
 
     def subscribe(self, event_type: str, handler: Any) -> None:
@@ -125,6 +132,7 @@ class InMemoryEventBus(EventBusProtocol):
             handler (Any): The handler function/coroutine to invoke for this event type.
         """
         self._subscribers.setdefault(event_type, []).append(handler)
+
 
 # Alias for public API
 EventBus = InMemoryEventBus

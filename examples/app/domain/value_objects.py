@@ -730,4 +730,12 @@ class EmailAddress(ValueObject):
                 )
             )
 
+    @pydantic.field_serializer("value")
+    def serialize_value(self, value, _info):
+        return str(value)
+
+    @pydantic.model_serializer(mode="plain")
+    def serialize_emailaddress(self):
+        return str(self.value)
+
     model_config: ClassVar = {"frozen": True}

@@ -1,12 +1,12 @@
 import pytest
 
-from uno.core.di.container import ServiceCollection
-from uno.core.di.service_scope import ServiceScope
+from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_scope import ServiceScope
 
 
 @pytest.fixture(autouse=True)
 def reset_global_service_registry():
-    from uno.core.di.decorators import _global_service_registry
+    from uno.infrastructure.di.decorators import _global_service_registry
 
     # Always start with a clean global service registry and register FakeService
 
