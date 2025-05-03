@@ -9,13 +9,16 @@ It also provides emitters for executing vector search operations like similarity
 hybrid vector-graph search.
 """
 
-from typing import Any, Protocol, TypeVar, Union
-
 from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
-
+from uno.core.config import UnoConfig
+from uno.core.di import inject
+from uno.core.errors import FrameworkError
+from uno.core.logging import get_logger
 from uno.infrastructure.database.session import DatabaseSessionProtocol
-from uno.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from typing import Any, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -26,8 +29,7 @@ class ExecutableConnection(Protocol):
 
 
 # Type alias for connections that can be either SQLAlchemy Connection or DatabaseSessionProtocol
-ConnectionType = Union[Connection, DatabaseSessionProtocol]
-from uno.sql.statement import SQLStatement, SQLStatementType
+ConnectionType = Connection | DatabaseSessionProtocol
 
 
 class VectorSQLEmitter(SQLEmitter):
@@ -45,15 +47,13 @@ class VectorSQLEmitter(SQLEmitter):
         Returns:
             List of SQL statements with metadata
         """
-        statements = []
-
-        # Get config values safely
-        if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
-            db_schema = self.config.DB_SCHEMA
-            db_name = self.config.DB_NAME
-        else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+        statements: list[SQLStatement] = []
+        db_schema = getattr(self.config, "DB_SCHEMA", None)
+        db_name = getattr(self.config, "DB_NAME", None)
+        if db_schema is None or db_name is None:
+            raise FrameworkError(
+                "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
+            )
 
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
@@ -444,15 +444,13 @@ class VectorIntegrationEmitter(SQLEmitter):
         Returns:
             List of SQL statements with metadata
         """
-        statements = []
-
-        # Get config values safely
-        if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
-            db_schema = self.config.DB_SCHEMA
-            db_name = self.config.DB_NAME
-        else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+        statements: list[SQLStatement] = []
+        db_schema = getattr(self.config, "DB_SCHEMA", None)
+        db_name = getattr(self.config, "DB_NAME", None)
+        if db_schema is None or db_name is None:
+            raise FrameworkError(
+                "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
+            )
 
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
@@ -582,20 +580,20 @@ class CreateVectorTables(SQLEmitter):
         Returns:
             List of SQL statements with metadata
         """
-        statements = []
+        statements: list[SQLStatement] = []
+        db_schema = self.config.DB_SCHEMA
+        db_name = self.config.DB_NAME
 
-        # Get config values safely
-        if hasattr(self.config, "DB_SCHEMA") and hasattr(self.config, "DB_NAME"):
-            db_schema = self.config.DB_SCHEMA
-            db_name = self.config.DB_NAME
-        else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+        if db_schema is None or db_name is None:
+            raise FrameworkError(
+                "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
+            )
 
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
         admin_role = f"{db_name}_admin"
 
+        # ... rest of method ...
         # SQL for creating a documents table for RAG
         create_documents_table_sql = f"""
         -- Create a documents table for RAG (Retrieval-Augmented Generation)
@@ -713,11 +711,14 @@ class VectorSearchEmitter(SQLEmitter):
     hybrid vector-graph search, and embedding generation.
     """
 
+    @inject
     def __init__(
         self,
         table_name: str,
         column_name: str = "embedding",
         schema: str | None = None,
+        logger: Any = None,
+        config: UnoConfig | None = None,
         **kwargs,
     ):
         """
@@ -726,21 +727,27 @@ class VectorSearchEmitter(SQLEmitter):
         Args:
             table_name: The database table name containing embeddings
             column_name: The column name containing embeddings (default: "embedding")
-            schema: Optional database schema name (defaults to settings.DB_SCHEMA)
+            schema: Optional database schema name (defaults to UnoConfig.DB_SCHEMA)
+            logger: Logger instance (DI or fallback)
+            config: UnoConfig instance (DI or fallback)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        super().__init__(**kwargs)
+        logger = logger or get_logger(__name__)
+        config = config or UnoConfig()
+        super().__init__(logger=logger, config=config, **kwargs)
         self.table_name = table_name
         self.column_name = column_name
-
-        # Get schema safely
         if schema:
             self._schema = schema
-        elif hasattr(self.config, "DB_SCHEMA"):
-            self._schema = self.config.DB_SCHEMA
         else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+            db_schema = getattr(self.config, "DB_SCHEMA", None)
+            if db_schema:
+                self._schema = db_schema
+            else:
+                raise FrameworkError(
+                    "DB config must be provided via DI/config injection.",
+                    "CONFIG_ERROR",
+                )
 
     def search_sql(
         self,
@@ -749,9 +756,9 @@ class VectorSearchEmitter(SQLEmitter):
         threshold: float = 0.7,
         metric: str = "cosine",
         where_clause: str | None = None,
-    ) -> str:
+    ) -> Any:
         """
-        Generate SQL for vector similarity search.
+        Generate SQLAlchemy Core statement for vector similarity search.
 
         Args:
             query_text: The text to search for
@@ -761,68 +768,68 @@ class VectorSearchEmitter(SQLEmitter):
             where_clause: Optional WHERE clause for filtering
 
         Returns:
-            SQL query for the search operation
+            SQLAlchemy Select statement
         """
-        # Get schema
+        from sqlalchemy import Table, MetaData, column, select, func, text, bindparam, cast
+
         schema = self._schema
-
-        # Determine operator based on metric
-        op = "<->" if metric == "l2" else "<#>" if metric == "dot" else "<=>"
-
-        # Build the where clause
-        where_conditions = []
-        if threshold > 0:
-            # Convert threshold to distance based on metric
-            if metric == "cosine":
-                where_conditions.append(
-                    f"(1 - ({self.column_name} {op} {schema}.generate_embedding(:query_text))) >= :threshold"
-                )
-            elif metric == "l2":
-                where_conditions.append(
-                    f"({self.column_name} {op} {schema}.generate_embedding(:query_text)) <= :threshold"
-                )
-            elif metric == "dot":
-                where_conditions.append(
-                    f"({self.column_name} {op} {schema}.generate_embedding(:query_text)) >= :threshold"
-                )
-
-        # Add custom where clause if provided
-        if where_clause:
-            where_conditions.append(where_clause)
-
-        # Build the complete where clause
-        where_part = (
-            f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+        metadata = MetaData()
+        table = Table(
+            self.table_name,
+            metadata,
+            autoload_with=None,  # Not using DB reflection, just for SQL construction
+            schema=schema,
         )
 
-        # Build similarity expression based on metric
+        # Embedding function call
+        embedding_fn = text(f"{schema}.generate_embedding(:query_text)")
+        col = table.c[self.column_name]
+        id_col = cast(table.c.id, text("TEXT"))
+        row_data_col = func.row_to_json(table).cast(text("JSONB")).label("row_data")
+
+        # Distance/similarity expression
+        op = {
+            "cosine": "<=>",
+            "l2": "<->",
+            "dot": "<#>",
+        }.get(metric, "<=>")
+        distance_expr = text(f"{self.column_name} {op} {schema}.generate_embedding(:query_text)")
+
         if metric == "cosine":
-            similarity_expr = f"(1 - ({self.column_name} {op} {schema}.generate_embedding(:query_text))) AS similarity"
+            similarity_expr = (1 - distance_expr).label("similarity")
+            order = distance_expr.desc()
+            threshold_expr = (1 - distance_expr) >= bindparam("threshold")
         elif metric == "l2":
-            similarity_expr = f"1.0 / (1.0 + ({self.column_name} {op} {schema}.generate_embedding(:query_text))) AS similarity"
+            similarity_expr = (1.0 / (1.0 + distance_expr)).label("similarity")
+            order = distance_expr.asc()
+            threshold_expr = distance_expr <= bindparam("threshold")
         elif metric == "dot":
-            similarity_expr = f"({self.column_name} {op} {schema}.generate_embedding(:query_text)) AS similarity"
+            similarity_expr = distance_expr.label("similarity")
+            order = distance_expr.desc()
+            threshold_expr = distance_expr >= bindparam("threshold")
         else:
-            similarity_expr = f"(1 - ({self.column_name} {op} {schema}.generate_embedding(:query_text))) AS similarity"
+            similarity_expr = (1 - distance_expr).label("similarity")
+            order = distance_expr.desc()
+            threshold_expr = (1 - distance_expr) >= bindparam("threshold")
 
-        # Build the order by clause
-        if metric == "cosine" or metric == "dot":
-            order_by = f"ORDER BY {self.column_name} {op} {schema}.generate_embedding(:query_text) DESC"
-        else:
-            order_by = f"ORDER BY {self.column_name} {op} {schema}.generate_embedding(:query_text) ASC"
+        # Build where conditions
+        where_conditions = [threshold_expr]
+        if where_clause:
+            where_conditions.append(text(where_clause))
 
-        sql = f"""
-        SELECT 
-            id::TEXT, 
-            {similarity_expr},
-            row_to_json({schema}.{self.table_name}.*)::JSONB AS row_data
-        FROM {schema}.{self.table_name}
-        {where_part}
-        {order_by}
-        LIMIT :limit
-        """
+        stmt = (
+            select(
+                id_col.label("id"),
+                similarity_expr,
+                row_data_col,
+            )
+            .select_from(table)
+            .where(*where_conditions)
+            .order_by(order)
+            .limit(bindparam("limit"))
+        )
+        return stmt
 
-        return sql
 
     def hybrid_search_sql(
         self,
@@ -927,7 +934,7 @@ class VectorSearchEmitter(SQLEmitter):
         where_clause: str | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Execute a vector similarity search.
+        Execute a vector similarity search using SQLAlchemy Core statement.
 
         Args:
             connection: Database connection
@@ -940,7 +947,7 @@ class VectorSearchEmitter(SQLEmitter):
         Returns:
             List of search results
         """
-        sql = self.search_sql(
+        stmt = self.search_sql(
             query_text=query_text,
             limit=limit,
             threshold=threshold,
@@ -948,14 +955,7 @@ class VectorSearchEmitter(SQLEmitter):
             where_clause=where_clause,
         )
 
-        params = {"query_text": query_text, "limit": limit, "threshold": threshold}
-
-        result = await connection.execute(sql_text(sql), params)
-        rows = result.fetchall()
-
-        # Convert rows to result dictionaries
-        search_results = []
-        for row in rows:
+        # Compile the SQLAlchemy statement for the current dialect
             if hasattr(row, "_mapping"):
                 search_results.append(dict(row._mapping))
             else:
@@ -1051,11 +1051,14 @@ class VectorBatchEmitter(SQLEmitter):
     updating embeddings for multiple entities at once.
     """
 
+    @inject
     def __init__(
         self,
         entity_type: str,
         content_fields: list[str],
         schema: str | None = None,
+        logger: Any = None,
+        config: UnoConfig | None = None,
         **kwargs,
     ):
         """
@@ -1064,22 +1067,28 @@ class VectorBatchEmitter(SQLEmitter):
         Args:
             entity_type: Type of entities to process
             content_fields: Fields containing content to embed
-            schema: Optional database schema name (defaults to settings.DB_SCHEMA)
+            schema: Optional database schema name (defaults to UnoConfig.DB_SCHEMA)
+            logger: Logger instance (DI or fallback)
+            config: UnoConfig instance (DI or fallback)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        super().__init__(**kwargs)
+        logger = logger or get_logger(__name__)
+        config = config or UnoConfig()
+        super().__init__(logger=logger, config=config, **kwargs)
         self.entity_type = entity_type
         self.table_name = entity_type.lower()
         self.content_fields = content_fields
-
-        # Get schema safely
         if schema:
             self._schema = schema
-        elif hasattr(self.config, "DB_SCHEMA"):
-            self._schema = self.config.DB_SCHEMA
         else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+            db_schema = getattr(self.config, "DB_SCHEMA", None)
+            if db_schema:
+                self._schema = db_schema
+            else:
+                raise FrameworkError(
+                    "DB config must be provided via DI/config injection.",
+                    "CONFIG_ERROR",
+                )
 
     def get_entity_count_sql(self) -> str:
         """
@@ -1106,82 +1115,6 @@ class VectorBatchEmitter(SQLEmitter):
         select_fields = ["id"] + self.content_fields
         fields_str = ", ".join(select_fields)
 
-        return f"""
-        SELECT {fields_str}
-        FROM {schema}.{self.table_name}
-        ORDER BY id
-        LIMIT :limit OFFSET :offset
-        """
-
-    def get_entities_by_ids_sql(self, entity_ids: list[str]) -> str:
-        """
-        Generate SQL to get entities by IDs.
-
-        Args:
-            entity_ids: List of entity IDs to retrieve
-
-        Returns:
-            SQL query to get entities by IDs
-        """
-        schema = self._schema
-        select_fields = ["id"] + self.content_fields
-        fields_str = ", ".join(select_fields)
-
-        return f"""
-        SELECT {fields_str}
-        FROM {schema}.{self.table_name}
-        WHERE id IN :ids
-        """
-
-    async def execute_get_count(self, connection: ConnectionType) -> int:
-        """
-        Execute a query to count entities.
-
-        Args:
-            connection: Database connection
-
-        Returns:
-            Entity count
-        """
-        sql = self.get_entity_count_sql()
-        result = await connection.execute(sql_text(sql))
-        return result.scalar() or 0
-
-    async def execute_get_batch(
-        self, connection: ConnectionType, limit: int, offset: int
-    ) -> list[dict[str, Any]]:
-        """
-        Execute a query to get a batch of entities.
-
-        Args:
-            connection: Database connection
-            limit: Maximum number of entities to retrieve
-            offset: Number of entities to skip
-
-        Returns:
-            List of entities
-        """
-        sql = self.get_batch_sql(limit, offset)
-        result = await connection.execute(
-            sql_text(sql), {"limit": limit, "offset": offset}
-        )
-
-        rows = result.fetchall()
-        entities = []
-
-        for row in rows:
-            if hasattr(row, "_mapping"):
-                entities.append(dict(row._mapping))
-            else:
-                # Fall back for compatibility
-                entity = {"id": row[0]}
-                for i, field in enumerate(self.content_fields, 1):
-                    if i < len(row):
-                        entity[field] = row[i]
-                entities.append(entity)
-
-        return entities
-
     async def execute_get_entities_by_ids(
         self, connection: ConnectionType, entity_ids: list[str]
     ) -> list[dict[str, Any]]:
@@ -1198,8 +1131,12 @@ class VectorBatchEmitter(SQLEmitter):
         if not entity_ids:
             return []
 
-        sql = self.get_entities_by_ids_sql(entity_ids)
-        result = await connection.execute(sql_text(sql), {"ids": tuple(entity_ids)})
+        stmt = self.get_entities_by_ids_sql()
+        compiled = stmt.compile(dialect=connection.engine.dialect, compile_kwargs={"render_postcompile": True})
+        sql_str = str(compiled)
+        params = compiled.params
+        params["ids"] = list(entity_ids)
+        result = await connection.execute(sql_text(sql_str), params)
 
         rows = result.fetchall()
         entities = []

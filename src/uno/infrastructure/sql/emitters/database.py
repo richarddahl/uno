@@ -7,8 +7,8 @@
 import logging
 
 from uno.core.errors import FrameworkError
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class CreateRolesAndDatabase(SQLEmitter):
@@ -285,7 +285,7 @@ class CreatePGULID(SQLEmitter):
             db_schema = self.config.DB_SCHEMA
             uno_root = self.config.UNO_ROOT
 
-            with open(f"{uno_root}/uno/sql/pgulid.sql") as file:
+            with open(f"{uno_root}/uno/infrastructure/sql/pgulid.sql") as file:
                 pgulid_sql = file.read()
 
             # Format the SQL with the schema name

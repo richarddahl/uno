@@ -4,23 +4,21 @@
 
 """Base class and protocols for SQL emitters."""
 
-# from uno.core.logging.logger import get_logger  # Removed for DI-based injection
-import logging
-import time
-from typing import ClassVar, Protocol
+from typing import Any, ClassVar, Protocol
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import Table
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 
+from uno.core.config import UnoConfig
+from uno.core.di import inject
+from uno.core.errors import FrameworkError
+from uno.core.logging import get_logger
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.settings import uno_settings
-from uno.sql.observers import BaseObserver, SQLObserver
-from uno.sql.statement import SQLStatement, SQLStatementType
-
-# No additional imports needed
+from uno.infrastructure.sql.observers import BaseObserver, SQLObserver
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class SQLGenerator(Protocol):
@@ -84,10 +82,10 @@ class SQLEmitter(BaseModel):
     connection_config: ConnectionConfig | None = None
 
     # Configuration settings
-    config: BaseModel = uno_settings
+    config: UnoConfig | None = None
 
     # Logger for this emitter
-    logger: logging.Logger
+    logger: Any
 
     # Engine factory for creating connections
     engine_factory: SyncEngineFactory | None = None
@@ -95,15 +93,13 @@ class SQLEmitter(BaseModel):
     # Observers for SQL operations - using BaseObserver which is a concrete class
     observers: list[BaseObserver] = []
 
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @inject
     def __init__(self, **data):
-        logger = data.pop("logger", None)
-        if logger is None:
-            raise ValueError(
-                "Logger must be provided to SQLEmitter via DI or constructor argument."
-            )
-        super().__init__(logger=logger, **data)
+        logger = data.pop("logger", None) or get_logger(__name__)
+        config = data.pop("config", None) or UnoConfig()
+        super().__init__(logger=logger, config=config, **data)
 
     @model_validator(mode="before")
     def initialize_connection_config(cls, values: dict) -> dict:
@@ -116,7 +112,7 @@ class SQLEmitter(BaseModel):
             Updated dictionary of field values
         """
         if "connection_config" not in values or values["connection_config"] is None:
-            config = values.get("config", uno_settings)
+            config = values.get("config", UnoConfig())
             values["connection_config"] = ConnectionConfig(
                 db_name=config.DB_NAME,
                 db_user_pw=config.DB_USER_PW,
@@ -170,30 +166,17 @@ class SQLEmitter(BaseModel):
             connection: Database connection
             statements: List of SQL statements to execute
         """
-        # First set the role to admin to ensure we have proper permissions
-        # IMPORTANT: Always use the config's DB_NAME for role setting, not the connection's database
-        db_name = None
-        if self.config:
-            db_name = self.config.DB_NAME
-        else:
-            # TODO: Inject config via Uno DI system; fallback to config is not supported
-            raise RuntimeError("DB config must be provided via DI/config injection.")
+        db_name = getattr(self.config, "DB_NAME", None)
+        if db_name is None:
+            raise FrameworkError(
+                "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
+            )
 
-        if db_name:
-            # We need to handle the special case where we're dropping a database
-            # In that case, we're connected to 'postgres' database but want to affect the target database
-            if self.__class__.__name__ == "DropDatabaseAndRoles":
-                # No need to set role when connected as postgres user to postgres db
-                self.logger.debug(
-                    "Connected as postgres, no need to set role for dropping database"
-                )
-            else:
-                # For regular operations, set to the admin role for the target database
-                admin_role = f"{db_name}_admin"
-                connection.execute(text(f"SET ROLE {admin_role};"))
-                self.logger.debug(f"Set role to {admin_role}")
+        if db_name and self.__class__.__name__ != "DropDatabaseAndRoles":
+            admin_role = f"{db_name}_admin"
+            connection.execute(text(f"SET ROLE {admin_role};"))
+            self.logger.debug(f"Set role to {admin_role}")
 
-        # Execute the statements
         for statement in statements:
             self.logger.debug(f"Executing SQL statement: {statement.name}")
             connection.execute(text(statement.sql))
@@ -214,9 +197,8 @@ class SQLEmitter(BaseModel):
             FrameworkError: If SQL execution fails
         """
         statements = []
-        if 1 == 1:  # try:
+        try:
             # Generate SQL statements
-            print(self)
             statements = self.generate_sql()
 
             # Notify observers
@@ -236,13 +218,11 @@ class SQLEmitter(BaseModel):
                 observer.on_sql_executed(self.__class__.__name__, statements, duration)
 
             return None
-        # except Exception as e:
-        #    # Notify observers of error
-        #    for observer in self.observers:
-        #        observer.on_sql_error(self.__class__.__name__, statements, e)
-
-        #    # Re-raise the exception
-        #    raise FrameworkError(f"Failed to execute SQL: {e}", "SQL_EXECUTION_ERROR")
+        except Exception as e:
+            # Notify observers of error
+            for observer in self.observers:
+                observer.on_sql_error(self.__class__.__name__, statements, e)
+            raise FrameworkError(f"Failed to execute SQL: {e}", "SQL_EXECUTION_ERROR")
 
     def emit_with_connection(
         self,
@@ -307,7 +287,7 @@ class SQLEmitter(BaseModel):
         Returns:
             SQLFunctionBuilder: A function builder with database name set
         """
-        from uno.sql.builders.function import SQLFunctionBuilder
+        from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
 
         builder = SQLFunctionBuilder()
 

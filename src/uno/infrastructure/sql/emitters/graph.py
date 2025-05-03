@@ -10,9 +10,9 @@ from typing import ClassVar, Self
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import Column
 
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
+from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 from uno.utilities import snake_to_camel, snake_to_caps_snake
 
 

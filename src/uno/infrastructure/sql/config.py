@@ -14,8 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.sql.emitter import SQLEmitter
-from uno.sql.registry import SQLConfigRegistry
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.registry import SQLConfigRegistry
 
 
 class SQLConfig(BaseModel):

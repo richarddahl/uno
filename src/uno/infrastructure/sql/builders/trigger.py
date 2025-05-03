@@ -4,7 +4,7 @@
 
 """SQL trigger builder."""
 
-from pydantic import BaseModel, field_validator, ValidationError
+from pydantic import BaseModel, field_validator
 
 class SQLTriggerBuilderConfig(BaseModel):
     schema: str

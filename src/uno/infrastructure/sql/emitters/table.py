@@ -4,11 +4,10 @@
 
 """SQL emitters for table-level operations."""
 
-from sqlalchemy import PrimaryKeyConstraint, UniqueConstraint
-
-from uno.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.sql.emitter import SQLEmitter
-from uno.sql.statement import SQLStatement, SQLStatementType
+from sqlalchemy import PrimaryKeyConstraint, UniqueConstraint, MetaData, Table, insert, text, IdentifierPreparer, postgresql
+from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.infrastructure.sql.emitter import SQLEmitter
+from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
 
 class InsertMetaRecordFunction(SQLEmitter):
@@ -25,6 +24,20 @@ class InsertMetaRecordFunction(SQLEmitter):
         # Generate insert meta record function
         writer_role = f"{self.config.DB_NAME}_writer"
 
+        # Use SQLAlchemy to build the INSERT statement
+        metadata = MetaData()
+        meta_record_table = Table(
+            "meta_record",
+            metadata,
+            schema=self.config.DB_SCHEMA,
+        )
+        # Use text() for meta_id and TG_TABLE_NAME (PL/pgSQL variables)
+        insert_stmt = insert(meta_record_table).values(
+            id=text("meta_id"), meta_type_id=text("TG_TABLE_NAME")
+        )
+        compiled_insert = insert_stmt.compile(compile_kwargs={"literal_binds": True})
+        insert_sql = str(compiled_insert)
+
         function_body = f"""
         DECLARE
             meta_id VARCHAR(26) := {self.config.DB_SCHEMA}.generate_ulid();
@@ -35,7 +48,7 @@ class InsertMetaRecordFunction(SQLEmitter):
             */
             SET ROLE {writer_role};
 
-            INSERT INTO {self.config.DB_SCHEMA}.meta_record (id, meta_type_id) VALUES (meta_id, TG_TABLE_NAME);
+            {insert_sql};
             NEW.id = meta_id;
             RETURN NEW;
         END;
@@ -286,7 +299,22 @@ class InsertPermission(SQLEmitter):
         if self.table is None:
             return statements
 
-        # Generate insert permissions function
+        # Use SQLAlchemy to build the INSERT statements for each operation
+        permission_table = Table(
+            "permission",
+            MetaData(),
+            schema=self.config.DB_SCHEMA,
+        )
+        sql_stmts = []
+        for op in ["SELECT", "INSERT", "UPDATE", "DELETE"]:
+            insert_stmt = insert(permission_table).values(
+                meta_type_id=text("NEW.id"),
+                operation=text(f"'{op}'::{self.config.DB_SCHEMA}.sqloperation")
+            )
+            compiled = insert_stmt.compile(compile_kwargs={"literal_binds": True})
+            sql_stmts.append(str(compiled))
+        insert_sql = "\n".join(sql_stmts)
+
         function_body = f"""
         BEGIN
             /*
@@ -296,14 +324,7 @@ class InsertPermission(SQLEmitter):
             Deleted automatically by the DB via the FKDefinition Constraints ondelete when a meta_type is deleted.
             */
             SET ROLE {self.config.DB_NAME}_admin;
-            INSERT INTO {self.config.DB_SCHEMA}.permission(meta_type_id, operation)
-                VALUES (NEW.id, 'SELECT'::{self.config.DB_SCHEMA}.sqloperation);
-            INSERT INTO {self.config.DB_SCHEMA}.permission(meta_type_id, operation)
-                VALUES (NEW.id, 'INSERT'::{self.config.DB_SCHEMA}.sqloperation);
-            INSERT INTO {self.config.DB_SCHEMA}.permission(meta_type_id, operation)
-                VALUES (NEW.id, 'UPDATE'::{self.config.DB_SCHEMA}.sqloperation);
-            INSERT INTO {self.config.DB_SCHEMA}.permission(meta_type_id, operation)
-                VALUES (NEW.id, 'DELETE'::{self.config.DB_SCHEMA}.sqloperation);
+            {insert_sql}
             RETURN NEW;
         END;
         """
@@ -470,10 +491,23 @@ class InsertGroupForTenant(SQLEmitter):
         # Generate insert group for tenant function
         admin_role = f"{self.config.DB_NAME}_admin"
 
+        # Use SQLAlchemy to build the INSERT statement for group
+        group_table = Table(
+            "group",
+            MetaData(),
+            schema=self.config.DB_SCHEMA,
+        )
+        insert_stmt = insert(group_table).values(
+            tenant_id=text("NEW.id"),
+            name=text("NEW.name")
+        )
+        compiled_insert = insert_stmt.compile(compile_kwargs={"literal_binds": True})
+        insert_sql = str(compiled_insert)
+
         function_body = f"""
         BEGIN
             SET ROLE {admin_role};
-            INSERT INTO {self.config.DB_SCHEMA}.group(tenant_id, name) VALUES (NEW.id, NEW.name);
+            {insert_sql};
             RETURN NEW;
         END;
         """
@@ -1047,10 +1081,10 @@ BEGIN
     -- First check if the record exists and get its current values
     EXECUTE format('
         SELECT EXISTS(
-            SELECT 1 FROM {schema_name}.{table_name}
+            SELECT 1 FROM {schema_name}.{self.quote_identifier(table_name)}
             WHERE %s
         ),
-        (SELECT to_jsonb(t.*) FROM {schema_name}.{table_name} t WHERE %s)
+        (SELECT to_jsonb(t.*) FROM {schema_name}.{self.quote_identifier(table_name)} t WHERE %s)
     ',
     array_to_string(
         array(
@@ -1061,7 +1095,7 @@ BEGIN
     ),
     array_to_string(
         array(
-            SELECT format('%I = %L', key, data->>key)
+            SELECT format('%I = %L', quote_identifier(key), data->>key)
             FROM unnest(all_keys) AS key
         ),
         ' AND '
@@ -1111,7 +1145,7 @@ BEGIN
             insert_columns := insert_columns || ', ';
             insert_values := insert_values || ', ';
         END IF;
-        insert_columns := insert_columns || quote_ident(column_name);
+        insert_columns := insert_columns || column_name;
         insert_values := insert_values || format('source.%I', column_name);
         
         -- Add to update clause if not a key column
@@ -1136,7 +1170,7 @@ BEGIN
             WITH source AS (
                 SELECT %s
             )
-            MERGE INTO {schema_name}.{table_name} AS target
+            MERGE INTO {quoted_full_table} AS target
             USING source
             ON %s
             WHEN MATCHED %s THEN
@@ -1160,12 +1194,12 @@ BEGIN
     -- Now get the final record state
     EXECUTE format('
         SELECT to_jsonb(t.*)
-        FROM {schema_name}.{table_name} t
+        FROM {quoted_full_table} t
         WHERE %s
     ',
     array_to_string(
         array(
-            SELECT format('t.%I = %L', key, data->>key)
+            SELECT format('%I = %L', quote_identifier(key), data->>key)
             FROM unnest(all_keys) AS key
         ),
         ' AND '

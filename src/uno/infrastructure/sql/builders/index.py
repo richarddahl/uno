@@ -4,7 +4,7 @@
 
 """SQL index builder."""
 
-from pydantic import BaseModel, field_validator, ValidationError
+from pydantic import BaseModel, field_validator
 
 
 class SQLIndexBuilderConfig(BaseModel):
