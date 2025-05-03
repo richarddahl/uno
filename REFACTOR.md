@@ -455,6 +455,7 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 - Create infrastructure integrations
 - Add comprehensive tests and benchmarks
 - Consolidate duplicated code and remove deprecated modules
+- All endpoints and tests use domain model output; no output DTOs remain.
 
 ---
 
@@ -466,6 +467,7 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 - No legacy code should be registered or imported unless refactored for DI, config, and error handling compliance
 - Strict separation of bounded contexts and modularity
 - Comprehensive, up-to-date documentation is required for all public APIs and patterns
+- API output must use canonical domain models (`model_dump()`); output DTOs are prohibited. Input DTOs are permitted only for request validation if domain construction is too strict for user input.
 
 ---
 
@@ -477,6 +479,7 @@ def get_vendor(vendor_id: str) -> VendorDTO:
 - Event upcasting and migration are first-class, with registry-based versioning
 - Snapshots are pluggable and strategy-driven
 - Performance benchmarks and DI integration tests are still outstanding
+- DTO output refactor complete; new standard enforced.
 - This checklist is a living document. Update it as implementation progresses. Mark items as complete [x] when they pass review and testing.
 
 ---
