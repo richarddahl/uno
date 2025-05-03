@@ -8,8 +8,9 @@ Implements orchestration, error context propagation, and DI-ready business logic
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Result, Success
 from uno.infrastructure.logging import LoggerService
-from examples.app.domain.vendor import Vendor
-from examples.app.persistence.vendor_repository_protocol import VendorRepository
+from ..domain.vendor import Vendor
+from ..persistence.vendor_repository_protocol import VendorRepository
+from ..domain.value_objects import EmailAddress
 
 
 class VendorService:
@@ -46,8 +47,6 @@ class VendorService:
                     },
                 )
             )
-        from examples.app.domain.value_objects import EmailAddress
-
         email_vo = EmailAddress(value=contact_email)
         vendor_result = Vendor.create(
             vendor_id=vendor_id, name=name, contact_email=email_vo

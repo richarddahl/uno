@@ -125,14 +125,20 @@ def app_factory() -> FastAPI:
 
     @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
     def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> dict:
+        """
+        Update an existing vendor.
+        """
+        from examples.app.domain.value_objects import EmailAddress
+
         result = vendor_repo.get(vendor_id)
         if isinstance(result, Failure):
-            raise HTTPException(
-                status_code=404, detail=f"Vendor not found: {vendor_id}"
-            )
+            raise HTTPException(status_code=404, detail=str(result.error))
         vendor = result.value
         vendor.name = data.name
-        vendor.contact_email = data.contact_email
+        email_result = EmailAddress.from_value(data.contact_email)
+        if isinstance(email_result, Failure):
+            raise HTTPException(status_code=400, detail=str(email_result.error))
+        vendor.contact_email = email_result.value
         vendor_repo.save(vendor)
         return vendor.model_dump()
 

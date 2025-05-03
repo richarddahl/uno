@@ -2,7 +2,7 @@
 Unit tests for the Vendor aggregate validate() method.
 """
 import pytest
-from examples.app.domain.vendor.vendor import Vendor
+from examples.app.domain.vendor import Vendor
 from examples.app.domain.value_objects import EmailAddress
 from uno.core.errors.result import Success, Failure
 

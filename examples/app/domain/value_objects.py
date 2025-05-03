@@ -731,11 +731,11 @@ class EmailAddress(ValueObject):
             )
 
     @pydantic.field_serializer("value")
-    def serialize_value(self, value, _info):
+    def serialize_value(self, value: EmailStr, _info) -> str:
         return str(value)
 
     @pydantic.model_serializer(mode="plain")
-    def serialize_emailaddress(self):
+    def serialize_emailaddress(self) -> str:
         return str(self.value)
 
     model_config: ClassVar = {"frozen": True}
