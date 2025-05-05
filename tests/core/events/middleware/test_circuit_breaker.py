@@ -1,16 +1,19 @@
+from typing import ClassVar
+
 import pytest
+
+from uno.core.errors.result import Failure, Result, Success
+from uno.core.events.base_event import DomainEvent
+from uno.core.events.handlers import EventHandlerContext
 from uno.core.events.middleware.circuit_breaker import (
     CircuitBreakerMiddleware,
     CircuitBreakerState,
 )
-from uno.core.events.handlers import EventHandlerContext
-from uno.core.errors.result import Success, Failure, Result
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
-from uno.core.events.base_event import DomainEvent
 
 
 class FakeEvent(DomainEvent):
-    event_type: str = "FakeEvent"
+    event_type: ClassVar[str] = "FakeEvent"
     event_id: str = "fake-id"
     aggregate_id: str = "agg-id"
 

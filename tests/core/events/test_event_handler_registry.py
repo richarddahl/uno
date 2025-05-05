@@ -7,7 +7,10 @@ Verifies that handler registration, logging, and error context propagation work 
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 import pytest
+
 from uno.core.errors.base import ErrorContext
 from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
@@ -16,10 +19,8 @@ from uno.core.events.context import EventHandlerContext
 from uno.core.events.handlers import (
     EventHandler,
     EventHandlerRegistry,
-    EventHandlerDecorator,
 )
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
-from typing import Any
 
 
 class FakeLoggerService(LoggerService):
@@ -49,14 +50,8 @@ async def test_registry_registers_and_logs() -> None:
     assert handler in handlers
 
 
-from uno.core.events.bus import InMemoryEventBus
-from uno.core.events.base_event import DomainEvent
-from uno.core.events.context import EventHandlerContext
-from uno.core.errors.result import Failure
-
-
 class FakeEvent(DomainEvent):
-    event_type = "FailEvent"
+    event_type: ClassVar[str] = "FailEvent"
 
 
 @pytest.mark.asyncio
@@ -71,7 +66,7 @@ async def test_registry_error_logging() -> None:
     from uno.core.async_utils import AsyncEventHandlerAdapter
 
     bus = InMemoryEventBus(logger)
-    bus.subscribe("FailEvent", AsyncEventHandlerAdapter(handler, logger))
+    bus.subscribe(FakeEvent.event_type, AsyncEventHandlerAdapter(handler, logger))
     event = FakeEvent()
     await bus.publish(event)
     # Should log error

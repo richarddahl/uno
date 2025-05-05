@@ -2,30 +2,33 @@
 Unit tests for InMemoryEventStore with strict DI-LoggerService injection.
 """
 
-import pytest
-from unittest.mock import MagicMock
 import unittest.mock
+from typing import ClassVar
+from unittest.mock import MagicMock
+
+import pytest
+
+from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.event_store import InMemoryEventStore
 from uno.infrastructure.logging.logger import LoggerService
-from uno.core.errors.result import Success, Failure
 
 
 class FakeEvent(DomainEvent):
-    event_type: str = "fake_event"
+    event_type: ClassVar[str] = "fake_event"
     aggregate_id: str
     version: int
     foo: str
 
 
-def make_logger():
+def make_logger() -> LoggerService:
     logger = MagicMock(spec=LoggerService)
     logger.structured_log = MagicMock()
     return logger
 
 
 @pytest.mark.asyncio
-async def test_save_event_success():
+async def test_save_event_success() -> None:
     logger = make_logger()
     store = InMemoryEventStore(logger)
     event = FakeEvent(aggregate_id="agg-1", version=1, foo="bar")
@@ -39,7 +42,7 @@ async def test_save_event_success():
 
 
 @pytest.mark.asyncio
-async def test_save_event_failure():
+async def test_save_event_failure() -> None:
     logger = make_logger()
     store = InMemoryEventStore(logger)
     # Simulate failure by monkeypatching _events to None
@@ -53,7 +56,7 @@ async def test_save_event_failure():
 
 
 @pytest.mark.asyncio
-async def test_get_events_filters_and_logs():
+async def test_get_events_filters_and_logs() -> None:
     logger = make_logger()
     store = InMemoryEventStore(logger)
     e1 = FakeEvent(aggregate_id="agg-1", version=1, foo="a")
@@ -70,7 +73,7 @@ async def test_get_events_filters_and_logs():
 
 
 @pytest.mark.asyncio
-async def test_get_events_by_aggregate_id_success():
+async def test_get_events_by_aggregate_id_success() -> None:
     logger = make_logger()
     store = InMemoryEventStore(logger)
     e1 = FakeEvent(aggregate_id="agg-1", version=1, foo="a")
@@ -82,7 +85,7 @@ async def test_get_events_by_aggregate_id_success():
 
 
 @pytest.mark.asyncio
-async def test_get_events_by_aggregate_id_failure():
+async def test_get_events_by_aggregate_id_failure() -> None:
     logger = make_logger()
     store = InMemoryEventStore(logger)
     # No events for this aggregate

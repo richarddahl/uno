@@ -8,12 +8,12 @@ from pydantic import BaseModel, field_validator
 
 
 class SQLIndexBuilderConfig(BaseModel):
-    schema: str
+    db_schema: str
     table_name: str
     index_name: str
     columns: list[str]
 
-    @field_validator("schema", "table_name", "index_name")
+    @field_validator("db_schema", "table_name", "index_name")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -52,7 +52,7 @@ class SQLIndexBuilder:
 
     def __init__(self) -> None:
         """Initialize the SQL index builder."""
-        self.schema: str | None = None
+        self.db_schema: str | None = None
         self.table_name: str | None = None
         self.index_name: str | None = None
         self.columns: list[str] = []
@@ -62,16 +62,16 @@ class SQLIndexBuilder:
         self.include_columns: list[str] = []
         self.where_clause: str | None = None
 
-    def with_schema(self, schema: str) -> "SQLIndexBuilder":
-        """Set the schema for the index.
+    def with_schema(self, db_schema: str) -> "SQLIndexBuilder":
+        """Set the db_schema for the index.
 
         Args:
-            schema: Schema name
+            db_schema: Schema name
 
         Returns:
             Self for method chaining
         """
-        self.schema = schema
+        self.db_schema = db_schema
         return self
 
     def with_table(self, table_name: str) -> "SQLIndexBuilder":
@@ -178,7 +178,7 @@ class SQLIndexBuilder:
         """
         # Validate required fields with Pydantic
         config = SQLIndexBuilderConfig(
-            schema=self.schema or "",
+            db_schema=self.db_schema or "",
             table_name=self.table_name or "",
             index_name=self.index_name or "",
             columns=self.columns or [],
@@ -195,7 +195,7 @@ class SQLIndexBuilder:
 
         return f"""
             CREATE {unique} INDEX {config.index_name}
-            ON {config.schema}.{config.table_name} USING {self.index_method}
+            ON {config.db_schema}.{config.table_name} USING {self.index_method}
             ({", ".join(config.columns)})
             {include}
             {where}

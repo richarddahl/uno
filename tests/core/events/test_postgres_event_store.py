@@ -4,33 +4,31 @@ Covers: CRUD, replay, concurrency/version conflict, upcasting, and error scenari
 """
 
 import asyncio
+
+# --- Fixtures ---
+import os
 from datetime import UTC, datetime
+from typing import ClassVar
 from uuid import uuid4
 
 import pytest
-from uno.infrastructure.di.provider import reset_global_service_provider
 
 from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
-
-
-# --- Fixtures ---
-
-
-import os
+from uno.infrastructure.di import (
+    ServiceCollection,
+    get_service_provider,
+    initialize_services,
+    shutdown_services,
+)
+from uno.infrastructure.di.provider import reset_global_service_provider
 from uno.infrastructure.di.providers.database import (
     get_db_engine,
     get_db_session,
     register_database_services,
 )
-from uno.infrastructure.di import (
-    ServiceCollection,
-    initialize_services,
-    shutdown_services,
-    get_service_provider,
-)
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 # --- Fast, isolated unit test fixture using in-memory SQLite ---
@@ -56,7 +54,7 @@ async def override_db_provider() -> None:
 
 
 @pytest.fixture(scope="function")
-async def pg_event_store(override_db_provider):
+async def pg_event_store(override_db_provider: None) -> PostgresEventStore:
     # Use the overridden in-memory engine/session for fast tests
     engine = get_service_provider().get_service("db_engine")
     session = get_service_provider().get_service("db_session")
@@ -75,7 +73,7 @@ async def pg_event_store(override_db_provider):
 
 # --- Integration test fixture using real Postgres backend ---
 @pytest.fixture(scope="function")
-async def pg_event_store_postgres():
+async def pg_event_store_postgres(override_db_provider: None) -> PostgresEventStore:
     # Uses the default configured Postgres backend (do not override provider)
     engine = get_db_engine()
     session = get_db_session()
@@ -92,7 +90,7 @@ async def pg_event_store_postgres():
 
 # --- Sample DomainEvent subclass ---
 class FakeEvent(DomainEvent):
-    event_type: str = "fake_event"
+    event_type: ClassVar[str] = "fake_event"
     aggregate_id: str
     version: int
     timestamp: datetime = datetime.now(UTC)
@@ -101,7 +99,7 @@ class FakeEvent(DomainEvent):
 
 # --- Tests ---
 @pytest.mark.asyncio
-async def test_save_and_get_event(pg_event_store):
+async def test_save_and_get_event(pg_event_store: PostgresEventStore) -> None:
     event = FakeEvent(aggregate_id=str(uuid4()), version=1, foo="bar")
     result = await pg_event_store.save_event(event)
     assert isinstance(result, Success)
@@ -115,7 +113,7 @@ async def test_save_and_get_event(pg_event_store):
 
 
 @pytest.mark.asyncio
-async def test_replay_multiple_events(pg_event_store):
+async def test_replay_multiple_events(pg_event_store: PostgresEventStore) -> None:
     agg_id = str(uuid4())
     events = [
         FakeEvent(aggregate_id=agg_id, version=i, foo=f"v{i}") for i in range(1, 4)
@@ -131,7 +129,7 @@ async def test_replay_multiple_events(pg_event_store):
 
 
 @pytest.mark.asyncio
-async def test_concurrency_conflict(pg_event_store):
+async def test_concurrency_conflict(pg_event_store: PostgresEventStore) -> None:
     agg_id = str(uuid4())
     event1 = FakeEvent(aggregate_id=agg_id, version=1, foo="x")
     event2 = FakeEvent(aggregate_id=agg_id, version=1, foo="y")
@@ -142,7 +140,7 @@ async def test_concurrency_conflict(pg_event_store):
 
 
 @pytest.mark.asyncio
-async def test_event_type_filter(pg_event_store):
+async def test_event_type_filter(pg_event_store: PostgresEventStore) -> None:
     agg_id = str(uuid4())
     event_a = FakeEvent(aggregate_id=agg_id, version=1, foo="a")
     await pg_event_store.save_event(event_a)
@@ -152,7 +150,7 @@ async def test_event_type_filter(pg_event_store):
 
 
 @pytest.mark.asyncio
-async def test_error_handling(pg_event_store):
+async def test_error_handling(pg_event_store: PostgresEventStore) -> None:
     # Simulate error: missing required field
     event = FakeEvent(aggregate_id=None, version=1, foo="bad")  # type: ignore
     res = await pg_event_store.save_event(event)

@@ -1,20 +1,18 @@
-import pytest
 import asyncio
-from unittest.mock import MagicMock
-from uno.core.events.middleware.metrics import MetricsMiddleware, EventMetrics
-from uno.core.events.handlers import EventHandlerContext
-from uno.infrastructure.logging.logger import LoggerService
-from uno.core.errors.result import Success, Failure
+from typing import Any, ClassVar
+
+import pytest
+
+from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
+from uno.core.events.handlers import EventHandlerContext
+from uno.core.events.middleware.metrics import EventMetrics, MetricsMiddleware
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 class FakeEvent(DomainEvent):
-    event_type: str = "FakeEvent"
+    event_type: ClassVar[str] = "FakeEvent"
     version: int = 1
-
-
-from uno.infrastructure.logging.logger import LoggingConfig
-from typing import Any
 
 
 class FakeLoggerService(LoggerService):

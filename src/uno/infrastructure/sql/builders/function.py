@@ -8,12 +8,12 @@ from pydantic import BaseModel, field_validator
 
 
 class SQLFunctionBuilderConfig(BaseModel):
-    schema: str
+    db_schema: str
     name: str
     return_type: str
     body: str
 
-    @field_validator("schema", "name", "return_type", "body")
+    @field_validator("db_schema", "name", "return_type", "body")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -43,7 +43,7 @@ class SQLFunctionBuilder:
 
     def __init__(self):
         """Initialize the SQL function builder."""
-        self.schema: str | None = None
+        self.db_schema: str | None = None
         self.name: str | None = None
         self.args: str = ""
         self.return_type: str = "TRIGGER"
@@ -54,16 +54,16 @@ class SQLFunctionBuilder:
         self.db_name: str | None = None
         self.auto_set_admin_role: bool = True
 
-    def with_schema(self, schema: str) -> "SQLFunctionBuilder":
-        """Set the schema for the function.
+    def with_schema(self, db_schema: str) -> "SQLFunctionBuilder":
+        """Set the db_schema for the function.
 
         Args:
-            schema: Schema name
+            db_schema: Schema name
 
         Returns:
             Self for method chaining
         """
-        self.schema = schema
+        self.db_schema = db_schema
         return self
 
     def with_name(self, name: str) -> "SQLFunctionBuilder":
@@ -191,7 +191,7 @@ class SQLFunctionBuilder:
         """
         # Validate required fields with Pydantic
         config = SQLFunctionBuilderConfig(
-            schema=self.schema or "",
+            db_schema=self.db_schema or "",
             name=self.name or "",
             return_type=self.return_type or "",
             body=self.body or "",
@@ -208,7 +208,7 @@ class SQLFunctionBuilder:
                 body = f"SET ROLE {admin_role};\n{body}"
         security = "SECURITY DEFINER" if self.security_definer else ""
         return f"""
-            CREATE OR REPLACE FUNCTION {config.schema}.{config.name}({self.args})
+            CREATE OR REPLACE FUNCTION {config.db_schema}.{config.name}({self.args})
             RETURNS {config.return_type}
             LANGUAGE {self.language}
             {self.volatility}
