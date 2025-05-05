@@ -80,8 +80,7 @@ def app_factory() -> FastAPI:
             raise HTTPException(status_code=422, detail=str(error))
         item = result.unwrap()
         d = item.model_dump()
-        if isinstance(d.get("measurement"), dict) and "value" in d["measurement"]:
-            d["measurement"] = d["measurement"]["value"]
+        # Always return measurement as a dict with 'type', 'unit', and 'value' (for count measurements)
         return d
 
     @app.post("/vendors/", tags=["vendors"], response_model=dict, status_code=201)
@@ -101,8 +100,7 @@ def app_factory() -> FastAPI:
             raise result.error
         item = result.unwrap()
         d = item.model_dump()
-        if isinstance(d.get("measurement"), dict) and "value" in d["measurement"]:
-            d["measurement"] = d["measurement"]["value"]
+        # Always return measurement as a dict with 'type', 'unit', and 'value' (for count measurements)
         return d
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)

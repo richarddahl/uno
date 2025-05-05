@@ -55,7 +55,7 @@ class InventoryItem(AggregateRoot[str]):
                 q = measurement
             elif isinstance(measurement, Count):
                 # Direct construction to avoid using factory methods that might use logger
-                q = Measurement(type="count", value=measurement)
+                q = Measurement(type="count", value=Count(type="count", value=measurement.value, unit=measurement.unit))
             elif isinstance(measurement, int | float):
                 if measurement < 0:
                     return Failure(
@@ -65,9 +65,7 @@ class InventoryItem(AggregateRoot[str]):
                         )
                     )
                 # Direct construction of Count and Measurement to avoid logger service
-                count = Count(
-                    type="count", value=float(measurement), unit=CountUnit.EACH
-                )
+                count = Count(type="count", value=float(measurement), unit=CountUnit.EACH)
                 q = Measurement(type="count", value=count)
             else:
                 return Failure(
