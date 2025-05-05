@@ -16,7 +16,7 @@ import pkgutil
 from collections.abc import Iterator
 from typing import Any, TypeVar
 
-from uno.infrastructure.di.container import ServiceCollection, ServiceScope
+from uno.infrastructure.di.service_collection import ServiceCollection, ServiceScope
 from uno.infrastructure.di.decorators import _global_service_registry
 from uno.infrastructure.di.provider import ServiceProvider, get_service_provider
 

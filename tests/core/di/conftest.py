@@ -2,8 +2,10 @@
 Pytest configuration for DI/provider tests: globally suppress all log output except for tests that explicitly capture/assert on logs.
 This ensures silent test output and avoids interfering with caplog/capture-based tests.
 """
+
 import logging
 import pytest
+
 
 @pytest.fixture(autouse=True, scope="session")
 def suppress_all_logs():

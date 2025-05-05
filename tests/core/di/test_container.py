@@ -4,7 +4,7 @@
 # See docs/di_testing.md for DI test patterns and best practices
 
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 
 
 class Bar:

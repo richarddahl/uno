@@ -128,9 +128,7 @@ class InventoryItem(AggregateRoot[str]):
                     )
                 )
             result = InventoryItemRenamed.create(
-                aggregate_id=self.id,
-                new_name=new_name,
-                measurement=self.measurement
+                aggregate_id=self.id, new_name=new_name, measurement=self.measurement
             )
             if isinstance(result, Failure):
                 return result

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.logging.config_service import LoggingConfigService
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 

@@ -3,9 +3,11 @@
 """
 Unit tests for uno.core.domain.value_object.ValueObject
 """
+
 import pytest
 from uno.core.domain.value_object import ValueObject
 from pydantic import ValidationError
+
 
 class FakeValueObject(ValueObject):
     x: int
@@ -15,6 +17,7 @@ class FakeValueObject(ValueObject):
 def test_immutability():
     vo = FakeValueObject(x=1, y="foo")
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError):
         vo.x = 2
     with pytest.raises(ValidationError):
@@ -40,6 +43,7 @@ def test_to_dict_and_from_dict():
     vo2 = result.value
     assert vo == vo2
 
+
 def test_from_dict_failure():
     # Missing required field
     result = FakeValueObject.from_dict({"x": 1})
@@ -56,6 +60,7 @@ def test_none_and_unset_fields():
     class OptionalVO(ValueObject):
         a: int | None = None
         b: str | None = None
+
     vo = OptionalVO()
     d = vo.to_dict()
     assert "a" not in d and "b" not in d

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 if TYPE_CHECKING:
     from uno.core.events.base_event import DomainEvent
 
+
 class EventHandlerContext(BaseModel):
     """
     Uno canonical Pydantic base model for event handler context objects.
@@ -14,7 +15,7 @@ class EventHandlerContext(BaseModel):
       - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for serialization, storage, and transport.
       - Unset and None fields are treated identically; excluded from serialization.
       - This contract is enforced by dedicated tests.
-    
+
     - All model-wide concerns (e.g., validation, serialization) are handled via Pydantic model_config and validators.
     - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
     - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
@@ -24,6 +25,7 @@ class EventHandlerContext(BaseModel):
     Context object passed to event handlers and middleware.
     Encapsulates the event and any relevant metadata for processing.
     """
+
     event: "DomainEvent"
     metadata: dict[str, Any] = {}
 

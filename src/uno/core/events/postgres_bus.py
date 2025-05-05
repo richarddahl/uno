@@ -4,11 +4,13 @@ Postgres-backed EventBus and CommandBus for Uno using asyncpg.
 - Listeners use LISTEN to get notified and then fetch new events/commands from the table.
 - Ensures durability and real-time delivery (best effort).
 """
+
 import asyncio
 import asyncpg
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
+
 
 class PostgresBus:
     def __init__(self, dsn: str, channel: str, table: str) -> None:
@@ -26,12 +28,19 @@ class PostgresBus:
     async def publish(self, payload: dict[str, Any]) -> None:
         assert self._conn is not None
         if hasattr(payload, "model_dump"):
-            data = json.dumps(payload.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude_none=True))
+            data = json.dumps(
+                payload.model_dump(
+                    mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+                )
+            )
         else:
             data = json.dumps(payload)
-        await self._conn.execute(f"""
+        await self._conn.execute(
+            f"""
             INSERT INTO {self._table} (payload) VALUES ($1)
-        """, data)
+        """,
+            data,
+        )
         await self._conn.execute(f"NOTIFY {self._channel}")
 
     def subscribe(self, handler: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
@@ -42,16 +51,23 @@ class PostgresBus:
         while True:
             msg = await self._conn.connection.notifies.get()
             # Fetch all new rows from table
-            rows = await self._conn.fetch(f"SELECT id, payload FROM {self._table} WHERE processed = FALSE ORDER BY id")
+            rows = await self._conn.fetch(
+                f"SELECT id, payload FROM {self._table} WHERE processed = FALSE ORDER BY id"
+            )
             for row in rows:
                 payload = json.loads(row["payload"])
                 for handler in self._listeners:
                     await handler(payload)
-                await self._conn.execute(f"UPDATE {self._table} SET processed = TRUE WHERE id = $1", row["id"])
+                await self._conn.execute(
+                    f"UPDATE {self._table} SET processed = TRUE WHERE id = $1",
+                    row["id"],
+                )
+
 
 class PostgresEventBus(PostgresBus):
     def __init__(self, dsn: str) -> None:
         super().__init__(dsn, channel="uno_events", table="uno_events")
+
 
 class PostgresCommandBus(PostgresBus):
     def __init__(self, dsn: str) -> None:

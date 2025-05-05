@@ -52,7 +52,15 @@ class EventUpcastError(FrameworkError):
     Raised when an event cannot be upcasted to the target version during event sourcing.
     This error indicates that no upcaster is registered or upcasting failed due to an internal error.
     """
-    def __init__(self, event_type: str, from_version: int, to_version: int, message: str | None = None, **context: Any):
+
+    def __init__(
+        self,
+        event_type: str,
+        from_version: int,
+        to_version: int,
+        message: str | None = None,
+        **context: Any,
+    ):
         message = message or (
             f"No upcaster registered for {event_type} v{from_version} -> v{to_version}"
         )
@@ -613,14 +621,17 @@ class AuthorizationError(FrameworkError):
 # Domain Error Classes
 # -----------------------------------------------------------------------------
 
+
 class AggregateNotDeletedError(Exception):
     """Raised when attempting to restore an aggregate that is not deleted."""
+
     pass
+
 
 class AggregateDeletedError(Exception):
     """Raised when attempting to mutate a deleted aggregate."""
-    pass
 
+    pass
 
 
 class DomainError(FrameworkError):
@@ -644,16 +655,24 @@ class DomainError(FrameworkError):
 
     def to_dict(self) -> dict[str, Any]:
         from pydantic import BaseModel
+
         def serialize_detail(val):
             if isinstance(val, BaseModel):
-                return val.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+                return val.model_dump(
+                    exclude_none=True, exclude_unset=True, by_alias=True
+                )
             elif isinstance(val, dict):
                 return {k: serialize_detail(v) for k, v in val.items()}
             elif isinstance(val, list):
                 return [serialize_detail(v) for v in val]
             else:
                 return val
-        return {"message": self.message, "code": self.code, "details": serialize_detail(self.details)}
+
+        return {
+            "message": self.message,
+            "code": self.code,
+            "details": serialize_detail(self.details),
+        }
 
 
 class DomainValidationError(DomainError):

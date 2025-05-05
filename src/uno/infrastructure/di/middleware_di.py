@@ -8,7 +8,7 @@ and the DI system.
 
 from typing import Any, Protocol, TypeVar, cast
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.core.events.middleware import (
     CircuitBreakerOptions,
     MetricsOptions,

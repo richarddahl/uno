@@ -1,7 +1,9 @@
 """
 Simple in-memory event bus for Uno, suitable for testing and integration with sagas/process managers.
 """
+
 from typing import Callable, Any, Awaitable, List
+
 
 class EventBus:
     def __init__(self) -> None:

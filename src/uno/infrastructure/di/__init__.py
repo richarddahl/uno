@@ -4,22 +4,22 @@
 
 from typing import TypeVar
 
-from uno.infrastructure.di.service_registration import ServiceRegistration
-
-# Import internal types needed for type hints or advanced usage, if any
 # Public API symbols for uno.infrastructure.di
-from uno.infrastructure.di.container import ServiceCollection
-from uno.infrastructure.di.provider import (
-    ServiceLifecycle,
+from uno.infrastructure.di.service_collection import ServiceCollection
+from uno.infrastructure.di.resolver import ServiceResolver
+from uno.infrastructure.di.service_registration import ServiceRegistration
+from uno.infrastructure.di.service_scope import ServiceScope
+from uno.infrastructure.di.service_provider import (
     ServiceProvider,
     get_service_provider,
     initialize_services,
     shutdown_services,
 )
-from uno.infrastructure.di.service_scope import ServiceScope
+
+# Forward reference for ServiceLifecycle
+ServiceLifecycle = "ServiceLifecycle[ProviderT]"
 
 ProviderT = TypeVar("ProviderT")
-
 
 """
 Scoped dependency injection container for Uno framework.
@@ -42,6 +42,8 @@ __all__ = [
     "ServiceCollection",
     "ServiceLifecycle",
     "ServiceProvider",
+    "ServiceRegistration",
+    "ServiceResolver",
     "ServiceScope",
     "get_service_provider",
     "initialize_services",

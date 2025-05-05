@@ -1,10 +1,12 @@
 """
 Saga and process manager base classes for Uno event sourcing.
 """
+
 from abc import ABC, abstractmethod
 from typing import Any
 
 from uno.core.events.saga_store import SagaState
+
 
 class Saga(ABC):
     """
@@ -12,6 +14,7 @@ class Saga(ABC):
     Provides standardized state hydration and persistence via SagaState.
     Subclasses should store all custom state in self.data and may extend _serialize_extra/_hydrate_extra for advanced needs.
     """
+
     def __init__(self):
         self.saga_id: str | None = None
         self.status: str = "pending"
@@ -30,9 +33,7 @@ class Saga(ABC):
     def get_state(self) -> SagaState:
         """Final: returns SagaState for persistence. Subclasses should not override; use _serialize_extra for extra fields."""
         state = SagaState(
-            saga_id=self.saga_id or "",
-            status=self.status,
-            data=self.data.copy()
+            saga_id=self.saga_id or "", status=self.status, data=self.data.copy()
         )
         self._serialize_extra(state)
         return state

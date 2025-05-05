@@ -9,7 +9,8 @@ import pytest
 
 from examples.app.domain.inventory import InventoryItem
 from examples.app.persistence.inventory_item_repository_protocol import (
-    InventoryItemRepository, InventoryItemNotFoundError
+    InventoryItemRepository,
+    InventoryItemNotFoundError,
 )
 from examples.app.services.inventory_item_service import InventoryItemService
 from uno.core.errors.definitions import DomainValidationError

@@ -26,8 +26,9 @@ def test_order_validate_domain_invariants(
 ):
     import pytest
     from pydantic import ValidationError
+
     measurement = Measurement.from_count(10)
-    price = Money.from_value(Decimal('100.00'), Currency.USD).unwrap()
+    price = Money.from_value(Decimal("100.00"), Currency.USD).unwrap()
     if expect_success:
         order = Order(
             id="O1",

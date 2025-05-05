@@ -143,7 +143,7 @@ async def connect_with_retry(
                     # Log successful connection
                     log.debug(
                         f"Connected to {config.db_role}@{config.db_host}/{config.db_name} "
-                        f"(attempt {attempt+1}/{max_retries})"
+                        f"(attempt {attempt + 1}/{max_retries})"
                     )
 
                     # Return the open connection

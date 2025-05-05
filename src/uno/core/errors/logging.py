@@ -212,8 +212,6 @@ def configure_logging(config: LogConfig = None) -> None:
         root_logger.addHandler(file_handler)
 
 
-
-
 def add_logging_context(**context: Any) -> None:
     """
     Add key-value pairs to the current logging context.
@@ -285,7 +283,9 @@ def with_logging_context(func: Callable) -> Callable:
         # Get the current context
         current_context = _logging_context.get().copy()
         new_context = current_context.copy()
-        new_context.update({"function": func.__name__, "module": func.__module__, "args": arg_dict})
+        new_context.update(
+            {"function": func.__name__, "module": func.__module__, "args": arg_dict}
+        )
         token = _logging_context.set(new_context)
 
         try:
@@ -293,15 +293,22 @@ def with_logging_context(func: Callable) -> Callable:
         except Exception as e:
             # Prefer DI-injected logger if available
             logger = None
-            if 'logger' in bound.arguments:
-                logger = bound.arguments['logger']
-            if logger is not None and hasattr(logger, 'structured_log'):
-                logger.structured_log("ERROR", f"Exception in {func.__name__}: {e!s}", exc_info=e, context=new_context)
+            if "logger" in bound.arguments:
+                logger = bound.arguments["logger"]
+            if logger is not None and hasattr(logger, "structured_log"):
+                logger.structured_log(
+                    "ERROR",
+                    f"Exception in {func.__name__}: {e!s}",
+                    exc_info=e,
+                    context=new_context,
+                )
             else:
                 # Fallback to legacy structured logging (discouraged)
                 legacy_logger = logging.getLogger(func.__module__)
                 legacy_logger = StructuredLogAdapter(legacy_logger, {})
-                legacy_logger.exception(f"Exception in {func.__name__}: {e!s}", exc_info=e)
+                legacy_logger.exception(
+                    f"Exception in {func.__name__}: {e!s}", exc_info=e
+                )
             raise
         finally:
             _logging_context.reset(token)

@@ -8,7 +8,7 @@ The marker/skip logic is now centralized in tests/conftest.py.
 
 import time
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 
 
 class FastService:

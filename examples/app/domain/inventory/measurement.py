@@ -46,6 +46,7 @@ class Measurement(ValueObject):
     def from_mass(cls, mass: "Mass | float") -> "Measurement":
         """Create a Measurement of type 'mass' from a Mass value object or primitive."""
         from .value_objects import Mass, MassUnit
+
         if isinstance(mass, Mass):
             return cls(type="mass", value=mass)
         elif isinstance(mass, float):
@@ -56,6 +57,7 @@ class Measurement(ValueObject):
     def from_volume(cls, volume: "Volume | float") -> "Measurement":
         """Create a Measurement of type 'volume' from a Volume value object or primitive."""
         from .value_objects import Volume, VolumeUnit
+
         if isinstance(volume, Volume):
             return cls(type="volume", value=volume)
         elif isinstance(volume, float):
@@ -68,6 +70,7 @@ class Measurement(ValueObject):
     def from_dimension(cls, dimension: "Dimension | float") -> "Measurement":
         """Create a Measurement of type 'dimension' from a Dimension value object or primitive."""
         from .value_objects import Dimension, DimensionUnit
+
         if isinstance(dimension, Dimension):
             return cls(type="dimension", value=dimension)
         elif isinstance(dimension, float):
@@ -95,18 +98,22 @@ class Measurement(ValueObject):
 
         if data["type"] == "mass":
             from .value_objects import Mass
+
             if not isinstance(data["value"], Mass):
                 raise ValueError("Value must be of type Mass for type 'mass'")
         elif data["type"] == "volume":
             from .value_objects import Volume
+
             if not isinstance(data["value"], Volume):
                 raise ValueError("Value must be of type Volume for type 'volume'")
         elif data["type"] == "dimension":
             from .value_objects import Dimension
+
             if not isinstance(data["value"], Dimension):
                 raise ValueError("Value must be of type Dimension for type 'dimension'")
         elif data["type"] == "count":
             from .value_objects import Count
+
             if not isinstance(data["value"], Count):
                 raise ValueError("Value must be of type Count for type 'count'")
         else:
@@ -142,6 +149,7 @@ class Measurement(ValueObject):
             TypeError: If each is not a Count, int, or float.
         """
         from .value_objects import Count
+
         if isinstance(each, Count):
             return cls(type="count", value=each)
         elif isinstance(each, (int, float)):

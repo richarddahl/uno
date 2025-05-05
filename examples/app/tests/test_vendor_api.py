@@ -14,6 +14,7 @@ from examples.app.api.api import app_factory
 def app():
     return app_factory()
 
+
 @pytest.fixture(scope="module")
 def client(app) -> TestClient:
     return TestClient(app)

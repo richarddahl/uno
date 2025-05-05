@@ -3,16 +3,19 @@ Type utility functions for Uno DI.
 
 These helpers provide type reflection, protocol/abstract/concrete checks, and safe type hint and namespace extraction for DI resolution.
 """
+
 from typing import Any, get_type_hints
 import inspect
 import sys
 import builtins
+
 
 def is_abstract_or_protocol(t: type[Any]) -> bool:
     """
     Check if a type is abstract or a protocol.
     """
     return inspect.isabstract(t) or hasattr(t, "_is_protocol")
+
 
 def is_concrete_type(t: type[Any]) -> bool:
     """
@@ -27,7 +30,9 @@ def is_concrete_type(t: type[Any]) -> bool:
     if inspect.isabstract(t):
         return False
     # Check if it's a framework service
-    if hasattr(t, "__framework_service__") and getattr(t, "__framework_service__", False):
+    if hasattr(t, "__framework_service__") and getattr(
+        t, "__framework_service__", False
+    ):
         return True
     # Check if it has an __init__ method that can be called
     if not hasattr(t, "__init__"):
@@ -40,6 +45,7 @@ def is_concrete_type(t: type[Any]) -> bool:
         return False
     return True
 
+
 def get_constructor_type_hints_safe(impl: type[Any]) -> dict[str, Any]:
     """
     Get type hints for a constructor safely.
@@ -48,6 +54,7 @@ def get_constructor_type_hints_safe(impl: type[Any]) -> dict[str, Any]:
         return get_type_hints(impl.__init__)
     except Exception:
         return {}
+
 
 def get_eval_namespaces(impl: type[Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """
@@ -61,5 +68,9 @@ def get_eval_namespaces(impl: type[Any]) -> tuple[dict[str, Any], dict[str, Any]
         globalns = sys.modules[impl.__module__].__dict__
     else:
         globalns = vars(builtins)
-    localns = sys.modules[impl.__module__].__dict__ if hasattr(impl, "__module__") else globalns
+    localns = (
+        sys.modules[impl.__module__].__dict__
+        if hasattr(impl, "__module__")
+        else globalns
+    )
     return globalns, localns

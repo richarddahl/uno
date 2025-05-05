@@ -4,6 +4,7 @@ from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
 from uno.infrastructure.sql.builders.index import SQLIndexBuilder
 from uno.infrastructure.sql.builders.trigger import SQLTriggerBuilder
 
+
 # --- SQLFunctionBuilder Tests ---
 def test_function_builder_success():
     sql = (
@@ -19,10 +20,12 @@ def test_function_builder_success():
     assert "RETURNS int" in sql
     assert "BEGIN RETURN a + b; END;" in sql
 
+
 def test_function_builder_missing_required():
     builder = SQLFunctionBuilder().with_schema("public").with_name("").with_body("")
     with pytest.raises(ValidationError):
         builder.build()
+
 
 # --- SQLIndexBuilder Tests ---
 def test_index_builder_success():
@@ -39,10 +42,14 @@ def test_index_builder_success():
     assert "ON public.users USING btree" in sql
     assert "(email)" in sql
 
+
 def test_index_builder_missing_required():
-    builder = SQLIndexBuilder().with_schema("").with_table("").with_name("").with_columns([])
+    builder = (
+        SQLIndexBuilder().with_schema("").with_table("").with_name("").with_columns([])
+    )
     with pytest.raises(ValidationError):
         builder.build()
+
 
 # --- SQLTriggerBuilder Tests ---
 def test_trigger_builder_success():
@@ -60,7 +67,14 @@ def test_trigger_builder_success():
     assert "BEFORE UPDATE ON public.users" in sql
     assert "EXECUTE FUNCTION my_func();" in sql
 
+
 def test_trigger_builder_missing_required():
-    builder = SQLTriggerBuilder().with_schema("").with_table("").with_name("").with_function("")
+    builder = (
+        SQLTriggerBuilder()
+        .with_schema("")
+        .with_table("")
+        .with_name("")
+        .with_function("")
+    )
     with pytest.raises(ValidationError):
         builder.build()

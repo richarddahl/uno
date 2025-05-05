@@ -7,7 +7,7 @@ to easily register event middleware components.
 
 from typing import Any, Protocol
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.core.events.middleware import (
     CircuitBreakerOptions,
     MetricsOptions,

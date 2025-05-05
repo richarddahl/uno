@@ -130,13 +130,16 @@ def test_with_error_context():
 class FakeLogger:
     def __init__(self):
         self.calls = []
+
     def structured_log(self, level, msg, **kwargs):
         self.calls.append((level, msg, kwargs))
+
 
 # Test: with_logging_context uses DI logger and injects context
 @with_logging_context
 def func_with_context(foo: int, bar: str, logger=None):
     raise ValueError("fail!")
+
 
 def test_with_logging_context():
     fake_logger = FakeLogger()

@@ -121,6 +121,7 @@ def test_domain_event_from_dict_success_and_failure():
     that error handling for missing required fields should be tested on concrete subclasses.
     """
     from uno.core.events.base_event import DomainEvent
+
     # Valid minimal event
     valid = {
         "event_id": "evt_123",
@@ -139,8 +140,10 @@ def test_domain_event_from_dict_success_and_failure():
     # To test failure, use a subclass with required fields
     from pydantic import Field
     from uno.core.events.base_event import DomainEvent
+
     class MinimalEvent(DomainEvent):
         required_field: str = Field(...)
+
     valid2 = {"required_field": "foo"}
     r3 = MinimalEvent.from_dict(valid2)
     assert r3.is_success
@@ -152,6 +155,7 @@ def test_domain_event_from_dict_success_and_failure():
 
 def test_deleted_event_from_dict_success_and_failure():
     from uno.core.events.deleted_event import DeletedEvent
+
     # Valid
     valid = {"aggregate_id": "agg1"}
     result = DeletedEvent.from_dict(valid)
@@ -167,6 +171,7 @@ def test_deleted_event_from_dict_success_and_failure():
 
 def test_restored_event_from_dict_success_and_failure():
     from uno.core.events.restored_event import RestoredEvent
+
     valid = {"aggregate_id": "agg2"}
     result = RestoredEvent.from_dict(valid)
     assert result.is_success
@@ -181,6 +186,7 @@ def test_restored_event_from_dict_success_and_failure():
 
 def test_event_from_dict_corrupt_stream():
     from uno.core.events.base_event import DomainEvent
+
     # Corrupt: wrong type for event_id
     corrupt = {"event_id": 123, "timestamp": 1.0, "version": 1, "metadata": {}}
     result = DomainEvent.from_dict(corrupt)

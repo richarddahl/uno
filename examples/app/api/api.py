@@ -23,7 +23,7 @@ from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure
 
 # --- Dependency Injection Setup (module-level singletons) ---
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.logging import LoggerService, LoggingConfig
 
 logging_config = LoggingConfig()

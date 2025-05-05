@@ -17,12 +17,14 @@ T = TypeVar("T")
 # Context variable to track the current active scope per coroutine/task
 _current_scope = contextvars.ContextVar("uno_di_current_scope", default=None)
 
+
 class Scope:
     """
     Async context manager representing a DI scope.
     Tracks scoped service instances and disposes them on exit.
     """
-    def __init__(self, provider: 'ServiceProvider', scope_id: str | None = None):
+
+    def __init__(self, provider: "ServiceProvider", scope_id: str | None = None):
         self._provider = provider
         self._scope_id = scope_id
         self._instances: dict[type, Any] = {}
@@ -63,5 +65,5 @@ class Scope:
         return self._scope_id
 
     @staticmethod
-    def get_current_scope() -> Optional['Scope']:
+    def get_current_scope() -> Optional["Scope"]:
         return _current_scope.get()

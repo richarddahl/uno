@@ -3,6 +3,7 @@ from uno.core.events.base_event import DomainEvent
 from pydantic import Field
 import json
 
+
 class ExampleEvent(DomainEvent):
     aggregate_id: str
     value: int = Field(...)
@@ -31,6 +32,7 @@ def test_event_serialization_is_deterministic():
     json3 = json.dumps(dict3, sort_keys=True)
     assert json3 != json1
     assert event3.event_hash != event1.event_hash
+
 
 def test_event_to_dict_roundtrip():
     event = ExampleEvent(aggregate_id="agg-2", value=123, extra="foo")

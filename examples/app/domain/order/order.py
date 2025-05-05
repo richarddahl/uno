@@ -32,6 +32,7 @@ from examples.app.domain.order.events import (
     OrderCancelled,
 )
 
+
 class Order(Entity[str]):
     """
     Order aggregate root.
@@ -230,7 +231,9 @@ class Order(Entity[str]):
         if self.measurement is None or not isinstance(self.measurement, Measurement):
             raise ValueError("measurement must be a valid Measurement instance")
         if self.order_type not in ("purchase", "sale"):
-            raise ValueError(f"order_type must be 'purchase' or 'sale', got {self.order_type}")
+            raise ValueError(
+                f"order_type must be 'purchase' or 'sale', got {self.order_type}"
+            )
         if self.is_fulfilled and self.is_cancelled:
             raise ValueError("Order cannot be both fulfilled and cancelled")
         # Add more invariants as needed

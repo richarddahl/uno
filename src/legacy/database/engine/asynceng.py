@@ -142,8 +142,7 @@ async def async_connection(
                 await asyncio.sleep(delay)
             else:
                 log.error(
-                    f"Failed to connect after {max_retries} attempts. "
-                    f"Last error: {e}"
+                    f"Failed to connect after {max_retries} attempts. Last error: {e}"
                 )
 
         finally:

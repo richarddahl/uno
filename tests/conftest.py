@@ -23,7 +23,7 @@ import logging
 import pytest
 
 from uno.infrastructure.config.general import GeneralConfig
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider, get_service_provider
 from uno.core.services.hash_service_protocol import HashServiceProtocol
 from typing import Any

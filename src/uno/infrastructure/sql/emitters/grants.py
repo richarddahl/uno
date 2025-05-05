@@ -4,7 +4,6 @@
 
 """SQL emitters for altering grants and permissions."""
 
-
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 

@@ -64,7 +64,6 @@ def UnoDBFactory(
     SessionContextClass = session_context_factory or AsyncSessionContext
 
     class UnoDB(DatabaseRepository[T, K, Any, Dict[str, Any], Any]):
-
         @classmethod
         def table_keys(cls) -> tuple[list[str], list[list[str]]]:
             """

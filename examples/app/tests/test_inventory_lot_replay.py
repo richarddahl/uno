@@ -38,9 +38,7 @@ def lot_events():
 
 def test_inventory_lot_replay_from_events(lot_events):
     lot = InventoryLot.model_construct(
-        id="L1",
-        aggregate_id="",
-        measurement=Measurement.from_count(1)
+        id="L1", aggregate_id="", measurement=Measurement.from_count(1)
     )
     for event in lot_events:
         lot._apply_event(event)
@@ -50,26 +48,32 @@ def test_inventory_lot_replay_from_events(lot_events):
     # Round-trip: serialize and deserialize events, replay again
     # First, let's print the structure to debug
     serialized = [e.model_dump() for e in lot_events]
-    
+
     # Need to convert the value dictionaries back to objects
-    if 'measurement' in serialized[0] and isinstance(serialized[0]['measurement'], dict):
-        measurement_data = serialized[0]['measurement']
-        if measurement_data['type'] == 'count':
-            serialized[0]['measurement'] = Measurement.from_count(measurement_data['value']['value'])
-    
-    if 'combined_measurement' in serialized[1] and isinstance(serialized[1]['combined_measurement'], dict):
-        measurement_data = serialized[1]['combined_measurement']
-        if measurement_data['type'] == 'count':
-            serialized[1]['combined_measurement'] = Measurement.from_count(measurement_data['value']['value'])
-    
+    if "measurement" in serialized[0] and isinstance(
+        serialized[0]["measurement"], dict
+    ):
+        measurement_data = serialized[0]["measurement"]
+        if measurement_data["type"] == "count":
+            serialized[0]["measurement"] = Measurement.from_count(
+                measurement_data["value"]["value"]
+            )
+
+    if "combined_measurement" in serialized[1] and isinstance(
+        serialized[1]["combined_measurement"], dict
+    ):
+        measurement_data = serialized[1]["combined_measurement"]
+        if measurement_data["type"] == "count":
+            serialized[1]["combined_measurement"] = Measurement.from_count(
+                measurement_data["value"]["value"]
+            )
+
     deserialized = [
         InventoryLotCreated.model_construct(**serialized[0]),
         InventoryLotsCombined.model_construct(**serialized[1]),
     ]
     lot2 = InventoryLot.model_construct(
-        id="L1",
-        aggregate_id="",
-        measurement=Measurement.from_count(1)
+        id="L1", aggregate_id="", measurement=Measurement.from_count(1)
     )
     for event in deserialized:
         lot2._apply_event(event)

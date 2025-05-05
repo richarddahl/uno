@@ -4,7 +4,7 @@ Integration test: OrderFulfillmentSaga reacts to events published on the EventBu
 
 import pytest
 from examples.app.sagas.order_fulfillment_saga import OrderFulfillmentSaga
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.event_bus import EventBus
 from uno.core.events.saga_manager import SagaManager

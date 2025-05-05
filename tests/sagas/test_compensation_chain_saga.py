@@ -4,7 +4,7 @@ Integration test for CompensationChainSaga: demonstrates multi-step compensation
 
 import pytest
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.command_bus import CommandBus
 from uno.core.events.saga_manager import SagaManager

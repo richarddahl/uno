@@ -1,22 +1,27 @@
 """
 Saga state and persistence protocols for Uno event sourcing.
 """
+
 from abc import ABC, abstractmethod
 from typing import Any
+
 
 class SagaState:
     """
     Base class for saga/process manager state.
     """
+
     def __init__(self, saga_id: str, status: str, data: dict[str, Any]):
         self.saga_id = saga_id
         self.status = status  # e.g., 'pending', 'waiting', 'completed', 'failed'
         self.data = data
 
+
 class SagaStore(ABC):
     """
     Protocol for saga state persistence.
     """
+
     @abstractmethod
     async def save_state(self, saga_id: str, state: SagaState) -> None:
         pass
@@ -28,6 +33,7 @@ class SagaStore(ABC):
     @abstractmethod
     async def delete_state(self, saga_id: str) -> None:
         pass
+
 
 class InMemorySagaStore(SagaStore):
     def __init__(self):

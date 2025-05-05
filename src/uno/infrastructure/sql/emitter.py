@@ -90,13 +90,17 @@ class SQLEmitter(BaseModel):
         None  # DI: must be injected; runtime-checked for protocol compliance (see validator)
     )
     # Configuration settings
-    config: object | None = None  # DI: must be injected; runtime-checked for protocol compliance (see validator)
+    config: object | None = (
+        None  # DI: must be injected; runtime-checked for protocol compliance (see validator)
+    )
 
     # Logger for this emitter
     logger: Any
 
     # Engine factory for creating connections
-    engine_factory: object | None = None  # DI: injected; runtime-checked for protocol compliance (see validator)
+    engine_factory: object | None = (
+        None  # DI: injected; runtime-checked for protocol compliance (see validator)
+    )
     # Observers for SQL operations - using BaseObserver which is a concrete class
     observers: list[BaseObserver] = []
 
@@ -135,7 +139,9 @@ class SQLEmitter(BaseModel):
             ]
             for attr in required_attrs:
                 if not hasattr(conn, attr):
-                    raise TypeError(f"connection_config must implement '{attr}' (protocol check failed)")
+                    raise TypeError(
+                        f"connection_config must implement '{attr}' (protocol check failed)"
+                    )
         config = values.get("config")
         if config is not None:
             required_config_attrs = [
@@ -146,13 +152,17 @@ class SQLEmitter(BaseModel):
             ]
             for attr in required_config_attrs:
                 if not hasattr(config, attr):
-                    raise TypeError(f"config must implement '{attr}' (protocol check failed)")
+                    raise TypeError(
+                        f"config must implement '{attr}' (protocol check failed)"
+                    )
         engine_factory = values.get("engine_factory")
         if engine_factory is not None:
             required_factory_attrs = ["create_engine"]
             for attr in required_factory_attrs:
                 if not hasattr(engine_factory, attr):
-                    raise TypeError(f"engine_factory must implement '{attr}' (protocol check failed)")
+                    raise TypeError(
+                        f"engine_factory must implement '{attr}' (protocol check failed)"
+                    )
         return values
 
     def generate_sql(self) -> list[SQLStatement]:

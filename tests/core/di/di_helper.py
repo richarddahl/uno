@@ -15,7 +15,7 @@ import contextlib
 import os
 
 from uno.infrastructure.config.general import GeneralConfig
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 
 

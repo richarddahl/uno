@@ -39,8 +39,11 @@ def item_created_event():
 @pytest.fixture
 def item_renamed_event():
     from examples.app.domain.inventory.measurement import Measurement, Count
+
     measurement = Measurement.from_count(Count(type="count", value=10, unit="each"))
-    result = InventoryItemRenamed.create(aggregate_id="sku-1", new_name="Gizmo", measurement=measurement)
+    result = InventoryItemRenamed.create(
+        aggregate_id="sku-1", new_name="Gizmo", measurement=measurement
+    )
     assert isinstance(result, Success)
     return result.value
 

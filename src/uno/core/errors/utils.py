@@ -1,8 +1,10 @@
 """
 Utility functions for Uno error handling and serialization.
 """
+
 from enum import Enum
 from typing import Any
+
 
 def serialize_enums(obj: Any) -> Any:
     """

@@ -87,7 +87,7 @@ class Result(Generic[T, E], ABC):
             return Success(func(self.error))  # type: ignore[attr-defined]
         return self
 
-    async def map_async(self, func: Callable[[T], 'Awaitable[U]']) -> "Result[U, E]":
+    async def map_async(self, func: Callable[[T], "Awaitable[U]"]) -> "Result[U, E]":
         """
         Map the value of a Success asynchronously.
         """
@@ -98,7 +98,9 @@ class Result(Generic[T, E], ABC):
                 return Failure(cast("E", e))
         return self  # type: ignore
 
-    async def flat_map_async(self, func: Callable[[T], 'Awaitable[Result[U, E]]']) -> "Result[U, E]":
+    async def flat_map_async(
+        self, func: Callable[[T], "Awaitable[Result[U, E]]"]
+    ) -> "Result[U, E]":
         """
         Flat map the value of a Success asynchronously.
         """
@@ -238,10 +240,18 @@ class Success(Result[T, E], Generic[T, E]):
             A dictionary representation of the result
         """
         from pydantic import BaseModel
+
         if isinstance(self.value, dict):
             return {"status": "success", "data": serialize_enums(self.value)}
         elif isinstance(self.value, BaseModel):
-            return {"status": "success", "data": serialize_enums(self.value.model_dump(exclude_none=True, exclude_unset=True, by_alias=True))}
+            return {
+                "status": "success",
+                "data": serialize_enums(
+                    self.value.model_dump(
+                        exclude_none=True, exclude_unset=True, by_alias=True
+                    )
+                ),
+            }
         elif isinstance(self.value, HasToDict):
             return {"status": "success", "data": serialize_enums(self.value.to_dict())}
         else:

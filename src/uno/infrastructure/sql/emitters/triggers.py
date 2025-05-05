@@ -4,7 +4,6 @@
 
 """SQL emitters for triggers and trigger functions."""
 
-
 from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType

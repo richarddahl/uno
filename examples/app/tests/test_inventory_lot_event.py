@@ -84,23 +84,41 @@ def test_inventory_lot_created_create_success() -> None:
     )
     assert isinstance(lot_result, Success), "Expected lot creation to succeed"
     lot = lot_result.value
-    assert isinstance(lot, InventoryLot), "Expected lot to be an instance of InventoryLot"
+    assert isinstance(lot, InventoryLot), (
+        "Expected lot to be an instance of InventoryLot"
+    )
     assert lot.id == TEST_LOT_ID_2, "Lot ID should match input"
     assert lot.aggregate_id == TEST_AGGREGATE_ID, "Aggregate ID should match input"
-    assert lot.measurement == Measurement.from_count(Count.from_each(TEST_COUNT)), "Measurement should match input"
-    assert lot.purchase_price == TEST_PURCHASE_PRICE, "Purchase price should match input"
+    assert lot.measurement == Measurement.from_count(Count.from_each(TEST_COUNT)), (
+        "Measurement should match input"
+    )
+    assert lot.purchase_price == TEST_PURCHASE_PRICE, (
+        "Purchase price should match input"
+    )
     assert len(lot._domain_events) == 1, "Expected exactly one domain event"
     event = lot._domain_events[0]
-    assert isinstance(event, InventoryLotCreated), "Expected event to be InventoryLotCreated"
+    assert isinstance(event, InventoryLotCreated), (
+        "Expected event to be InventoryLotCreated"
+    )
     assert event.lot_id == TEST_LOT_ID_2, "Event lot ID should match input"
-    assert event.aggregate_id == TEST_AGGREGATE_ID, "Event aggregate ID should match input"
-    assert event.measurement == Measurement.from_count(Count.from_each(TEST_COUNT)), "Event measurement should match input"
+    assert event.aggregate_id == TEST_AGGREGATE_ID, (
+        "Event aggregate ID should match input"
+    )
+    assert event.measurement == Measurement.from_count(Count.from_each(TEST_COUNT)), (
+        "Event measurement should match input"
+    )
     assert event.vendor_id == TEST_VENDOR_ID, "Event vendor ID should match input"
-    assert event.purchase_price == TEST_PURCHASE_PRICE, "Event purchase price should match input"
+    assert event.purchase_price == TEST_PURCHASE_PRICE, (
+        "Event purchase price should match input"
+    )
     assert event.version == TEST_VERSION
-    assert event.measurement == Measurement.from_count(Count.from_each(10)), "Event measurement should match input"
+    assert event.measurement == Measurement.from_count(Count.from_each(10)), (
+        "Event measurement should match input"
+    )
     assert event.vendor_id == TEST_VENDOR_ID, "Event vendor ID should match input"
-    assert event.purchase_price == TEST_PURCHASE_PRICE, "Event purchase price should match input"
+    assert event.purchase_price == TEST_PURCHASE_PRICE, (
+        "Event purchase price should match input"
+    )
     assert event.version == 1
 
 
@@ -146,19 +164,31 @@ def test_inventory_lot_created_upcast_identity() -> None:
     )
     assert isinstance(result, Success), "Expected event creation to succeed"
     event = result.value
-    assert isinstance(event, InventoryLotCreated), "Expected created event to be InventoryLotCreated"
+    assert isinstance(event, InventoryLotCreated), (
+        "Expected created event to be InventoryLotCreated"
+    )
     assert event.lot_id == "lot-abc", "Event lot ID should match input"
     assert event.aggregate_id == "item-xyz", "Event aggregate ID should match input"
-    assert event.measurement == Measurement.from_count(Count.from_each(5)), "Event measurement should match input"
-    
+    assert event.measurement == Measurement.from_count(Count.from_each(5)), (
+        "Event measurement should match input"
+    )
+
     # Test upcast to same version
     upcast_result = event.upcast(1)
     assert isinstance(upcast_result, Success), "Expected upcast to succeed"
     upcast_event = upcast_result.value
-    assert isinstance(upcast_event, InventoryLotCreated), "Expected upcast result to be InventoryLotCreated"
-    assert upcast_event.lot_id == event.lot_id, "Upcast event lot ID should match original"
-    assert upcast_event.aggregate_id == event.aggregate_id, "Upcast event aggregate ID should match original"
-    assert upcast_event.measurement == event.measurement, "Upcast event measurement should match original"
+    assert isinstance(upcast_event, InventoryLotCreated), (
+        "Expected upcast result to be InventoryLotCreated"
+    )
+    assert upcast_event.lot_id == event.lot_id, (
+        "Upcast event lot ID should match original"
+    )
+    assert upcast_event.aggregate_id == event.aggregate_id, (
+        "Upcast event aggregate ID should match original"
+    )
+    assert upcast_event.measurement == event.measurement, (
+        "Upcast event measurement should match original"
+    )
 
 
 def test_inventory_lot_created_upcast_unimplemented() -> None:
@@ -170,14 +200,24 @@ def test_inventory_lot_created_upcast_unimplemented() -> None:
     )
     assert isinstance(result, Success), "Expected event creation to succeed"
     event = result.value
-    assert isinstance(event, InventoryLotCreated), "Expected created event to be InventoryLotCreated"
-    
+    assert isinstance(event, InventoryLotCreated), (
+        "Expected created event to be InventoryLotCreated"
+    )
+
     # Test upcast to unsupported version
     upcast_result = event.upcast(2)
-    assert isinstance(upcast_result, Failure), "Expected upcast to fail for unsupported version"
-    assert isinstance(upcast_result.error, DomainValidationError), "Expected DomainValidationError"
-    assert upcast_result.error.message == "Upcasting not implemented", "Expected specific error message"
-    assert upcast_result.error.details == {"from": 1, "to": 2}, "Expected specific error details"
+    assert isinstance(upcast_result, Failure), (
+        "Expected upcast to fail for unsupported version"
+    )
+    assert isinstance(upcast_result.error, DomainValidationError), (
+        "Expected DomainValidationError"
+    )
+    assert upcast_result.error.message == "Upcasting not implemented", (
+        "Expected specific error message"
+    )
+    assert upcast_result.error.details == {"from": 1, "to": 2}, (
+        "Expected specific error details"
+    )
 
 
 def test_inventory_lots_combined_create_success() -> None:
@@ -336,7 +376,11 @@ def test_inventory_lot_split_create_failure_invalid_split_quantities() -> None:
         measurement=Measurement.from_count(Count.from_each(10)),
     )
     result = lot.split(
-        split_quantities=[TEST_COUNT // 2, TEST_COUNT // 2, 1.0],  # Invalid: total exceeds lot quantity
+        split_quantities=[
+            TEST_COUNT // 2,
+            TEST_COUNT // 2,
+            1.0,
+        ],  # Invalid: total exceeds lot quantity
         new_lot_ids=["lot-2", "lot-3", "lot-4"],
     )
 
@@ -365,7 +409,11 @@ def test_inventory_lot_split_upcast_unimplemented() -> None:
     assert isinstance(result, Success)
     event = result.value
     upcast_result = event.upcast(99)
-    assert isinstance(upcast_result, Failure), "Expected upcast to fail for unsupported version"
-    assert isinstance(upcast_result.error, DomainValidationError), "Expected DomainValidationError"
+    assert isinstance(upcast_result, Failure), (
+        "Expected upcast to fail for unsupported version"
+    )
+    assert isinstance(upcast_result.error, DomainValidationError), (
+        "Expected DomainValidationError"
+    )
     assert upcast_result.error.details["from"] == 1, "Expected from version to be 1"
     assert upcast_result.error.details["to"] == 99, "Expected to version to be 99"

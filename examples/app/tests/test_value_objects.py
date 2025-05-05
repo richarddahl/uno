@@ -26,6 +26,7 @@ from examples.app.domain.inventory.value_objects import (
     VolumeUnit,
 )
 from examples.app.domain.vendor.value_objects import EmailAddress
+
 # Unit testing constants
 FLOAT_TOLERANCE = 1e-8
 VALID_ABV = 40.0
@@ -43,7 +44,9 @@ def test_email_valid() -> None:
     """Test valid email address creation."""
     email = EmailAddress(value="test@example.com")
     assert email is not None, "Expected email to be created successfully"
-    assert str(email) == "test@example.com", "Email string representation should match input"
+    assert str(email) == "test@example.com", (
+        "Email string representation should match input"
+    )
 
 
 def test_email_invalid() -> None:
@@ -88,7 +91,7 @@ def test_mass_valid() -> None:
     m = Mass(type="mass", value=10.0, unit=MassUnit.GRAM)
     assert m.value == 10.0, "Mass value should match input"
     assert m.unit == MassUnit.GRAM, "Mass unit should be grams"
-    
+
     # String representation
     assert str(m) == "10.0 g", "Mass string representation should match value and unit"
 
@@ -128,7 +131,9 @@ def test_volume_invalid() -> None:
 def test_dimension_valid() -> None:
     """Test valid dimension creation."""
     # Create a Dimension instance
-    d = Dimension(type="dimension", value=VALID_DIMENSION, unit=DimensionUnit.MILLIMETER)
+    d = Dimension(
+        type="dimension", value=VALID_DIMENSION, unit=DimensionUnit.MILLIMETER
+    )
     assert d.value == VALID_DIMENSION
     assert d.unit == DimensionUnit.MILLIMETER
 
@@ -206,7 +211,9 @@ def test_money_conversion() -> None:
     assert isinstance(result, Success)
     eur_money = result.value
     assert eur_money.currency == Currency.EUR
-    assert eur_money.amount == Decimal("90.00"), "Converted amount should match expected value"
+    assert eur_money.amount == Decimal("90.00"), (
+        "Converted amount should match expected value"
+    )
 
     # Conversion without FX rate should fail
     result = money.to(Currency.EUR)

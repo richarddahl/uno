@@ -14,8 +14,6 @@ Usage:
 
 All API endpoints must use this utility (or equivalent logic) to ensure compliance.
 """
+
 from pydantic import BaseModel
 from typing import Any
-
-
-

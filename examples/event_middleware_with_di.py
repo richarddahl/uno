@@ -11,7 +11,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
-from uno.infrastructure.di.container import ServiceCollection, ServiceProvider
+from uno.infrastructure.di.service_collection import ServiceCollection, ServiceProvider
 from uno.infrastructure.di.middleware import configure_event_middleware
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.events.events import DomainEvent

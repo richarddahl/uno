@@ -4,7 +4,7 @@ Integration test for EscalationSaga: demonstrates escalation/alerting and human-
 
 import pytest
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore

@@ -196,8 +196,12 @@ class InventoryItemService:
                     details={
                         "aggregate_id": aggregate_id,
                         "service": "InventoryItemService.adjust_inventory_measurement",
-                        **(adjust_result.error.details if hasattr(adjust_result.error, 'details') else {})
-                    }
+                        **(
+                            adjust_result.error.details
+                            if hasattr(adjust_result.error, "details")
+                            else {}
+                        ),
+                    },
                 )
             )
         save_result = self.repo.save(item)

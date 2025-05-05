@@ -109,6 +109,7 @@ def test_upcaster_registry_missing() -> None:
     from uno.core.errors.definitions import EventUpcastError
 
     from uno.core.errors.result import Failure
+
     result = FakeEventV3.from_dict(v2_data)
     assert isinstance(result, Failure)
     assert isinstance(result.error, Exception)

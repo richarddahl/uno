@@ -4,7 +4,6 @@
 
 """SQL emitters for event store operations."""
 
-
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 

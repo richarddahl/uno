@@ -6,6 +6,99 @@ This document outlines a phased refactoring process to transform Uno into a prod
 
 These tasks must be completed first to enable using Uno for domain modeling in separate applications.
 
+### Minimal DI Support
+
+- [x] Initial DI implementation exists in uno.infrastructure.di
+  - [x] Basic service registration with ServiceCollection
+  - [x] Service lifecycle management (singleton, scoped, transient)
+  - [x] Service resolution infrastructure
+
+- [ ] Simplify and stabilize dependency injection core
+  - [ ] Remove auto-discovery/auto-registration complexity
+    - [x] Currently enabled by default via UNO_DI_AUTO_REGISTER
+    - [ ] Remove auto-registration to enforce explicit dependencies
+    - [ ] Simplify registration API to focus on domain needs
+  - [ ] Create explicit registration API with fluent interface
+    - [ ] Add builder pattern for service registration
+    - [ ] Simplify registration methods for domain services
+    - [ ] Add type safety with proper generics
+  - [ ] Implement type-safe service resolution
+    - [ ] Add proper type hints for service resolution
+    - [ ] Implement generic type resolution
+    - [ ] Add validation for service implementations
+
+- [ ] Add dependency graph analysis
+  - [ ] Implement circular dependency detection
+    - [ ] Add dependency graph construction
+    - [ ] Detect and report circular dependencies
+    - [ ] Add clear error messages for cycles
+  - [ ] Create debug visualization
+    - [ ] Add dependency tree visualization
+    - [ ] Create service dependency graph
+    - [ ] Add debugging tools for dependency resolution
+
+- [ ] Improve error handling
+  - [ ] Add Result-based service resolution
+    - [ ] Implement Result pattern for service resolution
+    - [ ] Add error context propagation
+    - [ ] Create specific DI-related error types
+  - [ ] Add context-rich error messages
+    - [ ] Include dependency chain in errors
+    - [ ] Add resolution hints for common issues
+    - [ ] Create troubleshooting documentation
+
+- [ ] Create simple container configuration
+  - [ ] Add environment-based configuration
+    - [ ] Support different profiles (dev, test, prod)
+    - [ ] Add conditional registration based on environment
+    - [ ] Implement configuration validation
+  - [ ] Add basic configuration options
+    - [ ] Strict mode for dependency validation
+    - [ ] Service resolution validation
+    - [ ] Configuration validation
+
+- [ ] Adapt domain objects for DI compatibility
+  - [ ] Update `AggregateRoot` initialization
+    - [ ] Make service dependencies explicit via constructor injection
+    - [ ] Add optional factory methods for container-based creation
+    - [ ] Create validation for required dependencies
+  - [ ] Refactor domain services
+    - [ ] Define domain service interface protocol hierarchy
+    - [ ] Implement constructor injection patterns
+    - [ ] Add explicit dependency documentation
+  - [ ] Enhance repository implementations
+    - [ ] Update repository initialization with explicit dependencies
+    - [ ] Create factory methods for container-based creation
+    - [ ] Add debugging/logging of dependency resolution
+
+- [ ] Implement testing support for DI
+  - [ ] Create test-specific container
+    - [ ] Add mock service registration helpers
+    - [ ] Implement fixture support for common services
+    - [ ] Create container state verification tools
+  - [ ] Add service mocking utilities
+    - [ ] Implement auto-mocking container
+    - [ ] Create service verification helpers
+    - [ ] Add dependency stub generation
+  - [ ] Enable domain object testing
+    - [ ] Create mock repositories factory
+    - [ ] Implement domain service test doubles
+    - [ ] Add integration test helpers for domain + DI
+
+- [ ] Provide documentation and examples
+  - [ ] Create DI usage guide for domain modeling
+    - [ ] Document service registration patterns
+    - [ ] Add examples for common domain services
+    - [ ] Create troubleshooting guide for DI issues
+  - [ ] Add migration guide from old DI pattern
+    - [ ] Document changes in service registration
+    - [ ] Provide examples of refactored code
+    - [ ] Add automatic migration scripts if feasible
+  - [ ] Document testing patterns with DI
+    - [ ] Show examples of domain object testing with DI
+    - [ ] Demonstrate service mocking strategies
+    - [ ] Create patterns for integration testing
+
 ### Core Domain Model Stabilization
 
 - [ ] Complete and stabilize base domain classes
@@ -77,14 +170,6 @@ These components enable basic event sourcing capabilities without full infrastru
 ## Phase 3: Core Infrastructure (Medium Priority)
 
 These components can be developed while domain modeling is underway.
-
-### Minimal DI Support
-
-- [ ] Simplify and stabilize dependency injection
-  - [ ] Create minimal DI container for domain services
-  - [ ] Strip unnecessary complexity from service registration
-  - [ ] Ensure circular dependency detection works
-  - [ ] Add documentation for DI in domain contexts
 
 ### Basic Event Publication
 

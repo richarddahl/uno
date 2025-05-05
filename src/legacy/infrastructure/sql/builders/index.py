@@ -5,7 +5,6 @@
 """SQL index builder."""
 
 
-
 class SQLIndexBuilder:
     """Builder for SQL indexes.
 
@@ -176,6 +175,6 @@ class SQLIndexBuilder:
 
         return f"""
             CREATE {unique}INDEX {self.index_name}
-            ON {self.schema}.{self.table_name} USING {self.index_method} ({', '.join(self.columns)})
+            ON {self.schema}.{self.table_name} USING {self.index_method} ({", ".join(self.columns)})
             {nulls_clause}{include_clause}{where_clause};
         """

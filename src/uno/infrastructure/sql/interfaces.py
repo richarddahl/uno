@@ -3,17 +3,22 @@
 """
 Protocols for Uno SQL infrastructure DI/extension points.
 """
+
 from typing import Protocol, Any
+
 
 class EngineFactoryProtocol(Protocol):
     """Protocol for DI engine factory (sync or async)."""
+
     def get_engine(self) -> Any: ...
+
 
 class ConnectionConfigProtocol(Protocol):
     """
     Protocol for Uno SQL connection configuration.
     Defines the minimal interface required by engine factories and emitters.
     """
+
     db_name: str
     db_user_pw: str
     db_driver: str
@@ -31,17 +36,20 @@ class ConnectionConfigProtocol(Protocol):
 
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
     from uno.infrastructure.sql.statement import SQLStatement
+
 
 class SQLEmitterProtocol(Protocol):
     """
     Protocol for Uno SQL emitters.
     Defines the minimal interface required for DI/type-hinting in factories, registries, and services.
     """
-    def generate_sql(self) -> list['SQLStatement']:
-        ...
 
-    def emit_sql(self, connection: 'Connection', dry_run: bool = False) -> list['SQLStatement'] | None:
-        ...
+    def generate_sql(self) -> list["SQLStatement"]: ...
+
+    def emit_sql(
+        self, connection: "Connection", dry_run: bool = False
+    ) -> list["SQLStatement"] | None: ...

@@ -1,6 +1,6 @@
 import pytest
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 

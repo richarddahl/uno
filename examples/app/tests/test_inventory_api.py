@@ -22,7 +22,10 @@ def test_inventory_item_lifecycle(client: TestClient) -> None:
     data = resp.json()
     assert data["id"] == item["id"]
     assert data["name"] == item["name"]
-    assert data["measurement"] == {"type": "count", "value": {"type": "count", "unit": "each", "value": 10.0}}
+    assert data["measurement"] == {
+        "type": "count",
+        "value": {"type": "count", "unit": "each", "value": 10.0},
+    }
     # Fetch the same item
     resp2 = client.get(f"/inventory/{item['id']}")
     assert resp2.status_code == 200

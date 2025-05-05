@@ -16,7 +16,7 @@ Otherwise, these tests will be skipped by default.
 """
 
 import pytest
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from tests.core.di.di_helper import DIHelper

@@ -17,9 +17,7 @@ def test_inventory_item_validate_domain_invariants():
     # Domain invariant: name must not be empty
     import pytest
     from pydantic import ValidationError
-    with pytest.raises(ValidationError) as excinfo:
-        InventoryItem(
-            id="I1", name="", measurement=Measurement.from_count(10)
-        )
-    assert "name must be a non-empty string" in str(excinfo.value)
 
+    with pytest.raises(ValidationError) as excinfo:
+        InventoryItem(id="I1", name="", measurement=Measurement.from_count(10))
+    assert "name must be a non-empty string" in str(excinfo.value)

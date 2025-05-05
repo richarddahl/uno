@@ -19,7 +19,6 @@ def resolve_missing_params(
     return resolver._instantiate_with_injection(impl, params, None)
 
 
-
 def resolve_param_dependency(
     resolver, param_name, registered_type, impl, params, _resolving
 ):
@@ -47,22 +46,27 @@ def resolve_param_dependency(
             )
         )
 
+
 def get_param_type(param_name, sig, type_hints):
     return type_hints.get(param_name, sig.parameters[param_name].annotation)
 
+
 def find_registered_type(resolver, param_type, impl):
     import inspect
+
     def _is_same_type(a, b):
         return a is b or (
             getattr(a, "__name__", None) == getattr(b, "__name__", None)
             and getattr(a, "__module__", None) == getattr(b, "__module__", None)
             and getattr(a, "__qualname__", None) == getattr(b, "__qualname__", None)
         )
+
     if param_type != inspect._empty and isinstance(param_type, type):
         for t in resolver._registrations:
             if _is_same_type(param_type, t):
                 return t
     return None
+
 
 def eval_forward_ref(resolver, param_type, globalns, localns, impl):
     if isinstance(param_type, str):

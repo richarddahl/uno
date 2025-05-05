@@ -9,7 +9,7 @@ This module provides centralized configuration management for the application.
 
 from typing import Any
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import get_service_provider
 
 # Import config modules

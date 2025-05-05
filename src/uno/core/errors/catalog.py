@@ -10,7 +10,6 @@ This module maintains a registry of all error codes with their
 descriptions, categories, and other metadata.
 """
 
-
 from uno.core.errors.base import ErrorCategory, ErrorInfo, ErrorSeverity
 from uno.core.errors.result import Failure
 

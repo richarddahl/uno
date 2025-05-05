@@ -5,7 +5,12 @@ Tests for Order aggregate event replay and round-trip serialization.
 import pytest
 
 from examples.app.domain.inventory.measurement import Measurement
-from examples.app.domain.inventory.value_objects import Currency, Money, Count, CountUnit
+from examples.app.domain.inventory.value_objects import (
+    Currency,
+    Money,
+    Count,
+    CountUnit,
+)
 from examples.app.domain.order.events import OrderCreated, OrderFulfilled
 from examples.app.domain.order.order import Order
 

@@ -6,6 +6,7 @@ Uno Integrated Example App Entrypoint
 Starts the FastAPI demo app for the InventoryItem vertical slice.
 Extend this to add more aggregates, endpoints, and demo logic.
 """
+
 import uvicorn
 
 from examples.app.api.api import app_factory

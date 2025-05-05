@@ -5,7 +5,8 @@ Extend this protocol for any config service to be injected into core/infrastruct
 
 from typing import Protocol, Any
 
+
 class ConfigProtocol(Protocol):
     """Protocol for configuration providers."""
-    def get(self, key: str, default: Any = None) -> Any:
-        ...
+
+    def get(self, key: str, default: Any = None) -> Any: ...

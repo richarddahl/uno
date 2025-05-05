@@ -7,7 +7,9 @@
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from uno.core.errors import FrameworkError
-from uno.infrastructure.sql.interfaces import EngineFactoryProtocol  # DI protocol for engine factories
+from uno.infrastructure.sql.interfaces import (
+    EngineFactoryProtocol,
+)  # DI protocol for engine factories
 
 if TYPE_CHECKING:
     from uno.infrastructure.sql.config import SQLConfig
@@ -72,7 +74,8 @@ class SQLConfigRegistry:
     def emit_all(
         cls,
         connection: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
-        engine_factory: EngineFactoryProtocol | None = None,  # DI: injected, type-hinted with Protocol for extensibility
+        engine_factory: EngineFactoryProtocol
+        | None = None,  # DI: injected, type-hinted with Protocol for extensibility
         config: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
         exclude: list[str] | None = None,
     ) -> None:

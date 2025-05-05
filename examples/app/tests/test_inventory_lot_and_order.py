@@ -72,7 +72,7 @@ def test_inventory_lot_creation(fake_lot: InventoryLot) -> None:
     # Measurement is a dict with 'type' and 'value' (which is a dict for Count)
     qval = data["measurement"]
     assert qval["type"] == "count"
-    assert qval["value"] == {'type': 'count', 'value': 50.0, 'unit': CountUnit.EACH}
+    assert qval["value"] == {"type": "count", "value": 50.0, "unit": CountUnit.EACH}
     assert data["purchase_price"] == 10.0
 
 

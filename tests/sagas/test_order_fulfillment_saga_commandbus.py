@@ -4,7 +4,7 @@ Integration test: OrderFulfillmentSaga emits commands via CommandBus as it proce
 
 import pytest
 from uno.core.events.command_bus import CommandBus
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceProvider
 from uno.core.events.event_bus import EventBus
 from uno.core.events.saga_manager import SagaManager

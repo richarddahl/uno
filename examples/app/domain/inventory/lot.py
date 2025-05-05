@@ -186,8 +186,11 @@ class InventoryLot(AggregateRoot[str]):
             try:
                 blended_grade = Grade(
                     value=(
-                        (self.grade.value * self.measurement.value.value
-                        + other.grade.value * other.measurement.value.value) / total
+                        (
+                            self.grade.value * self.measurement.value.value
+                            + other.grade.value * other.measurement.value.value
+                        )
+                        / total
                     )
                 )
             except ValueError as e:
@@ -218,14 +221,18 @@ class InventoryLot(AggregateRoot[str]):
         new_lot._domain_events = []  # Reset domain events for new lot
         event_result = InventoryLotsCombined.create(
             source_lot_ids=[self.id, other.id],
-            source_grades=[None, None] if not self.grade and not other.grade else [g if g else None for g in [self.grade, other.grade]],
-            source_vendor_ids=[] if not self.vendor_id and not other.vendor_id else source_vendor_ids,
+            source_grades=[None, None]
+            if not self.grade and not other.grade
+            else [g if g else None for g in [self.grade, other.grade]],
+            source_vendor_ids=[]
+            if not self.vendor_id and not other.vendor_id
+            else source_vendor_ids,
             new_lot_id=new_lot_id,
             aggregate_id=self.aggregate_id,
             combined_measurement=combined_measurement,
             blended_grade=blended_grade,
             blended_vendor_ids=blended_vendor_ids,
-            version=self.version + 1
+            version=self.version + 1,
         )
         if isinstance(event_result, Failure):
             return Failure(event_result.error)

@@ -47,24 +47,29 @@ from uno.infrastructure.logging import LoggerService, LoggingConfig
 
 logger = LoggerService(LoggingConfig())
 
+
 # --- Pydantic models ---
 class StartSagaRequest(BaseModel):
     saga_type: str
     input: dict
 
+
 class StartSagaResponse(BaseModel):
     saga_id: str
     status: str
 
+
 class SendEventRequest(BaseModel):
     event_type: str
     payload: dict
+
 
 class SagaStatusResponse(BaseModel):
     saga_id: str
     saga_type: str
     status: str
     state: dict | None = None
+
 
 # --- Saga registry ---
 SAGA_REGISTRY = {
@@ -75,13 +80,16 @@ SAGA_REGISTRY = {
     "EscalationSaga": EscalationSaga,
 }
 
+
 @app.post("/sagas/start", response_model=StartSagaResponse)
 def start_saga(req: StartSagaRequest) -> StartSagaResponse:
     """Start a new saga by type and input."""
     saga_cls = SAGA_REGISTRY.get(req.saga_type)
     if not saga_cls:
         logger.warning(f"Unknown saga type: {req.saga_type}")
-        raise HTTPException(status_code=400, detail=f"Unknown saga type: {req.saga_type}")
+        raise HTTPException(
+            status_code=400, detail=f"Unknown saga type: {req.saga_type}"
+        )
     try:
         saga = saga_cls(**req.input)
         saga_id = manager.start_saga(saga)
@@ -90,6 +98,7 @@ def start_saga(req: StartSagaRequest) -> StartSagaResponse:
     except Exception as exc:
         logger.error(f"Failed to start saga: {exc}")
         raise HTTPException(status_code=500, detail=f"Failed to start saga: {exc}")
+
 
 @app.post("/sagas/{saga_id}/send")
 def send_event(saga_id: str, req: SendEventRequest) -> dict:
@@ -101,6 +110,7 @@ def send_event(saga_id: str, req: SendEventRequest) -> dict:
     except Exception as exc:
         logger.error(f"Failed to send event: {exc}")
         raise HTTPException(status_code=500, detail=f"Failed to send event: {exc}")
+
 
 @app.get("/sagas/{saga_id}", response_model=SagaStatusResponse)
 def get_saga_status(saga_id: str) -> SagaStatusResponse:
@@ -115,6 +125,8 @@ def get_saga_status(saga_id: str) -> SagaStatusResponse:
         status=getattr(saga, "status", "unknown"),
         state=saga.model_dump() if hasattr(saga, "model_dump") else None,
     )
+
+
 # Register all advanced saga patterns
 manager.register_saga(OrderFulfillmentSaga)
 manager.register_saga(TimeoutSaga)

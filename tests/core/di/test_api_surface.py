@@ -6,6 +6,7 @@
 
 def test_di_public_api_surface():
     from uno.infrastructure import di
+
     # Only these should be public
     assert hasattr(di, "ServiceCollection")
     assert hasattr(di, "ServiceProvider")

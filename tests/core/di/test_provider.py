@@ -3,7 +3,7 @@
 # uno framework
 import pytest
 
-from uno.infrastructure.di.container import ServiceCollection
+from uno.infrastructure.di.service_collection import ServiceCollection
 from uno.infrastructure.di.provider import ServiceLifecycle, get_service_provider
 
 

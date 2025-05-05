@@ -1,8 +1,9 @@
 """
 HashServiceProtocol: Abstract base class for hashing services.
 """
+
 from typing import Protocol
 
+
 class HashServiceProtocol(Protocol):
-    def compute_hash(self, payload: str) -> str:
-        ...
+    def compute_hash(self, payload: str) -> str: ...

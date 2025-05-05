@@ -345,7 +345,9 @@ class GraphSQLEmitter(SQLEmitter):
         return_value = (
             "OLD"
             if operation == "delete_sql"
-            else "NULL" if operation == "truncate_sql" else "NEW"
+            else "NULL"
+            if operation == "truncate_sql"
+            else "NEW"
         )
 
         nodes_sql = "".join([getattr(node, operation)() for node in self.nodes])

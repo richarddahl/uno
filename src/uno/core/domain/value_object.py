@@ -61,7 +61,6 @@ class ValueObject(FrameworkBaseModel):
                 Exception(f"Failed to create {cls.__name__} from dict: {exc}")
             )
 
-
     def __eq__(self, other: Any) -> bool:
         """
         Value objects are equal if their canonical serialization is equal and type matches.
