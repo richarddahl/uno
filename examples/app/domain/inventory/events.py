@@ -2,25 +2,14 @@
 Inventory events for the inventory bounded context.
 """
 
-from typing import (
-    Any,
-    ClassVar,
-    List,
-    Optional,
-    Self,
-    TypeVar,
-    Union,
-)
+from __future__ import annotations
+
+from typing import ClassVar, Optional, Self, TypeVar
 
 from pydantic import ConfigDict, field_serializer, field_validator, model_validator
 
 from examples.app.domain.inventory.measurement import Measurement
-from examples.app.domain.inventory.value_objects import (
-    Count,
-    Grade,
-    Mass,
-    Volume,
-)
+from examples.app.domain.inventory.value_objects import Count, Grade, Mass, Volume
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.errors import Failure, Result, Success
 from uno.core.errors.base import get_error_context
@@ -29,26 +18,6 @@ from uno.core.events import DomainEvent
 from uno.core.events.base_event import EventUpcasterRegistry
 from uno.infrastructure.di.provider import get_service_provider
 from uno.infrastructure.logging.logger import LoggerService
-
-from pydantic import ConfigDict, field_serializer, field_validator, model_validator
-
-from examples.app.domain.inventory.measurement import Measurement
-from examples.app.domain.inventory.value_objects import (
-    Count,
-    Grade,
-    Mass,
-    Volume,
-)
-from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.core.errors import Failure, Result, Success
-from uno.core.errors.base import get_error_context
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.events import DomainEvent
-
-from uno.infrastructure.di.provider import get_service_provider
-from uno.infrastructure.logging.logger import LoggerService
-
-
 
 
 class GradeAssignedToLot(DomainEvent):
@@ -284,6 +253,379 @@ class InventoryItemCreated(DomainEvent):
     """
     Event: InventoryItem was created.
 
+    Usage:
+        result = InventoryItemCreated.create(
+            aggregate_id="A100",
+            name="Widget",
+            measurement=Measurement.from_count(Count.from_each(5)),
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
+
+    aggregate_id: str
+    name: str
+    measurement: Measurement
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        aggregate_id: str,
+        name: str,
+        measurement: int | float | Measurement | Count,
+        version: int = 1,
+    ) -> (
+        Success[InventoryItemCreated, Exception]
+        | Failure[InventoryItemCreated, Exception]
+    ):
+        import logging
+
+        from uno.core.errors.base import get_error_context
+        from uno.core.errors.definitions import DomainValidationError
+
+        logger = logging.getLogger(__name__)
+        try:
+            if not aggregate_id or not isinstance(aggregate_id, str):
+                logger.error(
+                    "[InventoryItemCreated.create] Invalid aggregate_id: %r",
+                    aggregate_id,
+                )
+                return Failure(
+                    DomainValidationError(
+                        "aggregate_id is required and must be a string",
+                        details={"aggregate_id": aggregate_id, **get_error_context()},
+                    )
+                )
+            if not name or not isinstance(name, str):
+                logger.error("[InventoryItemCreated.create] Invalid name: %r", name)
+                return Failure(
+                    DomainValidationError(
+                        "name is required and must be a string",
+                        details={"name": name, **get_error_context()},
+                    )
+                )
+            # Accept Measurement, Count, int, float
+            if isinstance(measurement, Measurement):
+                m = measurement
+            elif isinstance(measurement, Count):
+                m = Measurement.from_count(measurement)
+            elif isinstance(measurement, (int, float)):
+                m = Measurement.from_count(measurement)
+            elif isinstance(measurement, dict):
+                m = Measurement.model_validate(measurement)
+            else:
+                logger.error(
+                    "[InventoryItemCreated.create] Invalid measurement: %r", measurement
+                )
+                return Failure(
+                    DomainValidationError(
+                        "measurement must be a Measurement, Count, int, or float",
+                        details={"measurement": measurement, **get_error_context()},
+                    )
+                )
+            event = cls(
+                aggregate_id=aggregate_id,
+                name=name,
+                measurement=m,
+                version=version,
+            )
+            logger.info(
+                "[InventoryItemCreated.create] Event created - aggregate_id=%s name=%s measurement=%r",
+                aggregate_id,
+                name,
+                m,
+            )
+            return Success(event)
+        except Exception as e:
+            logger.error("[InventoryItemCreated.create] Unexpected error: %s", str(e))
+            return Failure(
+                DomainValidationError(
+                    f"Failed to create inventory item: {str(e)}",
+                    details=get_error_context(),
+                )
+            )
+
+    def upcast(
+        self, target_version: int
+    ) -> (
+        Success[InventoryItemCreated, Exception]
+        | Failure[InventoryItemCreated, Exception]
+    ):
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
+
+
+class InventoryItemAdjusted(DomainEvent):
+    """
+    Event: InventoryItem was adjusted (e.g., count or measurement changed).
+
+    Usage:
+        result = InventoryItemAdjusted.create(
+            aggregate_id="A100",
+            adjustment=5.0,
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
+    aggregate_id: str
+    adjustment: float
+    version: int = 1
+    model_config = ConfigDict(frozen=True)
+
+    @classmethod
+    def create(
+        cls,
+        aggregate_id: str,
+        adjustment: int | float,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from uno.core.errors.definitions import DomainValidationError
+        from uno.core.errors.base import get_error_context
+        import logging
+
+        logger = logging.getLogger(__name__)
+        try:
+            if not aggregate_id or not isinstance(aggregate_id, str):
+                logger.error(
+                    "[InventoryItemAdjusted.create] Invalid aggregate_id: %r",
+                    aggregate_id,
+                )
+                return Failure(
+                    DomainValidationError(
+                        "aggregate_id is required and must be a string",
+                        details={"aggregate_id": aggregate_id, **get_error_context()},
+                    )
+                )
+            if not isinstance(adjustment, (int, float)):
+                logger.error(
+                    "[InventoryItemAdjusted.create] Invalid adjustment: %r", adjustment
+                )
+                return Failure(
+                    DomainValidationError(
+                        "adjustment must be an int or float",
+                        details={"adjustment": adjustment, **get_error_context()},
+                    )
+                )
+            event = cls(
+                aggregate_id=aggregate_id,
+                adjustment=float(adjustment),
+                version=version,
+            )
+            logger.info(
+                "[InventoryItemAdjusted.create] Event created - aggregate_id=%s adjustment=%s",
+                aggregate_id,
+                adjustment,
+            )
+            return Success(event)
+        except Exception as e:
+            logger.error("[InventoryItemAdjusted.create] Unexpected error: %s", str(e))
+            return Failure(
+                DomainValidationError(
+                    str(e),
+                    details={"adjustment": adjustment, **get_error_context()},
+                )
+            )
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
+
+
+class InventoryItemRenamed(DomainEvent):
+    """
+    Event: InventoryItem was renamed.
+
+    Usage:
+        result = InventoryItemRenamed.create(
+            aggregate_id="A100",
+            new_name="Widget 2.0",
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
+
+    aggregate_id: str
+    new_name: str
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        aggregate_id: str,
+        new_name: str,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from uno.core.errors.definitions import DomainValidationError
+        from uno.core.errors.base import get_error_context
+        import logging
+
+        logger = logging.getLogger(__name__)
+        try:
+            if not aggregate_id or not isinstance(aggregate_id, str):
+                logger.error(
+                    "[InventoryItemRenamed.create] Invalid aggregate_id: %r",
+                    aggregate_id,
+                )
+                return Failure(
+                    DomainValidationError(
+                        "aggregate_id is required and must be a string",
+                        details={"aggregate_id": aggregate_id, **get_error_context()},
+                    )
+                )
+            if not new_name or not isinstance(new_name, str):
+                logger.error(
+                    "[InventoryItemRenamed.create] Invalid new_name: %r", new_name
+                )
+                return Failure(
+                    DomainValidationError(
+                        "new_name is required and must be a string",
+                        details={"new_name": new_name, **get_error_context()},
+                    )
+                )
+            event = cls(
+                aggregate_id=aggregate_id,
+                new_name=new_name,
+                version=version,
+            )
+            logger.info(
+                "[InventoryItemRenamed.create] Event created - aggregate_id=%s new_name=%s",
+                aggregate_id,
+                new_name,
+            )
+            return Success(event)
+        except Exception as e:
+            logger.error("[InventoryItemRenamed.create] Unexpected error: %s", str(e))
+            return Failure(
+                DomainValidationError(
+                    str(e),
+                    details={"new_name": new_name, **get_error_context()},
+                )
+            )
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
+
+    """
+    Event: InventoryItem was adjusted (e.g., count or measurement changed).
+
+    Usage:
+        result = InventoryItemAdjusted.create(
+            aggregate_id="A100",
+            adjustment=5.0,
+        )
+        if isinstance(result, Success):
+            event = result.value
+        else:
+            # handle error context
+            ...
+    """
+
+    aggregate_id: str
+    adjustment: float
+    version: int = 1
+
+    @classmethod
+    def create(
+        cls,
+        aggregate_id: str,
+        adjustment: int | float,
+        version: int = 1,
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        from uno.core.errors.definitions import DomainValidationError
+        from uno.core.errors.base import get_error_context
+        import logging
+
+        logger = logging.getLogger(__name__)
+        try:
+            if not aggregate_id or not isinstance(aggregate_id, str):
+                logger.error(
+                    "[InventoryItemAdjusted.create] Invalid aggregate_id: %r",
+                    aggregate_id,
+                )
+                return Failure(
+                    DomainValidationError(
+                        "aggregate_id is required and must be a string",
+                        details={"aggregate_id": aggregate_id, **get_error_context()},
+                    )
+                )
+            if not isinstance(adjustment, (int, float)):
+                logger.error(
+                    "[InventoryItemAdjusted.create] Invalid adjustment: %r", adjustment
+                )
+                return Failure(
+                    DomainValidationError(
+                        "adjustment must be an int or float",
+                        details={"adjustment": adjustment, **get_error_context()},
+                    )
+                )
+            event = cls(
+                aggregate_id=aggregate_id,
+                adjustment=float(adjustment),
+                version=version,
+            )
+            logger.info(
+                "[InventoryItemAdjusted.create] Event created - aggregate_id=%s adjustment=%s",
+                aggregate_id,
+                adjustment,
+            )
+            return Success(event)
+        except Exception as e:
+            logger.error("[InventoryItemAdjusted.create] Unexpected error: %s", str(e))
+            return Failure(
+                DomainValidationError(
+                    str(e),
+                    details={"adjustment": adjustment, **get_error_context()},
+                )
+            )
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
+
+    """
+    Event: InventoryItem was created.
+
     Handles Measurement validation through model_construct to ensure proper handling of discriminated unions.
 
     Usage:
@@ -303,6 +645,18 @@ class InventoryItemCreated(DomainEvent):
     name: str
     measurement: Measurement
     version: int = 1
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
 
@@ -326,10 +680,15 @@ class InventoryItemCreated(DomainEvent):
         Returns:
             Result containing the event or a validation error
         """
+        # Always initialize logger before try/except
         try:
-            # Get logger service correctly
-            logger_service = get_service_provider().get_service(LoggerService)()
-            logger = logger_service.get_logger("uno.domain.inventory.events")
+            try:
+                logger_service = get_service_provider().get_service(LoggerService)()
+                logger = logger_service.get_logger("uno.domain.inventory.events")
+            except Exception:
+                import logging
+
+                logger = logging.getLogger("uno.domain.inventory.events")
             logger.debug(
                 "[InventoryItemCreated.create] Creating event - aggregate_id=%s name=%s measurement_type=%s",
                 aggregate_id,
@@ -388,9 +747,9 @@ class InventoryItemCreated(DomainEvent):
             return Success(event)
         except Exception as e:
             from pydantic import ValidationError
-
             from uno.core.errors.definitions import DomainValidationError
 
+            # logger is always defined above
             if isinstance(e, ValidationError):
                 logger.error(
                     "[InventoryItemCreated.create] ValidationError: %s", str(e)
@@ -398,256 +757,14 @@ class InventoryItemCreated(DomainEvent):
                 return Failure(
                     DomainValidationError(
                         str(e),
-                        details=get_error_context(),
+                        details={"measurement": measurement, **get_error_context()},
                     )
                 )
             logger.error("[InventoryItemCreated.create] Unexpected error: %s", str(e))
             return Failure(
                 DomainValidationError(
                     str(e),
-                    details=get_error_context(),
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryItemRenamed(DomainEvent):
-    """
-    Event: InventoryItem was renamed.
-
-    Usage:
-        result = InventoryItemRenamed.create(
-            aggregate_id="sku-123",
-            new_name="Gadget",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
-    new_name: str
-    version: int = 1
-
-    @classmethod
-    def create(
-        cls,
-        aggregate_id: str,
-        new_name: str,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            logger_service = get_service_provider().get_service(LoggerService)()
-            logger = logger_service.get_logger("uno.domain.inventory.events")
-            logger.debug(
-                "[InventoryItemRenamed.create] Creating event - aggregate_id=%s new_name=%s",
-                aggregate_id,
-                new_name,
-            )
-
-            if not new_name:
-                logger.error(
-                    "[InventoryItemRenamed.create] Invalid new_name: %s", new_name
-                )
-                return Failure(
-                    DomainValidationError(
-                        "new_name is required", details=get_error_context()
-                    )
-                )
-            event = cls(
-                aggregate_id=aggregate_id,
-                new_name=new_name,
-                version=version,
-            )
-            logger.info(
-                "[InventoryItemRenamed.create] Event created - aggregate_id=%s new_name=%s",
-                aggregate_id,
-                new_name,
-            )
-            return Success(event)
-        except Exception as exc:
-            logger = (
-                get_service_provider()
-                .get_service(LoggerService)()
-                .get_logger("uno.domain.inventory.events")
-            )
-            logger.error("[InventoryItemRenamed.create] Unexpected error: %s", str(exc))
-            return Failure(
-                DomainValidationError(
-                    "Failed to rename InventoryItem",
-                    details={"error": str(exc)},
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryItemAdjusted(DomainEvent):
-    """
-    Event: InventoryItem was adjusted.
-
-    Usage:
-        result = InventoryItemAdjusted.create(
-            aggregate_id="sku-123",
-            adjustment=5,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
-    adjustment: int | float  # delta, can be negative or positive
-    version: int = 1
-
-    @classmethod
-    def create(
-        cls,
-        aggregate_id: str,
-        adjustment: int | float,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            logger_service = get_service_provider().get_service(LoggerService)()
-            logger = logger_service.get_logger("uno.domain.inventory.events")
-            logger.debug(
-                "[InventoryItemAdjusted.create] Creating event - aggregate_id=%s adjustment=%f",
-                aggregate_id,
-                adjustment,
-            )
-
-            if not aggregate_id:
-                logger.error(
-                    "[InventoryItemAdjusted.create] Invalid aggregate_id: %s",
-                    aggregate_id,
-                )
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            # Accept int, float, or Count
-            if isinstance(adjustment, int | float):
-                adj_value = float(adjustment)
-                event = cls(
-                    aggregate_id=aggregate_id,
-                    adjustment=adj_value,
-                    version=version,
-                )
-                logger.info(
-                    "[InventoryItemAdjusted.create] Event created - aggregate_id=%s adjustment=%f",
-                    aggregate_id,
-                    adj_value,
-                )
-                return Success(event)
-            else:
-                logger.error(
-                    "[InventoryItemAdjusted.create] Invalid adjustment type: %s value: %r",
-                    type(adjustment).__name__,
-                    adjustment,
-                )
-                return Failure(
-                    DomainValidationError(
-                        "adjustment must be an int or float",
-                        details={"adjustment": adjustment},
-                    )
-                )
-        except Exception as exc:
-            logger = (
-                get_service_provider()
-                .get_service(LoggerService)()
-                .get_logger("uno.domain.inventory.events")
-            )
-            logger.error(
-                "[InventoryItemAdjusted.create] Unexpected error: %s", str(exc)
-            )
-            return Failure(
-                DomainValidationError(
-                    f"Failed to create InventoryItemAdjusted: {str(exc)}",
-                    details={"error": str(exc)},
-                )
-            )
-
-    def adjust_measurement(self, adjustment: int | float) -> Result[None, Exception]:
-        logger_service = get_service_provider().get_service(LoggerService)()
-        logger = logger_service.get_logger("uno.domain.inventory.item")
-        logger.info(
-            "[InventoryItem.adjust_measurement] entry - aggregate_id=%s current_measurement=%f adjustment=%f adjustment_type=%s",
-            self.id,
-            self.measurement.value.value,
-            adjustment,
-            type(adjustment).__name__,
-        )
-        try:
-            adj_value = float(adjustment)
-            new_value = self.measurement.value.value + adj_value
-
-            if new_value < 0:
-                logger.warning(
-                    "[InventoryItem.adjust_measurement] negative result - current_measurement=%f adj_value=%f",
-                    self.measurement.value.value,
-                    adj_value,
-                )
-                return Failure(
-                    DomainValidationError(
-                        "resulting measurement cannot be negative",
-                        details={
-                            "current_measurement": self.measurement.value.value,
-                            "adjustment": adj_value,
-                        },
-                    )
-                )
-
-            self.measurement = Measurement.from_value(new_value)
-            event = InventoryItemAdjusted.create(self.id, adj_value)
-            self._record_event(event)
-            logger.info(
-                "[InventoryItem.adjust_measurement] success - aggregate_id=%s new_measurement=%f",
-                self.id,
-                new_value,
-            )
-            return Success(None)
-        except (ValueError, TypeError) as e:
-            logger.error(
-                "[InventoryItem.adjust_measurement] Failed to adjust measurement - error: %s",
-                str(e),
-            )
-            return Failure(
-                DomainValidationError(
-                    f"Failed to adjust measurement: {str(e)}",
-                    details={"adjustment": adjustment, "error": str(e)},
+                    details={"measurement": measurement, **get_error_context()},
                 )
             )
 
@@ -716,6 +833,7 @@ class InventoryItemAdjusted(DomainEvent):
 
 T = TypeVar("T", bound="InventoryLotCreated")
 
+
 class InventoryLotCreated(DomainEvent):
     """
     Event: InventoryLot was created.
@@ -747,6 +865,18 @@ class InventoryLotCreated(DomainEvent):
     purchase_price: float | None = None  # If purchased
     sale_price: float | None = None  # If sold
     version: int = 1
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
 
     @field_serializer("measurement")
     def serialize_measurement(self, value, _info):
@@ -904,6 +1034,7 @@ class InventoryLotCreated(DomainEvent):
 
 T = TypeVar("T", bound="InventoryLotAdjusted")
 
+
 class InventoryLotAdjusted(DomainEvent):
     """
     Event: InventoryLot was adjusted.
@@ -925,6 +1056,18 @@ class InventoryLotAdjusted(DomainEvent):
     adjustment: int
     reason: Optional[str] = None
     version: int = 1
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
 
     @classmethod
     def create(
@@ -1005,15 +1148,27 @@ class InventoryLotsCombined(DomainEvent):
 
     model_config = ConfigDict(frozen=True)
 
-    source_lot_ids: List[str]
-    source_grades: List[Optional[Grade]]
-    source_vendor_ids: List[str]
+    source_lot_ids: list[str]
+    source_grades: list[Grade | None]
+    source_vendor_ids: list[str]
     new_lot_id: str
     aggregate_id: str
     combined_measurement: Measurement
-    blended_grade: Optional[Grade]
-    blended_vendor_ids: List[str]
+    blended_grade: Grade | None
+    blended_vendor_ids: list[str]
     version: int = 1
+
+    def upcast(
+        self, target_version: int
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+        if target_version == self.version:
+            return Success(self)
+        return Failure(
+            DomainValidationError(
+                "Upcasting not implemented",
+                details={"from": self.version, "to": target_version},
+            )
+        )
 
     @field_serializer("combined_measurement")
     def serialize_combined_measurement(self, value, _info):
@@ -1142,23 +1297,23 @@ class InventoryLotSplit(DomainEvent):
         return [q.model_dump(mode="json") for q in values]
 
     source_lot_id: str
-    new_lot_ids: List[str]
+    new_lot_ids: list[str]
     aggregate_id: str
-    split_quantities: List[Union[int, float, Count, Measurement]]
-    reason: Optional[str] = None  # v2: Optional explanation for why the lot was split
+    split_quantities: list[int | float | Count | Measurement]
+    reason: str | None = None  # v2: Optional explanation for why the lot was split
     version: int = 1  # default to v1 for backward compatibility with tests
     __version__: ClassVar[int] = 2
 
     @classmethod
     def create(
-        cls: type[T],
+        cls,
         source_lot_id: str,
-        new_lot_ids: List[str],
+        new_lot_ids: list[str],
         aggregate_id: str,
-        split_quantities: List[Union[int, float, Count, Measurement]],
-        reason: Optional[str] = None,
+        split_quantities: list[int | float | Count | Measurement],
+        reason: str | None = None,
         version: int = 1,
-    ) -> Union[Result[T, DomainValidationError], Failure[T, Exception]]:
+    ) -> Result[T, DomainValidationError] | Failure[T, Exception]:
         try:
             if not source_lot_id or not new_lot_ids or not aggregate_id:
                 return Failure(

@@ -181,7 +181,7 @@ class InventoryItemService:
         item = result.value
         adjust_result = item.adjust_measurement(adjustment)
         if isinstance(adjust_result, Failure):
-            self.logger.warning(
+            self.logger.error(
                 {
                     "event": "inventory_item_adjust_failed",
                     "aggregate_id": aggregate_id,
@@ -190,15 +190,16 @@ class InventoryItemService:
                     "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             )
-            err = adjust_result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "aggregate_id": aggregate_id,
-                    "adjustment": adjustment,
-                    "service": "InventoryItemService.adjust_inventory_measurement",
-                }
-            return Failure(err)
+            return Failure(
+                DomainValidationError(
+                    str(adjust_result.error),
+                    details={
+                        "aggregate_id": aggregate_id,
+                        "service": "InventoryItemService.adjust_inventory_measurement",
+                        **(adjust_result.error.details if hasattr(adjust_result.error, 'details') else {})
+                    }
+                )
+            )
         save_result = self.repo.save(item)
         if isinstance(save_result, Failure):
             self.logger.error(
@@ -210,11 +211,10 @@ class InventoryItemService:
                     "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             )
-            err = save_result.error
-            return Failure(err)
+            return Failure(save_result.error)
         self.logger.info(
             {
-                "event": "inventory_item_measurement_adjusted",
+                "event": "inventory_item_adjusted",
                 "aggregate_id": aggregate_id,
                 "adjustment": adjustment,
                 "service": "InventoryItemService.adjust_inventory_measurement",

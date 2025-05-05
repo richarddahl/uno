@@ -4,7 +4,6 @@ InventoryItem aggregate and related events for the inventory bounded context.
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
-from decimal import Decimal
 from typing import Any, Self
 
 from pydantic import ConfigDict, PrivateAttr, field_validator
@@ -67,7 +66,7 @@ class InventoryItem(AggregateRoot[str]):
                     )
                 # Direct construction of Count and Measurement to avoid logger service
                 count = Count(
-                    type="count", value=Decimal(measurement), unit=CountUnit.EACH
+                    type="count", value=float(measurement), unit=CountUnit.EACH
                 )
                 q = Measurement(type="count", value=count)
             else:
@@ -140,7 +139,6 @@ class InventoryItem(AggregateRoot[str]):
 
     def adjust_measurement(self, adjustment: int | float) -> Result[None, Exception]:
         import logging
-        from decimal import Decimal, InvalidOperation
 
         logger = logging.getLogger(__name__)
         logger.info(
@@ -153,12 +151,10 @@ class InventoryItem(AggregateRoot[str]):
             }
         )
         try:
-            # Convert adjustment to Decimal safely
-            adj_value = Decimal(str(adjustment))
             current_value = self.measurement.value.value
-            if not isinstance(current_value, Decimal):
-                current_value = Decimal(str(current_value))
-            new_value = current_value + adj_value
+            if not isinstance(current_value, float):
+                current_value = float(current_value)
+            new_value = round(current_value + adjustment, 10)
             if new_value < 0:
                 return Failure(
                     DomainValidationError(
@@ -168,13 +164,13 @@ class InventoryItem(AggregateRoot[str]):
                 )
             # Do NOT mutate self.measurement here!
             # Only record the event; state will be updated in _apply_event
-            event = InventoryItemAdjusted(aggregate_id=self.id, adjustment=adj_value)
+            event = InventoryItemAdjusted(aggregate_id=self.id, adjustment=adjustment)
             self._record_event(event)
             logger.info(
                 {
                     "event": "adjust_measurement_success",
                     "aggregate_id": self.id,
-                    "new_measurement": self.measurement.value.value + adj_value,
+                    "new_measurement": self.measurement.value.value + adjustment,
                 }
             )
             return Success(None)
@@ -198,21 +194,22 @@ class InventoryItem(AggregateRoot[str]):
         elif isinstance(event, InventoryItemRenamed):
             self.name = event.new_name
         elif isinstance(event, InventoryItemAdjusted):
-            from decimal import Decimal
-
-            if not hasattr(self.measurement, "value"):
+            # Diagnostic: print event internals if adjustment is missing
+            if not hasattr(event, 'adjustment'):
+                print("DEBUG: InventoryItemAdjusted event missing 'adjustment' attribute!")
+                print("DEBUG: event type:", type(event))
+                print("DEBUG: event __dict__:", getattr(event, '__dict__', str(event)))
                 raise DomainValidationError(
-                    "InventoryItem.measurement is not a value object",
-                    details=get_error_context(),
+                    "InventoryItemAdjusted event missing 'adjustment' attribute",
+                    details={"event_type": str(type(event)), "event_dict": getattr(event, '__dict__', str(event)), **get_error_context()},
                 )
-            # Ensure both operands are Decimal
             current_value = self.measurement.value.value
             adjustment = event.adjustment
-            if not isinstance(current_value, Decimal):
-                current_value = Decimal(str(current_value))
-            if not isinstance(adjustment, Decimal):
-                adjustment = Decimal(str(adjustment))
-            new_value = current_value + adjustment
+            if not isinstance(current_value, float):
+                current_value = float(current_value)
+            if not isinstance(adjustment, float):
+                adjustment = float(adjustment)
+            new_value = round(current_value + adjustment, 10)
             if new_value < 0:
                 raise DomainValidationError(
                     "resulting measurement cannot be negative",
