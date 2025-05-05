@@ -63,6 +63,26 @@ class DomainEvent(FrameworkBaseModel):
         """
         Look up the event class by event_type or class name.
         Raises KeyError if not found.
+        Uno canonical Pydantic base model for all events.
+
+        Canonical serialization and hashing contract (Uno standard):
+        - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for event serialization, hashing, storage, and transport.
+        - Unset and None fields are treated identically; they are excluded from serialization and do not affect event_hash.
+        - This contract is enforced by dedicated tests (see test_event_serialization_is_deterministic).
+
+        - All model-wide concerns (e.g., upcasting, hash computation) are handled via @model_validator methods.
+        - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
+        - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
+        - If broader Python idioms are needed, thin wrappers (e.g., to_dict, from_dict) are provided that simply call the canonical Pydantic methods.
+        - This is the **only** pattern permitted for Uno base models.
+
+        Base class for all domain and integration events in Uno.
+        Events are immutable and serializable.
+        Implements canonical event hash chaining for tamper detection.
+
+        - 'version' is an instance field (serialized with the event)
+        - '__version__' is a class-level canonical version (used for upcasting logic)
+        - 'event_hash' is computed automatically at creation time (model_validator)
         """
         try:
             return cls._event_class_registry[event_type]
@@ -70,29 +90,6 @@ class DomainEvent(FrameworkBaseModel):
             raise RuntimeError(
                 f"No DomainEvent class registered for event_type '{event_type}'"
             )
-
-    """
-    Uno canonical Pydantic base model for all events.
-
-    Canonical serialization and hashing contract (Uno standard):
-      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for event serialization, hashing, storage, and transport.
-      - Unset and None fields are treated identically; they are excluded from serialization and do not affect event_hash.
-      - This contract is enforced by dedicated tests (see test_event_serialization_is_deterministic).
-
-    - All model-wide concerns (e.g., upcasting, hash computation) are handled via @model_validator methods.
-    - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
-    - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
-    - If broader Python idioms are needed, thin wrappers (e.g., to_dict, from_dict) are provided that simply call the canonical Pydantic methods.
-    - This is the **only** pattern permitted for Uno base models.
-
-    Base class for all domain and integration events in Uno.
-    Events are immutable and serializable.
-    Implements canonical event hash chaining for tamper detection.
-
-    - 'version' is an instance field (serialized with the event)
-    - '__version__' is a class-level canonical version (used for upcasting logic)
-    - 'event_hash' is computed automatically at creation time (model_validator)
-    """
 
     version: int = 1
     __version__: ClassVar[int] = 1
@@ -119,11 +116,10 @@ class DomainEvent(FrameworkBaseModel):
 
         Returns:
             Self
-            None
         """
-        from uno.infrastructure.di import ServiceProvider, get_service_provider
-        from uno.core.services.hash_service_protocol import HashServiceProtocol
         from uno.core.services.default_hash_service import DefaultHashService
+        from uno.core.services.hash_service_protocol import HashServiceProtocol
+        from uno.infrastructure.di import get_service_provider
 
         d = self.model_dump(
             exclude={"event_hash"},
@@ -135,7 +131,7 @@ class DomainEvent(FrameworkBaseModel):
             d, sort_keys=True, separators=(",", ":"), default=uno_json_encoder
         )
 
-        hash_service = None
+        hash_service: HashServiceProtocol | None = None
         try:
             provider = get_service_provider()
             result = provider.try_get_service(HashServiceProtocol)
@@ -164,7 +160,7 @@ class DomainEvent(FrameworkBaseModel):
     @classmethod
     def from_dict(
         cls, data: dict[str, Any]
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:  # type: ignore[valid-type]
+    ) -> Success[Self, Exception] | Failure[Self, Exception]:
         """
         Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
         Upcasting and hash computation are handled by model validators.
@@ -175,7 +171,7 @@ class DomainEvent(FrameworkBaseModel):
         Returns:
             Success[Self, Exception](event) if valid, Failure[Self, Exception](error) otherwise.
         """
-        from uno.core.errors.result import Success, Failure
+        from uno.core.errors.result import Failure, Success
 
         try:
             return Success[Self, Exception](cls.model_validate(data))
@@ -227,17 +223,20 @@ class EventUpcasterRegistry:
     _registry: ClassVar[
         dict[
             tuple[type, int],
-            "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
+            collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
         ]
     ] = {}
 
     @classmethod
     def register(
         cls, event_type: type, from_version: int
-    ) -> "collections.abc.Callable[[collections.abc.Callable[[dict[str, Any]], dict[str, Any]]], collections.abc.Callable[[dict[str, Any]], dict[str, Any]]]":
+    ) -> collections.abc.Callable[
+        [collections.abc.Callable[[dict[str, Any]], dict[str, Any]]],
+        collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
+    ]:
         def decorator(
-            func: "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
-        ) -> "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]":
+            func: collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
+        ) -> collections.abc.Callable[[dict[str, Any]], dict[str, Any]]:
             cls._registry[(event_type, from_version)] = func
             return func
 
@@ -248,7 +247,7 @@ class EventUpcasterRegistry:
         cls,
         event_type: type,
         from_version: int,
-        upcaster_fn: "collections.abc.Callable[[dict[str, Any]], dict[str, Any]]",
+        upcaster_fn: collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
     ) -> None:
         cls._registry[(event_type, from_version)] = upcaster_fn
 

@@ -4,10 +4,9 @@
 
 """Base class and protocols for SQL emitters."""
 
-# from uno.infrastructure.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 import time
-from typing import ClassVar, Protocol
+from typing import Any, ClassVar, Protocol
 
 from pydantic import BaseModel, model_validator
 from sqlalchemy import Table
@@ -16,9 +15,9 @@ from sqlalchemy.sql import text
 
 from uno.infrastructure.database.config import ConnectionConfig
 from uno.infrastructure.database.engine.sync import SyncEngineFactory, sync_connection
-from uno.settings import uno_settings
 from uno.infrastructure.sql.observers import BaseObserver, SQLObserver
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.settings import uno_settings
 
 # No additional imports needed
 
@@ -97,7 +96,7 @@ class SQLEmitter(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         logger = data.pop("logger", None)
         if logger is None:
             raise ValueError(
@@ -106,7 +105,8 @@ class SQLEmitter(BaseModel):
         super().__init__(logger=logger, **data)
 
     @model_validator(mode="before")
-    def initialize_connection_config(cls, values: dict) -> dict:
+    @classmethod
+    def initialize_connection_config(cls, values: dict[str, Any]) -> dict[str, Any]:
         """Initialize connection_config if not provided.
 
         Args:

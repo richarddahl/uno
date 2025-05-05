@@ -85,10 +85,9 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
             )
 
     @model_validator(mode="after")
-    def check_invariants(self, values: dict[str, Any]) -> dict[str, Any]:
+    def check_invariants(self, values: dict[str, Any]) -> Self:
         """
         Validate the entity's invariants. Override in subclasses for custom validation.
         Raises ValueError or returns values if valid.
         """
-        # By default, no extra invariants; subclasses may override or extend
-        return values
+        return self
