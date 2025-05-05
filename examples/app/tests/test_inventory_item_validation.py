@@ -12,10 +12,14 @@ from uno.core.errors.result import Failure, Success
 def test_inventory_item_validate_domain_invariants():
     # Valid case
     item = InventoryItem(id="I1", name="Widget", measurement=Measurement.from_count(10))
-    assert isinstance(item.validate(), Success)
+    assert item.name == "Widget"
 
     # Domain invariant: name must not be empty
-    item_with_empty_name = InventoryItem(
-        id="I1", name="", measurement=Measurement.from_count(10)
-    )
-    assert isinstance(item_with_empty_name.validate(), Failure)
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError) as excinfo:
+        InventoryItem(
+            id="I1", name="", measurement=Measurement.from_count(10)
+        )
+    assert "name must be a non-empty string" in str(excinfo.value)
+

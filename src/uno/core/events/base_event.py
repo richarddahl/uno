@@ -50,7 +50,7 @@ class DomainEvent(FrameworkBaseModel):
     # --- Event class registry for dynamic resolution ---
     _event_class_registry: ClassVar[dict[str, type["DomainEvent"]]] = {}
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         # Register by class name and event_type if available
         DomainEvent._event_class_registry[cls.__name__] = cls

@@ -3,44 +3,39 @@ Unit tests for the Vendor aggregate validate() method.
 """
 
 import pytest
-
-from uno.core.errors.result import Failure, Success
 from pydantic_core import ValidationError
 
-from examples.app.domain.vendor.value_objects import EmailAddress
 from examples.app.domain.vendor import Vendor
+from examples.app.domain.vendor.value_objects import EmailAddress
+from uno.core.errors.result import Failure, Success
 
 
-def test_vendor_validate_domain_invariants():
+def test_vendor_validate_domain_invariants() -> None:
     # Valid case
     vendor = Vendor(
         id="V1",
         name="Acme",
         contact_email=EmailAddress(value="info@acme.com"),
     )
-    assert isinstance(vendor.validate(), Success)
+    assert vendor.name == "Acme"
 
-    # Domain invariant: name must not be empty
-    vendor_with_empty_name = Vendor(
-        id="V1",
-        name="",
-        contact_email=EmailAddress(value="info@acme.com"),
-    )
-    assert isinstance(vendor_with_empty_name.validate(), Failure)
+    with pytest.raises(ValidationError) as excinfo:
+        Vendor(
+            id="V1",
+            name="",
+            contact_email=EmailAddress(value="info@acme.com"),
+        )
+    assert "name must be a non-empty string" in str(excinfo.value)
 
-    # Domain invariant: contact_email must be valid
-    try:
-        vendor_with_invalid_email = Vendor(
+    with pytest.raises(ValidationError):
+        Vendor(
             id="V1",
             name="Acme",
             contact_email=EmailAddress(value="invalid"),
         )
-        assert isinstance(vendor_with_invalid_email.validate(), Failure)
-    except ValidationError:
-        pass  # Expected Pydantic validation error
 
 
-def test_vendor_create_validation():
+def test_vendor_create_validation() -> None:
     # Valid creation
     result = Vendor.create(
         vendor_id="V1",
@@ -69,7 +64,7 @@ def test_vendor_create_validation():
         pass  # Expected Pydantic validation error
 
 
-def test_vendor_update_validation():
+def test_vendor_update_validation() -> None:
     # Create valid vendor first
     vendor = Vendor(
         id="V1",

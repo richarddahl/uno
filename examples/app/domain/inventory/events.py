@@ -342,20 +342,21 @@ class InventoryItemCreated(DomainEvent):
             return Success(event)
         except Exception as e:
             from pydantic import ValidationError
+
             logger.error("[InventoryItemCreated.create] Unexpected error: %s", str(e))
             # Propagate measurement field errors with correct context
             if isinstance(e, ValidationError):
                 # Map pydantic 'value' field errors to 'measurement' for domain context
                 details = {}
                 for err in e.errors():
-                    if 'loc' in err and err['loc']:
-                        key = err['loc'][-1]
-                        if key == 'value':
-                            details['measurement'] = err['msg']
+                    if "loc" in err and err["loc"]:
+                        key = err["loc"][-1]
+                        if key == "value":
+                            details["measurement"] = err["msg"]
                         else:
-                            details[key] = err['msg']
+                            details[key] = err["msg"]
                 if not details:
-                    details['measurement'] = str(e)
+                    details["measurement"] = str(e)
                 return Failure(
                     DomainValidationError(
                         f"Failed to create inventory item: {str(e)}",
@@ -491,6 +492,7 @@ class InventoryItemRenamed(DomainEvent):
 
     aggregate_id: str
     new_name: str
+    measurement: Measurement
     version: int = 1
 
     @classmethod
@@ -498,11 +500,13 @@ class InventoryItemRenamed(DomainEvent):
         cls,
         aggregate_id: str,
         new_name: str,
+        measurement: Measurement,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from uno.core.errors.definitions import DomainValidationError
-        from uno.core.errors.base import get_error_context
         import logging
+
+        from uno.core.errors.base import get_error_context
+        from uno.core.errors.definitions import DomainValidationError
 
         logger = logging.getLogger(__name__)
         try:
@@ -530,6 +534,7 @@ class InventoryItemRenamed(DomainEvent):
             event = cls(
                 aggregate_id=aggregate_id,
                 new_name=new_name,
+                measurement=measurement,
                 version=version,
             )
             logger.info(
@@ -587,36 +592,21 @@ class InventoryItemRenamed(DomainEvent):
                 f"Unhandled event: {event}", details=get_error_context()
             )
 
-    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+    @model_validator(mode="after")
+    def validate_model(self) -> Self:
         """
-        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
+        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
         """
-        from uno.core.errors.result import Success, Failure
-        from uno.core.errors.definitions import DomainValidationError
-        from uno.core.errors.base import get_error_context
-        from examples.app.domain.measurement import Measurement
+        from examples.app.domain.inventory.measurement import Measurement
 
-        if not self.name or not isinstance(self.name, str):
-            return Failure(
-                DomainValidationError(
-                    "name must be a non-empty string", details=get_error_context()
-                )
-            )
+        if not self.new_name or not isinstance(self.new_name, str):
+            raise ValueError("new_name must be a non-empty string")
         if self.measurement is None or not isinstance(self.measurement, Measurement):
-            return Failure(
-                DomainValidationError(
-                    "measurement must be a Measurement value object",
-                    details=get_error_context(),
-                )
-            )
+            raise ValueError("measurement must be a Measurement value object")
         if self.measurement.value.value < 0:
-            return Failure(
-                DomainValidationError(
-                    "measurement must be non-negative", details=get_error_context()
-                )
-            )
+            raise ValueError("measurement must be non-negative")
         # Add more invariants as needed
-        return Success(None)
+        return self
 
 
 # --- Events ---
@@ -670,15 +660,15 @@ class InventoryLotCreated(DomainEvent):
         )
 
     @field_serializer("measurement")
-    def serialize_measurement(self, value, _info):
+    def serialize_measurement(self, value: Measurement, _info):
         return value.model_dump(mode="json")
 
     @field_serializer("purchase_price")
-    def serialize_purchase_price(self, value, _info):
+    def serialize_purchase_price(self, value: float | None, _info):
         return str(value) if value else None
 
     @field_serializer("sale_price")
-    def serialize_sale_price(self, value, _info):
+    def serialize_sale_price(self, value: float | None, _info):
         return str(value) if value else None
 
     @classmethod
@@ -770,7 +760,7 @@ class InventoryLotCreated(DomainEvent):
 
     @model_validator(mode="before")
     @classmethod
-    def model_validate(cls, data: dict | Self) -> Self:
+    def validate_model(cls, data: dict | Self) -> Self:
         """
         Validate and construct a new instance from data.
 
@@ -792,9 +782,7 @@ class InventoryLotCreated(DomainEvent):
             if measurement is not None:
                 if isinstance(measurement, Measurement):
                     data["measurement"] = measurement
-                elif isinstance(measurement, Count):
-                    data["measurement"] = Measurement.from_count(measurement)
-                elif isinstance(measurement, (int, float)):
+                elif isinstance(measurement, Count | int | float):
                     data["measurement"] = Measurement.from_count(measurement)
                 elif isinstance(measurement, dict):
                     data["measurement"] = Measurement.model_validate(measurement)
@@ -806,21 +794,6 @@ class InventoryLotCreated(DomainEvent):
             return super().model_validate(data)
 
         return super().model_validate(data)
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
 
 
 T = TypeVar("T", bound="InventoryLotAdjusted")

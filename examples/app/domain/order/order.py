@@ -220,48 +220,20 @@ class Order(Entity[str]):
                 f"Unhandled event: {event}", details=get_error_context()
             )
 
-    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
-        """
-        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
-        """
-        from uno.core.errors.result import Success, Failure
-        from uno.core.errors.definitions import DomainValidationError
-        from uno.core.errors.base import get_error_context
+    from pydantic import model_validator
 
+    @model_validator(mode="after")
+    def check_invariants(self) -> Self:
+        """
+        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
+        """
         if self.measurement is None or not isinstance(self.measurement, Measurement):
-            return Failure(
-                DomainValidationError(
-                    "measurement must be a valid Measurement instance",
-                    details=get_error_context(),
-                )
-            )
-        if self.measurement.value.value < 0:
-            return Failure(
-                DomainValidationError(
-                    "measurement must be non-negative", details=get_error_context()
-                )
-            )
-        if self.price is None or not isinstance(self.price, Money):
-            return Failure(
-                DomainValidationError(
-                    "price must be a Money value object", details=get_error_context()
-                )
-            )
+            raise ValueError("measurement must be a valid Measurement instance")
         if self.order_type not in ("purchase", "sale"):
-            return Failure(
-                DomainValidationError(
-                    f"order_type must be 'purchase' or 'sale', got {self.order_type}",
-                    details=get_error_context(),
-                )
-            )
+            raise ValueError(f"order_type must be 'purchase' or 'sale', got {self.order_type}")
         if self.is_fulfilled and self.is_cancelled:
-            return Failure(
-                DomainValidationError(
-                    "Order cannot be both fulfilled and cancelled",
-                    details=get_error_context(),
-                )
-            )
+            raise ValueError("Order cannot be both fulfilled and cancelled")
         # Add more invariants as needed
-        return Success(None)
+        return self
 
     # Canonical serialization already handled by AggregateRoot/Entity base

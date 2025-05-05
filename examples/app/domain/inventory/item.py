@@ -55,7 +55,12 @@ class InventoryItem(AggregateRoot[str]):
                 q = measurement
             elif isinstance(measurement, Count):
                 # Direct construction to avoid using factory methods that might use logger
-                q = Measurement(type="count", value=Count(type="count", value=measurement.value, unit=measurement.unit))
+                q = Measurement(
+                    type="count",
+                    value=Count(
+                        type="count", value=measurement.value, unit=measurement.unit
+                    ),
+                )
             elif isinstance(measurement, int | float):
                 if measurement < 0:
                     return Failure(
@@ -65,7 +70,9 @@ class InventoryItem(AggregateRoot[str]):
                         )
                     )
                 # Direct construction of Count and Measurement to avoid logger service
-                count = Count(type="count", value=float(measurement), unit=CountUnit.EACH)
+                count = Count(
+                    type="count", value=float(measurement), unit=CountUnit.EACH
+                )
                 q = Measurement(type="count", value=count)
             else:
                 return Failure(
@@ -120,7 +127,14 @@ class InventoryItem(AggregateRoot[str]):
                         "new_name is required", details=get_error_context()
                     )
                 )
-            event = InventoryItemRenamed(aggregate_id=self.id, new_name=new_name)
+            result = InventoryItemRenamed.create(
+                aggregate_id=self.id,
+                new_name=new_name,
+                measurement=self.measurement
+            )
+            if isinstance(result, Failure):
+                return result
+            event = result.value
             self._record_event(event)
             return Success(None)
         except Exception as e:
@@ -193,13 +207,19 @@ class InventoryItem(AggregateRoot[str]):
             self.name = event.new_name
         elif isinstance(event, InventoryItemAdjusted):
             # Diagnostic: print event internals if adjustment is missing
-            if not hasattr(event, 'adjustment'):
-                print("DEBUG: InventoryItemAdjusted event missing 'adjustment' attribute!")
+            if not hasattr(event, "adjustment"):
+                print(
+                    "DEBUG: InventoryItemAdjusted event missing 'adjustment' attribute!"
+                )
                 print("DEBUG: event type:", type(event))
-                print("DEBUG: event __dict__:", getattr(event, '__dict__', str(event)))
+                print("DEBUG: event __dict__:", getattr(event, "__dict__", str(event)))
                 raise DomainValidationError(
                     "InventoryItemAdjusted event missing 'adjustment' attribute",
-                    details={"event_type": str(type(event)), "event_dict": getattr(event, '__dict__', str(event)), **get_error_context()},
+                    details={
+                        "event_type": str(type(event)),
+                        "event_dict": getattr(event, "__dict__", str(event)),
+                        **get_error_context(),
+                    },
                 )
             current_value = self.measurement.value.value
             adjustment = event.adjustment
@@ -219,33 +239,20 @@ class InventoryItem(AggregateRoot[str]):
                 f"Unhandled event: {event}", details=get_error_context()
             )
 
-    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+    from pydantic import model_validator
+
+    @model_validator(mode="after")
+    def check_invariants(self) -> Self:
         """
-        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
+        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
         """
-        from uno.core.errors.result import Success, Failure
-        from uno.core.errors.definitions import DomainValidationError
-        from uno.core.errors.base import get_error_context
         from examples.app.domain.inventory.measurement import Measurement
 
         if not self.name or not isinstance(self.name, str):
-            return Failure(
-                DomainValidationError(
-                    "name must be a non-empty string", details=get_error_context()
-                )
-            )
+            raise ValueError("name must be a non-empty string")
         if self.measurement is None or not isinstance(self.measurement, Measurement):
-            return Failure(
-                DomainValidationError(
-                    "measurement must be a Measurement value object",
-                    details=get_error_context(),
-                )
-            )
+            raise ValueError("measurement must be a Measurement value object")
         if self.measurement.value.value < 0:
-            return Failure(
-                DomainValidationError(
-                    "measurement must be non-negative", details=get_error_context()
-                )
-            )
+            raise ValueError("measurement must be non-negative")
         # Add more invariants as needed
-        return Success(None)
+        return self

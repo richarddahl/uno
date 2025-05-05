@@ -8,15 +8,15 @@ Defines the Vendor aggregate root and its domain events, supporting event sourci
 
 from typing import Self
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, model_validator
 
-from examples.app.domain.vendor.value_objects import EmailAddress
 from examples.app.domain.vendor.events import VendorCreated, VendorUpdated
+from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.domain.aggregate import AggregateRoot
-from uno.core.events import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
+from uno.core.events import DomainEvent
 
 
 # --- Aggregate ---
@@ -115,27 +115,14 @@ class Vendor(AggregateRoot[str]):
         else:
             raise ValueError(f"Unsupported event type: {type(event)}")
 
-    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+    @model_validator(mode="after")
+    def check_invariants(self) -> Self:
         """
-        Validate the aggregate's invariants. Returns Success(None) if valid, Failure(None, Exception) otherwise.
+        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
         """
-        from uno.core.errors.result import Success, Failure
-        from uno.core.errors.definitions import DomainValidationError
-        from uno.core.errors.base import get_error_context
-        from examples.app.domain.vendor.value_objects import EmailAddress
-
         if not self.name or not isinstance(self.name, str):
-            return Failure(
-                DomainValidationError(
-                    "name must be a non-empty string", details=get_error_context()
-                )
-            )
+            raise ValueError("name must be a non-empty string")
         if not self.contact_email or not isinstance(self.contact_email, EmailAddress):
-            return Failure(
-                DomainValidationError(
-                    "contact_email must be an EmailAddress value object",
-                    details=get_error_context(),
-                )
-            )
+            raise ValueError("contact_email must be an EmailAddress value object")
         # Add more invariants as needed
-        return Success(None)
+        return self

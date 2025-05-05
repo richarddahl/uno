@@ -24,23 +24,33 @@ from uno.core.errors.result import Success, Failure
 def test_order_validate_domain_invariants(
     order_type: str, is_fulfilled: bool, is_cancelled: bool, expect_success: bool
 ):
-    # Use valid value objects for all required fields
+    import pytest
+    from pydantic import ValidationError
     measurement = Measurement.from_count(10)
     price = Money.from_value(Decimal('100.00'), Currency.USD).unwrap()
-    
-    order = Order(
-        id="O1",
-        aggregate_id="I1",
-        lot_id="L1",
-        vendor_id="V1",
-        measurement=measurement,
-        price=price,
-        order_type=order_type,
-        is_fulfilled=is_fulfilled,
-        is_cancelled=is_cancelled,
-    )
-    result = order.validate()
     if expect_success:
-        assert isinstance(result, Success)
+        order = Order(
+            id="O1",
+            aggregate_id="I1",
+            lot_id="L1",
+            vendor_id="V1",
+            measurement=measurement,
+            price=price,
+            order_type=order_type,
+            is_fulfilled=is_fulfilled,
+            is_cancelled=is_cancelled,
+        )
+        assert order.order_type in ("purchase", "sale")
     else:
-        assert isinstance(result, Failure)
+        with pytest.raises(ValidationError):
+            Order(
+                id="O1",
+                aggregate_id="I1",
+                lot_id="L1",
+                vendor_id="V1",
+                measurement=measurement,
+                price=price,
+                order_type=order_type,
+                is_fulfilled=is_fulfilled,
+                is_cancelled=is_cancelled,
+            )

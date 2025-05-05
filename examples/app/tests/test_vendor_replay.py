@@ -4,14 +4,14 @@ Tests for Vendor aggregate event replay and round-trip serialization.
 
 import pytest
 
-from examples.app.domain.vendor.value_objects import EmailAddress
 from examples.app.domain.vendor import Vendor
 from examples.app.domain.vendor.events import VendorCreated, VendorUpdated
-from uno.core.errors.result import Success
+from examples.app.domain.vendor.value_objects import EmailAddress
+from uno.core.events import DomainEvent
 
 
 @pytest.fixture
-def vendor_events():
+def vendor_events() -> list[DomainEvent]:
     return [
         VendorCreated(
             vendor_id="V1",
@@ -26,8 +26,9 @@ def vendor_events():
     ]
 
 
-def test_vendor_replay_from_events(vendor_events):
-    vendor = Vendor(
+def test_vendor_replay_from_events(vendor_events: list[DomainEvent]) -> None:
+    # Use model_construct to bypass validation for event replay
+    vendor = Vendor.model_construct(
         id="V1", name="", contact_email=EmailAddress(value="replay@example.com")
     )
     for event in vendor_events:
@@ -38,7 +39,7 @@ def test_vendor_replay_from_events(vendor_events):
     # Round-trip: serialize and deserialize events, replay again
     serialized = [e.model_dump() for e in vendor_events]
     deserialized = [VendorCreated(**serialized[0]), VendorUpdated(**serialized[1])]
-    vendor2 = Vendor(
+    vendor2 = Vendor.model_construct(
         id="V1", name="", contact_email=EmailAddress(value="replay@example.com")
     )
     for event in deserialized:
