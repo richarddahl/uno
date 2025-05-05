@@ -8,27 +8,28 @@ from examples.app.domain.inventory.events import (
     InventoryLotCreated,
     InventoryLotsCombined,
 )
-from examples.app.domain.value_objects import Quantity, Count
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Count
 from uno.core.errors.result import Success
 
 
 @pytest.fixture
 def lot_events():
     return [
-        InventoryLotCreated(
+        InventoryLotCreated.model_construct(
             lot_id="L1",
             aggregate_id="I1",
-            quantity=Quantity.from_count(10),
+            measurement=Measurement.from_count(10),
             vendor_id="V1",
             purchase_price=100.0,
         ),
-        InventoryLotsCombined(
+        InventoryLotsCombined.model_construct(
             source_lot_ids=["L1", "L2"],
             source_grades=[None, None],
             source_vendor_ids=["V1", "V2"],
             new_lot_id="L3",
             aggregate_id="I1",
-            combined_quantity=Quantity.from_count(20),
+            combined_measurement=Measurement.from_count(20),
             blended_grade=None,
             blended_vendor_ids=["V1", "V2"],
         ),
@@ -36,20 +37,28 @@ def lot_events():
 
 
 def test_inventory_lot_replay_from_events(lot_events):
-    lot = InventoryLot(id="L1", aggregate_id="", quantity=Quantity.from_count(0))
+    lot = InventoryLot.model_construct(
+        id="L1",
+        aggregate_id="",
+        measurement=Measurement.from_count(1)
+    )
     for event in lot_events:
         lot._apply_event(event)
     assert lot.id == "L1"
-    assert lot.quantity.value.value == 20
-    assert isinstance(lot.quantity, Quantity)
+    assert lot.measurement.value == 20
+    assert isinstance(lot.measurement, Measurement)
     # Round-trip: serialize and deserialize events, replay again
     serialized = [e.model_dump() for e in lot_events]
     deserialized = [
-        InventoryLotCreated.model_validate(serialized[0]),
-        InventoryLotsCombined.model_validate(serialized[1]),
+        InventoryLotCreated.model_construct(**serialized[0]),
+        InventoryLotsCombined.model_construct(**serialized[1]),
     ]
-    lot2 = InventoryLot(id="L1", aggregate_id="", quantity=Quantity.from_count(0))
+    lot2 = InventoryLot.model_construct(
+        id="L1",
+        aggregate_id="",
+        measurement=Measurement.from_count(1)
+    )
     for event in deserialized:
         lot2._apply_event(event)
-    assert lot2.quantity.value.value == lot.quantity.value.value
-    assert isinstance(lot2.quantity, Quantity)
+    assert lot2.measurement.value == lot.measurement.value
+    assert isinstance(lot2.measurement, Measurement)

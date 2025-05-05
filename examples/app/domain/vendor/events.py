@@ -6,12 +6,11 @@ from typing import ClassVar, Self
 
 from pydantic import ConfigDict
 
-from uno.core.domain.event import DomainEvent
+from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
-
-from ..value_objects import EmailAddress
+from uno.core.events import DomainEvent
 
 
 class VendorEmailUpdated(DomainEvent):

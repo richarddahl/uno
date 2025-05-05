@@ -108,22 +108,34 @@ app/
 
 ### Value Objects: Strongly-Typed Domain Data
 
-Uno provides a canonical ValueObject base class for small, immutable, and validated domain concepts (e.g., Grade, EmailAddress). ValueObjects are:
+Uno provides a canonical ValueObject base class for small, immutable, and validated domain concepts (e.g., Grade, EmailAddress). ValueObjects leverage Pydantic's built-in validation and are:
 
 - Immutable and compared by value
-- Validated on creation (using Pydantic)
-- Provide `.to_dict()` and Uno-style error handling
+- Validated using Pydantic's built-in field constraints and validators
+- Serializable with Pydantic's model_dump/model_serialize features
+- Compatible with Uno's Result-based error handling
 
 ### Example: Grade and EmailAddress
 
 ```python
 from uno.examples.app.domain.value_objects import Grade, EmailAddress
+from uno.core.errors.result import Success, Failure
 
-g = Grade(value=95.5)  # valid
-# g = Grade(value=150)  # raises ValidationError
+# Direct construction with validation
+g = Grade(raw_value=95.5)  # valid
+# g = Grade(raw_value=150)  # raises ValidationError - value outside allowed range
 
-e = EmailAddress(value="foo@bar.com")  # valid
+# Using specialized Pydantic types
+e = EmailAddress(value="foo@bar.com")  # valid - uses Pydantic's EmailStr validation
 # e = EmailAddress(value="not-an-email")  # raises ValidationError
+
+# Result pattern for error handling
+result = Grade.from_value(95.5)  # Returns Success(Grade)
+if result.is_success:
+    grade = result.value
+else:
+    # Handle validation error
+    error = result.error
 ```
 
 You can use value objects in your aggregates/entities for stronger invariants:

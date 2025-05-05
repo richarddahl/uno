@@ -5,476 +5,47 @@ Represents a physical or logical lot of a particular InventoryItem, with purchas
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
-from typing import Self, ClassVar
+from typing import (
+    Any,
+    ClassVar,
+    Self,
+    TypeVar,
+)
 
-from pydantic import ConfigDict, PrivateAttr, field_serializer
+from pydantic import (
+    ConfigDict,
+    PrivateAttr,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
-from examples.app.domain.value_objects import Count, Grade, Quantity
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Count, Grade
 from uno.core.domain.aggregate import AggregateRoot
-from uno.core.domain.event import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Success
+from uno.core.errors.result import Failure, Result, Success
+from uno.core.events import DomainEvent
+from uno.core.events.base_event import (
+    EventUpcasterRegistry,
+    EventUpcasterRegistry as BaseEventUpcasterRegistry,
+)
 
-
-# --- Events ---
-
-
-class InventoryLotCreated(DomainEvent):
-    """
-    Event: InventoryLot was created.
-
-
-    Usage:
-        result = InventoryLotCreated.create(
-            lot_id="123",
-            aggregate_id="A100",
-            quantity=Quantity.from_count(Count.from_each(10)),
-            vendor_id="VEND01",
-            purchase_price=100.0,
-            sale_price=None,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    model_config = ConfigDict(frozen=True)
-    version: ClassVar[int] = 1  # Canonical event version field
-
-    lot_id: str
-    aggregate_id: str
-    vendor_id: str | None = None
-    quantity: Quantity
-    purchase_price: float | None = None  # If purchased
-    sale_price: float | None = None  # If sold
-    version: int = 1
-
-    @field_serializer("quantity")
-    def serialize_quantity(self, value, _info):
-        return value.model_dump(mode="json")
-
-    @field_serializer("purchase_price")
-    def serialize_purchase_price(self, value, _info):
-        return str(value) if value else None
-
-    @field_serializer("sale_price")
-    def serialize_sale_price(self, value, _info):
-        return str(value) if value else None
-
-    @classmethod
-    def create(
-        cls,
-        lot_id: str,
-        aggregate_id: str,
-        quantity: Quantity,
-        vendor_id: str | None = None,
-        purchase_price: float | None = None,
-        sale_price: float | None = None,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details={"lot_id": lot_id}
-                    )
-                )
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            if not isinstance(quantity, Quantity):
-                return Failure(
-                    DomainValidationError(
-                        "quantity must be a Quantity object",
-                        details={"quantity": quantity},
-                    )
-                )
-            event = cls(
-                lot_id=lot_id,
-                aggregate_id=aggregate_id,
-                quantity=quantity,
-                vendor_id=vendor_id,
-                purchase_price=purchase_price,
-                sale_price=sale_price,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotCreated", details={"error": str(exc)}
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryLotAdjusted(DomainEvent):
-    """
-    Event: InventoryLot was adjusted.
-
-    Usage:
-        result = InventoryLotAdjusted.create(
-            lot_id="123",
-            adjustment=5,
-            reason="Inventory recount"
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    lot_id: str
-    adjustment: int
-    reason: str | None = None
-    version: int = 1
-
-    @classmethod
-    def create(
-        cls,
-        lot_id: str,
-        adjustment: int,
-        reason: str | None = None,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details={"lot_id": lot_id}
-                    )
-                )
-            if not isinstance(adjustment, int):
-                return Failure(
-                    DomainValidationError(
-                        "adjustment must be an int", details={"adjustment": adjustment}
-                    )
-                )
-            event = cls(
-                lot_id=lot_id,
-                adjustment=adjustment,
-                reason=reason,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotAdjusted", details={"error": str(exc)}
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryLotsCombined(DomainEvent):
-    """
-    Event: InventoryLots were combined into a new lot.
-
-
-    Usage:
-        result = InventoryLotsCombined.create(
-            source_lot_ids=["lot-1", "lot-2"],
-            source_grades=[Grade("A"), Grade("B")],
-            source_vendor_ids=["VEND01", "VEND02"],
-            new_lot_id="lot-3",
-            aggregate_id="A100",
-            combined_quantity=Quantity.from_count(Count.from_each(20)),
-            blended_grade=Grade("A"),
-            blended_vendor_ids=["VEND01", "VEND02"],
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    source_lot_ids: list[str]
-    source_grades: list[Grade | None]
-    source_vendor_ids: list[str]
-    new_lot_id: str
-    aggregate_id: str
-    combined_quantity: Quantity
-    blended_grade: Grade | None
-    blended_vendor_ids: list[str]
-    version: int = 1
-
-    @field_serializer("combined_quantity")
-    def serialize_combined_quantity(self, value, _info):
-        return value.model_dump(mode="json")
-
-    @field_serializer("blended_grade")
-    def serialize_blended_grade(self, value, _info):
-        return str(value) if value else None
-
-    @classmethod
-    def create(
-        cls,
-        source_lot_ids: list[str],
-        source_grades: list[Grade | None],
-        source_vendor_ids: list[str],
-        new_lot_id: str,
-        aggregate_id: str,
-        combined_quantity: Quantity,
-        blended_grade: Grade | None,
-        blended_vendor_ids: list[str],
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            if not source_lot_ids or not new_lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "source_lot_ids and new_lot_id are required",
-                        details={
-                            "source_lot_ids": source_lot_ids,
-                            "new_lot_id": new_lot_id,
-                        },
-                    )
-                )
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            if not isinstance(combined_quantity, Quantity):
-                return Failure(
-                    DomainValidationError(
-                        "combined_quantity must be a Quantity object",
-                        details={"combined_quantity": combined_quantity},
-                    )
-                )
-            event = cls(
-                source_lot_ids=source_lot_ids,
-                source_grades=source_grades,
-                source_vendor_ids=source_vendor_ids,
-                new_lot_id=new_lot_id,
-                aggregate_id=aggregate_id,
-                combined_quantity=combined_quantity,
-                blended_grade=blended_grade,
-                blended_vendor_ids=blended_vendor_ids,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotsCombined",
-                    details={"error": str(exc)},
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryLotSplit(DomainEvent):
-    """
-    Event: InventoryLot was split into multiple new lots.
-    Usage:
-        result = InventoryLotSplit.create(
-            source_lot_id="lot-1",
-            new_lot_ids=["lot-2", "lot-3"],
-            aggregate_id="item-xyz",
-            split_quantities=[Quantity.from_count(Count.from_each(5)), Quantity.from_count(Count.from_each(5))],
-            reason="customer request"
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-
-    Added in v2:
-        reason: str | None = None — Optional explanation for why the lot was split (e.g., "customer request").
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    @field_serializer("split_quantities")
-    def serialize_split_quantities(self, values, _info):
-        return [q.model_dump(mode="json") for q in values]
-
-    source_lot_id: str
-    new_lot_ids: list[str]
-    aggregate_id: str
-    split_quantities: list[Quantity]
-    reason: str | None = None  # v2: Optional explanation for why the lot was split
-    version: int = 1  # default to v1 for backward compatibility with tests
-    __version__: ClassVar[int] = 2
-
-    @classmethod
-    def create(
-        cls,
-        source_lot_id: str,
-        new_lot_ids: list[str],
-        aggregate_id: str,
-        split_quantities: list[Quantity],
-        reason: str | None = None,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            if not source_lot_id or not new_lot_ids:
-                return Failure(
-                    DomainValidationError(
-                        "source_lot_id and new_lot_ids are required",
-                        details={
-                            "source_lot_id": source_lot_id,
-                            "new_lot_ids": new_lot_ids,
-                        },
-                    )
-                )
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            if not split_quantities or len(split_quantities) != len(new_lot_ids):
-                return Failure(
-                    DomainValidationError(
-                        "split_quantities and new_lot_ids must be the same length and non-empty",
-                        details={
-                            "split_quantities": split_quantities,
-                            "new_lot_ids": new_lot_ids,
-                        },
-                    )
-                )
-            # Only pass version if explicitly provided (not None)
-            event_kwargs = {
-                "source_lot_id": source_lot_id,
-                "new_lot_ids": new_lot_ids,
-                "aggregate_id": aggregate_id,
-                "split_quantities": split_quantities,
-                "reason": reason,
-            }
-            # Only set version if not already present (e.g., after upcasting)
-            if "version" not in event_kwargs and version is not None:
-                event_kwargs["version"] = version
-            # Ensure direct construction, never from_dict or similar
-            event = cls(**event_kwargs)
-            return Success(event)
-        except Exception as exc:
-            # Always include split_quantities in details for relevant errors
-            details = {"error": str(exc)}
-            if "split_quantities" not in details:
-                details["split_quantities"] = (
-                    split_quantities if "split_quantities" in locals() else None
-                )
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotSplit", details=details
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from uno.core.events.base_event import EventUpcasterRegistry
-
-        if target_version == self.version:
-            return Success(self)
-        if target_version > self.version:
-            # Use upcaster registry to migrate
-            data = self.to_dict()
-            try:
-                upcasted = EventUpcasterRegistry.apply(
-                    type(self), data, self.version, target_version
-                )
-                return type(self).from_dict(upcasted)
-            except Exception as exc:
-                return Failure(
-                    DomainValidationError(
-                        f"Upcasting failed: {exc}",
-                        details={
-                            "from": self.version,
-                            "to": target_version,
-                            "error": str(exc),
-                        },
-                    )
-                )
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": getattr(self, "version", 1), "to": target_version},
-            )
-        )
-
-
-# --- Upcaster registration for InventoryLotSplit (v1 → v2) ---
-from uno.core.events.base_event import EventUpcasterRegistry
-
-
-def _upcast_inventory_lot_split_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
-    # v2 adds the 'reason' field (default None)
-    data = dict(data)
-    if data.get("version", 1) == 1:
-        data["reason"] = None
-        data["version"] = 2
-    return data
-
-
-EventUpcasterRegistry.register_upcaster(
-    event_type=InventoryLotSplit,
-    from_version=1,
-    upcaster_fn=_upcast_inventory_lot_split_v1_to_v2,
+from .events import (
+    InventoryLotAdjusted,
+    InventoryLotCreated,
+    InventoryLotsCombined,
+    InventoryLotSplit,
 )
 
 
 # --- Aggregate ---
 class InventoryLot(AggregateRoot[str]):
+    _source_vendor_ids: list[str] = PrivateAttr(default_factory=list)
     aggregate_id: str
     vendor_id: str | None = None
-    quantity: Quantity
+    measurement: Measurement
     purchase_price: float | None = None
     sale_price: float | None = None
     grade: Grade | None = None
@@ -485,10 +56,10 @@ class InventoryLot(AggregateRoot[str]):
         cls,
         lot_id: str,
         aggregate_id: str,
-        quantity: int | Quantity,
+        measurement: int | Measurement,
         vendor_id: str | None = None,
         purchase_price: float | None = None,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Success[Self, DomainValidationError] | Failure[Self, DomainValidationError]:
         try:
             if not lot_id:
                 return Failure(
@@ -502,37 +73,42 @@ class InventoryLot(AggregateRoot[str]):
                         "aggregate_id is required", details=get_error_context()
                     )
                 )
-            if isinstance(quantity, int):
-                quantity = Quantity.from_count(Count.from_each(float(quantity)))
-            if not isinstance(quantity, Quantity):
+            if isinstance(measurement, int):
+                measurement = Measurement.from_count(
+                    Count.from_each(float(measurement))
+                )
+            if not isinstance(measurement, Measurement):
                 return Failure(
                     DomainValidationError(
-                        "quantity must be a Quantity object",
+                        "measurement must be a Measurement object",
                         details=get_error_context(),
                     )
                 )
             lot = cls(
                 id=lot_id,
                 aggregate_id=aggregate_id,
-                quantity=quantity,
+                measurement=measurement,
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
             )
-            event = InventoryLotCreated(
+            event_result = InventoryLotCreated.create(
                 lot_id=lot_id,
                 aggregate_id=aggregate_id,
-                quantity=quantity,
+                measurement=measurement,
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
             )
+            if isinstance(event_result, Failure):
+                return Failure(event_result.error)
+            event = event_result.value
             lot._record_event(event)
             return Success(lot)
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def adjust_quantity(
+    def adjust_measurement(
         self, adjustment: int, reason: str | None = None
-    ) -> Success[Self, Exception] | Failure[None, Exception]:
+    ) -> Success[Self, DomainValidationError] | Failure[None, DomainValidationError]:
         try:
             if not isinstance(adjustment, int):
                 return Failure(
@@ -540,9 +116,12 @@ class InventoryLot(AggregateRoot[str]):
                         "adjustment must be an int", details=get_error_context()
                     )
                 )
-            event = InventoryLotAdjusted(
+            event_result = InventoryLotAdjusted.create(
                 lot_id=self.id, adjustment=adjustment, reason=reason
             )
+            if isinstance(event_result, Failure):
+                return Failure(event_result.error)
+            event = event_result.value
             self._record_event(event)
             return Success(self)
         except Exception as e:
@@ -555,19 +134,19 @@ class InventoryLot(AggregateRoot[str]):
     def _apply_event(self, event: DomainEvent) -> None:
         if isinstance(event, InventoryLotCreated):
             self.aggregate_id = event.aggregate_id
-            self.quantity = event.quantity
+            self.measurement = event.measurement
             self.vendor_id = event.vendor_id
             self.purchase_price = event.purchase_price
             self.sale_price = event.sale_price
         elif isinstance(event, InventoryLotAdjusted):
-            # Update quantity by adjustment
-            if hasattr(self, "quantity") and hasattr(self.quantity, "value"):
-                self.quantity = Quantity.from_count(
-                    Count.from_each(self.quantity.value.value + event.adjustment)
+            # Update measurement by adjustment
+            if hasattr(self, "measurement") and hasattr(self.measurement, "value"):
+                self.measurement = Measurement.from_count(
+                    Count.from_each(self.measurement.value.value + event.adjustment)
                 )
         elif isinstance(event, InventoryLotsCombined):
             self.aggregate_id = event.aggregate_id
-            self.quantity = event.combined_quantity
+            self.measurement = event.combined_measurement
             self.vendor_id = None
             self.grade = event.blended_grade
         elif isinstance(event, InventoryLotSplit):
@@ -580,7 +159,7 @@ class InventoryLot(AggregateRoot[str]):
 
     def combine_with(
         self, other: Self, new_lot_id: str
-    ) -> Success[Self, Exception] | Failure[None, Exception]:
+    ) -> Success[Self, DomainValidationError] | Failure[None, DomainValidationError]:
         if self is other or self.id == other.id:
             return Failure(
                 DomainValidationError(
@@ -595,24 +174,24 @@ class InventoryLot(AggregateRoot[str]):
                 )
             )
         # Sum quantities
-        combined_quantity = Quantity.from_count(
-            Count.from_each(self.quantity.value.value + other.quantity.value.value)
+        combined_measurement = Measurement.from_count(
+            Count.from_each(
+                self.measurement.value.value + other.measurement.value.value
+            )
         )
         # Blend grades if present
-        blended_grade = None
+        blended_grade: Grade | None = None
         if self.grade and other.grade:
-            total = self.quantity.value.value + other.quantity.value.value
-            grade_result = Grade.from_value(
-                (
-                    self.grade.value * self.quantity.value.value
-                    + other.grade.value * other.quantity.value.value
+            total = self.measurement.value.value + other.measurement.value.value
+            try:
+                blended_grade = Grade(
+                    value=(
+                        (self.grade.value * self.measurement.value.value
+                        + other.grade.value * other.measurement.value.value) / total
+                    )
                 )
-                / total
-            )
-            if grade_result.is_success:
-                blended_grade = grade_result.value
-            else:
-                return Failure(grade_result.error)
+            except ValueError as e:
+                return Failure(DomainValidationError(str(e)))
         elif self.grade is not None:
             blended_grade = self.grade
         elif other.grade is not None:
@@ -625,38 +204,44 @@ class InventoryLot(AggregateRoot[str]):
         if other.vendor_id:
             vendor_ids.add(other.vendor_id)
         # Only include non-None vendor IDs for event
-        source_vendor_ids = [
-            vid for vid in [self.vendor_id, other.vendor_id] if vid is not None
-        ]
+        source_vendor_ids = list(vendor_ids) if vendor_ids else []
+        blended_vendor_ids = list(vendor_ids) if vendor_ids else []
 
         new_lot = InventoryLot(
             id=new_lot_id,
             aggregate_id=self.aggregate_id,
             vendor_id=None,
-            quantity=combined_quantity,
+            measurement=combined_measurement,
             grade=blended_grade,
         )
-        new_lot._source_vendor_ids = list(vendor_ids)
-        event = InventoryLotsCombined(
+        new_lot._source_vendor_ids = source_vendor_ids
+        new_lot._domain_events = []  # Reset domain events for new lot
+        event_result = InventoryLotsCombined.create(
             source_lot_ids=[self.id, other.id],
-            source_grades=[self.grade, other.grade],
-            source_vendor_ids=source_vendor_ids,
+            source_grades=[None, None] if not self.grade and not other.grade else [g if g else None for g in [self.grade, other.grade]],
+            source_vendor_ids=[] if not self.vendor_id and not other.vendor_id else source_vendor_ids,
             new_lot_id=new_lot_id,
             aggregate_id=self.aggregate_id,
-            combined_quantity=combined_quantity,
+            combined_measurement=combined_measurement,
             blended_grade=blended_grade,
-            blended_vendor_ids=list(vendor_ids),
+            blended_vendor_ids=blended_vendor_ids,
+            version=self.version + 1
         )
+        if isinstance(event_result, Failure):
+            return Failure(event_result.error)
+        event = event_result.value
         new_lot._record_event(event)
         return Success(new_lot)
 
     def split(
-        self, split_quantities: list[float], new_lot_ids: list[str]
-    ) -> Success[list[Self], Exception] | Failure[None, Exception]:
-        if len(split_quantities) != len(new_lot_ids):
+        self,
+        split_quantities: list[int | float | Count | Measurement],
+        new_lot_ids: list[str],
+    ) -> Result[list[Self], DomainValidationError]:
+        if len(new_lot_ids) != len(split_quantities):
             return Failure(
                 DomainValidationError(
-                    "Number of lot IDs must match each split quantity",
+                    "Number of lot IDs must match each split measurement",
                     details=get_error_context(),
                 )
             )
@@ -665,8 +250,11 @@ class InventoryLot(AggregateRoot[str]):
         Validates sum and count. Attributes are copied from the source lot.
         """
         # Only support splitting count-based lots
-        if self.quantity.type == "count":
-            total = sum(split_quantities)
+        if self.measurement.type == "count":
+            total = sum(
+                q.value.value if isinstance(q, Measurement) else q
+                for q in split_quantities
+            )
             if any(q <= 0 for q in split_quantities):
                 return Failure(
                     DomainValidationError(
@@ -674,42 +262,42 @@ class InventoryLot(AggregateRoot[str]):
                         details=get_error_context(),
                     )
                 )
-            if total != self.quantity.value.value:
+            if total != self.measurement.value.value:
                 return Failure(
                     DomainValidationError(
-                        "Split quantities must sum to lot quantity",
+                        "Split quantities must sum to lot measurement",
                         details=get_error_context(),
                     )
                 )
-            split_qty_objs = [
-                Quantity.from_count(Count.from_each(float(q))) for q in split_quantities
-            ]
-        else:
-            return Failure(
-                DomainValidationError(
-                    "Can only split count-based lots", details=get_error_context()
+            new_lots = []
+            for quantity, lot_id in zip(split_quantities, new_lot_ids, strict=True):
+                if isinstance(quantity, int | float):
+                    quantity = Measurement.from_count(Count.from_each(float(quantity)))
+                new_lot = self.__class__(
+                    id=lot_id,
+                    aggregate_id=self.aggregate_id,
+                    measurement=quantity,
+                    vendor_id=self.vendor_id,
+                    purchase_price=self.purchase_price,
                 )
-            )
+                new_lots.append(new_lot)
 
-        new_lots = []
-        for qty_obj, lot_id in zip(split_qty_objs, new_lot_ids):
-            new_lot = InventoryLot(
-                id=lot_id,
+            # Create split event
+            event_result = InventoryLotSplit.create(
+                source_lot_id=self.id,
+                new_lot_ids=new_lot_ids,
                 aggregate_id=self.aggregate_id,
-                vendor_id=self.vendor_id,
-                quantity=qty_obj,
-                purchase_price=self.purchase_price,
+                split_quantities=[
+                    q
+                    if isinstance(q, Measurement)
+                    else Measurement.from_count(Count.from_each(float(q)))
+                    for q in split_quantities
+                ],
+                reason="Split lot into multiple lots",
             )
-            new_lots.append(new_lot)
-
-        event = InventoryLotSplit(
-            source_lot_id=self.id,
-            new_lot_ids=new_lot_ids,
-            aggregate_id=self.aggregate_id,
-            split_quantities=split_qty_objs,
-        )
+        if isinstance(event_result, Failure):
+            return Failure(event_result.error)
+        event = event_result.value
         for lot in new_lots:
             lot._record_event(event)
         return Success(new_lots)
-
-    # Canonical serialization already handled by AggregateRoot/Entity base

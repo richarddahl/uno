@@ -6,14 +6,17 @@ Covers blending, traceability, and all error/success paths.
 """
 
 import pytest
-from uno.core.errors.result import Success, Failure
-from uno.core.errors.definitions import DomainValidationError
+
 from examples.app.domain.inventory import InventoryLot
-from examples.app.domain.value_objects import Quantity, Count, CountUnit
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Count, CountUnit
+from uno.core.errors.result import Failure, Success
 
 
-def make_lot(lot_id: str, aggregate_id: str, quantity: float) -> InventoryLot:
-    result = InventoryLot.create(lot_id, aggregate_id, Quantity.from_count(quantity))
+def make_lot(lot_id: str, aggregate_id: str, measurement: float) -> InventoryLot:
+    result = InventoryLot.create(
+        lot_id, aggregate_id, Measurement.from_count(measurement)
+    )
     assert isinstance(result, Success)
     return result.value
 
@@ -26,8 +29,8 @@ def test_combine_success() -> None:
     combined = result.value
     assert combined.id == "lot3"
     assert combined.aggregate_id == "corn"
-    assert combined.quantity.type == "count"
-    assert combined.quantity.value == Count(value=300.0, unit=CountUnit.EACH)
+    assert combined.measurement.type == "count"
+    assert combined.measurement.value == Count(value=300.0, unit=CountUnit.EACH)
     # Vendor and price should be None (blended)
     assert combined.vendor_id is None
     assert combined.purchase_price is None
@@ -51,7 +54,7 @@ def test_combine_success() -> None:
 def test_combine_with_grades_and_vendors() -> None:
     lot1 = make_lot("lot1", "corn", 100.0)
     lot2 = make_lot("lot2", "corn", 200.0)
-    from examples.app.domain.value_objects import Grade
+    from examples.app.domain.inventory.value_objects import Grade
 
     lot1.grade = Grade(value=10.0)
     lot2.grade = Grade(value=13.0)
@@ -119,7 +122,7 @@ def test_split_success() -> None:
     new_lots = result.value
     assert len(new_lots) == 2
     assert {l.id for l in new_lots} == {"lotA", "lotB"}
-    assert {l.quantity.value for l in new_lots} == {
+    assert {l.measurement.value for l in new_lots} == {
         Count(value=100.0, unit=CountUnit.EACH),
         Count(value=200.0, unit=CountUnit.EACH),
     }
@@ -146,7 +149,7 @@ def test_split_invalid_count() -> None:
     assert "each split" in str(result.error)
 
 
-def test_split_negative_quantity() -> None:
+def test_split_negative_measurement() -> None:
     lot = make_lot("lot1", "corn", 300.0)
     result = lot.split([100.0, -200.0], ["lotA", "lotB"])
     assert isinstance(result, Failure)

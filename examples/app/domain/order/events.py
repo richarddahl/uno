@@ -4,14 +4,15 @@ Order context domain events.
 
 from typing import ClassVar, Literal, Self
 
-from uno.core.base_model import FrameworkBaseModel
+from pydantic import ConfigDict
 
-from examples.app.domain.value_objects import Count, EmailAddress, Money, Quantity
-from uno.core.domain.event import DomainEvent
+from examples.app.domain.inventory.value_objects import Count, Money
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
-from pydantic import ConfigDict
+from uno.core.events import DomainEvent
 
 
 class PaymentReceived(DomainEvent):
@@ -103,7 +104,7 @@ class OrderCreated(DomainEvent):
             aggregate_id="A100",
             lot_id="L100",
             vendor_id="V100",
-            quantity=Quantity(10),
+            measurement=Measurement(10),
             price=Money(25.0),
             order_type="purchase",
         )
@@ -118,7 +119,7 @@ class OrderCreated(DomainEvent):
     aggregate_id: str
     lot_id: str
     vendor_id: str
-    quantity: Quantity
+    measurement: Measurement
     price: Money
     order_type: Literal["purchase", "sale"]
     version: int = 1
@@ -131,12 +132,12 @@ class OrderCreated(DomainEvent):
         aggregate_id: str,
         lot_id: str,
         vendor_id: str,
-        quantity: Quantity | Count | float | int,
+        measurement: int | float | Count | Measurement,
         price: Money,
         order_type: Literal["purchase", "sale"],
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from examples.app.domain.value_objects import Quantity, Count
+        from examples.app.domain.measurement import Count, Measurement
 
         try:
             if not order_id:
@@ -163,25 +164,17 @@ class OrderCreated(DomainEvent):
                         "vendor_id is required", details=get_error_context()
                     )
                 )
-            # Accept Quantity, Count, int, float for quantity
-            if isinstance(quantity, Quantity):
-                q = quantity
-            elif isinstance(quantity, Count):
-                q = Quantity.from_count(quantity)
-            elif isinstance(quantity, (int, float)):
-                if quantity < 0:
-                    return Failure(
-                        DomainValidationError(
-                            "quantity must be non-negative",
-                            details=get_error_context(),
-                        )
-                    )
-                q = Quantity.from_count(quantity)
+            if isinstance(measurement, Measurement):
+                q = measurement
+            elif isinstance(measurement, Count):
+                q = Measurement.from_count(measurement)
+            elif isinstance(measurement, int | float):
+                q = Measurement.from_each(measurement)
             else:
                 return Failure(
                     DomainValidationError(
-                        "quantity must be a Quantity, Count, int, or float",
-                        details=get_error_context(),
+                        "measurement must be a Measurement, Count, int, or float",
+                        details={"measurement": measurement},
                     )
                 )
             if not isinstance(price, Money):
@@ -203,7 +196,7 @@ class OrderCreated(DomainEvent):
                 aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
-                quantity=q,
+                measurement=q,
                 price=price,
                 order_type=order_type,
                 version=version,
@@ -239,7 +232,7 @@ class OrderFulfilled(DomainEvent):
     Usage:
         result = OrderFulfilled.create(
             order_id="O100",
-            fulfilled_quantity=10,
+            fulfilled_measurement=10,
         )
         if isinstance(result, Success):
             event = result.value
@@ -249,7 +242,7 @@ class OrderFulfilled(DomainEvent):
     """
 
     order_id: str
-    fulfilled_quantity: int
+    fulfilled_measurement: int
     version: int = 1
     model_config = ConfigDict(frozen=True)
 
@@ -257,7 +250,7 @@ class OrderFulfilled(DomainEvent):
     def create(
         cls,
         order_id: str,
-        fulfilled_quantity: int,
+        fulfilled_measurement: int,
         version: int = 1,
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         try:
@@ -267,16 +260,16 @@ class OrderFulfilled(DomainEvent):
                         "order_id is required", details=get_error_context()
                     )
                 )
-            if fulfilled_quantity < 0:
+            if fulfilled_measurement < 0:
                 return Failure(
                     DomainValidationError(
-                        "fulfilled_quantity must be non-negative",
+                        "fulfilled_measurement must be non-negative",
                         details=get_error_context(),
                     )
                 )
             event = cls(
                 order_id=order_id,
-                fulfilled_quantity=fulfilled_quantity,
+                fulfilled_measurement=fulfilled_measurement,
                 version=version,
             )
             return Success(event)

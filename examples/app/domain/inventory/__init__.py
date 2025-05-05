@@ -4,19 +4,17 @@ Inventory bounded context: aggregates, events, and value objects for inventory m
 This context is responsible for inventory items, lots, adjustments, and related events.
 """
 
-from .item import (
-    InventoryItem,
+from .events import (
     InventoryItemAdjusted,
     InventoryItemCreated,
     InventoryItemRenamed,
-)
-from .lot import (
-    InventoryLot,
     InventoryLotAdjusted,
     InventoryLotCreated,
     InventoryLotsCombined,
     InventoryLotSplit,
 )
+from .item import InventoryItem
+from .lot import InventoryLot
 
 __all__ = [
     "InventoryItem",

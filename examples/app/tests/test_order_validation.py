@@ -3,8 +3,13 @@ Unit tests for the Order aggregate validate() method.
 """
 
 import pytest
-from examples.app.domain.order.order import Order
-from examples.app.domain.value_objects import Quantity, Money, Currency
+from decimal import Decimal
+from typing import Any, Literal
+
+import pytest
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Money, Currency
+from examples.app.domain.order import Order
 from uno.core.errors.result import Success, Failure
 
 
@@ -17,19 +22,19 @@ from uno.core.errors.result import Success, Failure
     ],
 )
 def test_order_validate_domain_invariants(
-    order_type, is_fulfilled, is_cancelled, expect_success
+    order_type: str, is_fulfilled: bool, is_cancelled: bool, expect_success: bool
 ):
     # Use valid value objects for all required fields
-    quantity = Quantity.from_count(10)
-    money_result = Money.from_value("100", Currency.USD)
-    price_obj = money_result.value if isinstance(money_result, Success) else None
+    measurement = Measurement.from_count(10)
+    price = Money.from_value(Decimal('100.00'), Currency.USD).unwrap()
+    
     order = Order(
         id="O1",
         aggregate_id="I1",
         lot_id="L1",
         vendor_id="V1",
-        quantity=quantity,
-        price=price_obj,
+        measurement=measurement,
+        price=price,
         order_type=order_type,
         is_fulfilled=is_fulfilled,
         is_cancelled=is_cancelled,

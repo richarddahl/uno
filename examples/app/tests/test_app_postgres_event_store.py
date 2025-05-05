@@ -8,25 +8,26 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from uno.infrastructure.di.provider import reset_global_service_provider
+
+# Import real domain events from the example app
+from examples.app.domain.inventory.events import MassMeasured, VolumeMeasured
+from examples.app.domain.inventory.value_objects import Mass, Volume
+from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.errors.result import Failure, Success
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.di import (
+    ServiceCollection,
+    get_service_provider,
+    initialize_services,
+    shutdown_services,
+)
+from uno.infrastructure.di.provider import reset_global_service_provider
 from uno.infrastructure.di.providers.database import (
     get_db_engine,
     get_db_session,
     register_database_services,
 )
-from uno.infrastructure.di import (
-    ServiceCollection,
-    initialize_services,
-    shutdown_services,
-    get_service_provider,
-)
-
-# Import real domain events from the example app
-from examples.app.domain.inventory.events import MassMeasured, VolumeMeasured
-from examples.app.domain.value_objects import EmailAddress, Mass, Volume
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
 @pytest.fixture(scope="function")

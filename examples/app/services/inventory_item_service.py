@@ -25,7 +25,7 @@ class InventoryItemService:
         self.logger = logger
 
     def create_inventory_item(
-        self, aggregate_id: str, name: str, quantity: int
+        self, aggregate_id: str, name: str, measurement: int
     ) -> Result[InventoryItem, Exception]:
         """
         Create a new InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
@@ -49,7 +49,7 @@ class InventoryItemService:
                 )
             )
         item_result = InventoryItem.create(
-            aggregate_id=aggregate_id, name=name, quantity=quantity
+            aggregate_id=aggregate_id, name=name, measurement=measurement
         )
         if isinstance(item_result, Failure):
             self.logger.warning(
@@ -155,11 +155,11 @@ class InventoryItemService:
         )
         return Success(item)
 
-    def adjust_inventory_quantity(
+    def adjust_inventory_measurement(
         self, aggregate_id: str, adjustment: int
     ) -> Result[InventoryItem, Exception]:
         """
-        Adjust the quantity of an InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
+        Adjust the measurement of an InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
         """
         result = self.repo.get(aggregate_id)
         if isinstance(result, Failure):
@@ -167,7 +167,7 @@ class InventoryItemService:
                 {
                     "event": "inventory_item_not_found",
                     "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.adjust_inventory_quantity",
+                    "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             )
             err = result.error
@@ -175,11 +175,11 @@ class InventoryItemService:
                 err.details = {
                     **err.details,
                     "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.adjust_inventory_quantity",
+                    "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             return Failure(err)
         item = result.value
-        adjust_result = item.adjust_quantity(adjustment)
+        adjust_result = item.adjust_measurement(adjustment)
         if isinstance(adjust_result, Failure):
             self.logger.warning(
                 {
@@ -187,7 +187,7 @@ class InventoryItemService:
                     "aggregate_id": aggregate_id,
                     "adjustment": adjustment,
                     "error": str(adjust_result.error),
-                    "service": "InventoryItemService.adjust_inventory_quantity",
+                    "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             )
             err = adjust_result.error
@@ -196,7 +196,7 @@ class InventoryItemService:
                     **err.details,
                     "aggregate_id": aggregate_id,
                     "adjustment": adjustment,
-                    "service": "InventoryItemService.adjust_inventory_quantity",
+                    "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             return Failure(err)
         save_result = self.repo.save(item)
@@ -207,17 +207,17 @@ class InventoryItemService:
                     "aggregate_id": aggregate_id,
                     "adjustment": adjustment,
                     "error": str(save_result.error),
-                    "service": "InventoryItemService.adjust_inventory_quantity",
+                    "service": "InventoryItemService.adjust_inventory_measurement",
                 }
             )
             err = save_result.error
             return Failure(err)
         self.logger.info(
             {
-                "event": "inventory_item_quantity_adjusted",
+                "event": "inventory_item_measurement_adjusted",
                 "aggregate_id": aggregate_id,
                 "adjustment": adjustment,
-                "service": "InventoryItemService.adjust_inventory_quantity",
+                "service": "InventoryItemService.adjust_inventory_measurement",
             }
         )
         return Success(item)

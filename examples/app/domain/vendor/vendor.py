@@ -10,10 +10,10 @@ from typing import Self
 
 from pydantic import PrivateAttr
 
-from examples.app.domain.value_objects import EmailAddress
+from examples.app.domain.vendor.value_objects import EmailAddress
 from examples.app.domain.vendor.events import VendorCreated, VendorUpdated
 from uno.core.domain.aggregate import AggregateRoot
-from uno.core.domain.event import DomainEvent
+from uno.core.events import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
@@ -122,11 +122,20 @@ class Vendor(AggregateRoot[str]):
         from uno.core.errors.result import Success, Failure
         from uno.core.errors.definitions import DomainValidationError
         from uno.core.errors.base import get_error_context
-        from examples.app.domain.value_objects import EmailAddress
+        from examples.app.domain.vendor.value_objects import EmailAddress
 
         if not self.name or not isinstance(self.name, str):
-            return Failure(DomainValidationError("name must be a non-empty string", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "name must be a non-empty string", details=get_error_context()
+                )
+            )
         if not self.contact_email or not isinstance(self.contact_email, EmailAddress):
-            return Failure(DomainValidationError("contact_email must be an EmailAddress value object", details=get_error_context()))
+            return Failure(
+                DomainValidationError(
+                    "contact_email must be an EmailAddress value object",
+                    details=get_error_context(),
+                )
+            )
         # Add more invariants as needed
         return Success(None)

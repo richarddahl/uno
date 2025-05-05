@@ -55,12 +55,14 @@ class InMemoryInventoryItemRepository:
         for event in events:
             if isinstance(event, InventoryItemCreated):
                 item = InventoryItem(
-                    id=event.aggregate_id, name=event.name, quantity=event.quantity
+                    InventoryItem.create(
+                        event.aggregate_id, event.name, event.measurement
+                    )
                 )
             elif isinstance(event, InventoryItemRenamed) and item:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:
-                item.quantity += event.adjustment
+                item.measurement += event.adjustment
         self._logger.debug(f"Fetched inventory item: {aggregate_id}")
         if item is not None:
             return Success(item)

@@ -4,289 +4,40 @@ InventoryItem aggregate and related events for the inventory bounded context.
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
-from typing import Self
+from decimal import Decimal
+from typing import Any, Self
 
-from pydantic import PrivateAttr
+from pydantic import ConfigDict, PrivateAttr, field_validator
 
-from examples.app.domain.value_objects import Count, Quantity
+from examples.app.domain.inventory.events import (
+    InventoryItemAdjusted,
+    InventoryItemCreated,
+    InventoryItemRenamed,
+)
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Count, CountUnit
 from uno.core.domain.aggregate import AggregateRoot
-from uno.core.domain.event import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Result, Success
+from uno.core.events import DomainEvent
+from uno.infrastructure.di.provider import get_service_provider
+from uno.infrastructure.logging.logger import LoggerService
 
 
-# --- Events ---
-class InventoryItemCreated(DomainEvent):
-    """
-    Event: InventoryItem was created.
-    model_config = ConfigDict(frozen=True)
-    version: ClassVar[int] = 1  # Canonical event version field
-
-    Usage:
-        result = InventoryItemCreated.create(
-            aggregate_id="A100",
-            name="Widget",
-            quantity=Quantity.from_count(100),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
+# --- Aggregate ---
+class InventoryItem(AggregateRoot[str]):
     name: str
-    quantity: Quantity
-    version: int = 1
-
-    @property
-    def aggregate_id(self) -> str:
-        return self.aggregate_id
+    measurement: Measurement
+    _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
     def create(
         cls,
         aggregate_id: str,
         name: str,
-        quantity: int | float | Quantity | Count,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from examples.app.domain.value_objects import Quantity, Count
-
-        try:
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            if not name:
-                return Failure(
-                    DomainValidationError("name is required", details={"name": name})
-                )
-            # Accept Quantity, Count, int, float
-            if isinstance(quantity, Quantity):
-                q = quantity
-            elif isinstance(quantity, Count):
-                q = Quantity.from_count(quantity)
-            elif isinstance(quantity, int | float):
-                if quantity < 0:
-                    return Failure(
-                        DomainValidationError(
-                            "quantity must be non-negative",
-                            details={"quantity": quantity},
-                        )
-                    )
-                q = Quantity.from_count(quantity)
-            else:
-                return Failure(
-                    DomainValidationError(
-                        "quantity must be a Quantity, Count, int, or float",
-                        details={"quantity": quantity},
-                    )
-                )
-            event = cls(
-                aggregate_id=aggregate_id,
-                name=name,
-                quantity=q,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryItemCreated", details={"error": str(exc)}
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryItemRenamed(DomainEvent):
-    """
-    Event: InventoryItem was renamed.
-
-    Usage:
-        result = InventoryItemRenamed.create(
-            aggregate_id="sku-123",
-            new_name="Gadget",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
-    new_name: str
-    version: int = 1
-
-    @property
-    def aggregate_id(self) -> str:
-        return self.aggregate_id
-
-    @classmethod
-    def create(
-        cls,
-        aggregate_id: str,
-        new_name: str,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        try:
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            if not new_name:
-                return Failure(
-                    DomainValidationError(
-                        "new_name is required", details={"new_name": new_name}
-                    )
-                )
-            event = cls(
-                aggregate_id=aggregate_id,
-                new_name=new_name,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryItemRenamed", details={"error": str(exc)}
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-class InventoryItemAdjusted(DomainEvent):
-    """
-    Event: InventoryItem was adjusted.
-
-    Usage:
-        result = InventoryItemAdjusted.create(
-            aggregate_id="sku-123",
-            adjustment=5,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
-    adjustment: int | float  # delta, can be negative or positive
-    version: int = 1
-
-    @property
-    def aggregate_id(self) -> str:
-        return self.aggregate_id
-
-    @classmethod
-    def create(
-        cls,
-        aggregate_id: str,
-        adjustment: int | float,
-        version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from examples.app.domain.value_objects import Count
-
-        try:
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
-                )
-            # Accept int, float, or Count
-            if isinstance(adjustment, int | float):
-                adj = float(adjustment)
-            elif hasattr(adjustment, "value"):
-                adj = float(adjustment.value)
-            else:
-                return Failure(
-                    DomainValidationError(
-                        "adjustment must be an int, float, or Count",
-                        details={"adjustment": adjustment},
-                    )
-                )
-            event = cls(
-                aggregate_id=aggregate_id,
-                adjustment=adj,
-                version=version,
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryItemAdjusted",
-                    details={"error": str(exc)},
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        """
-        Upcast event to target version. Stub for future event versioning.
-        """
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
-
-
-# --- Aggregate ---
-class InventoryItem(AggregateRoot[str]):
-    name: str
-    quantity: Quantity
-    _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
-
-    @classmethod
-    def create(
-        cls, aggregate_id: str, name: str, quantity: int | float | Quantity | Count
+        measurement: int | float | Measurement | Count,
     ) -> Result[Self, Exception]:
-        from examples.app.domain.value_objects import Count, Quantity
-
         try:
             if not aggregate_id:
                 return Failure(
@@ -300,39 +51,65 @@ class InventoryItem(AggregateRoot[str]):
                         "name is required", details=get_error_context()
                     )
                 )
-            # Accept Quantity, Count, int, float
-            if isinstance(quantity, Quantity):
-                q = quantity
-            elif isinstance(quantity, Count):
-                q = Quantity.from_count(quantity)
-            elif isinstance(quantity, int | float):
-                if quantity < 0:
+            # Accept Measurement, Count, int, float
+            if isinstance(measurement, Measurement):
+                q = measurement
+            elif isinstance(measurement, Count):
+                # Direct construction to avoid using factory methods that might use logger
+                q = Measurement(type="count", value=measurement)
+            elif isinstance(measurement, int | float):
+                if measurement < 0:
                     return Failure(
                         DomainValidationError(
-                            "quantity must be non-negative", details=get_error_context()
+                            "measurement must be non-negative",
+                            details=get_error_context(),
                         )
                     )
-                q = Quantity.from_count(quantity)
+                # Direct construction of Count and Measurement to avoid logger service
+                count = Count(
+                    type="count", value=Decimal(measurement), unit=CountUnit.EACH
+                )
+                q = Measurement(type="count", value=count)
             else:
                 return Failure(
                     DomainValidationError(
-                        "quantity must be a Quantity, Count, int, or float",
+                        "measurement must be a Measurement, Count, int, or float",
                         details=get_error_context(),
                     )
                 )
-            item = cls(id=aggregate_id, name=name, quantity=q)
-            event = InventoryItemCreated(
-                aggregate_id=aggregate_id, name=name, quantity=q
-            )
-            item._record_event(event)
-            return Success(item)
+            # Create the aggregate instance directly - modern Python idiom with less complexity
+            try:
+                # Avoid any usage of factory methods or DI for test compatibility
+                item = cls(id=aggregate_id, name=name, measurement=q)
+
+                # Create a dict representing the event data (DDD core pattern)
+                event_data = {
+                    "aggregate_id": aggregate_id,
+                    "name": name,
+                    "measurement": q,
+                    "version": 1,
+                }
+
+                # Use pydantic's direct constructor which has no DI dependencies
+                event = InventoryItemCreated(**event_data)
+
+                # Record the event and return success
+                item._record_event(event)
+                return Success(item)
+            except Exception as e:
+                return Failure(
+                    DomainValidationError(
+                        f"Failed to create inventory item: {str(e)}",
+                        details=get_error_context(),
+                    )
+                )
         except Exception as e:
             from pydantic import ValidationError
 
             if isinstance(e, ValidationError):
                 return Failure(
                     DomainValidationError(
-                        f"resulting quantity cannot be negative: {e}",
+                        f"resulting measurement cannot be negative: {e}",
                         details=get_error_context(),
                     )
                 )
@@ -355,58 +132,49 @@ class InventoryItem(AggregateRoot[str]):
             if isinstance(e, ValidationError):
                 return Failure(
                     DomainValidationError(
-                        f"resulting quantity cannot be negative: {e}",
+                        f"resulting measurement cannot be negative: {e}",
                         details=get_error_context(),
                     )
                 )
             return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def adjust_quantity(self, adjustment: int | float) -> Result[None, Exception]:
+    def adjust_measurement(self, adjustment: int | float) -> Result[None, Exception]:
         import logging
+        from decimal import Decimal, InvalidOperation
 
         logger = logging.getLogger(__name__)
         logger.info(
             {
-                "event": "adjust_quantity_entry",
+                "event": "adjust_measurement_entry",
                 "aggregate_id": self.id,
-                "current_quantity": self.quantity.value.value,
+                "current_measurement": self.measurement.value.value,
                 "adjustment": adjustment,
                 "adjustment_type": type(adjustment).__name__,
             }
         )
         try:
-            adj_value = float(adjustment)
-            new_value = self.quantity.value.value + adj_value
-            logger.info(
-                {
-                    "event": "adjust_quantity_normalized",
-                    "adj_value": adj_value,
-                    "new_value": new_value,
-                }
-            )
+            # Convert adjustment to Decimal safely
+            adj_value = Decimal(str(adjustment))
+            current_value = self.measurement.value.value
+            if not isinstance(current_value, Decimal):
+                current_value = Decimal(str(current_value))
+            new_value = current_value + adj_value
             if new_value < 0:
-                logger.warning(
-                    {
-                        "event": "adjust_quantity_negative_result",
-                        "current_quantity": self.quantity.value.value,
-                        "adj_value": adj_value,
-                    }
-                )
                 return Failure(
                     DomainValidationError(
-                        "resulting quantity cannot be negative",
+                        "resulting measurement cannot be negative",
                         details=get_error_context(),
                     )
                 )
-            # Do NOT mutate self.quantity here!
+            # Do NOT mutate self.measurement here!
             # Only record the event; state will be updated in _apply_event
             event = InventoryItemAdjusted(aggregate_id=self.id, adjustment=adj_value)
             self._record_event(event)
             logger.info(
                 {
-                    "event": "adjust_quantity_success",
+                    "event": "adjust_measurement_success",
                     "aggregate_id": self.id,
-                    "new_quantity": self.quantity.value.value + adj_value,
+                    "new_measurement": self.measurement.value.value + adj_value,
                 }
             )
             return Success(None)
@@ -418,33 +186,39 @@ class InventoryItem(AggregateRoot[str]):
         self._apply_event(event)
 
     def _apply_event(self, event: DomainEvent) -> None:
-        from examples.app.domain.value_objects import Quantity
+        from examples.app.domain.inventory.measurement import Measurement
 
         if isinstance(event, InventoryItemCreated):
             self.name = event.name
-            self.quantity = (
-                event.quantity
-                if isinstance(event.quantity, Quantity)
-                else Quantity.from_count(event.quantity)
+            self.measurement = (
+                event.measurement
+                if isinstance(event.measurement, Measurement)
+                else Measurement.from_count(event.measurement)
             )
         elif isinstance(event, InventoryItemRenamed):
             self.name = event.new_name
         elif isinstance(event, InventoryItemAdjusted):
-            if not hasattr(self.quantity, "value"):
+            from decimal import Decimal
+
+            if not hasattr(self.measurement, "value"):
                 raise DomainValidationError(
-                    "InventoryItem.quantity is not a value object",
+                    "InventoryItem.measurement is not a value object",
                     details=get_error_context(),
                 )
-            # event.adjustment is always numeric
-            new_value = self.quantity.value.value + event.adjustment
+            # Ensure both operands are Decimal
+            current_value = self.measurement.value.value
+            adjustment = event.adjustment
+            if not isinstance(current_value, Decimal):
+                current_value = Decimal(str(current_value))
+            if not isinstance(adjustment, Decimal):
+                adjustment = Decimal(str(adjustment))
+            new_value = current_value + adjustment
             if new_value < 0:
                 raise DomainValidationError(
-                    "resulting quantity cannot be negative",
+                    "resulting measurement cannot be negative",
                     details=get_error_context(),
                 )
-            from examples.app.domain.value_objects import Count, Quantity
-
-            self.quantity = Quantity.from_count(Count.from_each(new_value))
+            self.measurement = Measurement.from_count(Count.from_each(new_value))
         else:
             raise DomainValidationError(
                 f"Unhandled event: {event}", details=get_error_context()
@@ -457,7 +231,7 @@ class InventoryItem(AggregateRoot[str]):
         from uno.core.errors.result import Success, Failure
         from uno.core.errors.definitions import DomainValidationError
         from uno.core.errors.base import get_error_context
-        from examples.app.domain.value_objects import Quantity
+        from examples.app.domain.inventory.measurement import Measurement
 
         if not self.name or not isinstance(self.name, str):
             return Failure(
@@ -465,17 +239,17 @@ class InventoryItem(AggregateRoot[str]):
                     "name must be a non-empty string", details=get_error_context()
                 )
             )
-        if self.quantity is None or not isinstance(self.quantity, Quantity):
+        if self.measurement is None or not isinstance(self.measurement, Measurement):
             return Failure(
                 DomainValidationError(
-                    "quantity must be a Quantity value object",
+                    "measurement must be a Measurement value object",
                     details=get_error_context(),
                 )
             )
-        if self.quantity.value.value < 0:
+        if self.measurement.value.value < 0:
             return Failure(
                 DomainValidationError(
-                    "quantity must be non-negative", details=get_error_context()
+                    "measurement must be non-negative", details=get_error_context()
                 )
             )
         # Add more invariants as needed

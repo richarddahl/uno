@@ -12,6 +12,7 @@ from uno.infrastructure.logging import LoggerService, LoggingConfig
 from examples.app.domain.vendor import Vendor
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.vendor_service import VendorService
+from examples.app.domain.vendor.value_objects import EmailAddress
 
 
 class FakeVendorRepository(VendorRepository):
@@ -25,6 +26,17 @@ class FakeVendorRepository(VendorRepository):
         return Failure(Exception("not found"))
 
     def save(self, vendor: Vendor):
+        self._vendors[vendor.id] = vendor
+        return Success(vendor)
+
+    def update(self, vendor: Vendor):
+        """Update an existing vendor in the repository."""
+        if vendor.id not in self._vendors:
+            return Failure(
+                DomainValidationError(
+                    "Vendor not found", details={"vendor_id": vendor.id}
+                )
+            )
         self._vendors[vendor.id] = vendor
         return Success(vendor)
 
@@ -69,8 +81,9 @@ import pydantic
 
 
 def test_create_vendor_invalid(service: VendorService) -> None:
-    with pytest.raises(pydantic.ValidationError):
-        service.create_vendor("", "", "")
+    result = service.create_vendor("", "", "")
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, DomainValidationError)
 
 
 def test_update_vendor_success(service: VendorService) -> None:
@@ -95,20 +108,8 @@ def test_update_vendor_not_found(service: VendorService) -> None:
 
 def test_update_vendor_invalid(service: VendorService) -> None:
     service.create_vendor("vendor-3", "Acme Corp", "info@acme.com")
-    import pydantic
-
-    try:
-        service.update_vendor("vendor-3", "", "")
-    except pydantic.ValidationError:
-        return  # Pass: validation error raised as expected
-    except Exception as exc:
-        # Accept either DomainValidationError or other error, but check for context if present
-        if isinstance(exc, DomainValidationError):
-            assert exc.details["vendor_id"] == "vendor-3"
-            assert exc.details["service"] == "VendorService.update_vendor"
-        else:
-            assert "invalid" in str(exc).lower()
-    else:
-        assert False, (
-            "Expected ValidationError or DomainValidationError for invalid input"
-        )
+    result = service.update_vendor("vendor-3", "", "")
+    assert isinstance(result, Failure)
+    assert isinstance(result.error, DomainValidationError)
+    assert result.error.details["vendor_id"] == "vendor-3"
+    assert result.error.details["service"] == "VendorService.update_vendor"

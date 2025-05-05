@@ -54,7 +54,7 @@ def test_create_inventory_item_success(service: InventoryItemService) -> None:
     item = result.value
     assert item.id == "sku-1"
     assert item.name == "Widget"
-    assert item.quantity.value.value == 5
+    assert item.measurement.value.value == 5
 
 
 def test_create_inventory_item_duplicate(service: InventoryItemService) -> None:
@@ -121,55 +121,55 @@ def test_rename_inventory_item_invalid(service: InventoryItemService) -> None:
         assert "invalid" in str(result.error).lower()
 
 
-def test_adjust_inventory_quantity_success(service) -> None:
+def test_adjust_inventory_measurement_success(service) -> None:
     service.create_inventory_item("sku-5", "Widget", 5)
-    result = service.adjust_inventory_quantity("sku-5", 3)
+    result = service.adjust_inventory_measurement("sku-5", 3)
     assert isinstance(result, Success)
-    assert result.value.quantity.value.value == 8
+    assert result.value.measurement.value.value == 8
 
 
-def test_adjust_inventory_quantity_negative(service) -> None:
+def test_adjust_inventory_measurement_negative(service) -> None:
     service.create_inventory_item("sku-6", "Widget", 5)
     # Adjustment within bounds (should succeed)
-    result1 = service.adjust_inventory_quantity("sku-6", -3)
+    result1 = service.adjust_inventory_measurement("sku-6", -3)
     assert isinstance(result1, Success)
-    assert result1.value.quantity.value.value == 2
+    assert result1.value.measurement.value.value == 2
 
     # Adjustment to exactly zero (should succeed)
-    result2 = service.adjust_inventory_quantity("sku-6", -2)
+    result2 = service.adjust_inventory_measurement("sku-6", -2)
     assert isinstance(result2, Success)
-    assert result2.value.quantity.value.value == 0
+    assert result2.value.measurement.value.value == 0
 
-    # Adjustment that would make quantity negative (should fail)
-    result3 = service.adjust_inventory_quantity("sku-6", -1)
+    # Adjustment that would make measurement negative (should fail)
+    result3 = service.adjust_inventory_measurement("sku-6", -1)
     assert isinstance(result3, Failure)
-    assert "resulting quantity cannot be negative" in str(result3.error)
+    assert "resulting measurement cannot be negative" in str(result3.error)
 
 
-def test_adjust_inventory_quantity_invalid(service) -> None:
+def test_adjust_inventory_measurement_invalid(service) -> None:
     service.create_inventory_item("sku-7", "Widget", 5)
-    result = service.adjust_inventory_quantity("sku-7", -99)
+    result = service.adjust_inventory_measurement("sku-7", -99)
     assert isinstance(result, Failure)
     # Accept either DomainValidationError or other error, but check for context if present
     if isinstance(result.error, DomainValidationError):
         assert result.error.details["aggregate_id"] == "sku-7"
         assert (
             result.error.details["service"]
-            == "InventoryItemService.adjust_inventory_quantity"
+            == "InventoryItemService.adjust_inventory_measurement"
         )
     else:
         assert "invalid" in str(result.error).lower()
 
 
-def test_adjust_inventory_quantity_not_found(service) -> None:
-    result = service.adjust_inventory_quantity("sku-404", 1)
+def test_adjust_inventory_measurement_not_found(service) -> None:
+    result = service.adjust_inventory_measurement("sku-404", 1)
     assert isinstance(result, Failure)
     # Check error context details if present
     if isinstance(result.error, DomainValidationError):
         assert result.error.details["aggregate_id"] == "sku-404"
         assert (
             result.error.details["service"]
-            == "InventoryItemService.adjust_inventory_quantity"
+            == "InventoryItemService.adjust_inventory_measurement"
         )
     else:
         assert "not found" in str(result.error).lower()

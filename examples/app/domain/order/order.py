@@ -6,23 +6,31 @@ Represents an order to purchase or sell InventoryLots of a particular InventoryI
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
 """
 
-from typing import ClassVar, Literal, Self
+from typing import Literal, Self
 
 from pydantic import PrivateAttr
 
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Money, Currency, Count
 from examples.app.domain.order.events import (
     OrderCancelled,
     OrderCreated,
     OrderFulfilled,
 )
-from examples.app.domain.value_objects import Count, Money, Quantity
-from uno.core.domain.aggregate import AggregateRoot
 from uno.core.domain.entity import Entity
-from uno.core.domain.event import DomainEvent
 from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Success
+from uno.core.events import DomainEvent
 
+from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Money
+
+from examples.app.domain.order.events import (
+    OrderCreated,
+    OrderFulfilled,
+    OrderCancelled,
+)
 
 class Order(Entity[str]):
     """
@@ -42,14 +50,12 @@ class Order(Entity[str]):
             via `object.__setattr__` in `_apply_event`, which is the idiomatic and recommended approach for DDD/event sourcing with Pydantic v2.
             Direct mutation is only permitted in this tightly controlled context; all other code should treat the model as immutable.
         """
-        from examples.app.domain.value_objects import Quantity, Money, Currency
-
         dummy = cls(
             id=id,
             aggregate_id="PLACEHOLDER",
             lot_id="PLACEHOLDER",
             vendor_id="PLACEHOLDER",
-            quantity=Quantity.from_count(0),
+            measurement=Measurement.from_count(1),
             price=Money.from_value(0, currency=Currency.USD).unwrap(),
             order_type="purchase",
         )
@@ -60,7 +66,7 @@ class Order(Entity[str]):
     aggregate_id: str
     lot_id: str
     vendor_id: str
-    quantity: Quantity
+    measurement: Measurement
     price: Money
     order_type: Literal["purchase", "sale"]
     is_fulfilled: bool = False
@@ -77,12 +83,10 @@ class Order(Entity[str]):
         aggregate_id: str,
         lot_id: str,
         vendor_id: str,
-        quantity: Quantity | Count | float | int,
+        measurement: int | float | Count | Measurement,
         price: Money,
         order_type: str,
     ) -> Success[Self, Exception] | Failure[None, Exception]:
-        from examples.app.domain.value_objects import Quantity, Count
-
         try:
             if not order_id:
                 return Failure(
@@ -102,25 +106,23 @@ class Order(Entity[str]):
                         "lot_id is required", details=get_error_context()
                     )
                 )
-            # Accept Quantity, Count, int, float for quantity
-            if isinstance(quantity, Quantity):
-                q = quantity
-            elif isinstance(quantity, Count):
-                q = Quantity.from_count(quantity)
-            elif isinstance(quantity, int | float):
-                if quantity < 0:
-                    return Failure(
-                        DomainValidationError(
-                            "quantity must be non-negative",
-                            details=get_error_context(),
-                        )
+            if not vendor_id:
+                return Failure(
+                    DomainValidationError(
+                        "vendor_id is required", details=get_error_context()
                     )
-                q = Quantity.from_count(quantity)
+                )
+            if isinstance(measurement, Measurement):
+                q = measurement
+            elif isinstance(measurement, Count):
+                q = Measurement.from_count(measurement)
+            elif isinstance(measurement, int | float):
+                q = Measurement.from_each(measurement)
             else:
                 return Failure(
                     DomainValidationError(
-                        "quantity must be a Quantity, Count, int, or float",
-                        details=get_error_context(),
+                        "measurement must be a Measurement, Count, int, or float",
+                        details={"measurement": measurement},
                     )
                 )
             if not isinstance(price, Money):
@@ -141,7 +143,7 @@ class Order(Entity[str]):
                 aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
-                quantity=q,
+                measurement=q,
                 price=price,
                 order_type=order_type,
             )
@@ -150,7 +152,7 @@ class Order(Entity[str]):
                 aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
-                quantity=q,
+                measurement=q,
                 price=price,
                 order_type=order_type,
             )
@@ -159,8 +161,10 @@ class Order(Entity[str]):
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))
 
-    def fulfill(self, fulfilled_quantity: int) -> None:
-        event = OrderFulfilled(order_id=self.id, fulfilled_quantity=fulfilled_quantity)
+    def fulfill(self, fulfilled_measurement: int) -> None:
+        event = OrderFulfilled(
+            order_id=self.id, fulfilled_measurement=fulfilled_measurement
+        )
         self._record_event(event)
 
     def cancel(self, reason: str | None = None) -> None:
@@ -178,24 +182,22 @@ class Order(Entity[str]):
         This method uses `object.__setattr__` to mutate fields on a frozen Pydantic model. This is the idiomatic and recommended approach
         for event replay/rehydration in DDD systems using Pydantic v2. Direct mutation is strictly limited to this internal mechanism.
         """
-        from examples.app.domain.value_objects import Quantity, Count, Money
-
         if isinstance(event, OrderCreated):
             # All field assignments here use object.__setattr__ to bypass Pydantic's frozen model restriction.
             # This is intentional and safe ONLY for event replay/rehydration.
             object.__setattr__(self, "aggregate_id", event.aggregate_id)
             object.__setattr__(self, "lot_id", event.lot_id)
             object.__setattr__(self, "vendor_id", event.vendor_id)
-            # Accept Quantity, Count, int, float for replay
-            if isinstance(event.quantity, Quantity):
-                object.__setattr__(self, "quantity", event.quantity)
-            elif isinstance(event.quantity, Count | int | float):
+            # Accept Measurement, Count, int, float for replay
+            if isinstance(event.measurement, Measurement):
+                object.__setattr__(self, "measurement", event.measurement)
+            elif isinstance(event.measurement, Count | int | float):
                 object.__setattr__(
-                    self, "quantity", Quantity.from_count(event.quantity)
+                    self, "measurement", Measurement.from_count(event.measurement)
                 )
             else:
                 raise DomainValidationError(
-                    "Invalid quantity type for replay", details=get_error_context()
+                    "Invalid measurement type for replay", details=get_error_context()
                 )
             object.__setattr__(
                 self,
@@ -225,19 +227,18 @@ class Order(Entity[str]):
         from uno.core.errors.result import Success, Failure
         from uno.core.errors.definitions import DomainValidationError
         from uno.core.errors.base import get_error_context
-        from examples.app.domain.value_objects import Money, Quantity
 
-        if self.quantity is None or not isinstance(self.quantity, Quantity):
+        if self.measurement is None or not isinstance(self.measurement, Measurement):
             return Failure(
                 DomainValidationError(
-                    "quantity must be a Quantity value object",
+                    "measurement must be a valid Measurement instance",
                     details=get_error_context(),
                 )
             )
-        if self.quantity.value.value < 0:
+        if self.measurement.value.value < 0:
             return Failure(
                 DomainValidationError(
-                    "quantity must be non-negative", details=get_error_context()
+                    "measurement must be non-negative", details=get_error_context()
                 )
             )
         if self.price is None or not isinstance(self.price, Money):

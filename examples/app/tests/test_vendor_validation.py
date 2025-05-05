@@ -7,7 +7,7 @@ import pytest
 from uno.core.errors.result import Failure, Success
 from pydantic_core import ValidationError
 
-from examples.app.domain.value_objects import EmailAddress
+from examples.app.domain.vendor.value_objects import EmailAddress
 from examples.app.domain.vendor import Vendor
 
 
@@ -33,7 +33,7 @@ def test_vendor_validate_domain_invariants():
         vendor_with_invalid_email = Vendor(
             id="V1",
             name="Acme",
-            contact_email=EmailAddress(value="invalid"),  
+            contact_email=EmailAddress(value="invalid"),
         )
         assert isinstance(vendor_with_invalid_email.validate(), Failure)
     except ValidationError:
@@ -62,7 +62,7 @@ def test_vendor_create_validation():
         result = Vendor.create(
             vendor_id="V1",
             name="Acme",
-            contact_email=EmailAddress(value="invalid"),  
+            contact_email=EmailAddress(value="invalid"),
         )
         assert isinstance(result, Failure)
     except ValidationError:
@@ -95,7 +95,7 @@ def test_vendor_update_validation():
     try:
         result = vendor.update(
             name="Acme Distilling",
-            contact_email=EmailAddress(value="invalid"),  
+            contact_email=EmailAddress(value="invalid"),
         )
         assert isinstance(result, Failure)
     except ValidationError:

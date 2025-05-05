@@ -7,18 +7,18 @@ Demonstrates event versioning and upcasting for inventory events involving grain
 from uno.core.events.base_event import DomainEvent, EventUpcasterRegistry
 
 
-# Version 1: Only item_name and quantity
+# Version 1: Only item_name and measurement
 class InventoryAddedV1(DomainEvent):
     __version__ = 1
     item_name: str
-    quantity: float
+    measurement: float
 
 
 # Version 2: Adds unit
 class InventoryAddedV2(DomainEvent):
     __version__ = 2
     item_name: str
-    quantity: float
+    measurement: float
     unit: str
 
 
@@ -26,7 +26,7 @@ class InventoryAddedV2(DomainEvent):
 class InventoryAddedV3(DomainEvent):
     __version__ = 3
     item_name: str
-    quantity: float
+    measurement: float
     unit: str
     supplier: str
 
@@ -57,7 +57,7 @@ EventUpcasterRegistry.register(
 )
 
 # Usage: Upcasting from legacy data
-legacy_v1 = {"item_name": "corn", "quantity": 1000.0, "version": 1}
+legacy_v1 = {"item_name": "corn", "measurement": 1000.0, "version": 1}
 event = InventoryAddedV3.from_dict(legacy_v1)
 assert event.unit == "kg"
 assert event.supplier == "Unknown"

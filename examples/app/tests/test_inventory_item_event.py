@@ -20,13 +20,13 @@ def test_inventory_item_created_create_success() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="sku-123",
         name="Widget",
-        quantity=10,
+        measurement=10,
     )
     assert isinstance(result, Success)
     event = result.value
     assert event.aggregate_id == "sku-123"
     assert event.name == "Widget"
-    assert event.quantity.value.value == 10
+    assert event.measurement.value.value == 10
     assert event.version == 1
 
 
@@ -34,7 +34,7 @@ def test_inventory_item_created_create_failure_missing_aggregate_id() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="",
         name="Widget",
-        quantity=10,
+        measurement=10,
     )
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
@@ -45,29 +45,29 @@ def test_inventory_item_created_create_failure_missing_name() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="sku-123",
         name="",
-        quantity=10,
+        measurement=10,
     )
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
     assert "name" in result.error.details
 
 
-def test_inventory_item_created_create_failure_invalid_quantity() -> None:
+def test_inventory_item_created_create_failure_invalid_measurement() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="sku-123",
         name="Widget",
-        quantity=-1,
+        measurement=-1,
     )
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
-    assert "quantity" in result.error.details
+    assert "measurement" in result.error.details
 
 
 def test_inventory_item_created_upcast_identity() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="sku-123",
         name="Widget",
-        quantity=10,
+        measurement=10,
     )
     assert isinstance(result, Success)
     event = result.value
@@ -80,7 +80,7 @@ def test_inventory_item_created_upcast_unimplemented() -> None:
     result = InventoryItemCreated.create(
         aggregate_id="sku-123",
         name="Widget",
-        quantity=10,
+        measurement=10,
     )
     assert isinstance(result, Success)
     event = result.value

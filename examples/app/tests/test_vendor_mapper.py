@@ -1,11 +1,15 @@
 """
 Unit tests for Vendor <-> VendorDTO mapping functions.
 """
+
 from examples.app.domain.vendor import Vendor
-from examples.app.domain.value_objects import EmailAddress
+from examples.app.domain.vendor.value_objects import EmailAddress
+
 
 def fake_vendor() -> Vendor:
-    return Vendor(id="v-1", name="Acme Corp", contact_email=EmailAddress(value="acme@example.com"))
+    return Vendor(
+        id="v-1", name="Acme Corp", contact_email=EmailAddress(value="acme@example.com")
+    )
 
 
 def test_vendor_model_dump_roundtrip():
@@ -15,4 +19,3 @@ def test_vendor_model_dump_roundtrip():
     assert d["name"] == vendor.name
     # Check EmailAddress serialization
     assert d["contact_email"] == vendor.contact_email.value
-

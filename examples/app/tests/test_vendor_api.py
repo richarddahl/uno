@@ -10,9 +10,13 @@ from fastapi.testclient import TestClient
 from examples.app.api.api import app_factory
 
 
-@pytest.fixture()
-def client() -> TestClient:
-    return TestClient(app_factory())
+@pytest.fixture(scope="module")
+def app():
+    return app_factory()
+
+@pytest.fixture(scope="module")
+def client(app) -> TestClient:
+    return TestClient(app)
 
 
 def test_vendor_lifecycle(client: TestClient) -> None:

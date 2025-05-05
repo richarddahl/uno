@@ -30,7 +30,7 @@ def event_store(logger):
 @pytest.fixture
 def item_created_event():
     result = InventoryItemCreated.create(
-        aggregate_id="sku-1", name="Widget", quantity=100
+        aggregate_id="sku-1", name="Widget", measurement=100
     )
     assert isinstance(result, Success)
     return result.value
@@ -76,18 +76,18 @@ async def test_save_and_replay_events(
     for event in events:
         if isinstance(event, InventoryItemCreated):
             item = InventoryItem(
-                id=event.aggregate_id, name=event.name, quantity=event.quantity
+                id=event.aggregate_id, name=event.name, measurement=event.measurement
             )
         elif isinstance(event, InventoryItemRenamed) and item:
             item.name = event.new_name
         elif isinstance(event, InventoryItemAdjusted) and item:
-            item.quantity = type(item.quantity).from_count(
-                item.quantity.value.value + event.adjustment
+            item.measurement = type(item.measurement).from_count(
+                item.measurement.value.value + event.adjustment
             )
     assert item is not None
     assert item.id == "sku-1"
     assert item.name == "Gizmo"
-    assert item.quantity.value.value == 105
+    assert item.measurement.value.value == 105
 
 
 import pytest
@@ -112,7 +112,7 @@ async def test_event_store_error_propagation(event_store):
     # Try to get events with filter
     # Save a valid event first
     item_event = InventoryItemCreated.create(
-        aggregate_id="sku-2", name="Widget", quantity=10
+        aggregate_id="sku-2", name="Widget", measurement=10
     ).value
     await event_store.save_event(item_event)
     filtered_result = await event_store.get_events(
