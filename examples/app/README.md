@@ -1,48 +1,251 @@
-# Uno Integrated Example App
+# Uno Distillery Management System Example
 
-## Domain Modeling Quickstart
+## Overview
 
-Welcome! This quickstart will help you model your own domain in Uno using modern DDD and event sourcing patterns.
+This example application demonstrates how to use Uno to build a production-ready distillery management system using Domain-Driven Design (DDD) and Event Sourcing principles. The system manages inventory items, lots, vendors, and orders with a focus on the specific needs of distillery operations.
 
-### Steps
+## Domain Model
 
-1. **Explore the example domain:**
-    - Aggregates: [`domain/inventory/item.py`](domain/inventory/item.py), [`domain/inventory/lot.py`](domain/inventory/lot.py)
-    - Events: [`domain/events.py`](domain/events.py)
-    - Value Objects: [`domain/value_objects.py`](domain/value_objects.py)
-2. **Create your own aggregate:**
-    - Copy the pattern from `InventoryItem` or `InventoryLot`.
-    - Use Pydantic v2, modern type hints, and the Result monad for all construction and error handling.
-3. **Define events for your aggregate:**
-    - See `PaymentReceived`, `GradeAssignedToLot`, etc. in `events.py`.
-    - Implement `create` and `upcast` classmethods.
-4. **Add value objects as needed:**
-    - See `Quantity`, `Grade`, `Count` in `value_objects.py`.
-    - Use validation and Pydantic idioms.
-5. **Write tests for your domain logic:**
-    - See [`tests/`](tests/) for pytest-based examples.
-    - Run all example tests with:
+The domain model is organized around key distillery concepts:
 
-      ```bash
-      hatch run test:testV
-      ```
+### Aggregates
 
-6. **No infrastructure or API required!**
-   You can model, test, and validate your entire domain layer in isolation.
+1. **InventoryItem** - Represents raw materials, in-process spirits, or finished products
+   - Tracks name and measurement (count, volume, or mass)
+   - Supports renaming and measurement adjustments
+   - Events: `InventoryItemCreated`, `InventoryItemRenamed`, `InventoryItemAdjusted`
 
-For a detailed walkthrough, see the [Domain Modeling Guide](../../docs/examples_app/domain_modeling.md).
+2. **InventoryLot** - Represents a specific batch or lot of an inventory item
+   - Tracks source vendor, measurements, and quality grades
+   - Supports lot splitting and combining for production processes
+   - Maintains audit trail of source lots for compliance
+   - Events: `InventoryLotCreated`, `InventoryLotAdjusted`, `InventoryLotSplit`, `InventoryLotsCombined`
+
+3. **Vendor** - Represents suppliers or customers
+   - Tracks name and contact information
+   - Events: `VendorCreated`, `VendorUpdated`
+
+4. **Order** - Represents purchase or sale orders
+   - Links to inventory lots and vendors
+   - Tracks price, quantity, and fulfillment status
+   - Events: `OrderCreated`, `OrderFulfilled`, `OrderCancelled`
+
+### Value Objects
+
+1. **Measurement** - Composite value object for different measurement types
+   - `Count` - Discrete items (each, dozen, case, pallet)
+   - `Mass` - Weight measurements (kg, g, lb, oz)
+   - `Volume` - Volume measurements (L, mL, gal, oz)
+
+2. **Grade** - Quality assessment for spirits (0-100 scale)
+
+3. **AlcoholContent** - ABV percentage tracking
+
+4. **Money** - Amount with currency for financial transactions
+
+5. **EmailAddress** - Validated email contacts
+
+## Getting Started
+
+### Installation
+
+```bash
+# Install Uno in development mode
+pip install -e ../../  # from the root of the uno repo
+
+# Run the example app
+python -m examples.app
+```
+
+### Explore the Domain Model
+
+1. **Examine the aggregates:**
+   - [`domain/inventory/item.py`](domain/inventory/item.py) - InventoryItem aggregate
+   - [`domain/inventory/lot.py`](domain/inventory/lot.py) - InventoryLot aggregate
+   - [`domain/vendor/vendor.py`](domain/vendor/vendor.py) - Vendor aggregate
+   - [`domain/order/order.py`](domain/order/order.py) - Order aggregate
+
+2. **Study the events:**
+   - [`domain/inventory/events.py`](domain/inventory/events.py) - Inventory events
+   - [`domain/vendor/events.py`](domain/vendor/events.py) - Vendor events
+   - [`domain/order/events.py`](domain/order/events.py) - Order events
+
+3. **Review value objects:**
+   - [`domain/inventory/value_objects.py`](domain/inventory/value_objects.py) - Measurement, Grade, etc.
+   - [`domain/inventory/measurement.py`](domain/inventory/measurement.py) - Measurement system
+   - [`domain/vendor/value_objects.py`](domain/vendor/value_objects.py) - EmailAddress, etc.
 
 ---
 
-## Uno Example Features
+## Distillery Management System Features
 
-- **Aggregates:** `InventoryItem`, `Vendor` (add your own easily)
-- **Event Sourcing:** All state changes are recorded as domain events
-- **API Layer:** RESTful endpoints for all aggregates via FastAPI, with Result-based error handling and error context propagation (see below)
-- **Serialization:** Canonical DTOs using Pydantic v2
-- **Testing:** End-to-end tests for all API endpoints
-- **Extensibility:** Add new aggregates/events/endpoints with minimal boilerplate
+- **Inventory Tracking:** Track raw materials, in-process spirits, and finished products with appropriate measurements
+- **Lot Management:** Manage production batches with quality grades, source tracking, and compliance audit trails
+- **Vendor Relations:** Track suppliers and customers with validated contact information
+- **Order Processing:** Handle purchase and sale orders with proper financial tracking
+- **Measurement System:** Unified system for count, volume, and mass measurements with unit conversions
+- **Quality Control:** Track spirit quality with standardized grading
+- **Event Sourcing:** All state changes are recorded as domain events for audit and compliance
 - **Modern Python:** Type hints, Pydantic 2, Python 3.13, strict linting
+
+## Common Distillery Operations
+
+### 1. Receiving Raw Materials
+
+```python
+# Create a vendor
+from examples.app.domain.vendor.vendor import Vendor
+from examples.app.domain.vendor.value_objects import EmailAddress
+
+vendor_result = Vendor.create(
+    vendor_id="supplier-123",
+    name="Grain Supplier Inc.",
+    contact_email=EmailAddress(value="contact@grainsupplier.com")
+)
+vendor = vendor_result.unwrap()
+
+# Create an inventory item for the raw material
+from examples.app.domain.inventory.item import InventoryItem
+
+barley_result = InventoryItem.create(
+    aggregate_id="barley-001",
+    name="Malted Barley",
+    measurement=5000  # 5000 kg
+)
+barley = barley_result.unwrap()
+
+# Create a specific lot of this material
+from examples.app.domain.inventory.lot import InventoryLot
+
+lot_result = InventoryLot.create(
+    lot_id="lot-barley-001",
+    aggregate_id="barley-001",
+    measurement=5000,
+    vendor_id="supplier-123",
+    purchase_price=2500.00
+)
+lot = lot_result.unwrap()
+```
+
+### 2. Production Process - Mashing and Fermentation
+
+```python
+# Split the barley lot for a specific production batch
+from examples.app.domain.inventory.lot import InventoryLot
+
+# Get the source lot
+source_lot = repository.get("lot-barley-001").unwrap()
+
+# Split off 500kg for this production batch
+split_result = source_lot.split(
+    new_lot_ids=["mash-batch-001"],
+    split_quantities=[500],
+    reason="Production batch #42"
+)
+
+# Create a new inventory item for the mash
+mash_result = InventoryItem.create(
+    aggregate_id="mash-001",
+    name="Fermented Mash",
+    measurement=1200  # 1200 liters after adding water
+)
+```
+
+### 3. Distillation and Quality Control
+
+```python
+# Create a new lot for the distilled spirit
+from examples.app.domain.inventory.value_objects import Grade, AlcoholContent
+
+# Create the distilled spirit inventory item
+spirit_result = InventoryItem.create(
+    aggregate_id="spirit-001",
+    name="Raw Whiskey",
+    measurement=150  # 150 liters of distilled spirit
+)
+
+# Create a lot with quality information
+from examples.app.domain.inventory.measurement import Measurement, Volume
+from examples.app.domain.inventory.value_objects import VolumeUnit
+
+volume = Volume(value=150, unit=VolumeUnit.LITER)
+measurement = Measurement.from_volume(volume)
+
+spirit_lot_result = InventoryLot.create(
+    lot_id="spirit-batch-001",
+    aggregate_id="spirit-001",
+    measurement=measurement,
+    vendor_id=None  # Produced internally
+)
+spirit_lot = spirit_lot_result.unwrap()
+
+# Assign quality grade and alcohol content
+from examples.app.domain.inventory.events import GradeAssignedToLot
+from examples.app.domain.vendor.value_objects import EmailAddress
+
+grade_event = GradeAssignedToLot.create(
+    lot_id="spirit-batch-001",
+    grade=Grade(value=92.5),  # High quality
+    assigned_by=EmailAddress(value="master.distiller@example.com")
+).unwrap()
+
+# Record the event
+spirit_lot._record_event(grade_event)
+```
+
+### 4. Aging and Blending
+
+```python
+# After aging, combine multiple spirit lots for blending
+from examples.app.domain.inventory.lot import InventoryLot
+
+# Get the aged lots to be blended
+lot1 = repository.get("aged-lot-001").unwrap()
+lot2 = repository.get("aged-lot-002").unwrap()
+
+# Combine the lots
+combined_result = InventoryLot.combine_lots(
+    lot_ids=["aged-lot-001", "aged-lot-002"],
+    new_lot_id="blended-batch-001"
+)
+blended_lot = combined_result.unwrap()
+
+# The blended lot automatically has:
+# - Combined measurement from source lots
+# - Weighted average grade based on source lot grades
+# - Complete audit trail of source lots for compliance
+```
+
+### 5. Bottling and Sales
+
+```python
+# Create a finished product inventory item
+bottled_result = InventoryItem.create(
+    aggregate_id="whiskey-premium",
+    name="Premium Aged Whiskey",
+    measurement=750  # 750ml bottles
+)
+
+# Create an order for a customer
+from examples.app.domain.order.order import Order
+from examples.app.domain.inventory.value_objects import Money, Currency
+
+order_result = Order.create(
+    order_id="order-001",
+    aggregate_id="whiskey-premium",
+    lot_id="blended-batch-001",
+    vendor_id="customer-456",  # The customer
+    measurement=120,  # 120 bottles
+    price=Money(amount=59.99, currency=Currency.USD),
+    order_type="sale"
+)
+order = order_result.unwrap()
+
+# Fulfill the order
+order.fulfill(120)  # Fulfill the complete order
+
+# This automatically updates inventory
+```
 
 ---
 
@@ -246,27 +449,161 @@ curl -X PUT http://localhost:8000/vendors/vendor-1 \
 
 ---
 
-## Event Sourcing in Uno
+## Event Sourcing for Regulatory Compliance
 
-- Every aggregate method (e.g. `create`, `update`) records a domain event.
-- The repository stores events, not just current state.
-- Aggregates are rebuilt by replaying their event history.
-- See `domain/` for event classes (e.g. `InventoryItemCreated`, `VendorCreated`).
+Distilleries are subject to strict regulatory requirements. The event sourcing approach in Uno provides built-in compliance capabilities:
+
+### Complete Audit Trail
+
+- Every state change is recorded as an immutable event with timestamps and user attribution
+- Full history of all inventory movements, quality assessments, and production processes
+- Chain of custody for all materials from receipt through production to sale
+
+### TTB Compliance Features
+
+- Track production volumes and losses at each stage (required for TTB reporting)
+- Document alcohol content measurements throughout the process
+- Maintain complete lot genealogy for recall capabilities
+- Record proof gallons for tax calculations
+
+### Example: Retrieving Complete Lot History
+
+```python
+# Get all events for a specific lot
+from examples.app.persistence.repository import EventStore
+
+event_store = EventStore()
+result = event_store.get_events_by_aggregate_id("lot-whiskey-001")
+
+if isinstance(result, Success):
+    events = result.unwrap()
+    
+    # Process events chronologically
+    for event in events:
+        if isinstance(event, InventoryLotCreated):
+            print(f"Lot created on {event.timestamp} with {event.measurement}")
+        elif isinstance(event, GradeAssignedToLot):
+            print(f"Quality grade {event.grade} assigned by {event.assigned_by}")
+        elif isinstance(event, InventoryLotSplit):
+            print(f"Split into lots: {event.new_lot_ids}")
+        # etc.
+```
+
+### Reporting Capabilities
+
+- Generate TTB-compliant reports directly from event history
+- Calculate production efficiency and losses
+- Provide complete traceability for audits
+- Document chain of custody for quality certifications
 
 ---
 
-## Adding a New Aggregate
+## Extending the Distillery Management System
+
+### Adding New Distillery-Specific Aggregates
 
 1. **Define the aggregate and events:**
-   - Create `domain/my_aggregate.py` with your class and events.
-2. **Add a repository:**
-   - Create `persistence/my_aggregate_repository.py` (see vendor/inventory examples).
-3. **Create DTOs:**
-   - Add `api/my_aggregate_dtos.py`.
-4. **Expose API endpoints:**
-   - Update `api/api.py` to add your endpoints.
-5. **Write tests:**
-   - Add `tests/test_my_aggregate_api.py`.
+
+   ```python
+   # domain/barrel.py
+   from typing import Self
+   from pydantic import PrivateAttr
+   from uno.core.domain.aggregate import AggregateRoot
+   from uno.core.errors.result import Success, Failure, Result
+   
+   class Barrel(AggregateRoot[str]):
+       wood_type: str  # e.g., American Oak, French Oak
+       char_level: int  # Char level 1-4
+       age_in_months: int = 0
+       contents_lot_id: str | None = None
+       is_active: bool = True
+       _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
+       
+       @classmethod
+       def create(cls, barrel_id: str, wood_type: str, char_level: int) -> Result[Self, Exception]:
+           # Implementation using Uno patterns
+           pass
+           
+       def fill(self, lot_id: str) -> Result[None, Exception]:
+           # Implementation
+           pass
+           
+       def empty(self) -> Result[None, Exception]:
+           # Implementation
+           pass
+   ```
+
+2. **Define events for the new aggregate:**
+
+   ```python
+   # domain/barrel/events.py
+   from uno.core.events import DomainEvent
+   
+   class BarrelCreated(DomainEvent):
+       barrel_id: str
+       wood_type: str
+       char_level: int
+       
+       @classmethod
+       def create(cls, barrel_id: str, wood_type: str, char_level: int):
+           # Implementation using Uno patterns
+           pass
+   
+   class BarrelFilled(DomainEvent):
+       barrel_id: str
+       lot_id: str
+       filled_date: datetime
+       
+       # Implementation
+   ```
+
+3. **Add a repository:**
+
+   ```python
+   # persistence/barrel_repository.py
+   from uno.core.domain.repository import Repository
+   from domain.barrel import Barrel
+   
+   class BarrelRepository(Repository[Barrel, str]):
+       # Implementation using Uno patterns
+       pass
+   ```
+
+4. **Create API endpoints:**
+
+   ```python
+   # api/barrel_api.py
+   from fastapi import APIRouter, Depends
+   
+   router = APIRouter(prefix="/barrels", tags=["barrels"])
+   
+   @router.post("/")
+   async def create_barrel(barrel_data: BarrelCreateDTO):
+       # Implementation
+       pass
+   ```
+
+### Common Distillery-Specific Extensions
+
+1. **Barrel Management**
+   - Track individual barrels, their contents, and aging process
+   - Monitor fill dates, rotation schedules, and tasting notes
+
+2. **Blending Formulas**
+   - Define and track proprietary blending recipes
+   - Record blending decisions and outcomes
+
+3. **Sensory Analysis**
+   - Track tasting notes and sensory evaluations
+   - Monitor flavor development during aging
+
+4. **Regulatory Reporting**
+   - Generate TTB-required reports automatically
+   - Track excise tax calculations
+
+5. **Production Scheduling**
+   - Plan distillation runs and bottling operations
+   - Optimize resource allocation
 
 ---
 
@@ -278,17 +615,23 @@ Run all end-to-end and API tests:
 hatch run test:testV
 ```
 
-- Some infrastructure tests (e.g., those requiring uno.sql) are skipped if dependencies are unavailable.
-- All domain, service, and API tests should pass after DI and logger registration fixes.
+## Conclusion
 
----
+The Uno Distillery Management System example demonstrates how to build a robust, event-sourced application for managing distillery operations. By leveraging Uno's core principles of Domain-Driven Design and Event Sourcing, this system provides:
+
+- **Regulatory Compliance:** Complete audit trails and chain of custody for all materials
+- **Quality Control:** Tracking of quality measurements throughout the production process
+- **Production Traceability:** Full genealogy of all products from raw materials to finished goods
+- **Extensibility:** Easy addition of distillery-specific features like barrel management or blending formulas
+
+The example serves as both a practical implementation guide and a reference architecture for building your own domain-specific applications with Uno. By following the patterns demonstrated here, you can create maintainable, testable, and compliant systems for complex regulatory environments like distilleries.
 
 ## License
 
 SPDX-License-Identifier: MIT
 
 ---
-_This integrated example is for onboarding, regression, and demonstration purposes. For framework core logic, see `uno/core/`. For focused/legacy examples, see the top-level `examples/` directory._
+_This integrated example is for onboarding, regression, and demonstration purposes. For framework core logic, see `uno/core/`. For focused examples, see the top-level `examples/` directory._
 
 ---
 
@@ -299,5 +642,3 @@ _This integrated example is for onboarding, regression, and demonstration purpos
 - **Type Hints & Pydantic v2:** All DTOs and domain models use Pydantic v2 and modern Python type hints (`str`, `int`, `X | Y` not `Union[X, Y]`).
 - **Logging:** Use the injected logger for all business and API logic. Avoid print statements.
 - **Testing:** Use pytest with fixtures and follow the `Fake`/`Mock` naming convention for test objects.
-
-For migration guides and advanced usage, see `../../REFACTOR.md`.
