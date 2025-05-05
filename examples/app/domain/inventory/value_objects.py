@@ -60,8 +60,8 @@ class Count(ValueObject):
     @classmethod
     def validate_value(cls, v: float | int) -> float:
         """Validate count value."""
-        if v <= 0:
-            raise ValueError("Count value must be greater than 0")
+        if v < 0:
+            raise ValueError("Count value must be non-negative")
         return v
 
     def __str__(self) -> str:

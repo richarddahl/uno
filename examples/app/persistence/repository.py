@@ -54,11 +54,14 @@ class InMemoryInventoryItemRepository:
         item = None
         for event in events:
             if isinstance(event, InventoryItemCreated):
-                item = InventoryItem(
-                    InventoryItem.create(
-                        event.aggregate_id, event.name, event.measurement
-                    )
+                result = InventoryItem.create(
+                    event.aggregate_id, event.name, event.measurement
                 )
+                if isinstance(result, Success):
+                    item = result.value
+                else:
+                    # Optionally log or handle the failure
+                    continue
             elif isinstance(event, InventoryItemRenamed) and item:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:

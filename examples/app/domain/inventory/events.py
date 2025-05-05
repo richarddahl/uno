@@ -337,11 +337,31 @@ class InventoryItemCreated(DomainEvent):
                 "[InventoryItemCreated.create] Event created - aggregate_id=%s name=%s measurement=%r",
                 aggregate_id,
                 name,
-                m,
+                measurement,
             )
             return Success(event)
         except Exception as e:
+            from pydantic import ValidationError
             logger.error("[InventoryItemCreated.create] Unexpected error: %s", str(e))
+            # Propagate measurement field errors with correct context
+            if isinstance(e, ValidationError):
+                # Map pydantic 'value' field errors to 'measurement' for domain context
+                details = {}
+                for err in e.errors():
+                    if 'loc' in err and err['loc']:
+                        key = err['loc'][-1]
+                        if key == 'value':
+                            details['measurement'] = err['msg']
+                        else:
+                            details[key] = err['msg']
+                if not details:
+                    details['measurement'] = str(e)
+                return Failure(
+                    DomainValidationError(
+                        f"Failed to create inventory item: {str(e)}",
+                        details={**details, **get_error_context()},
+                    )
+                )
             return Failure(
                 DomainValidationError(
                     f"Failed to create inventory item: {str(e)}",

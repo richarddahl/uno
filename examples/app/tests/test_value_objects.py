@@ -214,7 +214,7 @@ def test_money_conversion() -> None:
 
 
 def test_measurement_from_count_negative() -> None:
-    with pytest.raises(ValidationError, match="Count value must be greater than 0"):
+    with pytest.raises(ValidationError, match="Count value must be non-negative"):
         Measurement.from_count(-1)
 
 
