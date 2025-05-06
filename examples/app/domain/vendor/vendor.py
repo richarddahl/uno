@@ -62,10 +62,21 @@ class Vendor(AggregateRoot[str]):
                     )
                 )
             vendor = cls(id=vendor_id, name=name, contact_email=contact_email)
-            event = VendorCreated(
-                vendor_id=vendor_id, name=name, contact_email=contact_email.value
-            )
-            vendor._record_event(event)
+            event_data = {
+                "vendor_id": vendor_id,
+                "name": name,
+                "contact_email": contact_email.value,
+                "version": 1,
+            }
+            event = VendorCreated.from_dict(event_data)
+            if isinstance(event, Failure):
+                return Failure(
+                    DomainValidationError(
+                        f"Failed to create vendor event: {event.error}",
+                        details=get_error_context(),
+                    )
+                )
+            vendor._record_event(event.value)
             return Success(vendor)
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))
@@ -90,10 +101,21 @@ class Vendor(AggregateRoot[str]):
                         "contact_email is required", details=get_error_context()
                     )
                 )
-            event = VendorUpdated(
-                vendor_id=self.id, name=name, contact_email=contact_email.value
-            )
-            self._record_event(event)
+            event_data = {
+                "vendor_id": self.id,
+                "name": name,
+                "contact_email": contact_email.value,
+                "version": 1,
+            }
+            event = VendorUpdated.from_dict(event_data)
+            if isinstance(event, Failure):
+                return Failure(
+                    DomainValidationError(
+                        f"Failed to create vendor event: {event.error}",
+                        details=get_error_context(),
+                    )
+                )
+            self._record_event(event.value)
             return Success(None)
         except Exception as e:
             return Failure(DomainValidationError(str(e), details=get_error_context()))

@@ -45,14 +45,15 @@ def upcast_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
     return data
 
 
-def test_event_upcasting() -> None:
+@pytest.mark.asyncio
+async def test_event_upcasting() -> None:
     # Register upcaster for FakeEventV2 v1 -> v2
     EventUpcasterRegistry._registry.clear()
     EventUpcasterRegistry.register_upcaster(FakeEventV2, 1, upcast_v1_to_v2)
     v1_data = {"event_id": "evt_123", "foo": "hello", "version": 1}
     # Upcast the dict before constructing
     upcasted = EventUpcasterRegistry.apply(FakeEventV2, v1_data, 1, 2)
-    result = FakeEventV2.from_dict(upcasted)
+    result = await FakeEventV2.from_dict(upcasted)
     assert hasattr(result, "unwrap"), f"Expected Result, got {type(result)}"
     event = result.unwrap()
     assert event.foo == "hello"
@@ -60,21 +61,22 @@ def test_event_upcasting() -> None:
     assert event.version == 2
 
 
-def test_event_hash_and_chain() -> None:
+@pytest.mark.asyncio
+async def test_event_hash_and_chain() -> None:
     # Create a chain of events with deterministic fields
-    e1 = FakeEventV2(
+    e1 = await FakeEventV2(
         event_id="evt_1", foo="a", bar=1, previous_hash=None, timestamp=1.0
     )
-    e2 = FakeEventV2(
+    e2 = await FakeEventV2(
         event_id="evt_2", foo="b", bar=2, previous_hash=e1.event_hash, timestamp=2.0
     )
-    e3 = FakeEventV2(
+    e3 = await FakeEventV2(
         event_id="evt_3", foo="c", bar=3, previous_hash=e2.event_hash, timestamp=3.0
     )
     # Chain is valid
     assert verify_event_stream_integrity([e1, e2, e3])
     # Tamper with e2
-    e2_tampered = FakeEventV2(
+    e2_tampered = await FakeEventV2(
         event_id="evt_2",
         foo="tampered",
         bar=2,
@@ -86,17 +88,19 @@ def test_event_hash_and_chain() -> None:
         verify_event_stream_integrity([e1, e2_tampered, e3])
 
 
-def test_event_hash_is_deterministic() -> None:
-    e1 = FakeEventV2(
+@pytest.mark.asyncio
+async def test_event_hash_is_deterministic() -> None:
+    e1 = await FakeEventV2(
         event_id="evt_x", foo="z", bar=7, previous_hash=None, timestamp=42.0
     )
-    e2 = FakeEventV2(
+    e2 = await FakeEventV2(
         event_id="evt_x", foo="z", bar=7, previous_hash=None, timestamp=42.0
     )
     assert e1.event_hash == e2.event_hash
 
 
-def test_upcaster_registry_missing() -> None:
+@pytest.mark.asyncio
+async def test_upcaster_registry_missing() -> None:
     # No upcaster for v2 -> v3
     class FakeEventV3(DomainEvent):
         version: int = 3
@@ -110,6 +114,6 @@ def test_upcaster_registry_missing() -> None:
 
     from uno.core.errors.result import Failure
 
-    result = FakeEventV3.from_dict(v2_data)
+    result = await FakeEventV3.from_dict(v2_data)
     assert isinstance(result, Failure)
     assert isinstance(result.error, Exception)

@@ -31,7 +31,7 @@ logger_service = LoggerService(logging_config)
 vendor_repo = InMemoryVendorRepository(logger_service)
 repo = InMemoryInventoryItemRepository(logger_service)
 
-service_collection = ServiceCollection(auto_register=False)
+service_collection = ServiceCollection()
 service_collection.add_instance(LoggerService, logger_service)
 service_collection.add_instance(VendorRepository, vendor_repo)
 service_collection.add_instance(InMemoryVendorRepository, vendor_repo)

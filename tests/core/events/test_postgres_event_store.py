@@ -7,25 +7,17 @@ import asyncio
 
 # --- Fixtures ---
 import os
-from datetime import UTC, datetime
-from typing import ClassVar
-from uuid import uuid4
-
 import pytest
+from datetime import UTC, datetime
+from typing import ClassVar, AsyncGenerator
+from uuid import uuid4
+from datetime import UTC, datetime
 
-from uno.core.errors.result import Failure, Success
 from uno.core.events.base_event import DomainEvent
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.infrastructure.di import (
-    ServiceCollection,
-    get_service_provider,
-    initialize_services,
-    shutdown_services,
-)
-from uno.infrastructure.di.provider import reset_global_service_provider
 from uno.infrastructure.di.providers.database import (
-    get_db_engine,
-    get_db_session,
+    db_engine_factory,
+    db_session_factory,
     register_database_services,
 )
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
@@ -33,50 +25,69 @@ from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 # --- Fast, isolated unit test fixture using in-memory SQLite ---
 @pytest.fixture(scope="function")
-async def override_db_provider() -> None:
-    """
-    Override the Uno DI db_session/db_engine providers with in-memory SQLite for isolated fast tests.
-    Patches config, builds a fresh DI container, and sets it as global for the test.
-    Ensures DI is reset after each test to avoid SERVICE_PROVIDER_ALREADY_INITIALIZED errors.
-    """
-    reset_global_service_provider()
-    os.environ["DB_BACKEND"] = "memory"
+async def override_db_provider() -> AsyncGenerator[None, None]:
+    # Create a new service collection
     services = ServiceCollection()
-    register_database_services(services)
-    await initialize_services()
-    try:
+    
+    # Register database services with test configuration
+    register_database_services(services, {
+        "backend": "postgres",
+        "dsn": "postgresql+asyncpg://postgres:postgres@localhost:5432/uno_test",
+        "pool_size": 5
+    })
+    
+    # Create the database engine and session
+    engine = db_engine_factory()
+    async with db_session_factory(engine) as session:
+        # Create tables
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        # Set up the test database
+        async with session.begin():
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno"))
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno_events"))
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno_audit"))
+        
+        # Yield control to the test
         yield
-    finally:
-        await shutdown_services()
-        reset_global_service_provider()
-        if "DB_BACKEND" in os.environ:
-            del os.environ["DB_BACKEND"]
+        
+        # Clean up
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            
+        await engine.dispose()
 
 
 @pytest.fixture(scope="function")
 async def pg_event_store(override_db_provider: None) -> PostgresEventStore:
     # Use the overridden in-memory engine/session for fast tests
-    engine = get_service_provider().get_service("db_engine")
-    session = get_service_provider().get_service("db_session")
-    store = PostgresEventStore(db_session=session)
-    # Create table if needed
-    async with engine.begin() as conn:
-        await conn.run_sync(store.metadata.create_all)
-    try:
-        yield store
-    finally:
-        # Cleanup
+    engine = db_engine_factory()
+    async with db_session_factory(engine) as session:
+        store = PostgresEventStore(db_session=session)
+        # Create table if needed
         async with engine.begin() as conn:
-            await conn.run_sync(store.metadata.drop_all)
-        reset_global_service_provider()
+            await conn.run_sync(store.metadata.create_all)
+        try:
+            yield store
+        finally:
+            # Cleanup
+            async with engine.begin() as conn:
+                await conn.run_sync(store.metadata.drop_all)
 
 
 # --- Integration test fixture using real Postgres backend ---
 @pytest.fixture(scope="function")
 async def pg_event_store_postgres(override_db_provider: None) -> PostgresEventStore:
     # Uses the default configured Postgres backend (do not override provider)
-    engine = get_db_engine()
-    session = get_db_session()
+    engine = db_engine_factory()
+    async with db_session_factory(engine) as session:
+        store = PostgresEventStore(db_session=session)
+    provider = get_service_provider()
+    engine = provider.get_service(AsyncSession)
+    session = provider.get_service(AsyncSession)
+    store = PostgresEventStore(db_session=session)
+    session = provider.get_service(AsyncSession)
     store = PostgresEventStore(db_session=session)
     async with engine.begin() as conn:
         await conn.run_sync(store.metadata.create_all)
@@ -95,6 +106,12 @@ class FakeEvent(DomainEvent):
     version: int
     timestamp: datetime = datetime.now(UTC)
     foo: str
+
+    def __init__(self, aggregate_id: str, version: int, foo: str) -> None:
+        self.aggregate_id = aggregate_id
+        self.version = version
+        self.foo = foo
+        self.timestamp = datetime.now(UTC)
 
 
 # --- Tests ---
@@ -156,9 +173,9 @@ async def test_error_handling(pg_event_store: PostgresEventStore) -> None:
     res = await pg_event_store.save_event(event)
     assert isinstance(res, Failure)
     # Simulate error: DB down
-    bad_store = PostgresEventStore(
-        dsn="postgresql+asyncpg://bad:bad@localhost:5432/doesnotexist"
-    )
+    provider = get_service_provider()
+    session = provider.get_service(AsyncSession)
+    bad_store = PostgresEventStore(db_session=session)
     event = FakeEvent(aggregate_id=str(uuid4()), version=1, foo="fail")
     res = await bad_store.save_event(event)
     assert isinstance(res, Failure)

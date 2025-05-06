@@ -88,12 +88,12 @@ class QueryPlan:
     estimated_rows: int
 
     # Plan details
-    operations: List[Dict[str, Any]] = field(default_factory=list)
+    operations: list[Dict[str, Any]] = field(default_factory=list)
 
     # Analysis
-    table_scans: List[str] = field(default_factory=list)
+    table_scans: list[str] = field(default_factory=list)
     index_usage: Dict[str, str] = field(default_factory=dict)
-    join_types: List[str] = field(default_factory=list)
+    join_types: list[str] = field(default_factory=list)
 
     # Metrics
     total_cost: float = 0.0
@@ -134,12 +134,12 @@ class IndexRecommendation:
 
     # Index details
     table_name: str
-    column_names: List[str]
+    column_names: list[str]
     index_type: IndexType = IndexType.BTREE
-    index_name: Optional[str] = None
+    index_name: str | None = None
 
     # Context
-    query_pattern: Optional[str] = None
+    query_pattern: str | None = None
     estimated_improvement: Optional[float] = None
 
     # Status
@@ -147,7 +147,7 @@ class IndexRecommendation:
     implementation_time: Optional[float] = None
 
     # Creation SQL
-    _creation_sql: Optional[str] = None
+    _creation_sql: str | None = None
 
     def get_creation_sql(self) -> str:
         """
@@ -217,7 +217,7 @@ class QueryRewrite:
     actual_improvement: Optional[float] = None
 
     # Context
-    reason: Optional[str] = None
+    reason: str | None = None
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -402,14 +402,14 @@ class QueryOptimizer:
         self._query_stats: Dict[str, QueryStatistics] = {}
 
         # Index recommendations
-        self._index_recommendations: List[IndexRecommendation] = []
+        self._index_recommendations: list[IndexRecommendation] = []
 
         # Query rewrites
         self._query_rewrites: Dict[str, QueryRewrite] = {}
 
         # Schema information
         self._table_info: Dict[str, Dict[str, Any]] = {}
-        self._existing_indexes: Dict[str, List[Dict[str, Any]]] = {}
+        self._existing_indexes: Dict[str, list[Dict[str, Any]]] = {}
 
     async def analyze_query(
         self,
@@ -505,7 +505,7 @@ class QueryOptimizer:
                 estimated_rows=0,
             )
 
-    def _extract_operations(self, plan_node: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_operations(self, plan_node: Dict[str, Any]) -> list[Dict[str, Any]]:
         """
         Extract operations from a plan node recursively.
 
@@ -539,7 +539,7 @@ class QueryOptimizer:
 
         return operations
 
-    def _extract_table_scans(self, plan_node: Dict[str, Any]) -> List[str]:
+    def _extract_table_scans(self, plan_node: Dict[str, Any]) -> list[str]:
         """
         Extract sequential table scans from a plan node.
 
@@ -602,7 +602,7 @@ class QueryOptimizer:
 
         return index_usage
 
-    def _extract_join_types(self, plan_node: Dict[str, Any]) -> List[str]:
+    def _extract_join_types(self, plan_node: Dict[str, Any]) -> list[str]:
         """
         Extract join types from a plan node.
 
@@ -631,7 +631,7 @@ class QueryOptimizer:
 
         return join_types
 
-    def recommend_indexes(self, query_plan: QueryPlan) -> List[IndexRecommendation]:
+    def recommend_indexes(self, query_plan: QueryPlan) -> list[IndexRecommendation]:
         """
         Recommend indexes based on a query plan.
 
@@ -685,8 +685,8 @@ class QueryOptimizer:
         return recommendations[: self.config.max_recommendations_per_query]
 
     def _extract_filter_columns(
-        self, table_name: str, operations: List[Dict[str, Any]]
-    ) -> List[str]:
+        self, table_name: str, operations: list[Dict[str, Any]]
+    ) -> list[str]:
         """
         Extract filter columns for a table from operations.
 
@@ -713,7 +713,7 @@ class QueryOptimizer:
 
         return filter_columns
 
-    def _has_matching_index(self, table_name: str, columns: List[str]) -> bool:
+    def _has_matching_index(self, table_name: str, columns: list[str]) -> bool:
         """
         Check if a table already has an index on the specified columns.
 
@@ -1285,7 +1285,7 @@ class QueryOptimizer:
 
     def get_slow_queries(
         self, threshold: Optional[float] = None
-    ) -> List[QueryStatistics]:
+    ) -> list[QueryStatistics]:
         """
         Get statistics for slow queries.
 
@@ -1311,7 +1311,7 @@ class QueryOptimizer:
 
     def get_frequent_queries(
         self, min_frequency: Optional[float] = None
-    ) -> List[QueryStatistics]:
+    ) -> list[QueryStatistics]:
         """
         Get statistics for frequently executed queries.
 
@@ -1336,7 +1336,7 @@ class QueryOptimizer:
 
         return frequent_queries
 
-    def get_index_recommendations(self) -> List[IndexRecommendation]:
+    def get_index_recommendations(self) -> list[IndexRecommendation]:
         """
         Get all index recommendations.
 
@@ -1410,7 +1410,7 @@ async def optimize_query(
     session: Optional[AsyncSession] = None,
     engine: Optional[AsyncEngine] = None,
     config: Optional[OptimizationConfig] = None,
-) -> Tuple[Union[str, Executable], Optional[List[IndexRecommendation]]]:
+) -> Tuple[Union[str, Executable], Optional[list[IndexRecommendation]]]:
     """
     Optimize a query and provide recommendations.
 

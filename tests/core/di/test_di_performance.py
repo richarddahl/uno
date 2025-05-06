@@ -17,7 +17,7 @@ Otherwise, these tests will be skipped by default.
 
 import pytest
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from tests.core.di.di_helper import DIHelper
 import time
@@ -48,7 +48,9 @@ async def test_singleton_resolution_benchmark(benchmark: BenchmarkFixture) -> No
     services = ServiceCollection()
     services.add_singleton(DummySingleton)
     logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
+    services = ServiceCollection()
+    services.add_instance(LoggerService, logger)
+    provider = ServiceProvider(services)
     provider.configure_services(services)
     await provider.initialize()
 
@@ -67,13 +69,15 @@ async def test_scoped_resolution_benchmark(benchmark: BenchmarkFixture) -> None:
     services = ServiceCollection()
     services.add_scoped(DummyScoped)
     logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
+    services = ServiceCollection()
+    services.add_instance(LoggerService, logger)
+    provider = ServiceProvider(services)
     provider.configure_services(services)
     await provider.initialize()
 
     async def resolve() -> Any:
-        async with await provider.create_scope() as scope:
-            return scope.get_service(DummyScoped)
+        async with provider.create_scope() as scope:
+            return scope.resolve(DummyScoped)
 
     result = await benchmark(resolve)
     assert result.is_success
@@ -87,7 +91,9 @@ async def test_transient_resolution_benchmark(benchmark: BenchmarkFixture) -> No
     services = ServiceCollection()
     services.add_transient(DummyTransient)
     logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
+    services = ServiceCollection()
+    services.add_instance(LoggerService, logger)
+    provider = ServiceProvider(services)
     provider.configure_services(services)
     await provider.initialize()
 

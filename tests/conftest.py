@@ -21,15 +21,68 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import logging
 
 import pytest
+import asyncio
+from uno.infrastructure.di.provider import configure_base_services
+
+@pytest.fixture(scope="function", autouse=True)
+async def uno_di_setup():
+    services = ServiceCollection()
+    provider = services.build_service_provider()
+    await configure_base_services(provider)
+
 
 from uno.infrastructure.config.general import GeneralConfig
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider, get_service_provider
+from uno.infrastructure.di.service_provider import ServiceProvider
+from uno.infrastructure.di.service_collection import ServiceCollection
+
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from typing import Any
+import asyncio
+
+class FakeLoggerService(LoggerService):
+    def __init__(self, *args, **kwargs):
+        super().__init__(LoggingConfig())
+        self.structured_logs: list[dict[str, Any]] = []
+        self.info_logs: list[str] = []
+        self.warning_logs: list[str] = []
+        self.error_logs: list[str] = []
+
+    def structured_log(self, level: str, msg: str, *args: Any, **kwargs: Any) -> None:
+        self.structured_logs.append({"level": level, "msg": msg, "args": args, "kwargs": kwargs})
+
+    async def astructured_log(self, level: str, msg: str, *args: Any, **kwargs: Any) -> None:
+        await asyncio.sleep(0)
+        self.structured_log(level, msg, *args, **kwargs)
+
+    def info(self, msg: str) -> None:
+        self.info_logs.append(msg)
+    async def ainfo(self, msg: str) -> None:
+        await asyncio.sleep(0)
+        self.info(msg)
+    def warning(self, msg: str) -> None:
+        self.warning_logs.append(msg)
+    async def awarning(self, msg: str) -> None:
+        await asyncio.sleep(0)
+        self.warning(msg)
+    def error(self, msg: str) -> None:
+        self.error_logs.append(msg)
+    async def aerror(self, msg: str) -> None:
+        await asyncio.sleep(0)
+        self.error(msg)
+
+
+# Monkeypatch globally for DI tests
+import uno.infrastructure.logging.logger as logger_module
+logger_module.LoggerService = FakeLoggerService
+
+
 from uno.core.services.hash_service_protocol import HashServiceProtocol
+from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from typing import Any
 
 
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     config.addinivalue_line(
         "markers",
         "performance: mark test as performance/benchmark (skip unless -m performance or -m benchmark)",
@@ -40,7 +93,7 @@ def pytest_configure(config):
     )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     m_option = config.getoption("-m")
     # Only run performance/benchmark tests if '-m performance' or '-m benchmark' is specified
     if not m_option or ("performance" not in m_option and "benchmark" not in m_option):
@@ -53,61 +106,82 @@ def pytest_collection_modifyitems(config, items):
 
 
 class FakeHashService(HashServiceProtocol):
-    def hash_event(self, event: Any) -> str:
-        return "fakehash"
+    def compute_hash(self, payload: str) -> str:
+        return "test-hash-123"
 
 
 @pytest.fixture(scope="function", autouse=True)
-def initialize_di():
+async def initialize_di() -> None:
     """
     Initialize the dependency injection system for tests.
 
     This fixture ensures that all tests have access to a properly
     configured DI system with test-appropriate configuration values.
+    It also forcibly resets the global DI provider to avoid recursion issues.
     """
+    import uno.infrastructure.di.provider as di_provider_mod
     # Make sure we're in test environment
     os.environ["ENV"] = "test"
+
+    # Forcibly reset the global provider before each test
+    if hasattr(di_provider_mod, "_service_provider"):
+        di_provider_mod._service_provider = None
 
     # Create a test config with required values
     config = GeneralConfig(SITE_NAME="Uno Test Site")
 
     # Create service collection
-    test_services = ServiceCollection()
-    test_services.add_instance(GeneralConfig, config)
-    test_services.add_singleton(
-        HashServiceProtocol, FakeHashService
-    )  # Register fake hash service
+    services = ServiceCollection()
+    services.add_instance(GeneralConfig, config)
+    services.add_instance(HashServiceProtocol, FakeHashService())
+
+    # Register database services with test configuration
+    register_database_services(services, {
+        "backend": "memory",
+        "dsn": "sqlite+aiosqlite:///:memory:",
+        "pool_size": 5
+    })
 
     # Get the global provider and configure it
-    provider = get_service_provider()
-    provider._initialized = False  # Reset if it was previously initialized
-    provider.configure_services(test_services)
-
-    # Not calling initialize() here since it's async and pytest fixture can't be async
-    # Tests that need initialized services should use initialize_provider fixture
-
+    # Create a new provider with test configuration
+    provider = ServiceProvider(services)
+    await provider.initialize()
     return provider
 
 
+@pytest.fixture(scope="function")
+async def test_services() -> ServiceCollection:
+    """
+    Create a fresh service collection for each test.
+    """
+    services = ServiceCollection()
+    services.add_instance(GeneralConfig, GeneralConfig())
+    services.add_instance(HashServiceProtocol, FakeHashService())
+    return services
+
+
 @pytest.fixture
-def service_collection():
+def service_collection() -> ServiceCollection:
     """Provide a clean service collection for tests."""
     return ServiceCollection()
 
 
 @pytest.fixture
-def service_provider():
+def service_provider() -> ServiceProvider:
     """
     Provide a clean service provider for tests.
 
     This provider is not initialized yet. Use initialize_provider
     if you need an initialized provider.
     """
-    provider = ServiceProvider()
+    services = ServiceCollection()
+    services.add_instance(LoggingConfig, LoggingConfig())
+    services.add_singleton(LoggerService, implementation=FakeLoggerService)
+    provider = ServiceProvider(services)
     return provider
 
 
 @pytest.fixture
-def config_instance():
+def config_instance() -> GeneralConfig:
     """Provide a test config instance."""
     return GeneralConfig(SITE_NAME="Uno Test Site")

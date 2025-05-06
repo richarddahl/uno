@@ -14,7 +14,7 @@ from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 class CreateDomainEventsTable(SQLEmitter):
     """Emitter for creating the domain_events table and related objects."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating the domain_events table.
 
         Returns:
@@ -139,7 +139,7 @@ class CreateDomainEventsTable(SQLEmitter):
 class CreateEventProcessorsTable(SQLEmitter):
     """Emitter for creating the event_processors table for tracking consumers."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating the event_processors table.
 
         Returns:

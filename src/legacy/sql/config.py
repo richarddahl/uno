@@ -40,7 +40,7 @@ class SQLConfig(BaseModel):
     """
 
     # Default emitters to use for this config
-    default_emitters: ClassVar[List[Type[SQLEmitter]]] = []
+    default_emitters: ClassVar[list[Type[SQLEmitter]]] = []
 
     # The table for which SQL is being generated
     table: ClassVar[Optional[Table]] = None
@@ -52,7 +52,7 @@ class SQLConfig(BaseModel):
     engine_factory: Optional[SyncEngineFactory] = None
 
     # Emitter instances
-    emitters: List[SQLEmitter] = []
+    emitters: list[SQLEmitter] = []
 
     model_config = {"arbitrary_types_allowed": True}
 

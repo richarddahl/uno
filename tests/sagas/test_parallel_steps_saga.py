@@ -22,11 +22,10 @@ async def test_parallel_steps_saga() -> None:
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
     services.add_scoped(LoggerService)
     services.add_scoped(ParallelStepsSaga)
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger, services)
+    provider = ServiceProvider(services)
     await provider.initialize()
-    async with await provider.create_scope() as scope:
-        manager = SagaManager(saga_store, provider)
+    async with provider.create_scope() as scope:
+        manager = SagaManager(saga_store, scope)
         manager.register_saga(ParallelStepsSaga)
         saga_id = "parallel-1"
 
@@ -48,10 +47,24 @@ async def test_parallel_steps_saga() -> None:
         state = await saga_store.load_state(saga_id)
         assert state.data["step_a_done"] is True
         assert state.data["step_b_done"] is True
+        assert state.data["joined"] is False
+        assert state.status == "waiting_parallel"
+
+        # Join the steps
+        await manager.handle_event(
+            saga_id, "ParallelStepsSaga", {"type": "Join"}
+        )
+        state = await saga_store.load_state(saga_id)
+        assert state is not None
+        assert state.data["step_a_done"] is True
+        assert state.data["step_b_done"] is True
         assert state.data["joined"] is True
         assert state.status == "joined"
 
-        # Finalize
-        await manager.handle_event(saga_id, "ParallelStepsSaga", {"type": "Finalize"})
+        # Finalize the saga
+        await manager.handle_event(
+            saga_id, "ParallelStepsSaga", {"type": "Finalize"}
+        )
         state = await saga_store.load_state(saga_id)
-        assert state is None  # Saga should be cleaned up after completion
+        assert state is None  # State should be deleted after completion
+        assert saga_id not in manager._active_sagas

@@ -14,6 +14,8 @@ from uno.core.events.base_event import DomainEvent
 class DeletedEvent(DomainEvent):
     """
     Event representing the soft deletion of an aggregate.
+
+    Note: After creating a DeletedEvent instance, always call set_event_hash() before saving or publishing.
     """
 
     event_type: ClassVar[str] = "deleted"

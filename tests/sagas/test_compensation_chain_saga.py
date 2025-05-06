@@ -5,7 +5,7 @@ Integration test for CompensationChainSaga: demonstrates multi-step compensation
 import pytest
 
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.core.events.command_bus import CommandBus
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
@@ -22,10 +22,11 @@ async def test_compensation_chain_saga() -> None:
     services.add_scoped(LoggerService)
     services.add_scoped(CompensationChainSaga)
     logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger, services)
+    services.add_singleton(type(logger), logger)
+    provider = ServiceProvider(services)
     await provider.initialize()
-    async with await provider.create_scope() as scope:
-        manager = SagaManager(saga_store, provider)
+    async with provider.create_scope() as scope:
+        manager = SagaManager(saga_store, scope)
         manager.register_saga(CompensationChainSaga)
         saga_id = "comp-chain-1"
 

@@ -24,7 +24,7 @@ class InventoryItemService:
         self.repo = repo
         self.logger = logger
 
-    def create_inventory_item(
+    async def create_inventory_item(
         self, aggregate_id: str, name: str, measurement: int
     ) -> Result[InventoryItem, Exception]:
         """
@@ -48,7 +48,7 @@ class InventoryItemService:
                     },
                 )
             )
-        item_result = InventoryItem.create(
+        item_result = await InventoryItem.create(
             aggregate_id=aggregate_id, name=name, measurement=measurement
         )
         if isinstance(item_result, Failure):

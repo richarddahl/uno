@@ -249,8 +249,8 @@ class PoolMetrics:
     connection_metrics: Dict[str, ConnectionMetrics] = field(default_factory=dict)
 
     # Load stats
-    load_samples: List[float] = field(default_factory=list)
-    load_sample_times: List[float] = field(default_factory=list)
+    load_samples: list[float] = field(default_factory=list)
+    load_sample_times: list[float] = field(default_factory=list)
 
     def record_connection_created(self, conn_id: str) -> None:
         """Record a connection creation."""
@@ -1058,7 +1058,7 @@ class EnhancedConnectionPool(Generic[T]):
             await self._perform_dynamic_scaling()
 
     async def _validate_connection_task(
-        self, conn_id: str, invalid_list: List[str]
+        self, conn_id: str, invalid_list: list[str]
     ) -> None:
         """
         Validate a connection and add to invalid list if needed.
@@ -1797,7 +1797,7 @@ class EnhancedAsyncConnectionManager:
 
     def configure_pool(
         self,
-        role: Optional[str] = None,
+        role: str | None = None,
         config: ConnectionPoolConfig = None,
     ) -> None:
         """

@@ -76,10 +76,10 @@ class UnoBaseRepository(Generic[ModelT]):
     async def list(
         self,
         filters: Optional[Dict[str, Any]] = None,
-        order_by: Optional[List[str]] = None,
+        order_by: Optional[list[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-    ) -> List[ModelT]:
+    ) -> list[ModelT]:
         """
         List models with optional filtering, ordering, and pagination.
 

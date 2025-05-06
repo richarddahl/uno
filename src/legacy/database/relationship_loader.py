@@ -215,7 +215,7 @@ class RelationshipCache:
         parent_entity: Any,
         relationship_name: str,
         target_class: Type[Any],
-    ) -> OpResult[List[Any]]:
+    ) -> OpResult[list[Any]]:
         """
         Get a to-many relationship from the cache.
 
@@ -256,7 +256,7 @@ class RelationshipCache:
         self,
         parent_entity: Any,
         relationship_name: str,
-        related_entities: List[Any],
+        related_entities: list[Any],
     ) -> None:
         """
         Store a to-many relationship in the cache.
@@ -405,9 +405,9 @@ class RelationshipLoader:
                     "field": rel.key,
                     "target_type": rel.mapper.class_,
                     "is_collection": rel.uselist,
-                    "foreign_key": list(rel.local_columns)[0].name
-                    if rel.local_columns
-                    else None,
+                    "foreign_key": (
+                        list(rel.local_columns)[0].name if rel.local_columns else None
+                    ),
                 }
         except Exception as e:
             # Unable to get relationships from SQLAlchemy
@@ -419,7 +419,7 @@ class RelationshipLoader:
     def apply_relationship_options(
         self,
         query,
-        load_relations: Optional[Union[bool, List[str]]],
+        load_relations: Optional[Union[bool, list[str]]],
         strategy: str = "select",
     ):
         """
@@ -430,7 +430,7 @@ class RelationshipLoader:
             load_relations: Which relationships to load
                 - None/False: Load no relationships
                 - True: Load all relationships
-                - List[str]: Load only specified relationships
+                - list[str]: Load only specified relationships
             strategy: The loading strategy to use
                 - 'select': Use selectinload (good for many-to-one and one-to-many)
                 - 'joined': Use joinedload (good for one-to-one)
@@ -473,7 +473,7 @@ class RelationshipLoader:
     async def load_relationships(
         self,
         entity: Any,
-        load_relations: Optional[Union[bool, List[str]]],
+        load_relations: Optional[Union[bool, list[str]]],
         session: Optional[AsyncSession] = None,
     ) -> Any:
         """
@@ -505,10 +505,10 @@ class RelationshipLoader:
 
     async def load_relationships_batch(
         self,
-        entities: List[Any],
-        load_relations: Optional[Union[bool, List[str]]],
+        entities: list[Any],
+        load_relations: Optional[Union[bool, list[str]]],
         session: Optional[AsyncSession] = None,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Load relationships for multiple entities in batch.
 
@@ -581,7 +581,7 @@ class RelationshipLoader:
             await loader.cache.query_cache.invalidate_by_table(table_name)
 
     async def _load_entity_relationships(
-        self, entity: Any, relationship_names: List[str], session: AsyncSession
+        self, entity: Any, relationship_names: list[str], session: AsyncSession
     ) -> Any:
         """Load relationships for a single entity with an active session."""
         # Work through each relationship
@@ -674,8 +674,8 @@ class RelationshipLoader:
         return entity
 
     async def _load_batch_relationships(
-        self, entities: List[Any], relationship_names: List[str], session: AsyncSession
-    ) -> List[Any]:
+        self, entities: list[Any], relationship_names: list[str], session: AsyncSession
+    ) -> list[Any]:
         """Load relationships for multiple entities with an active session."""
         # Handle each relationship
         for rel_name in relationship_names:

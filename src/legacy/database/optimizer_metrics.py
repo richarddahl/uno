@@ -153,7 +153,7 @@ class OptimizerMetricsSnapshot:
         return snapshot
 
     @staticmethod
-    def _percentile(data: List[float], percentile: int) -> float:
+    def _percentile(data: list[float], percentile: int) -> float:
         """
         Calculate a percentile from a sorted list.
 
@@ -199,7 +199,7 @@ class OptimizerMetricsCollector:
         self.logger = logger or logging.getLogger(__name__)
 
         # Metrics snapshots
-        self._snapshots: List[OptimizerMetricsSnapshot] = []
+        self._snapshots: list[OptimizerMetricsSnapshot] = []
         self._snapshot_interval = 300  # 5 minutes
         self._max_snapshots = 288  # 24 hours at 5-minute intervals
 
@@ -366,7 +366,7 @@ class OptimizerMetricsCollector:
         self,
         start_time: Optional[float] = None,
         end_time: Optional[float] = None,
-    ) -> List[OptimizerMetricsSnapshot]:
+    ) -> list[OptimizerMetricsSnapshot]:
         """
         Get metrics snapshots for a time range.
 

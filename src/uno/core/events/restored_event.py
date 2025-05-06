@@ -11,6 +11,8 @@ from uno.core.events.base_event import DomainEvent
 class RestoredEvent(DomainEvent):
     """
     Event representing the restoration (undelete) of an aggregate.
+
+    Note: After creating a RestoredEvent instance, always call set_event_hash() before saving or publishing.
     """
 
     event_type: ClassVar[str] = "restored"

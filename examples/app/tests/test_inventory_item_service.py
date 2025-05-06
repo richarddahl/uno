@@ -167,10 +167,11 @@ def test_adjust_inventory_measurement_negative(
     assert "resulting measurement cannot be negative" in str(result3.error)
 
 
-def test_adjust_inventory_measurement_invalid(
+@pytest.mark.asyncio
+async def test_adjust_inventory_measurement_invalid(
     service: InventoryItemService,
 ) -> None:
-    service.create_inventory_item("sku-7", "Widget", 5)
+    await service.create_inventory_item("sku-7", "Widget", 5)
     result = service.adjust_inventory_measurement("sku-7", -99)
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)

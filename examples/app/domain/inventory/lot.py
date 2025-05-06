@@ -77,13 +77,6 @@ class InventoryLot(AggregateRoot[str]):
                 measurement = Measurement.from_count(
                     Count.from_each(float(measurement))
                 )
-            if not isinstance(measurement, Measurement):
-                return Failure(
-                    DomainValidationError(
-                        "measurement must be a Measurement object",
-                        details=get_error_context(),
-                    )
-                )
             lot = cls(
                 id=lot_id,
                 aggregate_id=aggregate_id,
@@ -110,12 +103,6 @@ class InventoryLot(AggregateRoot[str]):
         self, adjustment: int, reason: str | None = None
     ) -> Success[Self, DomainValidationError] | Failure[None, DomainValidationError]:
         try:
-            if not isinstance(adjustment, int):
-                return Failure(
-                    DomainValidationError(
-                        "adjustment must be an int", details=get_error_context()
-                    )
-                )
             event_result = InventoryLotAdjusted.create(
                 lot_id=self.id, adjustment=adjustment, reason=reason
             )
@@ -221,12 +208,14 @@ class InventoryLot(AggregateRoot[str]):
         new_lot._domain_events = []  # Reset domain events for new lot
         event_result = InventoryLotsCombined.create(
             source_lot_ids=[self.id, other.id],
-            source_grades=[None, None]
-            if not self.grade and not other.grade
-            else [g if g else None for g in [self.grade, other.grade]],
-            source_vendor_ids=[]
-            if not self.vendor_id and not other.vendor_id
-            else source_vendor_ids,
+            source_grades=(
+                [None, None]
+                if not self.grade and not other.grade
+                else [g if g else None for g in [self.grade, other.grade]]
+            ),
+            source_vendor_ids=(
+                [] if not self.vendor_id and not other.vendor_id else source_vendor_ids
+            ),
             new_lot_id=new_lot_id,
             aggregate_id=self.aggregate_id,
             combined_measurement=combined_measurement,
@@ -295,9 +284,11 @@ class InventoryLot(AggregateRoot[str]):
                 new_lot_ids=new_lot_ids,
                 aggregate_id=self.aggregate_id,
                 split_quantities=[
-                    q
-                    if isinstance(q, Measurement)
-                    else Measurement.from_count(Count.from_each(float(q)))
+                    (
+                        q
+                        if isinstance(q, Measurement)
+                        else Measurement.from_count(Count.from_each(float(q)))
+                    )
                     for q in split_quantities
                 ],
                 reason="Split lot into multiple lots",

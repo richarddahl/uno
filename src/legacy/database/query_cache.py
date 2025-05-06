@@ -241,7 +241,7 @@ class QueryCacheKey:
     def hash_query(
         query: Union[str, Executable],
         params: Optional[Dict[str, Any]] = None,
-        table_names: Optional[List[str]] = None,
+        table_names: Optional[list[str]] = None,
     ) -> str:
         """
         Generate a hash for a query.
@@ -326,7 +326,7 @@ class QueryCacheKey:
     def from_text(
         sql: str,
         params: Optional[Dict[str, Any]] = None,
-        table_names: Optional[List[str]] = None,
+        table_names: Optional[list[str]] = None,
     ) -> str:
         """
         Generate a cache key from a SQL text query.
@@ -602,7 +602,7 @@ class QueryCache:
         key: str,
         value: Any,
         ttl: Optional[float] = None,
-        dependencies: Optional[List[str]] = None,
+        dependencies: Optional[list[str]] = None,
         query_time: float = 0.0,
     ) -> None:
         """
@@ -836,7 +836,7 @@ class QueryCache:
 
 def cached(
     ttl: Optional[float] = None,
-    dependencies: Optional[List[str]] = None,
+    dependencies: Optional[list[str]] = None,
     key_builder: Optional[Callable[..., str]] = None,
     cache_instance: Optional[QueryCache] = None,
 ):
@@ -898,7 +898,7 @@ def cached(
 
 def cached_query(
     ttl: Optional[float] = None,
-    dependencies: Optional[List[str]] = None,
+    dependencies: Optional[list[str]] = None,
     cache_instance: Optional[QueryCache] = None,
 ):
     """

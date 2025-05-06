@@ -160,9 +160,9 @@ class EnhancedUnoDb(UnoDb):
         criteria: Dict[str, Any],
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        order_by: Optional[List[Any]] = None,
+        order_by: Optional[list[Any]] = None,
         use_cache: bool = False,
-    ) -> List[T]:
+    ) -> list[T]:
         """
         Filter models by criteria with enhanced async handling.
 
@@ -202,8 +202,8 @@ class EnhancedUnoDb(UnoDb):
         criteria: Dict[str, Any],
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        order_by: Optional[List[Any]] = None,
-    ) -> List[T]:
+        order_by: Optional[list[Any]] = None,
+    ) -> list[T]:
         """
         Fetch filtered models from the database.
 
@@ -267,8 +267,8 @@ class EnhancedUnoDb(UnoDb):
 
     async def _batch_insert(
         self,
-        items: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        items: list[Dict[str, Any]],
+    ) -> list[Dict[str, Any]]:
         """
         Process a batch of insert operations.
 
@@ -279,7 +279,7 @@ class EnhancedUnoDb(UnoDb):
             List of inserted items with generated values
         """
         # Group items by model class
-        grouped_items: Dict[str, List[Dict[str, Any]]] = {}
+        grouped_items: Dict[str, list[Dict[str, Any]]] = {}
         for item in items:
             model_name = item["model_class"]
             if model_name not in grouped_items:
@@ -350,8 +350,8 @@ class EnhancedUnoDb(UnoDb):
 
     async def _batch_update(
         self,
-        items: List[Dict[str, Any]],
-    ) -> List[bool]:
+        items: list[Dict[str, Any]],
+    ) -> list[bool]:
         """
         Process a batch of update operations.
 
@@ -362,7 +362,7 @@ class EnhancedUnoDb(UnoDb):
             List of success flags
         """
         # Group items by model class
-        grouped_items: Dict[str, List[Dict[str, Any]]] = {}
+        grouped_items: Dict[str, list[Dict[str, Any]]] = {}
         for item in items:
             model_name = item["model_class"]
             if model_name not in grouped_items:
@@ -439,8 +439,8 @@ class EnhancedUnoDb(UnoDb):
     )
     async def execute_in_transaction(
         self,
-        operations: List[Callable[[AsyncSession], Awaitable[Any]]],
-    ) -> List[Any]:
+        operations: list[Callable[[AsyncSession], Awaitable[Any]]],
+    ) -> list[Any]:
         """
         Execute multiple operations in a single transaction.
 

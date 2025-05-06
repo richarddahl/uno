@@ -101,7 +101,7 @@ class StreamingCursor(Generic[T]):
 
         # Cursor state
         self._cursor = None
-        self._buffer: List[T] = []
+        self._buffer: list[T] = []
         self._buffer_index = 0
         self._closed = False
         self._row_count = 0
@@ -215,7 +215,7 @@ class StreamingCursor(Generic[T]):
 
         return row
 
-    async def fetchmany(self, size: Optional[int] = None) -> List[T]:
+    async def fetchmany(self, size: Optional[int] = None) -> list[T]:
         """
         Fetch multiple rows from the cursor.
 
@@ -238,7 +238,7 @@ class StreamingCursor(Generic[T]):
 
         return result
 
-    async def fetchall(self) -> List[T]:
+    async def fetchall(self) -> list[T]:
         """
         Fetch all remaining rows from the cursor.
 
@@ -353,7 +353,7 @@ class ResultChunk(Generic[T]):
 
     def __init__(
         self,
-        items: List[T],
+        items: list[T],
         chunk_index: int,
         total_chunks: Optional[int] = None,
         is_last_chunk: bool = False,
@@ -558,7 +558,7 @@ async def stream_process(
     timeout_seconds: Optional[float] = None,
     use_pooled_session: bool = True,
     logger: Optional[logging.Logger] = None,
-) -> List[R]:
+) -> list[R]:
     """
     Stream and process results from a database query.
 
@@ -576,7 +576,7 @@ async def stream_process(
     Returns:
         List of processing results
     """
-    results: List[R] = []
+    results: list[R] = []
 
     # Stream the query
     async with stream_query(
@@ -590,7 +590,7 @@ async def stream_process(
         logger=logger,
     ) as stream:
         # Process in chunks with limited concurrency
-        pending_tasks: List[asyncio.Task] = []
+        pending_tasks: list[asyncio.Task] = []
 
         async with TaskGroup(name="stream_process") as group:
             # Process each row
@@ -630,7 +630,7 @@ async def stream_process(
 
 async def stream_parallel(
     query: Any,
-    parallel_fn: Callable[[List[T]], Awaitable[List[R]]],
+    parallel_fn: Callable[[list[T]], Awaitable[list[R]]],
     transform_fn: Optional[Callable[[Row], T]] = None,
     chunk_size: int = 1000,
     concurrency: int = 5,
@@ -638,7 +638,7 @@ async def stream_parallel(
     timeout_seconds: Optional[float] = None,
     use_pooled_session: bool = True,
     logger: Optional[logging.Logger] = None,
-) -> List[R]:
+) -> list[R]:
     """
     Stream and process results in parallel batches.
 
@@ -656,7 +656,7 @@ async def stream_parallel(
     Returns:
         List of processing results
     """
-    all_results: List[R] = []
+    all_results: list[R] = []
 
     # Stream the query in chunks
     async with stream_query(
@@ -670,7 +670,7 @@ async def stream_parallel(
         logger=logger,
     ) as stream:
         # Process chunks in parallel with limited concurrency
-        pending_tasks: List[asyncio.Task] = []
+        pending_tasks: list[asyncio.Task] = []
 
         async with TaskGroup(name="stream_parallel") as group:
             # Process each chunk

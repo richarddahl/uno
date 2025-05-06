@@ -75,7 +75,7 @@ class SQLIndexBuilder:
         self.index_name = index_name
         return self
 
-    def with_columns(self, columns: List[str]) -> "SQLIndexBuilder":
+    def with_columns(self, columns: list[str]) -> "SQLIndexBuilder":
         """Set the columns for the index.
 
         Args:
@@ -120,7 +120,7 @@ class SQLIndexBuilder:
         self.nulls_distinct = False
         return self
 
-    def include(self, columns: List[str]) -> "SQLIndexBuilder":
+    def include(self, columns: list[str]) -> "SQLIndexBuilder":
         """Add columns to include in the index but not in the key.
 
         Args:

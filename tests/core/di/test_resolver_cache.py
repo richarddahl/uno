@@ -1,8 +1,9 @@
 import pytest
 
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from uno.infrastructure.di.service_lifecycle import ServiceLifecycle
 
 
 class MyDep:
@@ -16,15 +17,13 @@ class MyService:
 
 
 @pytest.mark.asyncio
-async def test_resolution_cache_and_lazy_loading():
+async def test_resolution_cache_and_lazy_loading() -> None:
     services = ServiceCollection()
     services.add_singleton(MyDep)
     services.add_singleton(MyService, lambda: MyService(MyDep()))
     services.add_singleton(MyService)
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
-    provider.configure_services(services)
-    await provider.initialize()
+    services.add_instance(LoggerService, LoggerService(LoggingConfig()))
+    provider = ServiceProvider(services)
     # First resolution (should populate cache)
     s1 = provider.get_service(MyService)
     assert s1.is_success
@@ -50,18 +49,20 @@ async def test_resolution_cache_and_lazy_loading():
     class MyService2(MyService):
         pass
 
-    services.add_singleton(MyService, MyService2)
+    services2 = ServiceCollection()
+    services2.add_singleton(MyDep)
+    services2.add_singleton(MyService, MyService2)
     logger2 = LoggerService(LoggingConfig())
-    provider2 = ServiceProvider(logger2)
-    provider2.configure_services(services)
-    await provider2.initialize()
+    services2.add_instance(LoggerService, logger2)
+    provider2 = ServiceProvider(services2)
+    provider2.initialize()
     s3 = provider2.get_service(MyService)
     assert s3.is_success
     assert isinstance(s3.value, MyService2)
 
 
 @pytest.mark.asyncio
-async def test_lazy_loading():
+async def test_lazy_loading() -> None:
     """
     Uno DI eagerly instantiates singleton services at provider initialization.
     This test asserts that the singleton is created immediately after initialization,
@@ -75,9 +76,8 @@ async def test_lazy_loading():
             instantiation_counter["count"] += 1
 
     services.add_singleton(LazyDep)
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
-    provider.configure_services(services)
+    services.add_instance(LoggerService, LoggerService(LoggingConfig()))
+    provider = ServiceProvider(services)
     await provider.initialize()
     # Eager instantiation: singleton is created at initialization
     assert instantiation_counter["count"] == 1

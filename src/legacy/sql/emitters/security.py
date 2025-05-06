@@ -19,7 +19,7 @@ class RowLevelSecurity(SQLEmitter):
     on a table and defining access policies.
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for row-level security.
 
         Returns:
@@ -74,7 +74,7 @@ class UserRowLevelSecurity(RowLevelSecurity):
     on user tables and defining access policies for different operations.
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for user row-level security.
 
         Returns:
@@ -229,7 +229,7 @@ class UserRowLevelSecurity(RowLevelSecurity):
 class CreateRLSFunctions(SQLEmitter):
     """Emitter for RLS authentication and authorization functions."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for RLS functions.
 
         Returns:
@@ -367,7 +367,9 @@ class CreateRLSFunctions(SQLEmitter):
             JOIN {schema_name}.permission tp ON ugr.role_id = tp.id
             WHERE u.id = session_user_id AND tp.is_active = TRUE;
         END;
-        """.format(schema_name=schema_name)
+        """.format(
+            schema_name=schema_name
+        )
 
         permissible_groups_sql = (
             SQLFunctionBuilder()
@@ -394,7 +396,7 @@ class CreateRLSFunctions(SQLEmitter):
 class GetPermissibleGroupsFunction(SQLEmitter):
     """Emitter for retrieving permissible groups based on user permissions."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for permissible groups function.
 
         Returns:

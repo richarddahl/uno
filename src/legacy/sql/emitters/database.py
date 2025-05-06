@@ -21,7 +21,7 @@ from uno.infrastructure.sql.errors import (
 class CreateRolesAndDatabase(SQLEmitter):
     """Emitter for creating database roles and the database itself."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating roles and database.
 
         Returns:
@@ -99,7 +99,7 @@ class CreateRolesAndDatabase(SQLEmitter):
 class CreateSchemasAndExtensions(SQLEmitter):
     """Emitter for creating schemas and extensions in the database."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating schemas and extensions.
 
         Returns:
@@ -183,7 +183,7 @@ class CreateSchemasAndExtensions(SQLEmitter):
 class RevokeAndGrantPrivilegesAndSetSearchPaths(SQLEmitter):
     """Emitter for revoking and granting privileges, and setting search paths."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for privileges and search paths.
 
         Returns:
@@ -276,7 +276,7 @@ class RevokeAndGrantPrivilegesAndSetSearchPaths(SQLEmitter):
 class CreatePGULID(SQLEmitter):
     """Emitter for creating PGULID function from SQL file."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating PGULID.
 
         Returns:
@@ -317,7 +317,7 @@ class CreatePGULID(SQLEmitter):
 class CreateTokenSecret(SQLEmitter):
     """Emitter for creating token secret table and trigger."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for creating token secret.
 
         Returns:
@@ -368,7 +368,7 @@ class CreateTokenSecret(SQLEmitter):
 class GrantPrivileges(SQLEmitter):
     """Emitter for granting privileges on tables."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for granting table privileges.
 
         Returns:
@@ -412,7 +412,7 @@ class GrantPrivileges(SQLEmitter):
 class SetRole(SQLEmitter):
     """Emitter for creating and configuring the set_role function."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for the set_role function.
 
         Returns:
@@ -475,7 +475,7 @@ class SetRole(SQLEmitter):
 class DropDatabaseAndRoles(SQLEmitter):
     """Emitter for dropping database and roles."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for dropping database and roles.
 
         Returns:

@@ -12,13 +12,7 @@ from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 from uno.core.errors.result import Result, Success, Failure
 
 
-class FakeLoggerService(LoggerService):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.structured_logs = []
-
-    def structured_log(self, level, msg, **kwargs):
-        self.structured_logs.append((level, msg, kwargs))
+from tests.conftest import FakeLoggerService
 
 
 @pytest.fixture

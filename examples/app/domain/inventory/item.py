@@ -2,6 +2,7 @@
 InventoryItem aggregate and related events for the inventory bounded context.
 
 Implements Uno canonical serialization, DDD, and event sourcing contracts.
+
 """
 
 from typing import Any, Self
@@ -20,7 +21,6 @@ from uno.core.errors.base import get_error_context
 from uno.core.errors.definitions import DomainValidationError
 from uno.core.errors.result import Failure, Result, Success
 from uno.core.events import DomainEvent
-from uno.infrastructure.di.provider import get_service_provider
 from uno.infrastructure.logging.logger import LoggerService
 
 
@@ -31,12 +31,23 @@ class InventoryItem(AggregateRoot[str]):
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def create(
+    async def create(
         cls,
         aggregate_id: str,
         name: str,
         measurement: int | float | Measurement | Count,
     ) -> Result[Self, Exception]:
+        """
+        Create a new inventory item with initial measurement.
+
+        Args:
+            aggregate_id: Unique identifier for the item
+            name: Item name
+            measurement: Initial measurement (int/float) or Measurement object
+
+        Returns:
+            Success[Self](item) if successful, Failure[Exception](error) otherwise
+        """
         try:
             if not aggregate_id:
                 return Failure(
@@ -52,10 +63,10 @@ class InventoryItem(AggregateRoot[str]):
                 )
             # Accept Measurement, Count, int, float
             if isinstance(measurement, Measurement):
-                q = measurement
+                m = measurement
             elif isinstance(measurement, Count):
                 # Direct construction to avoid using factory methods that might use logger
-                q = Measurement(
+                m = Measurement(
                     type="count",
                     value=Count(
                         type="count", value=measurement.value, unit=measurement.unit
@@ -73,32 +84,32 @@ class InventoryItem(AggregateRoot[str]):
                 count = Count(
                     type="count", value=float(measurement), unit=CountUnit.EACH
                 )
-                q = Measurement(type="count", value=count)
-            else:
-                return Failure(
-                    DomainValidationError(
-                        "measurement must be a Measurement, Count, int, or float",
-                        details=get_error_context(),
-                    )
-                )
+                m = Measurement(type="count", value=count)
             # Create the aggregate instance directly - modern Python idiom with less complexity
             try:
                 # Avoid any usage of factory methods or DI for test compatibility
-                item = cls(id=aggregate_id, name=name, measurement=q)
+                item = cls(id=aggregate_id, name=name, measurement=m)
 
                 # Create a dict representing the event data (DDD core pattern)
                 event_data = {
                     "aggregate_id": aggregate_id,
                     "name": name,
-                    "measurement": q,
+                    "measurement": m,
                     "version": 1,
                 }
 
-                # Use pydantic's direct constructor which has no DI dependencies
-                event = InventoryItemCreated(**event_data)
+                # Create the event using the synchronous from_dict method
+                event = InventoryItemCreated.from_dict(event_data)
+                if isinstance(event, Failure):
+                    return Failure(
+                        DomainValidationError(
+                            f"Failed to create inventory item event: {event.error}",
+                            details=get_error_context(),
+                        )
+                    )
 
                 # Record the event and return success
-                item._record_event(event)
+                item._record_event(event.value)
                 return Success(item)
             except Exception as e:
                 return Failure(
@@ -162,8 +173,6 @@ class InventoryItem(AggregateRoot[str]):
         )
         try:
             current_value = self.measurement.value.value
-            if not isinstance(current_value, float):
-                current_value = float(current_value)
             new_value = round(current_value + adjustment, 10)
             if new_value < 0:
                 return Failure(

@@ -13,7 +13,7 @@ def test_di_public_api_surface():
     assert hasattr(di, "ServiceLifecycle")
     assert hasattr(di, "ServiceScope")
     assert hasattr(di, "get_service_provider")
-    assert hasattr(di, "initialize_services")
+    # initialize_services is deprecated; initialization is handled by provider.initialize()
     assert hasattr(di, "shutdown_services")
     # Internal/private should not be in __all__
     assert not hasattr(di, "_ServiceResolver")
@@ -26,6 +26,6 @@ def test_di_public_api_surface():
         "ServiceProvider",
         "ServiceScope",
         "get_service_provider",
-        "initialize_services",
+        # "initialize_services",  # deprecated
         "shutdown_services",
     }

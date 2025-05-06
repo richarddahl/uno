@@ -7,7 +7,7 @@ from typing import Callable, Any, Awaitable, List
 
 class CommandBus:
     def __init__(self) -> None:
-        self._handlers: List[Callable[[Any], Awaitable[None]]] = []
+        self._handlers: list[Callable[[Any], Awaitable[None]]] = []
 
     def register_handler(self, handler: Callable[[Any], Awaitable[None]]) -> None:
         self._handlers.append(handler)

@@ -6,6 +6,8 @@ from typing import Any
 
 from uno.core.events.saga_store import SagaState
 from uno.core.events.sagas import Saga
+from uno.core.errors import Result, Success, Failure
+from uno.core.errors import FrameworkError
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.infrastructure.logging import LoggerService
 
@@ -45,51 +47,80 @@ class OrderFulfillmentSaga(Saga):
                 status=self.status,
                 data=self.data.copy(),
             )
+
             if event["type"] == "OrderPlaced":
                 self.saga_id = event["order_id"]
                 self.status = "waiting_inventory"
                 self.logger.structured_log(
                     "INFO",
-                    f"OrderPlaced: dispatching ReserveInventory",
-                    saga_id=self.saga_id,
+                    f"Order placed",
                     status=self.status,
                 )
                 if self._command_bus:
                     await self._command_bus.dispatch(
                         {"type": "ReserveInventory", "order_id": self.saga_id}
                     )
+                return
+
             elif event["type"] == "InventoryReserved":
                 self.data["inventory_reserved"] = True
                 self.status = "waiting_payment"
                 self.logger.structured_log(
                     "INFO",
-                    f"InventoryReserved: dispatching ProcessPayment",
-                    saga_id=self.saga_id,
+                    f"Inventory reserved",
                     status=self.status,
                 )
                 if self._command_bus:
                     await self._command_bus.dispatch(
                         {"type": "ProcessPayment", "order_id": self.saga_id}
                     )
+                return
+
             elif event["type"] == "PaymentProcessed":
                 self.data["payment_processed"] = True
                 self.status = "completed"
                 self.logger.structured_log(
                     "INFO",
-                    f"PaymentProcessed: saga completed",
-                    saga_id=self.saga_id,
+                    f"Payment processed",
                     status=self.status,
                 )
+                return
+
             elif event["type"] == "PaymentFailed":
                 self.status = "compensating"
                 self.logger.structured_log(
-                    "WARNING",
-                    f"PaymentFailed: starting compensation",
+                    "ERROR",
+                    f"Payment failed: starting compensation",
                     saga_id=self.saga_id,
                     status=self.status,
                 )
                 await self.compensate()
-            # Add more event types as needed
+                raise FrameworkError(
+                    message="Payment failed",
+                    error_code=FrameworkError.ErrorCode.INTERNAL_ERROR,
+                    saga_id=self.saga_id,
+                    saga_type="OrderFulfillmentSaga",
+                    event_type="PaymentFailed",
+                )
+
+            elif event["type"] == "InventoryReservationFailed":
+                self.status = "failed"
+                self.logger.structured_log(
+                    "ERROR",
+                    f"Inventory reservation failed",
+                    status=self.status,
+                )
+                raise FrameworkError(
+                    message="Inventory reservation failed",
+                    error_code=FrameworkError.ErrorCode.INTERNAL_ERROR,
+                    saga_id=self.saga_id,
+                    saga_type="OrderFulfillmentSaga",
+                    event_type="InventoryReservationFailed",
+                )
+
+            # Default return for unrecognized events
+            return
+
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",

@@ -43,4 +43,4 @@ class SQLStatement(BaseModel):
     name: str
     type: SQLStatementType
     sql: str
-    depends_on: List[str] = []
+    depends_on: list[str] = []

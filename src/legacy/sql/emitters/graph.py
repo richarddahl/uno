@@ -29,7 +29,7 @@ class GraphSQLEmitter(SQLEmitter):
         edges: List of edge definitions
     """
 
-    exclude_fields: ClassVar[List[str]] = [
+    exclude_fields: ClassVar[list[str]] = [
         "table",
         "nodes",
         "edges",
@@ -39,8 +39,8 @@ class GraphSQLEmitter(SQLEmitter):
         "engine_factory",
         "observers",
     ]
-    nodes: List["Node"] = []
-    edges: List["Edge"] = []
+    nodes: list["Node"] = []
+    edges: list["Edge"] = []
 
     @model_validator(mode="after")
     def validate_model(self) -> Self:
@@ -122,7 +122,7 @@ class GraphSQLEmitter(SQLEmitter):
                     )
         return self
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for graph database integration.
 
         Returns:
@@ -346,9 +346,7 @@ class GraphSQLEmitter(SQLEmitter):
         return_value = (
             "OLD"
             if operation == "delete_sql"
-            else "NULL"
-            if operation == "truncate_sql"
-            else "NEW"
+            else "NULL" if operation == "truncate_sql" else "NEW"
         )
 
         nodes_sql = "".join([getattr(node, operation)() for node in self.nodes])
@@ -390,7 +388,7 @@ class Node(BaseModel):
     column: Column
     label: str
     node_triggers: bool = True
-    edges: List["Edge"] = []
+    edges: list["Edge"] = []
     target_data_type: str
     config: Optional[BaseModel] = None
 

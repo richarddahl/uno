@@ -9,13 +9,7 @@ from uno.core.events.registry import register_event_handler, subscribe
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
 
-class FakeLoggerService(LoggerService):
-    def __init__(self) -> None:
-        super().__init__(LoggingConfig())
-        self.logs: list[dict[str, Any]] = []
-
-    def structured_log(self, level: str, msg: str, *args: Any, **kwargs: Any) -> None:
-        self.logs.append({"level": level, "msg": msg, "args": args, "kwargs": kwargs})
+from tests.conftest import FakeLoggerService
 
 
 class FakeEvent(DomainEvent):

@@ -202,7 +202,7 @@ def UnoDBFactory(
                 select_related: Controls which relationships to load:
                     - None/False: Load no relationships
                     - True: Load all relationships
-                    - List[str]: Load only specified relationships
+                    - list[str]: Load only specified relationships
                 **kwargs: Keyword arguments for filtering
 
             Returns:
@@ -300,7 +300,7 @@ def UnoDBFactory(
         @classmethod
         async def filter(
             cls, filters: Optional[FilterParam] = None, select_related=None
-        ) -> List[T]:
+        ) -> list[T]:
             """
             Filter records with optional relationship loading.
 
@@ -309,7 +309,7 @@ def UnoDBFactory(
                 select_related: Controls which relationships to load:
                     - None/False: Load no relationships
                     - True: Load all relationships
-                    - List[str]: Load only specified relationships
+                    - list[str]: Load only specified relationships
 
             Returns:
                 List of matching records

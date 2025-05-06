@@ -15,52 +15,103 @@ from examples.app.domain.inventory.value_objects import Mass, Volume
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.core.errors.result import Failure, Success
 from uno.core.events.postgres_event_store import PostgresEventStore
-from uno.infrastructure.di import (
-    ServiceCollection,
-    get_service_provider,
-    initialize_services,
-    shutdown_services,
-)
-from uno.infrastructure.di.provider import reset_global_service_provider
+from uno.infrastructure.di.provider import ServiceCollection
+from uno.infrastructure.di.providers.database import register_database_services
+
 from uno.infrastructure.di.providers.database import (
-    get_db_engine,
-    get_db_session,
     register_database_services,
+    db_engine_factory,
+    db_session_factory,
 )
 from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, AsyncGenerator, TypeVar, Generic
+
+T = TypeVar("T")
+
+class MockSession(AsyncSession):
+    async def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
+        return MockResult()
+
+class MockResult(Generic[T]):
+    def __init__(self) -> None:
+        self._data: list[T] = []
+    
+    def all(self) -> list[T]:
+        return self._data
+    
+    def first(self) -> T | None:
+        return self._data[0] if self._data else None
+
+class MockLoggerFactory:
+    def create_logger(self, name: str) -> LoggerService:
+        return MockLogger()
+
+class MockLogger(LoggerService):
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        pass
 
 
 @pytest.fixture(scope="function")
-async def override_db_provider() -> None:
-    reset_global_service_provider()
-    import os
-
-    os.environ["DB_BACKEND"] = "memory"
+async def override_db_provider() -> AsyncGenerator[None, None]:
+    # Create a new service collection
     services = ServiceCollection()
-    register_database_services(services)
-    await initialize_services()
-    try:
+    
+    # Register database services with test configuration
+    register_database_services(services, {
+        "backend": "postgres",
+        "dsn": "postgresql+asyncpg://postgres:postgres@localhost:5432/uno_test",
+        "pool_size": 5
+    })
+    
+    # Create the database engine and session
+    engine = db_engine_factory()
+    async with db_session_factory(engine) as session:
+        # Create tables
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
+        # Set up the test database
+        async with session.begin():
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno"))
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno_events"))
+            await session.execute(text("CREATE SCHEMA IF NOT EXISTS uno_audit"))
+        
+        # Yield control to the test
         yield
-    finally:
-        await shutdown_services()
-        reset_global_service_provider()
-        if "DB_BACKEND" in os.environ:
-            del os.environ["DB_BACKEND"]
+        
+        # Clean up
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            
+        await engine.dispose()
 
 
 @pytest.fixture(scope="function")
-async def pg_event_store(override_db_provider):
-    engine = get_service_provider().get_service("db_engine")
-    session = get_service_provider().get_service("db_session")
-    store = PostgresEventStore(db_session=session)
-    async with engine.begin() as conn:
-        await conn.run_sync(store.metadata.create_all)
-    try:
-        yield store
-    finally:
-        async with engine.begin() as conn:
-            await conn.run_sync(store.metadata.drop_all)
-        reset_global_service_provider()
+async def pg_event_store() -> AsyncGenerator[PostgresEventStore, None]:
+    # Create the event store with a mock session
+    store = PostgresEventStore(
+        db_session=MockSession(),
+        logger_factory=MockLoggerFactory()
+    )
+    
+    # Initialize the event store
+    await store.initialize()
+    
+    # Yield control to the test
+    yield store
+    
+    # Clean up
+    await store.dispose()
 
 
 @pytest.mark.asyncio

@@ -551,7 +551,7 @@ class SessionOperationGroup:
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         logger: Optional[logging.Logger] = None,
     ):
         """
@@ -566,7 +566,7 @@ class SessionOperationGroup:
         self.task_group = TaskGroup(name=self.name, logger=self.logger)
         self.context_group = AsyncContextGroup()
         self.exit_stack = AsyncExitStack()
-        self.sessions: List[AsyncSession] = []
+        self.sessions: list[AsyncSession] = []
 
     async def __aenter__(self) -> "SessionOperationGroup":
         """Enter the session operation group context."""
@@ -662,8 +662,8 @@ class SessionOperationGroup:
     async def run_in_transaction(
         self,
         session: AsyncSession,
-        operations: List[Any],
-    ) -> List[Any]:
+        operations: list[Any],
+    ) -> list[Any]:
         """
         Run multiple operations in a single transaction.
 

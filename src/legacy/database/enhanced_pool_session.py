@@ -444,7 +444,7 @@ class EnhancedPooledSessionOperationGroup:
 
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         logger: Optional[logging.Logger] = None,
         session_pool_config: Optional[SessionPoolConfig] = None,
     ):
@@ -467,7 +467,7 @@ class EnhancedPooledSessionOperationGroup:
         self.exit_stack = contextlib.AsyncExitStack()
 
         # Track sessions for cleanup
-        self.sessions: List[AsyncSession] = []
+        self.sessions: list[AsyncSession] = []
 
         # Factory for creating sessions
         self.factory = EnhancedPooledSessionFactory(
@@ -567,8 +567,8 @@ class EnhancedPooledSessionOperationGroup:
     async def run_in_transaction(
         self,
         session: AsyncSession,
-        operations: List[Any],
-    ) -> List[Any]:
+        operations: list[Any],
+    ) -> list[Any]:
         """
         Run multiple operations in a single transaction.
 
@@ -589,9 +589,9 @@ class EnhancedPooledSessionOperationGroup:
     async def run_parallel_operations(
         self,
         session: AsyncSession,
-        operations: List[Any],
+        operations: list[Any],
         max_concurrency: int = 5,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Run multiple operations in parallel.
 

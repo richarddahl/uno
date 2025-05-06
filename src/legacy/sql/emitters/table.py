@@ -27,7 +27,7 @@ from uno.infrastructure.sql.errors import (
 class InsertMetaRecordFunction(SQLEmitter):
     """Emitter for creating meta record insertion function."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for meta record insertion function.
 
         Returns:
@@ -78,7 +78,7 @@ class InsertMetaRecordFunction(SQLEmitter):
 class InsertMetaRecordTrigger(SQLEmitter):
     """Emitter for creating meta record insertion trigger."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for meta record insertion trigger.
 
         Returns:
@@ -117,7 +117,7 @@ class InsertMetaRecordTrigger(SQLEmitter):
 class RecordStatusFunction(SQLEmitter):
     """Emitter for creating record status management function and trigger."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for record status function.
 
         Returns:
@@ -200,7 +200,7 @@ class RecordStatusFunction(SQLEmitter):
 class RecordUserAuditFunction(SQLEmitter):
     """Emitter for creating user audit function and trigger."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for user audit function.
 
         Returns:
@@ -288,7 +288,7 @@ class RecordUserAuditFunction(SQLEmitter):
 class InsertPermission(SQLEmitter):
     """Emitter for inserting permissions for meta types."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for permission insertion.
 
         Returns:
@@ -367,7 +367,7 @@ class InsertPermission(SQLEmitter):
 class ValidateGroupInsert(SQLEmitter):
     """Emitter for validating group insertions."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for group validation.
 
         Returns:
@@ -469,7 +469,7 @@ class ValidateGroupInsert(SQLEmitter):
 class InsertGroupForTenant(SQLEmitter):
     """Emitter for inserting a group for a new tenant."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for group insertion.
 
         Returns:
@@ -537,7 +537,7 @@ class InsertGroupForTenant(SQLEmitter):
 class DefaultGroupTenant(SQLEmitter):
     """Emitter for setting default tenant for a group."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for default group tenant.
 
         Returns:
@@ -609,7 +609,7 @@ class DefaultGroupTenant(SQLEmitter):
 class UserRecordUserAuditFunction(SQLEmitter):
     """Emitter for user-specific audit function (special case for first user)."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for user-specific audit function.
 
         Returns:
@@ -717,7 +717,7 @@ class UserRecordUserAuditFunction(SQLEmitter):
 class AlterGrants(SQLEmitter):
     """Emitter for altering grants on a table."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for altering grants.
 
         Returns:
@@ -758,7 +758,7 @@ class AlterGrants(SQLEmitter):
 class InsertMetaType(SQLEmitter):
     """Emitter for inserting a meta type for a table."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for inserting meta type.
 
         Returns:
@@ -795,7 +795,7 @@ class InsertMetaType(SQLEmitter):
 class RecordVersionAudit(SQLEmitter):
     """Emitter for enabling version auditing on a table."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for version auditing.
 
         Returns:
@@ -827,7 +827,7 @@ class RecordVersionAudit(SQLEmitter):
 class EnableHistoricalAudit(SQLEmitter):
     """Emitter for enabling historical auditing on a table."""
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements for historical auditing.
 
         Returns:
@@ -938,7 +938,7 @@ class TableMergeFunction(SQLEmitter):
     4. Return the operation performed ('inserted', 'updated', 'selected')
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL for table-specific merge function.
 
         Returns:

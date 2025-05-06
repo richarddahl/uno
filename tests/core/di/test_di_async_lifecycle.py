@@ -5,29 +5,40 @@ Tests for Uno DI: async lifecycle and initialization
 import asyncio
 import pytest
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider, ServiceLifecycle
+from uno.infrastructure.di.service_provider import ServiceProvider
+from uno.infrastructure.di.service_lifecycle import ServiceLifecycle, T
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .test_di_async_lifecycle import AsyncService
 
 
-class AsyncService(ServiceLifecycle):
-    def __init__(self):
-        self.initialized = False
-        self.disposed = False
+class AsyncService(ServiceLifecycle["AsyncService"]):
+    def __init__(self) -> None:
+        self._initialized = False
+        self._disposed = False
 
-    async def initialize(self):
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
+
+    @property
+    def disposed(self) -> bool:
+        return self._disposed
+
+    async def initialize(self) -> None:
         await asyncio.sleep(0.01)
-        self.initialized = True
+        self._initialized = True
 
-    async def dispose(self):
-        self.disposed = True
+    async def dispose(self) -> None:
+        self._disposed = True
 
 
 @pytest.mark.asyncio
-async def test_async_lifecycle():
-    from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
-
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger)
-    provider._base_services.add_singleton(AsyncService)
+async def test_async_lifecycle() -> None:
+    services = ServiceCollection()
+    services.add_singleton(AsyncService)
+    provider = ServiceProvider(services)
     provider.register_lifecycle_service(AsyncService)
     await provider.initialize()
 
@@ -40,10 +51,5 @@ async def test_async_lifecycle():
     assert hasattr(instance, "initialized") and instance.initialized
     assert hasattr(instance, "disposed") and not instance.disposed
 
-    await provider.shutdown()
+    await provider.shutdown_async()
     assert hasattr(instance, "disposed") and instance.disposed
-
-    # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-    # SPDX-License-Identifier: MIT
-    # uno framework
-    # See docs/di_testing.md for DI test patterns and best practices

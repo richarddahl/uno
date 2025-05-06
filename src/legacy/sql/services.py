@@ -8,7 +8,7 @@ through dependency injection.
 import logging
 from typing import Dict, Type, Optional, List, Any
 
-from uno.dependencies.interfaces import UnoConfigProtocol
+from uno.dependencies.interfaces import ConfigProtocol
 from uno.database.config import ConnectionConfig
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement
@@ -24,7 +24,7 @@ class SQLEmitterFactoryService:
     """
 
     def __init__(
-        self, config: UnoConfigProtocol, logger: Optional[logging.Logger] = None
+        self, config: ConfigProtocol, logger: Optional[logging.Logger] = None
     ):
         """
         Initialize the SQL emitter factory service.

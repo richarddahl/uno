@@ -17,16 +17,7 @@ class FakeDomainEvent(DomainEvent):
 EventHandlerContext.model_rebuild()
 
 
-class FakeLoggerService(LoggerService):
-    logged: list[tuple[str, str, dict[str, object]]]
-
-    def __init__(self) -> None:
-        self.logged = []
-
-    def structured_log(
-        self, level: str, message: str, *args: object, **kwargs: object
-    ) -> None:
-        self.logged.append((level, message, kwargs))
+from tests.conftest import FakeLoggerService
 
 
 @pytest.fixture

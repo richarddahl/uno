@@ -32,7 +32,7 @@ class VendorEmailUpdated(DomainEvent):
     vendor_id: str
     old_email: EmailAddress
     new_email: EmailAddress
-    version: ClassVar[int] = 1
+    version: int = 1
     model_config = ConfigDict(frozen=True)
 
     @classmethod

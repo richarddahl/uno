@@ -37,7 +37,7 @@ def upcast_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
     return data
 
 
-def test_upcaster_registry_applies_chain() -> None:
+async def test_upcaster_registry_applies_chain() -> None:
     """Should upcast v1 dict to v2 event with all required fields."""
     EventUpcasterRegistry._registry.clear()
     EventUpcasterRegistry.register_upcaster(LegacyEventV2, 1, upcast_v1_to_v2)

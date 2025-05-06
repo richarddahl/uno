@@ -3,8 +3,9 @@
 # uno framework
 import pytest
 
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from tests.core.di.di_helper import DIHelper
+from uno.infrastructure.di.service_lifecycle import ServiceLifecycle
 
 
 class Dummy:
@@ -29,10 +30,9 @@ def test_initialize_test_provider_sets_env(monkeypatch):
     monkeypatch.delenv("ENV", raising=False)
     provider = DIHelper.initialize_test_provider(env="custom-env")
     assert isinstance(provider, ServiceProvider)
-    assert provider._base_services is not None
-    assert provider._initialized is False
-    assert provider._base_services._instances is not None
-    assert provider._base_services._registrations is not None
+    assert provider._collection is not None
+    assert provider._collection._instances is not None
+    assert provider._collection._registrations is not None
 
 
 @pytest.mark.asyncio
@@ -41,16 +41,16 @@ async def test_setup_test_services_and_override_service():
     dummy = Dummy()
     # Register mock
     DIHelper.register_mock(provider, Dummy, dummy)
-    assert Dummy in provider._base_services._instances
-    assert provider._base_services._instances[Dummy] is dummy
+    assert Dummy in provider._collection._instances
+    assert provider._collection._instances[Dummy] is dummy
     # Test override_service context manager
     dummy2 = Dummy2()
     with DIHelper.override_service(provider, Dummy, dummy2):
-        assert Dummy in provider._base_services._instances
-        assert provider._base_services._instances[Dummy] is dummy2
+        assert Dummy in provider._collection._instances
+        assert provider._collection._instances[Dummy] is dummy2
     # After context, should revert to dummy
-    assert Dummy in provider._base_services._instances
-    assert provider._base_services._instances[Dummy] is dummy
+    assert Dummy in provider._collection._instances
+    assert provider._collection._instances[Dummy] is dummy
 
 
 import pytest
@@ -72,13 +72,13 @@ async def test_async_override_service():
     dummy1 = Dummy()
     dummy2 = Dummy()
     DIHelper.register_mock(provider, Dummy, dummy1)
-    assert Dummy in provider._base_services._instances
-    assert provider._base_services._instances[Dummy] is dummy1
+    assert Dummy in provider._collection._instances
+    assert provider._collection._instances[Dummy] is dummy1
     async with DIHelper.async_override_service(provider, Dummy, dummy2):
-        assert Dummy in provider._base_services._instances
-        assert provider._base_services._instances[Dummy] is dummy2
-    assert Dummy in provider._base_services._instances
-    assert provider._base_services._instances[Dummy] is dummy1
+        assert Dummy in provider._collection._instances
+        assert provider._collection._instances[Dummy] is dummy2
+    assert Dummy in provider._collection._instances
+    assert provider._collection._instances[Dummy] is dummy1
 
 
 @pytest.fixture
@@ -94,8 +94,8 @@ def test_di_provider_fixture(di_provider):
 
     dummy = Dummy()
     DIHelper.register_mock(di_provider, Dummy, dummy)
-    assert Dummy in di_provider._base_services._instances
-    assert di_provider._base_services._instances[Dummy] is dummy
+    assert Dummy in di_provider._collection._instances
+    assert di_provider._collection._instances[Dummy] is dummy
 
 
 # ---

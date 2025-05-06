@@ -4,6 +4,7 @@ Example TimeoutSaga: demonstrates how to implement timeouts and retries in a Uno
 
 from typing import Any
 from uno.core.events.sagas import Saga
+from uno.core.errors import Result, Success, Failure
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.infrastructure.logging import LoggerService
 
@@ -28,7 +29,7 @@ class TimeoutSaga(Saga):
         self.status = "waiting_step"
         self.logger = logger or get_saga_logger("timeout")
 
-    async def handle_event(self, event: Any) -> None:
+    async def handle_event(self, event: Any) -> Result[None, str]:
         try:
             self.logger.structured_log(
                 "INFO",
@@ -46,33 +47,37 @@ class TimeoutSaga(Saga):
                     f"Step completed",
                     status=self.status,
                 )
+                return Ok(None)
             elif event["type"] == "Timeout":
                 self.data["timeout_triggered"] = True
                 if self.data["retries"] < self.data["max_retries"]:
                     self.data["retries"] += 1
                     self.status = "waiting_step"
                     self.logger.structured_log(
-                        "WARNING",
-                        f"Timeout: retrying step",
-                        retries=self.data["retries"],
+                        "INFO",
+                        f"Timeout triggered - retrying (attempt {self.data['retries']})",
                         status=self.status,
                     )
+                    return Success(None)
                     # Would dispatch a retry command here
                 else:
                     self.status = "failed"
                     self.logger.structured_log(
                         "ERROR",
-                        f"Saga failed after max retries",
+                        f"Timeout triggered - max retries ({self.data['max_retries']}) exceeded",
                         status=self.status,
                     )
+                    # Delete the saga state when max retries are exceeded
+                    return Failure("Max retries exceeded")
             # Add more event types as needed
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
-                f"Error handling event: {e}",
-                saga_type="TimeoutSaga",
+                f"Saga event handling failed",
                 error=str(e),
+                status=self.status,
             )
+            return Failure(f"Event handling failed: {str(e)}")
             raise
 
     async def is_completed(self) -> bool:

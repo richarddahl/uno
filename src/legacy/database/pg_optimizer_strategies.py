@@ -36,12 +36,12 @@ class PgIndexRecommendation(IndexRecommendation):
     """
 
     # PostgreSQL specific index options
-    include_columns: List[str] = field(default_factory=list)
+    include_columns: list[str] = field(default_factory=list)
     is_unique: bool = False
     is_partial: bool = False
-    where_clause: Optional[str] = None
-    operator_class: Optional[str] = None
-    index_tablespace: Optional[str] = None
+    where_clause: str | None = None
+    operator_class: str | None = None
+    index_tablespace: str | None = None
 
     def get_creation_sql(self) -> str:
         """
@@ -348,7 +348,7 @@ class PgOptimizationStrategies:
 
     def recommend_covering_index(
         self, query_plan: QueryPlan, query_text: str
-    ) -> List[PgIndexRecommendation]:
+    ) -> list[PgIndexRecommendation]:
         """
         Recommend covering indexes for a query.
 
@@ -400,7 +400,7 @@ class PgOptimizationStrategies:
 
     def recommend_partial_index(
         self, query_plan: QueryPlan, query_text: str
-    ) -> List[PgIndexRecommendation]:
+    ) -> list[PgIndexRecommendation]:
         """
         Recommend partial indexes for a query.
 
@@ -454,7 +454,7 @@ class PgOptimizationStrategies:
 
     def recommend_expression_index(
         self, query_plan: QueryPlan, query_text: str
-    ) -> List[PgIndexRecommendation]:
+    ) -> list[PgIndexRecommendation]:
         """
         Recommend expression indexes for a query.
 
@@ -499,7 +499,7 @@ class PgOptimizationStrategies:
 
         return recommendations
 
-    def _extract_output_columns(self, table_name: str, query_text: str) -> List[str]:
+    def _extract_output_columns(self, table_name: str, query_text: str) -> list[str]:
         """
         Extract columns used in SELECT clause for a specific table.
 
@@ -543,7 +543,7 @@ class PgOptimizationStrategies:
 
         return columns
 
-    def _extract_where_clauses(self, query_text: str) -> List[str]:
+    def _extract_where_clauses(self, query_text: str) -> list[str]:
         """
         Extract WHERE clauses from a query.
 
@@ -570,7 +570,7 @@ class PgOptimizationStrategies:
         return conditions
 
     def _extract_partial_index_condition(
-        self, table_name: str, where_clauses: List[str]
+        self, table_name: str, where_clauses: list[str]
     ) -> Optional[str]:
         """
         Extract a condition suitable for a partial index.
@@ -600,7 +600,7 @@ class PgOptimizationStrategies:
 
         return None
 
-    def _extract_expressions(self, query_text: str) -> List[Dict[str, Any]]:
+    def _extract_expressions(self, query_text: str) -> list[Dict[str, Any]]:
         """
         Extract expressions from a query that might benefit from expression indexes.
 

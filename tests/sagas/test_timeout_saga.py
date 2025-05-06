@@ -6,7 +6,7 @@ import pytest
 
 from examples.app.sagas.timeout_saga import TimeoutSaga
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
 from uno.infrastructure.logging.config_service import LoggingConfigService
@@ -20,11 +20,10 @@ async def test_timeout_saga_retries_and_timeout() -> None:
     services.add_singleton(LoggingConfig, lambda: LoggingConfig())
     services.add_scoped(LoggerService)
     services.add_scoped(TimeoutSaga)
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger, services)
+    provider = ServiceProvider(services)
     await provider.initialize()
-    async with await provider.create_scope() as scope:
-        manager = SagaManager(saga_store, provider)
+    async with provider.create_scope(scope_id="test-scope") as scope:
+        manager = SagaManager(saga_store, scope)
         manager.register_saga(TimeoutSaga)
         saga_id = "timeout-1"
 

@@ -16,7 +16,7 @@ import os
 
 from uno.infrastructure.config.general import GeneralConfig
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 
 
 class DIHelper:
@@ -45,8 +45,10 @@ class DIHelper:
         """
         from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
-        logger = LoggerService(LoggingConfig())
-        return ServiceProvider(logger=logger)
+        services = ServiceCollection()
+        services.add_instance(LoggingConfig, LoggingConfig())
+        services.add_instance(LoggerService, LoggerService(LoggingConfig()))
+        return ServiceProvider(services)
 
     @staticmethod
     def initialize_test_provider(
@@ -74,58 +76,80 @@ class DIHelper:
     @contextlib.contextmanager
     def override_service(
         provider: ServiceProvider, service_type: type, mock_instance: object
-    ):
+    ) -> None:
         """
         Temporarily override a service in the provider with a mock/double (sync context manager).
         """
-        original = provider._base_services._instances.get(service_type, None)
-        provider._base_services._instances[service_type] = mock_instance
+        # Save the current instance
+        original = provider._collection._instances.get(service_type, None)
+        
+        # Create a new service collection with the override
+        services = ServiceCollection()
+        services.add_instance(service_type, mock_instance)
+        provider.configure_services(services)
+        
         try:
             yield
         finally:
+            # Restore the original instance if it existed
             if original is not None:
-                provider._base_services._instances[service_type] = original
+                services = ServiceCollection()
+                services.add_instance(service_type, original)
+                provider.configure_services(services)
             else:
-                provider._base_services._instances.pop(service_type, None)
+                # Remove the service if it didn't exist before
+                if service_type in provider._collection._instances:
+                    del provider._collection._instances[service_type]
 
     @staticmethod
     @contextlib.asynccontextmanager
     async def async_override_service(
         provider: ServiceProvider, service_type: type, mock_instance: object
-    ):
+    ) -> None:
         """
         Temporarily override a service in the provider with a mock/double (async context manager).
         """
-        original = provider._base_services._instances.get(service_type, None)
-        provider._base_services._instances[service_type] = mock_instance
+        # Save the current instance
+        original = provider._collection._instances.get(service_type, None)
+        
+        # Create a new service collection with the override
+        services = ServiceCollection()
+        services.add_instance(service_type, mock_instance)
+        provider.configure_services(services)
+        
         try:
             yield
         finally:
+            # Restore the original instance if it existed
             if original is not None:
-                provider._base_services._instances[service_type] = original
+                services = ServiceCollection()
+                services.add_instance(service_type, original)
+                provider.configure_services(services)
             else:
-                provider._base_services._instances.pop(service_type, None)
+                # Remove the service if it didn't exist before
+                if service_type in provider._collection._instances:
+                    del provider._collection._instances[service_type]
 
     @staticmethod
     @contextlib.contextmanager
     def batch_override_services(
         provider: ServiceProvider, overrides: dict[type, object]
-    ):
+    ) -> None:
         """
         Context manager to override multiple services at once.
         """
         originals = {
-            k: provider._base_services._instances.get(k, None) for k in overrides
+            k: provider._collection._instances.get(k, None) for k in overrides
         }
-        provider._base_services._instances.update(overrides)
+        provider._collection._instances.update(overrides)
         try:
             yield
         finally:
             for k, v in originals.items():
                 if v is not None:
-                    provider._base_services._instances[k] = v
+                    provider._collection._instances[k] = v
                 else:
-                    provider._base_services._instances.pop(k, None)
+                    provider._collection._instances.pop(k, None)
 
     @staticmethod
     def register_mock(
@@ -134,7 +158,9 @@ class DIHelper:
         """
         Register a mock/double for a service type in the provider.
         """
-        provider._base_services._instances[service_type] = mock_instance
+        services = ServiceCollection()
+        services.add_instance(service_type, mock_instance)
+        provider.configure_services(services)
 
     @staticmethod
     def reset_di_state() -> None:
@@ -161,7 +187,7 @@ class DIHelper:
         provider._initialized = False
         provider._lifecycle_queue.clear()
         provider._extensions.clear()
-        provider._base_services = ServiceCollection()
+        provider._collection = ServiceCollection()
 
     """
     Helper class for managing DI in tests.
@@ -188,8 +214,10 @@ class DIHelper:
         """
         from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
 
-        logger = LoggerService(LoggingConfig())
-        return ServiceProvider(logger=logger)
+        services = ServiceCollection()
+        services.add_instance(LoggingConfig, LoggingConfig())
+        services.add_instance(LoggerService, LoggerService(LoggingConfig()))
+        return ServiceProvider(services)
 
     @staticmethod
     def initialize_test_provider(

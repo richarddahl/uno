@@ -7,10 +7,10 @@ Configuration module for Uno framework.
 This module provides centralized configuration management for the application.
 """
 
-from typing import Any
+from typing import Any, Type
 
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import get_service_provider
+from uno.infrastructure.di.service_provider import ServiceProvider
 
 # Import config modules
 from .api import APIConfig, api_config
@@ -40,7 +40,6 @@ __all__ = [
     "security_config",
     "VectorSearchConfig",
     "vector_search_config",
-    "get_config_provider",
     "get_config",
     "services",
 ]
@@ -59,26 +58,10 @@ services.add_singleton(SecurityConfig, security_config)
 services.add_singleton(VectorSearchConfig, vector_search_config)
 
 
-def get_config_provider():
-    """
-    Get the service provider for configuration.
+# NOTE: Strict DI mode: All configuration dependencies must be passed explicitly from the composition root.
+# There is no global service provider or config provider. Do not use service locator patterns.
 
-    This ensures the configuration services are properly registered with
-    the global service provider.
-
-    Returns:
-        The global service provider with configs registered
-    """
-    provider = get_service_provider()
-
-    # Only configure if not already initialized
-    if not provider.is_initialized():
-        provider.configure_services(services)
-
-    return provider
-
-
-def get_config(config_type: type[Any]) -> Any:
+def get_config(config_type: Type[Any]) -> Any:
     """
     Get a configuration instance by type.
 
@@ -107,12 +90,5 @@ def get_config(config_type: type[Any]) -> Any:
     elif config_type is VectorSearchConfig:
         return vector_search_config
 
-    # Fall back to DI system for other configs
-    try:
-        provider = get_config_provider()
-        if provider.is_initialized():
-            return provider.get_service(config_type)
-        else:
-            raise RuntimeError("Service provider not initialized")
-    except Exception as e:
-        raise ValueError(f"Configuration {config_type.__name__} not found: {e!s}")
+    # Strict DI mode: Only statically registered configs are available here.
+    raise ValueError(f"Configuration {config_type.__name__} not found. All configs must be injected explicitly.")

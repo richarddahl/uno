@@ -16,13 +16,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import Table, Column, String, Integer, TIMESTAMP, MetaData
 import sqlalchemy as sa
-from uno.infrastructure.di import get_service_provider
+# NOTE: Strict DI mode: All dependencies must be passed explicitly. Do not use service locator patterns.
+from uno.infrastructure.di.service_lifecycle import ServiceLifecycle
 
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-class PostgresEventStore(EventStore[E], Generic[E]):
+class PostgresEventStore(EventStore[E], ServiceLifecycle, Generic[E]):
     """
     Production-grade Postgres event store for Uno.
     Implements canonical event persistence, replay, and concurrency control.
@@ -34,10 +35,22 @@ class PostgresEventStore(EventStore[E], Generic[E]):
         logger_factory: Callable[..., LoggerService] | None = None,
         event_table: str = "uno_events",
     ):
-        if db_session is None:
-            db_session = get_service_provider().get_service("db_session")
-        self.db_session = db_session
-        self.table_name = event_table
+        self._db_session = db_session
+        self._logger_factory = logger_factory
+        self._event_table = event_table
+        self._initialized = False
+
+    async def initialize(self) -> None:
+        """
+        Initialize the event store with database session and table setup.
+        """
+        if self._initialized:
+            return
+
+        if self._db_session is None:
+            raise RuntimeError("db_session must be provided explicitly in strict DI mode.")
+        self.db_session = self._db_session
+        self.table_name = self._event_table
         self.metadata = MetaData()
         self.table = Table(
             self.table_name,
@@ -52,10 +65,10 @@ class PostgresEventStore(EventStore[E], Generic[E]):
                 "aggregate_id", "version", name=f"uq_{self.table_name}_agg_ver"
             ),
         )
-        if logger_factory:
-            self.logger = logger_factory("eventstore_postgres")
+        if self._logger_factory:
+            self.logger = self._logger_factory(name="eventstore_postgres")
         else:
-            self.logger = LoggerService(LoggingConfig())
+            raise RuntimeError("logger_factory must be provided explicitly in strict DI mode.")
 
     async def save_event(self, event: E) -> Result[None, Exception]:
         """

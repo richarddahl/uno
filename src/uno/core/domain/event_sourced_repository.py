@@ -120,6 +120,8 @@ class EventSourcedRepository(Generic[T], Repository[T]):
         try:
             new_events = entity.clear_events()
             for event in new_events:
+                # Ensure event_hash is set before saving or publishing
+                event.set_event_hash()  # TODO: inject hash_service if/when needed
                 save_result = await self.event_store.save_event(event)
                 if not save_result.is_success:
                     self.logger.structured_log(

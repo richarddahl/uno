@@ -35,7 +35,7 @@ class PaymentReceived(DomainEvent):
     order_id: str
     amount: Money
     received_from: EmailAddress
-    version: ClassVar[int] = 1
+    version: int = 1
     model_config = ConfigDict(frozen=True)
 
     @classmethod
@@ -165,23 +165,16 @@ class OrderCreated(DomainEvent):
                     )
                 )
             if isinstance(measurement, Measurement):
-                q = measurement
+                m = measurement
             elif isinstance(measurement, Count):
-                q = Measurement.from_count(measurement)
+                m = Measurement.from_count(measurement)
             elif isinstance(measurement, int | float):
-                q = Measurement.from_each(measurement)
+                m = Measurement.from_each(measurement)
             else:
                 return Failure(
                     DomainValidationError(
                         "measurement must be a Measurement, Count, int, or float",
                         details={"measurement": measurement},
-                    )
-                )
-            if not isinstance(price, Money):
-                return Failure(
-                    DomainValidationError(
-                        "price must be a Money value object",
-                        details=get_error_context(),
                     )
                 )
             if order_type not in ("purchase", "sale"):
@@ -196,7 +189,7 @@ class OrderCreated(DomainEvent):
                 aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 vendor_id=vendor_id,
-                measurement=q,
+                measurement=m,
                 price=price,
                 order_type=order_type,
                 version=version,

@@ -36,7 +36,7 @@ class VectorSQLEmitter(SQLEmitter):
     vector operations, and necessary permissions.
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """
         Generate SQL statements for setting up vector functionality.
 
@@ -437,7 +437,7 @@ class VectorIntegrationEmitter(SQLEmitter):
     with other database features like graph database capabilities.
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """
         Generate SQL statements for vector integration.
 
@@ -577,7 +577,7 @@ class CreateVectorTables(SQLEmitter):
     like a documents table for RAG.
     """
 
-    def generate_sql(self) -> List[SQLStatement]:
+    def generate_sql(self) -> list[SQLStatement]:
         """
         Generate SQL statements for creating vector-enabled tables.
 
@@ -721,7 +721,7 @@ class VectorSearchEmitter(SQLEmitter):
         self,
         table_name: str,
         column_name: str = "embedding",
-        schema: Optional[str] = None,
+        schema: str | None = None,
         **kwargs,
     ):
         """
@@ -758,7 +758,7 @@ class VectorSearchEmitter(SQLEmitter):
         limit: int = 10,
         threshold: float = 0.7,
         metric: str = "cosine",
-        where_clause: Optional[str] = None,
+        where_clause: str | None = None,
     ) -> str:
         """
         Generate SQL for vector similarity search.
@@ -834,7 +834,7 @@ class VectorSearchEmitter(SQLEmitter):
     def hybrid_search_sql(
         self,
         query_text: str,
-        graph_query: Optional[str] = None,
+        graph_query: str | None = None,
         limit: int = 10,
         threshold: float = 0.7,
     ) -> str:
@@ -927,8 +927,8 @@ class VectorSearchEmitter(SQLEmitter):
         limit: int = 10,
         threshold: float = 0.7,
         metric: str = "cosine",
-        where_clause: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        where_clause: str | None = None,
+    ) -> list[Dict[str, Any]]:
         """
         Execute a vector similarity search.
 
@@ -973,10 +973,10 @@ class VectorSearchEmitter(SQLEmitter):
         self,
         connection: ConnectionType,
         query_text: str,
-        graph_query: Optional[str] = None,
+        graph_query: str | None = None,
         limit: int = 10,
         threshold: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[Dict[str, Any]]:
         """
         Execute a hybrid vector-graph search.
 
@@ -1022,7 +1022,7 @@ class VectorSearchEmitter(SQLEmitter):
 
     async def execute_generate_embedding(
         self, connection: ConnectionType, text: str
-    ) -> List[float]:
+    ) -> list[float]:
         """
         Generate an embedding vector for text.
 
@@ -1057,8 +1057,8 @@ class VectorBatchEmitter(SQLEmitter):
     def __init__(
         self,
         entity_type: str,
-        content_fields: List[str],
-        schema: Optional[str] = None,
+        content_fields: list[str],
+        schema: str | None = None,
         **kwargs,
     ):
         """
@@ -1120,7 +1120,7 @@ class VectorBatchEmitter(SQLEmitter):
         LIMIT :limit OFFSET :offset
         """
 
-    def get_entities_by_ids_sql(self, entity_ids: List[str]) -> str:
+    def get_entities_by_ids_sql(self, entity_ids: list[str]) -> str:
         """
         Generate SQL to get entities by IDs.
 
@@ -1155,7 +1155,7 @@ class VectorBatchEmitter(SQLEmitter):
 
     async def execute_get_batch(
         self, connection: ConnectionType, limit: int, offset: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[Dict[str, Any]]:
         """
         Execute a query to get a batch of entities.
 
@@ -1187,8 +1187,8 @@ class VectorBatchEmitter(SQLEmitter):
         return entities
 
     async def execute_get_entities_by_ids(
-        self, connection: ConnectionType, entity_ids: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, connection: ConnectionType, entity_ids: list[str]
+    ) -> list[Dict[str, Any]]:
         """
         Execute a query to get entities by IDs.
 

@@ -138,7 +138,7 @@ class DBNode:
     current_load: float = 0.0  # Current load (0.0-1.0)
 
     # Sharding
-    shard_keys: List[str] = field(default_factory=list)
+    shard_keys: list[str] = field(default_factory=list)
     shard_range: Optional[Tuple[Any, Any]] = None
 
     # Metrics
@@ -253,7 +253,7 @@ class DistributedQueryConfig:
     custom_distributor: Optional[Callable] = None
 
     # Sharding configuration
-    shard_key: Optional[str] = None
+    shard_key: str | None = None
     shard_function: Optional[Callable[[Any], str]] = None
 
     # Execution options
@@ -293,14 +293,14 @@ class QueryContext:
     shard_key_value: Optional[Any] = None
 
     # Execution context
-    transaction_id: Optional[str] = None
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    consistency_level: Optional[str] = None
+    transaction_id: str | None = None
+    session_id: str | None = None
+    user_id: str | None = None
+    consistency_level: str | None = None
 
     # Routing info
-    target_nodes: List[str] = field(default_factory=list)
-    preferred_node: Optional[str] = None
+    target_nodes: list[str] = field(default_factory=list)
+    preferred_node: str | None = None
 
     # Execution options
     timeout: Optional[float] = None
@@ -311,7 +311,7 @@ class QueryContext:
     query_id: str = field(
         default_factory=lambda: hashlib.md5(str(time.time()).encode()).hexdigest()
     )
-    query_hash: Optional[str] = None
+    query_hash: str | None = None
 
     # Performance tracking
     start_time: float = field(default_factory=time.time)
@@ -365,7 +365,7 @@ class QueryResult:
     execution_time: float = 0.0
 
     # Node routing info
-    tried_nodes: List[str] = field(default_factory=list)
+    tried_nodes: list[str] = field(default_factory=list)
 
     @property
     def is_error(self) -> bool:
@@ -573,7 +573,7 @@ class DistributedQueryManager:
 
         return results
 
-    async def check_node_health(self, node_id: Optional[str] = None) -> Dict[str, bool]:
+    async def check_node_health(self, node_id: str | None = None) -> Dict[str, bool]:
         """
         Check the health of nodes.
 
@@ -598,7 +598,7 @@ class DistributedQueryManager:
 
         return results
 
-    def get_available_nodes(self, query_type: QueryType) -> List[DBNode]:
+    def get_available_nodes(self, query_type: QueryType) -> list[DBNode]:
         """
         Get available nodes for a query type.
 
@@ -1078,8 +1078,8 @@ class DistributedQueryManager:
         fetch_all: bool = True,
         transform_result: bool = True,
         timeout: Optional[float] = None,
-        target_nodes: Optional[List[str]] = None,
-        preferred_node: Optional[str] = None,
+        target_nodes: Optional[list[str]] = None,
+        preferred_node: str | None = None,
     ) -> QueryResult:
         """
         Execute a query on the distributed database.
@@ -1121,7 +1121,7 @@ class DistributedQueryManager:
         query_type: QueryType = QueryType.READ,
         node_filter: Optional[Callable[[DBNode], bool]] = None,
         parallel: bool = True,
-    ) -> List[QueryResult]:
+    ) -> list[QueryResult]:
         """
         Execute a query on all nodes in parallel.
 
@@ -1307,9 +1307,9 @@ async def create_distributed_query_manager(
         node = DBNode(
             id=node_id,
             name=f"Node-{node_id}",
-            role=NodeRole.PRIMARY
-            if node_id.startswith("primary")
-            else NodeRole.REPLICA,
+            role=(
+                NodeRole.PRIMARY if node_id.startswith("primary") else NodeRole.REPLICA
+            ),
             connection_string=conn_str,
             read_only=not node_id.startswith("primary"),
         )

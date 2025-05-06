@@ -5,6 +5,13 @@ This ensures silent test output and avoids interfering with caplog/capture-based
 
 import logging
 import pytest
+import asyncio
+from uno.infrastructure.di.provider import configure_base_services
+
+@pytest.fixture(scope="function", autouse=True)
+async def uno_di_setup():
+    await configure_base_services()
+
 
 
 @pytest.fixture(autouse=True, scope="session")

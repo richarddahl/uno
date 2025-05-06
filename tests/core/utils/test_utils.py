@@ -19,12 +19,7 @@ def general_config():
     return GeneralConfig()
 
 
-class FakeLoggerService(LoggerService):
-    def __init__(self):
-        self.logs = []
-
-    def structured_log(self, level: str, msg: str, **kwargs):
-        self.logs.append((level, msg, kwargs))
+from tests.conftest import FakeLoggerService
 
 
 class DummyModel:

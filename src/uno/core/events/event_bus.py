@@ -7,7 +7,7 @@ from typing import Callable, Any, Awaitable, List
 
 class EventBus:
     def __init__(self) -> None:
-        self._subscribers: List[Callable[[Any], Awaitable[None]]] = []
+        self._subscribers: list[Callable[[Any], Awaitable[None]]] = []
 
     def subscribe(self, handler: Callable[[Any], Awaitable[None]]) -> None:
         self._subscribers.append(handler)

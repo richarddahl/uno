@@ -50,7 +50,7 @@ def test_inventory_lot_adjusted_create_failure_invalid_adjustment() -> None:
     result = InventoryLotAdjusted.create(lot_id="lot-123", adjustment="bad-value")
     assert isinstance(result, Failure)
     assert isinstance(result.error, DomainValidationError)
-    assert "adjustment" in result.error.details
+    assert "adjustment" in result.error.details["error"]
 
 
 def test_inventory_lot_adjusted_upcast_identity() -> None:

@@ -1,10 +1,10 @@
-from __future__ import annotations
 
 """
 Centralized logger abstraction for Uno framework.
 
 Wraps Python's standard logging, loads config from uno.infrastructure.config, and exposes a DI-friendly logger.
 """
+from __future__ import annotations
 
 import contextvars
 import logging
@@ -76,7 +76,7 @@ class LoggerService:
             "trace_id", default=str(uuid.uuid4())
         )
 
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """
         Initialize the logger with the current config.
         Safe to call multiple times (idempotent).
@@ -113,7 +113,7 @@ class LoggerService:
         """
         if not self._initialized or self._logger is None:
             raise RuntimeError(
-                "LoggerService not initialized. Call 'await initialize()' first."
+                "LoggerService not initialized. Call 'initialize()' first."
             )
         return self._logger
 
@@ -203,7 +203,7 @@ class LoggerService:
         self._configure_root_logger()
         self._initialized = True
 
-    async def dispose(self) -> None:
+    def dispose(self) -> None:
         # Optionally flush/close handlers or perform cleanup
         self._loggers.clear()
         self._initialized = False

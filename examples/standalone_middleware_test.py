@@ -313,7 +313,7 @@ class CircuitBreakerMiddleware:
 
     def __init__(
         self,
-        event_types: List[str] | None = None,
+        event_types: list[str] | None = None,
         options: CircuitBreakerState | None = None,
         logger_factory: LoggerServiceFactory | None = None,
     ):
@@ -413,7 +413,7 @@ class EventMetrics:
 
     success_count: int = 0
     failure_count: int = 0
-    durations: List[float] = field(default_factory=list)
+    durations: list[float] = field(default_factory=list)
 
     def record_success(self, duration_ms: float) -> None:
         """Record a successful event handling."""
@@ -549,7 +549,7 @@ class EventHandlerMiddlewareFactory:
 
     def create_circuit_breaker_middleware(
         self,
-        event_types: List[str] | None = None,
+        event_types: list[str] | None = None,
         options: CircuitBreakerState | None = None,
     ) -> CircuitBreakerMiddleware:
         """Create a circuit breaker middleware instance."""
@@ -571,7 +571,7 @@ class EventHandlerMiddlewareFactory:
         retry_options: RetryOptions | None = None,
         circuit_breaker_options: CircuitBreakerState | None = None,
         metrics_interval_seconds: float = 60.0,
-    ) -> List[EventHandlerMiddleware]:
+    ) -> list[EventHandlerMiddleware]:
         """Create a default middleware stack with common components."""
         metrics = self.create_metrics_middleware(
             report_interval_seconds=metrics_interval_seconds

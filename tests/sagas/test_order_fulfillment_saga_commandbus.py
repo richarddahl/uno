@@ -5,7 +5,7 @@ Integration test: OrderFulfillmentSaga emits commands via CommandBus as it proce
 import pytest
 from uno.core.events.command_bus import CommandBus
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.provider import ServiceProvider
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.core.events.event_bus import EventBus
 from uno.core.events.saga_manager import SagaManager
 from uno.core.events.saga_store import InMemorySagaStore
@@ -16,6 +16,8 @@ from examples.app.sagas.order_fulfillment_saga import OrderFulfillmentSaga
 
 @pytest.mark.asyncio
 async def test_order_fulfillment_saga_commandbus() -> None:
+    """Test that OrderFulfillmentSaga emits commands via CommandBus as it processes events."""
+    from uno.infrastructure.di.service_scope import Scope
     saga_store = InMemorySagaStore()
     saga_id = "order-cmd-1"
     emitted_commands = []
@@ -26,21 +28,19 @@ async def test_order_fulfillment_saga_commandbus() -> None:
 
     # DI setup
     services = ServiceCollection()
-    services.add_singleton(LoggingConfig, lambda: LoggingConfig())
+    services.add_singleton(LoggingConfig)
     services.add_scoped(LoggerService)
     services.add_scoped(OrderFulfillmentSaga)
     services.add_singleton(LoggingConfigService)
     command_bus = CommandBus()
     services.add_instance(CommandBus, command_bus)
-    logger = LoggerService(LoggingConfig())
-    provider = ServiceProvider(logger, services)
+    provider = ServiceProvider(services)
     await provider.initialize()
-    async with await provider.create_scope() as scope:
-        manager = SagaManager(saga_store, provider)
+    async with provider.create_scope() as scope:
+        manager = SagaManager(saga_store, scope)
         manager.register_saga(OrderFulfillmentSaga)
         # Inject the CommandBus into the saga instance
-        saga_result = scope.get_service(OrderFulfillmentSaga)
-        saga_instance = saga_result.value
+        saga_instance = scope.resolve(OrderFulfillmentSaga)
         saga_instance.set_command_bus(command_bus)
         bus = EventBus()
         command_bus.register_handler(command_handler)

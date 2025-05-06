@@ -18,12 +18,13 @@ from uno.core.base_model import FrameworkBaseModel
 from pydantic import Field, ConfigDict, model_validator
 
 from uno.core.errors.result import Failure, Success
+# NOTE: Strict DI mode: All dependencies must be passed explicitly. Do not use service locator patterns.
+from uno.core.services.hash_service_protocol import HashServiceProtocol
 
 if TYPE_CHECKING:
     import collections.abc
     from uno.core.errors.result import Failure as FailureType, Success as SuccessType
     from uno.core.services.default_hash_service import DefaultHashService
-    from uno.core.services.hash_service_protocol import HashServiceProtocol
 
 
 def uno_json_encoder(obj: Any) -> Any:
@@ -50,7 +51,7 @@ class DomainEvent(FrameworkBaseModel):
     # --- Event class registry for dynamic resolution ---
     _event_class_registry: ClassVar[dict[str, type["DomainEvent"]]] = {}
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         # Register by class name and event_type if available
         DomainEvent._event_class_registry[cls.__name__] = cls
@@ -100,52 +101,30 @@ class DomainEvent(FrameworkBaseModel):
     causation_id: str | None = None
     metadata: dict[str, Any] = {}
     previous_hash: str | None = None
-    event_hash: str | None = None
+    event_hash: str = Field(default_factory=lambda: "")
 
     model_config = ConfigDict(
         frozen=True,
         json_encoders={Enum: lambda e: e.value},
+        validate_assignment=True,
     )
 
-    @model_validator(mode="after")
-    def _set_event_hash(self) -> Self:
+    def set_event_hash(self, hash_service: HashServiceProtocol | None = None) -> None:
         """
-        Pydantic model-wide validator: Compute and set the event_hash field after model creation.
-        Uses DI to resolve the hash service (HashServiceProtocol) for compliance and flexibility.
-        Falls back to sha256 if DI is not available.
-
-        Returns:
-            Self
+        Compute and set the event_hash field using the provided hash_service.
+        If no hash_service is given, falls back to sha256.
+        This method must be called explicitly after event creation.
         """
-        from uno.core.services.default_hash_service import DefaultHashService
-        from uno.core.services.hash_service_protocol import HashServiceProtocol
-        from uno.infrastructure.di import get_service_provider
+        payload = self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+        payload_json = json.dumps(payload, default=uno_json_encoder)
+        if hash_service is not None:
+            self.event_hash = hash_service.compute_hash(payload_json)
+        else:
+            import hashlib
+            self.event_hash = hashlib.sha256(payload_json.encode()).hexdigest()
 
-        d = self.model_dump(
-            exclude={"event_hash"},
-            exclude_none=True,
-            exclude_unset=True,
-            by_alias=True,
-        )
-        payload = json.dumps(
-            d, sort_keys=True, separators=(",", ":"), default=uno_json_encoder
-        )
+    # Note: event_hash is now settable via set_event_hash, not by validator.
 
-        hash_service: HashServiceProtocol | None = None
-        try:
-            provider = get_service_provider()
-            result = provider.try_get_service(HashServiceProtocol)
-            if getattr(result, "is_success", False):
-                hash_service = getattr(result, "value", None)
-        except Exception as exc:
-            logging.getLogger("uno.events").warning(
-                "Could not resolve HashServiceProtocol from DI: %s. Falling back to DefaultHashService.",
-                exc,
-            )
-        if hash_service is None:
-            hash_service = DefaultHashService("sha256")
-        object.__setattr__(self, "event_hash", hash_service.compute_hash(payload))
-        return self
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -158,12 +137,12 @@ class DomainEvent(FrameworkBaseModel):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    def from_dict(
+    async def from_dict(
         cls, data: dict[str, Any]
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         """
         Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
-        Upcasting and hash computation are handled by model validators.
+        Hash computation is now explicit and uses set_event_hash().
         Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
 
         Args:
@@ -171,14 +150,13 @@ class DomainEvent(FrameworkBaseModel):
         Returns:
             Success[Self, Exception](event) if valid, Failure[Self, Exception](error) otherwise.
         """
-        from uno.core.errors.result import Failure, Success
-
         try:
-            return Success[Self, Exception](cls.model_validate(data))
+            instance = cls.model_validate(data)
+            instance.set_event_hash()
+            return Success(instance)
         except Exception as exc:
-            return Failure[Self, Exception](
-                Exception(f"Failed to create {cls.__name__} from dict: {exc}")
-            )
+            return Failure(exc)
+
 
     def validate_event(self) -> Success[None, Exception] | Failure[None, Exception]:
         """
@@ -228,9 +206,7 @@ class EventUpcasterRegistry:
     ] = {}
 
     @classmethod
-    def register(
-        cls, event_type: type, from_version: int
-    ) -> collections.abc.Callable[
+    def register(cls, event_type: type, from_version: int) -> collections.abc.Callable[
         [collections.abc.Callable[[dict[str, Any]], dict[str, Any]]],
         collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
     ]:
