@@ -12,7 +12,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 
 from uno.core.errors import FrameworkError
-from uno.core.interfaces import ConfigProtocol
+from uno.infrastructure.sql.interfaces import ConfigProtocol
 from uno.infrastructure.logging import LoggerService
 from uno.infrastructure.sql.interfaces import (
     EngineFactoryProtocol,

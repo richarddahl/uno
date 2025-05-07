@@ -121,15 +121,7 @@ class ServiceNotFoundError(FrameworkError):
         )
 
 
-class ServiceRegistrationError(FrameworkError):
-    """Raised when a service registration is invalid or incompatible."""
 
-    def __init__(self, message: str, **context: Any):
-        super().__init__(
-            message=message,
-            error_code=DIErrorCode.SERVICE_REGISTRATION_FAILED,
-            **context,
-        )
 
 
 class CircularDependencyError(FrameworkError):

@@ -12,19 +12,21 @@ from uno.infrastructure.config.base import (
 )
 
 
+from pydantic import Field
+
 class ApplicationConfig(BaseSettings):
     # APPLICATION SETTINGS
     # Max Groups and Users for each type of tenant
     ENFORCE_MAX_GROUPS: bool = True
     ENFORCE_MAX_USERS: bool = True
-    MAX_INDIVIDUAL_GROUPS: int = 1
-    MAX_INDIVIDUAL_USERS: int = 1
-    MAX_BUSINESS_GROUPS: int = 5
-    MAX_BUSINESS_USERS: int = 5
-    MAX_CORPORATE_GROUPS: int = 25
-    MAX_CORPORATE_USERS: int = 25
-    MAX_ENTERPRISE_GROUPS: int = -1
-    MAX_ENTERPRISE_USERS: int = -1
+    MAX_INDIVIDUAL_GROUPS: int = Field(default=1, ge=-1, le=100000)
+    MAX_INDIVIDUAL_USERS: int = Field(default=1, ge=-1, le=100000)
+    MAX_BUSINESS_GROUPS: int = Field(default=5, ge=-1, le=100000)
+    MAX_BUSINESS_USERS: int = Field(default=5, ge=-1, le=100000)
+    MAX_CORPORATE_GROUPS: int = Field(default=25, ge=-1, le=100000)
+    MAX_CORPORATE_USERS: int = Field(default=25, ge=-1, le=100000)
+    MAX_ENTERPRISE_GROUPS: int = Field(default=-1, ge=-1, le=100000)
+    MAX_ENTERPRISE_USERS: int = Field(default=-1, ge=-1, le=100000)
 
     # Superuser settings
     SUPERUSER_EMAIL: str
@@ -32,7 +34,7 @@ class ApplicationConfig(BaseSettings):
     SUPERUSER_FULL_NAME: str
 
     # Modules to load
-    LOAD_PACKAGES: list[str] = []
+    LOAD_PACKAGES: list[str] = Field(default_factory=list)
     APP_PATH: str = ""
 
 
@@ -46,6 +48,7 @@ class Dev(ApplicationConfig):
 
 class Test(ApplicationConfig):
     model_config = TestSettingsConfigDict
+    __test__ = False
 
 
 # Create a dictionary of environment settings

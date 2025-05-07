@@ -22,7 +22,6 @@ from uno.application.apidef import app as api_app
 from uno.core.application.fastapi_error_handlers import setup_error_handlers
 
 # Import the service provider, but don't use it yet
-from uno.infrastructure.di.provider import get_service_provider, initialize_services
 from uno.examples.todolist import initialize_todolist
 
 # Add to your existing imports
@@ -30,88 +29,91 @@ from uno.examples.todolist.api.routes import router as todo_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> None:
     """Lifespan context manager for FastAPI application."""
 
+    from uno.infrastructure.di.provider import configure_base_services, shutdown_services
+    from uno.infrastructure.di.service_collection import ServiceCollection
+    from uno.infrastructure.di.service_provider import ServiceProvider
+
+    # Strict DI: Construct ServiceProvider explicitly at startup
+    services = ServiceCollection()
+    provider = ServiceProvider(services)
+    await configure_base_services(provider)
+    await provider.initialize()
+    logger = provider.get_service(logging.Logger)
+    logger.info("Starting application initialization")
+    logger.info("Modern DI Service Provider initialized")
+
+    # Register services using automatic discovery (optional)
+    from uno.infrastructure.di.discovery import register_services_in_package
+
     try:
-        # === STARTUP ===
-        await initialize_services()
-        provider = get_service_provider()
-        logger = provider.get_service(logging.Logger)
-        logger.info("Starting application initialization")
-        logger.info("Modern DI Service Provider initialized")
+        # Discover and register services in the application
+        register_services_in_package("uno.domain", provider=provider)
+        logger.info("Service discovery completed")
+    except Exception as e:
+        logger.error(f"Error during service discovery: {e}")
 
-        # Register services using automatic discovery (optional)
-        from uno.infrastructure.di.discovery import register_services_in_package
+    # Import domain models after initialization
+    logger.debug("Loading domain models")
+    # Import domain models as needed
 
+    logger.info("All domain models loaded and configured")
+
+    # Set up API routers
+    logger.info("Setting up API routers")
+
+    # Dynamically include feature routers based on Domain-Driven layouts
+    for feat in [
+        "authorization",
+        "meta",
+        "database",
+        "messaging",
+        "queries",
+        "reports",
+        "values",
+        "workflows",
+    ]:
         try:
-            # Discover and register services in the application
-            register_services_in_package("uno.domain")
-            logger.info("Service discovery completed")
-        except Exception as e:
-            logger.error(f"Error during service discovery: {e}")
+            ff = FeatureFactory(feat)
+            for router in ff.get_routers():
+                api_app.include_router(router)
+                logger.info(f"{feat} router included")
+        except ModuleNotFoundError:
+            logger.debug(f"{feat} module not available")
+        except AttributeError as e:
+            logger.debug(f"{feat} domain_endpoints missing router: {e}")
 
-        # Import domain models after initialization
-        logger.debug("Loading domain models")
-        # Import domain models as needed
+    # Include error handling example endpoints
+    try:
+        from uno.core.errors.examples import router as error_examples_router
 
-        logger.info("All domain models loaded and configured")
+        api_app.include_router(error_examples_router)
+        logger.info("Error examples router included")
+    except ImportError:
+        logger.debug("Error examples router not available")
 
-        # Set up API routers
-        logger.info("Setting up API routers")
+    # Set up error handlers for FastAPI
+    logger.info("Setting up error handlers")
+    setup_error_handlers(api_app, include_tracebacks=config.debug)
+    logger.info("Error handlers setup complete")
 
-        # Dynamically include feature routers based on Domain-Driven layouts
-        for feat in [
-            "authorization",
-            "meta",
-            "database",
-            "messaging",
-            "queries",
-            "reports",
-            "values",
-            "workflows",
-        ]:
-            try:
-                ff = FeatureFactory(feat)
-                for router in ff.get_routers():
-                    api_app.include_router(router)
-                    logger.info(f"{feat} router included")
-            except ModuleNotFoundError:
-                logger.debug(f"{feat} module not available")
-            except AttributeError as e:
-                logger.debug(f"{feat} domain_endpoints missing router: {e}")
+    # Add the TodoList routes
+    api_app.include_router(todo_router)
 
-        # Include error handling example endpoints
-        try:
-            from uno.core.errors.examples import router as error_examples_router
+    logger.info("API routers setup complete")
+    logger.info("Application startup complete")
 
-            api_app.include_router(error_examples_router)
-            logger.info("Error examples router included")
-        except ImportError:
-            logger.debug("Error examples router not available")
+    # Yield control back to FastAPI
+    yield
 
-        # Set up error handlers for FastAPI
-        logger.info("Setting up error handlers")
-        setup_error_handlers(api_app, include_tracebacks=config.debug)
-        logger.info("Error handlers setup complete")
+    # === SHUTDOWN ===
+    logger.info("Starting application shutdown")
 
-        # Add the TodoList routes
-        api_app.include_router(todo_router)
-
-        logger.info("API routers setup complete")
-        logger.info("Application startup complete")
-
-        # Yield control back to FastAPI
-        yield
-
-        # === SHUTDOWN ===
-        logger.info("Starting application shutdown")
-
-        # Shut down the modern dependency injection system
-        from uno.infrastructure.di.provider import shutdown_services
-
-        await shutdown_services()
-        logger.info("DI Service Provider shut down")
+    # Shut down the modern dependency injection system
+    await shutdown_services(provider)
+    logger.info("DI Service Provider shut down")
 
         logger.info("Application shutdown complete")
     except Exception as e:
@@ -299,6 +301,8 @@ def get_schema(schema_name: str):
 @api_app.on_event("startup")
 async def startup_event():
     """Startup event handler."""
+    from uno.infrastructure.di.provider import configure_base_services
+    await configure_base_services()
     await initialize_todolist()
 
 

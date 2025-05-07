@@ -1,54 +1,71 @@
 """
 Type utility functions for Uno DI.
 
-These helpers provide type reflection, protocol/abstract/concrete checks, and safe type hint and namespace extraction for DI resolution.
+This module provides utility functions for working with types during dependency injection,
+including checking for abstract types, concrete types, and handling type hints.
 """
 
-from typing import Any, get_type_hints
+from __future__ import annotations
+
+from typing import Any, Type, Dict, get_type_hints, get_origin, get_args
 import inspect
 import sys
-import builtins
+from abc import ABC, ABCMeta
 
 
 def is_abstract_or_protocol(t: type[Any]) -> bool:
     """
     Check if a type is abstract or a protocol.
+
+    Args:
+        t: The type to check
+
+    Returns:
+        True if the type is abstract or a protocol, False otherwise
     """
-    return inspect.isabstract(t) or hasattr(t, "_is_protocol")
+    if inspect.isabstract(t):
+        return True
+        
+    if hasattr(t, "__origin__") and t.__origin__ is type:
+        return True
+        
+    if hasattr(t, "_is_protocol") and t._is_protocol:
+        return True
+        
+    return False
 
 
 def is_concrete_type(t: type[Any]) -> bool:
     """
-    Check if a type is concrete and not abstract.
+    Check if a type is concrete (not abstract or protocol).
+
+    Args:
+        t: The type to check
+
+    Returns:
+        True if the type is concrete, False otherwise
     """
-    if not isinstance(t, type):
+    if not inspect.isclass(t):
         return False
-    # Check if it's an interface/protocol
-    if hasattr(t, "_is_protocol"):
+        
+    if is_abstract_or_protocol(t):
         return False
-    # Check if it's abstract
-    if inspect.isabstract(t):
+        
+    if t.__module__ == "typing":
         return False
-    # Check if it's a framework service
-    if hasattr(t, "__framework_service__") and getattr(
-        t, "__framework_service__", False
-    ):
-        return True
-    # Check if it has an __init__ method that can be called
-    if not hasattr(t, "__init__"):
-        return False
-    # Check if it has any abstract methods
-    try:
-        if any(inspect.isabstractmethod(getattr(t, name)) for name in dir(t)):
-            return False
-    except Exception:
-        return False
+        
     return True
 
 
 def get_constructor_type_hints_safe(impl: type[Any]) -> dict[str, Any]:
     """
-    Get type hints for a constructor safely.
+    Safely get type hints for a class constructor.
+
+    Args:
+        impl: The class to get type hints for
+
+    Returns:
+        Dictionary of parameter names to types
     """
     try:
         return get_type_hints(impl.__init__)
@@ -58,19 +75,14 @@ def get_constructor_type_hints_safe(impl: type[Any]) -> dict[str, Any]:
 
 def get_eval_namespaces(impl: type[Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """
-    Get namespaces for evaluating type hints.
+    Get the global and local namespaces for evaluating type hints.
+
+    Args:
+        impl: The class to get namespaces for
+
+    Returns:
+        Tuple of (global_namespace, local_namespace)
     """
-    init = getattr(impl, "__init__", None)
-    # If __init__ is a wrapper_descriptor (i.e., not a Python function), fallback to module or builtins
-    if hasattr(init, "__globals__"):
-        globalns = init.__globals__
-    elif hasattr(impl, "__module__") and impl.__module__ in sys.modules:
-        globalns = sys.modules[impl.__module__].__dict__
-    else:
-        globalns = vars(builtins)
-    localns = (
-        sys.modules[impl.__module__].__dict__
-        if hasattr(impl, "__module__")
-        else globalns
-    )
-    return globalns, localns
+    globalns = sys.modules[impl.__module__].__dict__
+    localns = impl.__dict__
+    return globalns, localns 

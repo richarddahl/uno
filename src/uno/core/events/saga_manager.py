@@ -18,7 +18,7 @@ class SagaManager:
     def __init__(self, saga_store: SagaStore, scope: Scope) -> None:
         self._saga_store = saga_store
         self._scope = scope
-        self._saga_types: dict[str, Type[Saga]] = {}
+        self._saga_types: dict[str, type[Saga]] = {}
         self._active_sagas: dict[str, Saga] = {}
 
     async def _get_or_create_saga(self, saga_id: str, saga_type: str) -> Saga:
@@ -45,7 +45,7 @@ class SagaManager:
             for saga in self._active_sagas.values()
         ]
 
-    def register_saga(self, saga_type: Type[Saga]) -> None:
+    def register_saga(self, saga_type: type[Saga]) -> None:
         self._saga_types[saga_type.__name__] = saga_type
 
     async def handle_event(self, saga_id: str, saga_type: str, event: Any) -> None:

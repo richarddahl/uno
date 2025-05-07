@@ -2,54 +2,48 @@
 # SPDX-License-Identifier: MIT
 # uno framework
 
+from __future__ import annotations
 from typing import TypeVar
 
 # Public API symbols for uno.infrastructure.di
 from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.resolver import ServiceResolver
-from uno.infrastructure.di.service_registration import ServiceRegistration
-from uno.infrastructure.di.service_scope import ServiceScope
-from uno.infrastructure.di.service_provider import (
-    ServiceProvider,
-    get_service_provider,
-    initialize_services,
-    shutdown_services,
-)
-
-# Forward reference for ServiceLifecycle
-ServiceLifecycle = "ServiceLifecycle[ProviderT]"
+from uno.infrastructure.di.service_scope import ServiceScope, Scope
+from uno.infrastructure.di.service_provider import ServiceProvider, ServiceResolver
+from uno.infrastructure.di.service_lifecycle import ServiceLifecycle
+from uno.infrastructure.di.decorators import service, singleton, scoped, transient
 
 ProviderT = TypeVar("ProviderT")
 
 """
-Scoped dependency injection container for Uno framework.
+Core DI functionality for Uno framework.
+
+This module provides the core dependency injection (DI) functionality for the Uno framework.
+It includes service registration, resolution, and lifecycle management.
+
+Note: This module enforces strict DI - no global state or service locators are allowed.
+All dependencies must be passed explicitly from the composition root.
 
 Public API:
 - ServiceCollection: Main API for registering services
 - ServiceScope: Enum for service lifetimes
-- Inject: Marker for use with Annotated to specify named/optional dependencies.
-- ServiceProvider: Interface for resolving services.
-- ServiceLifecycle: Protocol for services with startup/shutdown hooks.
-- get_service_provider: Function to get the root service provider.
-- initialize_services: Function to trigger eager initialization.
-- shutdown_services: Function to call shutdown hooks on services.
-
-Internal/advanced classes are not exposed here.
+- ServiceProvider: Interface for resolving services
+- ServiceLifecycle: Protocol for services with startup/shutdown hooks
+- Scope: Context manager for scoped service resolution
+- service, singleton, scoped, transient: Decorators for service registration
 """
-
 
 __all__ = [
     "ServiceCollection",
-    "ServiceLifecycle",
-    "ServiceProvider",
-    "ServiceRegistration",
-    "ServiceResolver",
     "ServiceScope",
-    "get_service_provider",
-    "initialize_services",
-    "shutdown_services",
+    "ServiceProvider",
+    "ServiceResolver",
+    "ServiceLifecycle",
+    "Scope",
+    "service",
+    "singleton",
+    "scoped",
+    "transient",
 ]
-
 
 def __getattr__(name: str) -> object:
     # Check if the name exists in the module's explicitly exported symbols

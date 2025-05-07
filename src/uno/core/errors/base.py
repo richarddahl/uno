@@ -341,37 +341,46 @@ class FrameworkError(Exception):
 
         self.error_info: ErrorInfo | None = get_error_code_info(error_code)
 
-    @property
-    def category(self) -> ErrorCategory | None:
-        return self.error_info.category if self.error_info else None
+    def category(self) -> ErrorCategory:
+        """Get the error category."""
+        return self.error_info.category if self.error_info else ErrorCategory.INTERNAL
 
-    @property
-    def severity(self) -> ErrorSeverity | None:
-        return self.error_info.severity if self.error_info else None
+    def severity(self) -> ErrorSeverity:
+        """Get the error severity."""
+        return self.error_info.severity if self.error_info else ErrorSeverity.ERROR
 
-    @property
-    def http_status_code(self) -> int | None:
-        if self.error_info and self.error_info.http_status_code:
-            return self.error_info.http_status_code
-        return 500
+    def http_status_code(self) -> int:
+        """Get the HTTP status code."""
+        return self.error_info.http_status_code if self.error_info else 500
 
-    @property
     def retry_allowed(self) -> bool:
-        if self.error_info:
-            return self.error_info.retry_allowed
-        return True
+        """Check if retry is allowed."""
+        return self.error_info.retry_allowed if self.error_info else True
 
     def to_dict(self) -> dict[str, Any]:
-        result = {
+        """Convert error to dictionary."""
+        return {
             "message": self.message,
             "error_code": self.error_code,
+            "category": self.category().name,
+            "severity": self.severity().name,
+            "http_status_code": self.http_status_code(),
+            "retry_allowed": self.retry_allowed(),
             "context": self.context,
+            "traceback": self.traceback,
         }
-        if self.category:
-            result["category"] = self.category.name
-        if self.severity:
-            result["severity"] = self.severity.name
-        return result
 
     def __str__(self) -> str:
-        return f"{self.error_code}: {self.message}"
+        """Get string representation of error."""
+        return f"{self.error_code}: {self.message} ({self.category().name})"
+
+
+class AggregateNotDeletedError(FrameworkError):
+    """Raised when an aggregate cannot be deleted."""
+
+    def __init__(self, message: str, **context: Any):
+        super().__init__(
+            message=message,
+            error_code="CORE-0011",
+            **context
+        )

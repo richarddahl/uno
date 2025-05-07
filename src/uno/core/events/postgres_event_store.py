@@ -1,118 +1,107 @@
 """
-Production-grade Postgres event store for Uno framework.
-Implements canonical event persistence, replay, and concurrency control.
+PostgreSQL event store implementation.
 """
 
-from typing import Any, Callable, TypeVar, Generic, cast
-from uuid import uuid4
+from __future__ import annotations
+from typing import Any, Generic, List, Optional, TypeVar
 from datetime import datetime, UTC
-from uno.core.events.event_store import EventStore
-from uno.core.events.base_event import DomainEvent
-from uno.core.errors.result import Result, Success, Failure
-from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
-from sqlalchemy import text, select, insert
+from sqlalchemy import Table, Column, String, Integer, JSON, DateTime, MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import Table, Column, String, Integer, TIMESTAMP, MetaData
-import sqlalchemy as sa
-# NOTE: Strict DI mode: All dependencies must be passed explicitly. Do not use service locator patterns.
-from uno.infrastructure.di.service_lifecycle import ServiceLifecycle
-
+from uno.core.events.base_event import DomainEvent
+from uno.core.events.event_store import EventStore
+from uno.core.errors.result import Result, Success, Failure
+from uno.infrastructure.sql.config import SQLConfig
+from uno.infrastructure.sql.connection import ConnectionManager
+from uno.infrastructure.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-class PostgresEventStore(EventStore[E], ServiceLifecycle, Generic[E]):
-    """
-    Production-grade Postgres event store for Uno.
-    Implements canonical event persistence, replay, and concurrency control.
-    """
+class PostgresEventStore(EventStore[E], Generic[E]):
+    """PostgreSQL event store implementation."""
 
     def __init__(
         self,
-        db_session: AsyncSession | None = None,
-        logger_factory: Callable[..., LoggerService] | None = None,
-        event_table: str = "uno_events",
-    ):
-        self._db_session = db_session
-        self._logger_factory = logger_factory
-        self._event_table = event_table
-        self._initialized = False
-
-    async def initialize(self) -> None:
+        config: SQLConfig,
+        connection_manager: ConnectionManager,
+        logger: LoggerService,
+    ) -> None:
+        """Initialize PostgreSQL event store.
+        
+        Args:
+            config: SQL configuration
+            connection_manager: Connection manager
+            logger: Logger service
         """
-        Initialize the event store with database session and table setup.
-        """
-        if self._initialized:
-            return
+        self._config = config
+        self._connection_manager = connection_manager
+        self.logger = logger
+        self._metadata = MetaData()
+        self._table = self._create_event_table()
+        self._ensure_table_exists()
 
-        if self._db_session is None:
-            raise RuntimeError("db_session must be provided explicitly in strict DI mode.")
-        self.db_session = self._db_session
-        self.table_name = self._event_table
-        self.metadata = MetaData()
-        self.table = Table(
-            self.table_name,
-            self.metadata,
+    def _create_event_table(self) -> Table:
+        """Create event table definition."""
+        return Table(
+            "events",
+            self._metadata,
             Column("id", String, primary_key=True),
-            Column("aggregate_id", String, index=True, nullable=False),
-            Column("event_type", String, index=True, nullable=False),
-            Column("version", Integer, index=True, nullable=False),
-            Column("timestamp", TIMESTAMP, nullable=False),
-            Column("payload", JSONB, nullable=False),
-            sa.UniqueConstraint(
-                "aggregate_id", "version", name=f"uq_{self.table_name}_agg_ver"
-            ),
+            Column("aggregate_id", String, nullable=False, index=True),
+            Column("event_type", String, nullable=False),
+            Column("version", Integer, nullable=False),
+            Column("payload", JSON, nullable=False),
+            Column("created_at", DateTime, nullable=False, default=datetime.now(UTC)),
+            Column("event_hash", String, nullable=False),
         )
-        if self._logger_factory:
-            self.logger = self._logger_factory(name="eventstore_postgres")
-        else:
-            raise RuntimeError("logger_factory must be provided explicitly in strict DI mode.")
 
-    async def save_event(self, event: E) -> Result[None, Exception]:
-        """
-        Save a domain event to Postgres with concurrency/version check.
-        """
+    async def _ensure_table_exists(self) -> None:
+        """Ensure event table exists."""
         try:
-            async with self.db_session as session:
-                async with session.begin():
-                    payload = self._canonical_event_dict(event)
-                    aggregate_id = getattr(event, "aggregate_id", None)
-                    version = getattr(event, "version", None)
-                    event_type = getattr(event, "event_type", None)
-                    if not aggregate_id or version is None or not event_type:
-                        raise ValueError(
-                            "Event must have aggregate_id, version, event_type"
-                        )
-                    row = {
-                        "id": str(uuid4()),
-                        "aggregate_id": aggregate_id,
-                        "event_type": event_type,
-                        "version": version,
-                        "timestamp": getattr(event, "timestamp", datetime.now(UTC)),
-                        "payload": payload,
-                    }
-                    stmt = insert(self.table).values(**row)
-                    await session.execute(stmt)
-            self.logger.structured_log(
-                "INFO",
-                f"Saved event {event_type} v{version} for aggregate {aggregate_id}",
-                name="uno.events.pgstore",
-            )
-            return Success(None)
-        except IntegrityError as e:
-            self.logger.structured_log(
-                "ERROR",
-                f"Concurrency/version conflict for aggregate {aggregate_id} v{version}: {e}",
-                name="uno.events.pgstore",
-                error=e,
-            )
-            return Failure(e)
+            async with self._connection_manager.engine.begin() as conn:
+                await conn.run_sync(self._metadata.create_all)
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
-                f"Failed to save event: {e}",
+                f"Failed to create events table: {e}",
+                name="uno.events.pgstore",
+                error=e,
+            )
+            raise
+
+    async def save_event(self, event: E) -> Result[None, Exception]:
+        """Save a domain event to the store.
+        
+        Args:
+            event: The domain event to save
+            
+        Returns:
+            Result indicating success or failure
+        """
+        try:
+            async with self._connection_manager.get_connection() as session:
+                stmt = self._table.insert().values(
+                    id=event.event_id,
+                    aggregate_id=event.aggregate_id,
+                    event_type=event.event_type,
+                    version=event.version,
+                    payload=self._canonical_event_dict(event),
+                    event_hash=event.event_hash,
+                )
+                await session.execute(stmt)
+                await session.commit()
+                
+            self.logger.structured_log(
+                "INFO",
+                f"Saved event {event.event_type} for aggregate {event.aggregate_id}",
+                name="uno.events.pgstore",
+                event_id=event.event_id,
+                aggregate_id=event.aggregate_id,
+            )
+            return Success(None)
+        except Exception as e:
+            self.logger.structured_log(
+                "ERROR",
+                f"Failed to save event {event.event_type}: {e}",
                 name="uno.events.pgstore",
                 error=e,
             )
@@ -125,28 +114,40 @@ class PostgresEventStore(EventStore[E], ServiceLifecycle, Generic[E]):
         limit: int | None = None,
         since_version: int | None = None,
     ) -> Result[list[E], Exception]:
-        """
-        Get events by aggregate ID and/or event type, with optional limit and version filter.
+        """Get events by aggregate ID and/or event type.
+        
+        Args:
+            aggregate_id: The aggregate ID to filter by
+            event_type: The event type to filter by
+            limit: Maximum number of events to return
+            since_version: Return only events since this version
+            
+        Returns:
+            Result containing list of events or error
         """
         try:
-            async with self.db_session as session:
-                stmt = select(self.table)
+            async with self._connection_manager.get_connection() as session:
+                stmt = select(self._table)
                 if aggregate_id:
-                    stmt = stmt.where(self.table.c.aggregate_id == aggregate_id)
+                    stmt = stmt.where(self._table.c.aggregate_id == aggregate_id)
                 if event_type:
-                    stmt = stmt.where(self.table.c.event_type == event_type)
+                    stmt = stmt.where(self._table.c.event_type == event_type)
                 if since_version is not None:
-                    stmt = stmt.where(self.table.c.version >= since_version)
-                stmt = stmt.order_by(self.table.c.version)
+                    stmt = stmt.where(self._table.c.version >= since_version)
+                stmt = stmt.order_by(self._table.c.version)
                 if limit:
                     stmt = stmt.limit(limit)
-                rows = (await session.execute(stmt)).fetchall()
+                    
+                result = await session.execute(stmt)
+                rows = result.fetchall()
+                
                 events = []
                 for row in rows:
                     event_data = dict(row._mapping["payload"])
                     event_cls = DomainEvent.get_event_class(event_data["event_type"])
                     upcasted = event_cls.upcast(event_data)
                     events.append(upcasted)
+                    
             self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events from store",
@@ -165,24 +166,34 @@ class PostgresEventStore(EventStore[E], ServiceLifecycle, Generic[E]):
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
     ) -> Result[list[E], Exception]:
-        """
-        Get all events for a specific aggregate ID, optionally filtered by event types.
+        """Get all events for a specific aggregate ID.
+        
+        Args:
+            aggregate_id: The ID of the aggregate to get events for
+            event_types: Optional list of event types to filter by
+            
+        Returns:
+            Result containing list of events or error
         """
         try:
-            async with self.db_session as session:
-                stmt = select(self.table).where(
-                    self.table.c.aggregate_id == aggregate_id
+            async with self._connection_manager.get_connection() as session:
+                stmt = select(self._table).where(
+                    self._table.c.aggregate_id == aggregate_id
                 )
                 if event_types:
-                    stmt = stmt.where(self.table.c.event_type.in_(event_types))
-                stmt = stmt.order_by(self.table.c.version)
-                rows = (await session.execute(stmt)).fetchall()
+                    stmt = stmt.where(self._table.c.event_type.in_(event_types))
+                stmt = stmt.order_by(self._table.c.version)
+                
+                result = await session.execute(stmt)
+                rows = result.fetchall()
+                
                 events = []
                 for row in rows:
                     event_data = dict(row._mapping["payload"])
                     event_cls = DomainEvent.get_event_class(event_data["event_type"])
                     upcasted = event_cls.upcast(event_data)
                     events.append(upcasted)
+                    
             self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events for aggregate {aggregate_id}",

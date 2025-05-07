@@ -13,16 +13,18 @@ from uno.infrastructure.config.base import (
 )
 
 
+from pydantic import Field
+
 class DatabaseConfig(BaseSettings):
     # DATABASE SETTINGS
-    DB_USER: str
-    DB_USER_PW: str
-    DB_HOST: str
-    DB_PORT: int
-    DB_SCHEMA: str
-    DB_NAME: str
-    DB_SYNC_DRIVER: str
-    DB_ASYNC_DRIVER: str
+    DB_USER: str = Field(..., min_length=1)
+    DB_USER_PW: str = Field(..., min_length=1)
+    DB_HOST: str = Field(..., min_length=1)
+    DB_PORT: int = Field(..., ge=1, le=65535)
+    DB_SCHEMA: str = Field(..., min_length=1)
+    DB_NAME: str = Field(..., min_length=1)
+    DB_SYNC_DRIVER: str = Field(..., min_length=1)
+    DB_ASYNC_DRIVER: str = Field(..., min_length=1)
 
 
 class Prod(DatabaseConfig):
@@ -35,6 +37,7 @@ class Dev(DatabaseConfig):
 
 class Test(DatabaseConfig):
     model_config = TestSettingsConfigDict
+    __test__ = False
 
 
 # Create a dictionary of environment settings

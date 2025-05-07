@@ -7,63 +7,35 @@ Modern service provider for Uno framework.
 This module implements a service provider pattern that uses the scoped container
 to provide enhanced dependency injection functionality, including proper scoping,
 automatic dependency resolution, and improved lifecycle management.
+
+Note: All dependencies must be passed explicitly from the composition root.
 """
 
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable, Type, Callable
+import threading
 
 if TYPE_CHECKING:
     from uno.core.events.bus import EventBusProtocol
 
 from uno.core.errors.base import FrameworkError
-from uno.core.errors.definitions import DependencyResolutionError
+from uno.infrastructure.di.errors import DependencyResolutionError
 from uno.core.errors.result import Failure, Result, Success
-from uno.core.interfaces import (
-    ConfigProtocol,
-    DTOManagerProtocol,
-    SQLEmitterFactoryProtocol,
-    SQLExecutionProtocol,
-)
-from uno.infrastructure.di import ServiceCollection
-from uno.infrastructure.di.service_provider import ServiceProvider
-
-T = TypeVar("T")
-EntityT = TypeVar("EntityT")
-QueryT = TypeVar("QueryT")
-ResultT = TypeVar("ResultT")
+from uno.infrastructure.di.interfaces import ServiceProtocol
 
 
-@runtime_checkable
-class ServiceLifecycle(Protocol):
-    """Interface for services with custom initialization and disposal."""
+from uno.infrastructure.di import ServiceCollection, ServiceProvider, ServiceLifecycle
 
-    async def initialize(self) -> None:
-        """Initialize the service asynchronously."""
-        ...
-
-    async def dispose(self) -> None:
-        """Dispose the service asynchronously."""
-        ...
+# Type variables
+TService = TypeVar("TService", bound=Any)
+TImplementation = TypeVar("TImplementation", bound=Any)
+TFactory = TypeVar("TFactory", bound=Callable[..., Any])
+TEntity = TypeVar("TEntity", bound=Any)
+TQuery = TypeVar("TQuery", bound=Any)
+TResult = TypeVar("TResult", bound=Any)
 
 
-# Global service provider state
-_service_provider: ServiceProvider | None = None
-_service_provider_lock = threading.Lock()
-
-
-def get_singleton(cls, *args, **kwargs):
-    """
-    Generic thread-safe singleton factory for any class.
-    Usage: instance = get_singleton(MyClass, ...)
-    """
-    if not hasattr(cls, "_instance"):
-        with threading.Lock():
-            if not hasattr(cls, "_instance"):
-                cls._instance = cls(*args, **kwargs)
-    return cls._instance
-
-
-def register_singleton(
-    service_type: type[T], instance: T
+async def register_singleton(
+    service_type: type[TService], instance: TService, provider: ServiceProvider
 ) -> Result[None, FrameworkError]:
     """
     Register a singleton instance in the container.
@@ -74,12 +46,20 @@ def register_singleton(
     Args:
         service_type: The type to register
         instance: The instance to register
+        provider: The service provider instance
 
     Returns:
         Success(None) if registered successfully, or Failure with error details
+
+    Example:
+        ```python
+        # Register a singleton service
+        result = await register_singleton(IMyService, MyService(), provider)
+        if result.is_success:
+            print("Service registered successfully")
+        ```
     """
     try:
-        provider = get_service_provider()
         services = ServiceCollection()
         services.add_instance(service_type, instance)
         provider.configure_services(services)
@@ -93,41 +73,42 @@ def register_singleton(
         )
 
 
-async def initialize_services() -> None:
-    """
-    Initialize all services.
-
-    This function should be called during application startup to ensure
-    that all services are properly initialized and ready to use.
-    """
-    # Configure the base service collection
-    await configure_base_services()
-
-    # Initialize the service provider
-    provider = get_service_provider()
-    await provider.initialize()
-
-
-async def shutdown_services() -> None:
+async def shutdown_services(provider: ServiceProvider) -> None:
     """
     Shut down all services.
 
     This function should be called during application shutdown to ensure
     that all services are properly disposed.
+
+    Args:
+        provider: The service provider instance
+
+    Example:
+        ```python
+        # Shut down services
+        await shutdown_services(provider)
+        ```
     """
-    provider = get_service_provider()
-    await provider.shutdown()
+    provider.shutdown()
 
 
-async def configure_base_services() -> None:
+async def configure_base_services(provider: ServiceProvider) -> None:
     """
     Configure the base services for the application.
 
     This function configures the base services for the application,
     including the configuration service, database provider, and more.
+
+    Args:
+        provider: The service provider instance
+
+    Example:
+        ```python
+        # Configure base services
+        await configure_base_services(provider)
+        ```
     """
-    provider = get_service_provider()
-    if provider.is_initialized():
+    if provider._initialized:
         return
 
     # Create service collection
@@ -143,27 +124,11 @@ async def configure_base_services() -> None:
         vector_search_config,
     )
 
-    class UnoConfig(ConfigProtocol):
-        """Configuration provider implementation."""
+    from uno.infrastructure.config import GeneralConfig
 
-        def __init__(self, settings=None):
-            # Always resolve from DI unless explicitly injected
-            provider = get_service_provider()
-            self._settings = settings or provider.get_service(type(general_config))
-
-        def get_value(self, key: str, default: Any = None) -> Any:
-            """Get a configuration value by key."""
-            return getattr(self._settings, key, default)
-
-        def all(self) -> dict[str, Any]:
-            """Get all configuration values."""
-            return {
-                k: v
-                for k, v in self._settings.__dict__.items()
-                if not k.startswith("_")
-            }
-
-    services.add_singleton(ConfigProtocol, UnoConfig)
+    # Register configuration service
+    config = GeneralConfig()
+    services.add_instance(ConfigProtocol, config)
 
     # Register all config objects as singletons in DI
     from uno.infrastructure.config.api import APIConfig
@@ -182,87 +147,78 @@ async def configure_base_services() -> None:
 
     # Register LoggerService as a singleton
     from uno.infrastructure.logging.logger import LoggerService
-
     from uno.infrastructure.logging.logger import LoggingConfig
 
     logging_config = LoggingConfig()
-    services.add_singleton(
-        LoggerService, implementation=LoggerService, config=logging_config
-    )
+    services.add_singleton(LoggerService, LoggerService(logging_config))
+
+    # Register hash service
+    from uno.core.services.hash_service_protocol import HashServiceProtocol
+    from uno.core.services.default_hash_service import DefaultHashService
+    services.add_singleton(HashServiceProtocol, DefaultHashService)
 
     # Register database provider
-    from uno.infrastructure.config.database import DatabaseConfig
     from uno.infrastructure.di.providers.database import register_database_services
 
-    # Register database engine and session providers
-    register_database_services(services)
+    from uno.infrastructure.config.database import DatabaseConfig
+    
+    register_database_services(services, config=DatabaseConfig(
+        DB_USER=database_config.DB_USER,
+        DB_USER_PW=database_config.DB_USER_PW,
+        DB_HOST=database_config.DB_HOST,
+        DB_PORT=database_config.DB_PORT,
+        DB_SCHEMA=database_config.DB_SCHEMA,
+        DB_NAME=database_config.DB_NAME,
+        DB_SYNC_DRIVER=database_config.DB_SYNC_DRIVER,
+        DB_ASYNC_DRIVER=database_config.DB_ASYNC_DRIVER
+    ))
 
     # Register SQL emitter factory
     from uno.infrastructure.sql.services import SQLEmitterFactoryService
 
-    # Retrieve the DI-injected LoggerService instance
-    # Build the resolver and get LoggerService instance
-    resolver = services.build()
-    logger_service = resolver.get(LoggerService)
+    # Build the provider and get LoggerService instance
+    provider = ServiceProvider(services)
+    logger = provider.get_service(LoggerService)
 
     services.add_singleton(
         SQLEmitterFactoryProtocol,
         SQLEmitterFactoryService,
-        config=UnoConfig(),
-        # Use DI-injected LoggerService; downstream must call get_logger("uno.infrastructure.sql") if needed
-        logger=logger_service,
     )
 
     # Register SQL execution service
-
-    services.add_singleton(
-        SQLExecutionProtocol,
-        logger=logger_service,  # Use DI-injected LoggerService; downstream must call get_logger("uno.infrastructure.sql") if needed
-    )
+    from uno.infrastructure.sql.services.sql_execution_service import SQLExecutionService
+    from uno.infrastructure.di.providers.database import get_db_manager
+    
+    db_manager = get_db_manager(provider)
+    services.add_singleton(SQLExecutionServiceProtocol, SQLExecutionService, db_manager=db_manager, logger=logger)
 
     # Register schema manager
     from uno.schema.services import DTOManagerService
 
-    services.add_singleton(
-        DTOManagerProtocol,
-        DTOManagerService,
-        # Use DI-injected LoggerService; downstream must call get_logger("uno.schema") if needed
-        logger=logger_service,
-    )
+    services.add_singleton(DTOManagerProtocol, DTOManagerService, logger=logger)
 
     # Register event bus
-    from uno.core.events.handlers import EventHandler
-
-    # Import the concrete EventBus implementation only when needed
-    # to avoid circular imports
     from uno.core.events.handlers import EventBus
 
-    # Use DI-injected LoggerService; downstream must call get_logger("uno.events") if needed
-    event_bus = EventBus(logger=logger_service)
+    event_bus = EventBus(logger=logger)
     services.add_instance(EventBus, event_bus)
     services.add_instance(EventBusProtocol, event_bus)
 
     # Register domain registry
     from uno.domain.factory import DomainRegistry
 
-    services.add_singleton(
-        DomainRegistry,
-        DomainRegistry,  # Use DI-injected LoggerService; downstream must call get_logger("uno.domain") if needed
-        logger=logger_service,
-    )
+    services.add_singleton(DomainRegistry, DomainRegistry, logger=logger)
 
-    # Configure the service provider
+    # Get provider and configure services
     provider.configure_services(services)
 
     # Initialize vector search components if available
     try:
-        # Register vector search components
         from uno.infrastructure.di.vector_provider import configure_vector_services
 
         await configure_vector_services()
     except (ImportError, AttributeError) as e:
         logger_service.debug(f"Vector search provider not available: {e}")
-        pass
 
     # Register queries provider
     try:
@@ -281,123 +237,3 @@ async def configure_base_services() -> None:
     except (ImportError, AttributeError) as e:
         logger_service.debug(f"Reports provider not available: {e}")
         pass
-
-
-def get_service_provider() -> ServiceProvider:
-    """
-    Get the global service provider instance (thread-safe singleton).
-
-    If no provider exists, creates one with a default LoggerService using a minimal LoggingConfig.
-    This fallback avoids DI bootstrapping issues ("chicken-and-egg" problem).
-
-    Returns:
-        The service provider instance
-    """
-    global _service_provider
-    if _service_provider is None:
-        with _service_provider_lock:
-            if _service_provider is None:
-                from uno.infrastructure.logging.logger import (
-                    LoggerService,
-                    LoggingConfig,
-                )
-
-                logger = LoggerService(LoggingConfig())
-                _service_provider = ServiceProvider(logger=logger)
-    return _service_provider
-
-
-def reset_global_service_provider() -> None:
-    """
-    Reset the global DI service provider and all related global DI state.
-    Intended for test isolation and advanced scenarios.
-    """
-    global _service_provider
-    _service_provider = None
-    # If there are other globals (locks, caches), reset them here as well.
-
-
-# Generic thread-safe singleton pattern for any class (for future use)
-# Global service provider state
-_service_provider: ServiceProvider | None = None
-_service_provider_lock = threading.Lock()
-
-
-def get_service_provider() -> ServiceProvider:
-    """
-    Get the global service provider instance (thread-safe singleton).
-
-    If no provider exists, creates one with a default LoggerService using a minimal LoggingConfig.
-    This fallback avoids DI bootstrapping issues ("chicken-and-egg" problem).
-
-    Returns:
-        The service provider instance
-    """
-    global _service_provider
-    if _service_provider is None:
-        with _service_provider_lock:
-            if _service_provider is None:
-                from uno.infrastructure.logging.logger import (
-                    LoggerService,
-                    LoggingConfig,
-                )
-
-                logger = LoggerService(LoggingConfig())
-                _service_provider = ServiceProvider(logger=logger)
-    return _service_provider
-
-
-def reset_global_service_provider() -> None:
-    """
-    Reset the global DI service provider and all related global DI state.
-    Intended for test isolation and advanced scenarios.
-    """
-    global _service_provider
-    _service_provider = None
-    # If there are other globals (locks, caches), reset them here as well.
-
-
-def get_singleton(cls, *args, **kwargs) -> T:
-    """
-    Generic thread-safe singleton factory for any class.
-    Usage: instance = get_singleton(MyClass, ...)
-    """
-    if not hasattr(cls, "_singleton_instance"):
-        cls._singleton_lock = threading.Lock()
-        cls._singleton_instance = None
-    if cls._singleton_instance is None:
-        with cls._singleton_lock:
-            if cls._singleton_instance is None:
-                cls._singleton_instance = cls(*args, **kwargs)
-    return cls._singleton_instance
-
-
-def register_singleton(
-    service_type: type[T], instance: T
-) -> Result[None, FrameworkError]:
-    """
-    Register a singleton instance in the container.
-
-    This is useful for registering resources and services that should be
-    available globally across the application.
-
-    Args:
-        service_type: The type to register
-        instance: The instance to register
-
-    Returns:
-        Success(None) if registered successfully, or Failure with error details
-    """
-    try:
-        provider = get_service_provider()
-        services = ServiceCollection()
-        services.add_instance(service_type, instance)
-        provider.configure_services(services)
-        return Success(None)
-    except Exception as e:
-        return Failure(
-            DependencyResolutionError(
-                f"Failed to register singleton for {service_type.__name__}: {e!s}",
-                "DEPENDENCY_REGISTRATION_ERROR",
-            )
-        )

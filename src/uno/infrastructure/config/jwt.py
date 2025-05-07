@@ -13,11 +13,14 @@ from uno.infrastructure.config.base import (
 )
 
 
+from typing import Literal
+from pydantic import Field
+
 class JWTConfig(BaseSettings):
-    TOKEN_EXPIRE_MINUTES: int = 15
-    TOKEN_REFRESH_MINUTES: int = 30
-    TOKEN_ALGORITHM: str = "HS256"
-    TOKEN_SECRET: str
+    TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1, le=1440)
+    TOKEN_REFRESH_MINUTES: int = Field(default=30, ge=1, le=10080)
+    TOKEN_ALGORITHM: Literal["HS256", "RS256"] = "HS256"
+    TOKEN_SECRET: str = Field(..., min_length=8)
 
 
 class Prod(JWTConfig):
@@ -30,6 +33,7 @@ class Dev(JWTConfig):
 
 class Test(JWTConfig):
     model_config = TestSettingsConfigDict
+    __test__ = False
 
 
 # Create a dictionary of environment settings

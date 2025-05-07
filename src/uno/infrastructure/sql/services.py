@@ -15,7 +15,12 @@ if TYPE_CHECKING:
         SQLEmitterProtocol,
     )
     from sqlalchemy.engine import Connection
-    from uno.core.interfaces import (
+    from uno.infrastructure.sql.interfaces import (
+        DBManagerProtocol,
+        ConfigProtocol,
+        SQLEmitterFactoryProtocol,
+    )
+
         DBManagerProtocol,
         ConfigProtocol,
         SQLEmitterFactoryProtocol,
@@ -31,10 +36,10 @@ if TYPE_CHECKING:
     from uno.infrastructure.sql.emitters.table import InsertMetaRecordFunction
     from uno.infrastructure.sql.emitters.triggers import RecordUserAuditFunction
     from uno.infrastructure.sql.statement import SQLStatement
-    from uno.core.interfaces import SQLEmitterFactoryProtocol
+    from uno.infrastructure.sql.interfaces import SQLEmitterFactoryProtocol
 
-from uno.core.interfaces import SQLEmitterFactoryProtocol
-from uno.core.interfaces import ConfigProtocol
+from uno.infrastructure.sql.interfaces import SQLEmitterFactoryProtocol
+from uno.infrastructure.sql.interfaces import ConfigProtocol
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement
 from uno.infrastructure.sql.emitters.database import (
@@ -47,12 +52,17 @@ from uno.infrastructure.sql.emitters.database import (
 )
 from uno.infrastructure.sql.emitters.table import InsertMetaRecordFunction
 from uno.infrastructure.sql.emitters.triggers import RecordUserAuditFunction
-from uno.core.interfaces import DBManagerProtocol
+from uno.infrastructure.sql.interfaces import DBManagerProtocol
 
 # Use canonical ConfigProtocol import
 
 
-class SQLEmitterFactoryService(SQLEmitterFactoryProtocol):
+class SQLEmitterFactoryService:
+    """
+    Factory service for creating SQL emitters.
+    Implements the SQLEmitterFactoryProtocol contract via composition and duck typing (no inheritance).
+    """
+
     """
     Factory service for creating SQL emitters.
     """

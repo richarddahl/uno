@@ -16,10 +16,11 @@ from uno.infrastructure.di.service_provider import ServiceProvider
 from .api import APIConfig, api_config
 from .application import ApplicationConfig, application_config
 from .database import DatabaseConfig, database_config
-from .general import ConfigService, GeneralConfig, general_config
+from .general import GeneralConfig, general_config
 from .jwt import JWTConfig, get_jwt_config
 from .security import SecurityConfig, security_config
 from .vector_search import VectorSearchConfig, vector_search_config
+from uno.infrastructure.sql.config import SQLConfig, sql_config
 
 # Create a service collection for configuration services
 services = ServiceCollection()
@@ -31,7 +32,6 @@ __all__ = [
     "application_config",
     "DatabaseConfig",
     "database_config",
-    "ConfigService",
     "GeneralConfig",
     "general_config",
     "JWTConfig",
@@ -40,28 +40,28 @@ __all__ = [
     "security_config",
     "VectorSearchConfig",
     "vector_search_config",
-    "get_config",
+    "SQLConfig",
+    "sql_config",
     "services",
 ]
 
 
 # Register all config instances
-services.add_singleton(APIConfig, api_config)
+services.add_instance(APIConfig, api_config)
 # Example: register a named config variant
-services.add_singleton(APIConfig, api_config, name="readonly")
-services.add_singleton(ApplicationConfig, application_config)
-services.add_singleton(DatabaseConfig, database_config)
+services.add_instance(APIConfig, api_config, name="api.readonly")
+services.add_instance(ApplicationConfig, application_config)
+services.add_instance(DatabaseConfig, database_config)
 # Example: register a named config variant
-services.add_singleton(DatabaseConfig, database_config, name="readonly")
-services.add_singleton(GeneralConfig, general_config)
-services.add_singleton(SecurityConfig, security_config)
-services.add_singleton(VectorSearchConfig, vector_search_config)
-
+services.add_instance(DatabaseConfig, database_config, name="database.readonly")
+services.add_instance(GeneralConfig, general_config)
+services.add_instance(SecurityConfig, security_config)
+services.add_instance(VectorSearchConfig, vector_search_config)
+services.add_instance(SQLConfig, sql_config)
 
 # NOTE: Strict DI mode: All configuration dependencies must be passed explicitly from the composition root.
-# There is no global service provider or config provider. Do not use service locator patterns.
 
-def get_config(config_type: Type[Any]) -> Any:
+def get_config(config_type: type[Any]) -> Any:
     """
     Get a configuration instance by type.
 
@@ -89,6 +89,8 @@ def get_config(config_type: Type[Any]) -> Any:
         return security_config
     elif config_type is VectorSearchConfig:
         return vector_search_config
+    elif config_type is SQLConfig:
+        return sql_config
 
     # Strict DI mode: Only statically registered configs are available here.
     raise ValueError(f"Configuration {config_type.__name__} not found. All configs must be injected explicitly.")

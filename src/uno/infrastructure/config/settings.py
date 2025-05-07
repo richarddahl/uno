@@ -83,9 +83,10 @@ class Dev(General):
 
 class Test(General):
     model_config = SettingsConfigDict(case_sensitive=False, env_file=".env_test")
+    __test__ = False
 
 
 # Create a dictionary of environment settings
-env_settings: dict[str, Type[General]] = {"dev": Dev, "test": Test, "prod": Prod}
+env_settings: dict[str, type[General]] = {"dev": Dev, "test": Test, "prod": Prod}
 # Select the environment settings based on the ENV variable
 uno_settings: Dev | Test | Prod = env_settings[os.environ.get("ENV", "dev").lower()]()

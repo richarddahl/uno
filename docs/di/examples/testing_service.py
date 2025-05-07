@@ -23,10 +23,10 @@ from uno.infrastructure.di.errors import ServiceConfigurationError
 # Define interfaces
 class IUserService(Protocol):
     """Interface for user services."""
-    async def get_user(self, user_id: str) -> Dict[str, Any]:
+    async def get_user(self, user_id: str) -> dict[str, Any]:
         """Get a user by ID."""
         ...
-    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new user."""
         ...
 
@@ -40,7 +40,7 @@ class UserServiceContract(ServiceContract):
         if not isinstance(user_id, str):
             raise ServiceConfigurationError("User ID must be a string")
 
-    def validate_create_user(self, user_data: Dict[str, Any]) -> None:
+    def validate_create_user(self, user_data: dict[str, Any]) -> None:
         """Validate create_user parameters."""
         if not user_data:
             raise ServiceConfigurationError("User data is required")
@@ -73,14 +73,14 @@ class UserService:
     """User service implementation."""
     def __init__(self, options: UserServiceOptions):
         self.options = options
-        self.users: Dict[str, Dict[str, Any]] = {}
+        self.users: dict[str, dict[str, Any]] = {}
         self._version = ServiceVersion("1.0.0")
 
-    async def get_user(self, user_id: str) -> Dict[str, Any]:
+    async def get_user(self, user_id: str) -> dict[str, Any]:
         """Get a user by ID."""
         return self.users.get(user_id, {})
 
-    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new user."""
         if len(self.users) >= self.options.max_users:
             raise ServiceConfigurationError("Maximum number of users reached")
@@ -98,16 +98,16 @@ class UserService:
 class UserServiceMock(ServiceMock):
     """Mock implementation of user service."""
     def __init__(self):
-        self.users: Dict[str, Dict[str, Any]] = {}
+        self.users: dict[str, dict[str, Any]] = {}
         self.get_user_calls = 0
         self.create_user_calls = 0
 
-    async def get_user(self, user_id: str) -> Dict[str, Any]:
+    async def get_user(self, user_id: str) -> dict[str, Any]:
         """Mock get_user implementation."""
         self.get_user_calls += 1
         return self.users.get(user_id, {})
 
-    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
         """Mock create_user implementation."""
         self.create_user_calls += 1
         user_id = f"mock_user_{len(self.users) + 1}"

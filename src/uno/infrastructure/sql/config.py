@@ -7,10 +7,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
+from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import Table
+from pydantic_settings import BaseSettings
+from uno.infrastructure.config.base import ProdSettingsConfigDict
+from uno.infrastructure.sql.interfaces import ConfigManagerProtocol
 
 if TYPE_CHECKING:
     from uno.infrastructure.sql.engine import SyncEngineFactory
@@ -64,103 +68,169 @@ from uno.core.errors.result import Failure, Result, Success
 from uno.infrastructure.sql.interfaces import EngineFactoryProtocol
 
 
-class SQLConfig(BaseModel):
-    """Configuration for SQL generation and execution for a table.
-
-    This class manages SQL emitters for specific tables or database operations.
-    It maintains a registry of all SQLConfig subclasses for dynamic registration
-    and discovery.
-
-    Attributes:
-        default_emitters: Default emitters to use for this config
-        table: Table for which SQL is being generated
-        connection_config: Connection configuration
-        engine_factory: Engine factory for creating connections
-        emitters: Emitter instances
-    """
-
-    # Default emitters to use for this config
-    default_emitters: ClassVar[list[type["SQLEmitter"]]] = []  # type: ignore
-
-    # The table for which SQL is being generated
-    table: ClassVar[Table | None] = None
-
-    # Connection configuration
-    connection_config: ConnectionConfigProtocol | None = (
-        None  # DI: injected, type-hinted with Protocol for extensibility
+class SQLConfig(BaseSettings):
+    """SQL configuration."""
+    
+    # Connection settings
+    DB_HOST: str = Field(default="localhost")
+    DB_PORT: int = Field(default=5432)
+    DB_NAME: str = Field(default="uno_db")
+    DB_USER: str = Field(default="uno_user")
+    DB_PASSWORD: str = Field(default="uno_password")
+    
+    # SQLAlchemy settings
+    DB_POOL_SIZE: int = Field(default=5)
+    DB_MAX_OVERFLOW: int = Field(default=10)
+    DB_POOL_TIMEOUT: float = Field(default=30.0)
+    DB_POOL_RECYCLE: int = Field(default=1800)
+    DB_ECHO: bool = Field(default=False)
+    DB_ECHO_POOL: bool = Field(default=False)
+    
+    # Transaction settings
+    DB_ISOLATION_LEVEL: str = Field(default="READ COMMITTED")
+    DB_READ_ONLY: bool = Field(default=False)
+    
+    # Validation settings
+    DB_VALIDATE_SYNTAX: bool = Field(default=True)
+    DB_VALIDATE_DEPENDENCIES: bool = Field(default=True)
+    DB_CHECK_PERMISSIONS: bool = Field(default=True)
+    
+    # Security settings
+    DB_CHECK_SQL_INJECTION: bool = Field(default=True)
+    DB_AUDIT_LOGGING: bool = Field(default=True)
+    
+    model_config = ConfigDict(
+        env_prefix="DB_",
+        extra="forbid"
     )
+    
+    # Performance settings
+    DB_LOG_PERFORMANCE: bool = Field(default=True, description="Log performance metrics")
+    DB_SLOW_QUERY_THRESHOLD: float = Field(default=1.0, description="Slow query threshold in seconds")
+    
+    # Testing settings
+    DB_TEST_DATABASE: str = Field(default="test_db", description="Test database name")
+    DB_TEST_USER: str = Field(default="test_user", description="Test database user")
+    DB_TEST_PASSWORD: str = Field(default="test_password", description="Test database password")
+    
+    # Documentation settings
+    DB_DOCS_INCLUDE_SCHEMAS: bool = Field(default=True, description="Include schema documentation")
+    DB_DOCS_INCLUDE_TABLES: bool = Field(default=True, description="Include table documentation")
+    DB_DOCS_INCLUDE_VIEWS: bool = Field(default=True, description="Include view documentation")
+    DB_DOCS_INCLUDE_FUNCTIONS: bool = Field(default=True, description="Include function documentation")
+    DB_DOCS_INCLUDE_TRIGGERS: bool = Field(default=True, description="Include trigger documentation")
+    
+    # Migration settings
+    DB_MIGRATIONS_DIR: Path = Field(default=Path("migrations"), description="Migrations directory")
+    DB_MIGRATIONS_TABLE: str = Field(default="schema_versions", description="Schema versions table")
+    
+    # Logging settings
+    DB_LOG_SQL: bool = Field(default=True, description="Log SQL statements")
+    DB_LOG_ERRORS: bool = Field(default=True, description="Log SQL errors")
+    DB_LOG_PERFORMANCE: bool = Field(default=True, description="Log performance metrics")
+    
+    def get_connection_url(self) -> str:
+        """Get SQLAlchemy connection URL."""
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    
+    def get_engine_options(self) -> dict[str, Any]:
+        """Get SQLAlchemy engine options."""
+        return {
+            "pool_size": self.DB_POOL_SIZE,
+            "max_overflow": self.DB_MAX_OVERFLOW,
+            "pool_timeout": self.DB_POOL_TIMEOUT,
+            "pool_recycle": self.DB_POOL_RECYCLE,
+            "echo": self.DB_ECHO,
+            "echo_pool": self.DB_ECHO_POOL,
+            "isolation_level": self.DB_ISOLATION_LEVEL,
+        }
 
-    # Engine factory for creating connections
-    engine_factory: EngineFactoryProtocol | None = (
-        None  # Injected by DI, type-hinted with Protocol for extensibility
-    )
 
-    # Emitter instances
-    emitters: list["SQLEmitter"] = []  # type: ignore
+# Create default SQL configuration instance
+sql_config = SQLConfig()
 
-    model_config = {"arbitrary_types_allowed": True}
 
-    def __init_subclass__(cls, **kwargs) -> None:
-        """Register the SQLConfig subclass in the registry.
+class ConfigManager:
+    """Manages SQL configuration."""
 
+    def __init__(self) -> None:
+        """Initialize config manager."""
+        self._config: Optional[SQLConfig] = None
+
+    def load_config(self, config_path: str) -> Result[None, str]:
+        """Load configuration from file.
+        
         Args:
-            **kwargs: Additional keyword arguments
-
-        Raises:
-            FrameworkError: If a subclass with the same name already exists in the registry
+            config_path: Path to configuration file
+            
+        Returns:
+            Result indicating success or failure
         """
-        super().__init_subclass__(**kwargs)
-        if cls is not SQLConfig:  # Don't register the base class
-            SQLConfigRegistry.register(cls)
-
-    def __init__(self, **kwargs):
-        """Initialize the SQLConfig with default emitters if none provided.
-
-        Args:
-            **kwargs: Initialization parameters
-        """
-        super().__init__(**kwargs)
-
-        # If no emitters were provided, create them from default_emitters
-        if not self.emitters and self.__class__.default_emitters:
-            self.emitters = [
-                emitter_cls(
-                    table=self.__class__.table,
-                    connection_config=self.connection_config,
-                    engine_factory=self.engine_factory,
-                )
-                for emitter_cls in self.__class__.default_emitters
-            ]
-
-    def emit_sql(self, connection: Connection | None = None) -> None:
-        """Emit SQL for all registered emitters.
-
-        Args:
-            connection: Optional existing connection to use. If not provided,
-                       a new connection will be created using the engine factory.
-
-        Raises:
-            FrameworkError: If SQL emission fails
-        """
-        should_create_connection = connection is None
-
         try:
-            if should_create_connection:
-                raise RuntimeError(
-                    "SQLConfig.emit_sql requires engine_factory (DI) and connection to be provided externally. Do not construct engine or connection in config."
-                )
-            else:
-                self._emit_sql_internal(connection)
-        except SQLAlchemyError as e:
-            logging.error(f"Error emitting SQL: {e}")
-            raise FrameworkError(f"Failed to emit SQL: {e}", "SQL_EMISSION_ERROR")
+            # TODO: Implement configuration loading
+            # This would typically load from a YAML or JSON file
+            return Success(None)
+        except Exception as e:
+            return Failure(str(e))
 
-    def _emit_sql_internal(self, connection: Connection) -> None:
-        """Internal method to emit SQL statements.
-
-        Args:
-            connection: Database connection
+    def validate_config(self) -> Result[None, str]:
+        """Validate configuration.
+        
+        Returns:
+            Result indicating success or failure
         """
-        for emitter in self.emitters:
-            logging.info(f"Emitting SQL for {emitter.__class__.__name__}")
-            emitter.emit_sql(connection)
+        try:
+            if not self._config:
+                return Failure("Configuration not loaded")
+            # TODO: Implement configuration validation
+            return Success(None)
+        except Exception as e:
+            return Failure(str(e))
+
+    def _parse_config_file(self, config_path: str) -> dict[str, Any]:
+        """Parse configuration file.
+        
+        Args:
+            config_path: Path to configuration file
+            
+        Returns:
+            Configuration dictionary
+        """
+        # TODO: Implement configuration file parsing
+        return {}
+
+    def _validate_connection_config(self) -> None:
+        """Validate connection configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement connection validation
+
+    def _validate_transaction_config(self) -> None:
+        """Validate transaction configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement transaction validation
+
+    def _validate_validation_config(self) -> None:
+        """Validate validation configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement validation configuration
+
+    def _validate_security_config(self) -> None:
+        """Validate security configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement security validation
+
+    def _validate_migration_config(self) -> None:
+        """Validate migration configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement migration validation
+
+    def _validate_documentation_config(self) -> None:
+        """Validate documentation configuration."""
+        if not self._config:
+            raise ValueError("Configuration not loaded")
+        # TODO: Implement documentation validation

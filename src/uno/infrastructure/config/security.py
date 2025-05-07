@@ -12,8 +12,10 @@ from uno.infrastructure.config.base import (
 )
 
 
+from pydantic import Field
+
 class SecurityConfig(BaseSettings):
-    LOGIN_URL: str
+    LOGIN_URL: str = Field(..., min_length=1)
     FORCE_RLS: bool = True
 
 
@@ -27,6 +29,7 @@ class Dev(SecurityConfig):
 
 class Test(SecurityConfig):
     model_config = TestSettingsConfigDict
+    __test__ = False
 
 
 # Create a dictionary of environment settings

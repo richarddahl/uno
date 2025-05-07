@@ -28,7 +28,7 @@ from uno.infrastructure.di.errors import ServiceConfigurationError
 # Define interfaces
 class IDatabaseService(Protocol):
     """Interface for database services."""
-    async def query(self, sql: str) -> List[Dict[str, Any]]:
+    async def query(self, sql: str) -> list[dict[str, Any]]:
         """Execute a query."""
         ...
 
@@ -112,7 +112,7 @@ class DatabaseService(ServiceLifecycle, ServiceEventEmitter):
             data={"timestamp": datetime.now().isoformat()}
         ))
 
-    async def query(self, sql: str) -> List[Dict[str, Any]]:
+    async def query(self, sql: str) -> list[dict[str, Any]]:
         """Execute a query."""
         self.emit_event(ServiceEvent(
             type=ServiceEventType.QUERY_EXECUTED,
@@ -134,7 +134,7 @@ class DatabaseService(ServiceLifecycle, ServiceEventEmitter):
 class CacheService(ServiceLifecycle):
     """Cache service implementation."""
     def __init__(self):
-        self.cache: Dict[str, Any] = {}
+        self.cache: dict[str, Any] = {}
         self._version = ServiceVersion("1.0.0")
 
     async def initialize(self) -> None:
@@ -161,7 +161,7 @@ class CachedDatabaseService(ServiceComposite):
         self.database = database
         self.cache = cache
 
-    async def query(self, sql: str) -> List[Dict[str, Any]]:
+    async def query(self, sql: str) -> list[dict[str, Any]]:
         """Execute a query with caching."""
         # Try to get from cache first
         cache_key = f"query:{sql}"

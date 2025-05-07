@@ -3,11 +3,14 @@ Dependency injection extensions for event middleware.
 
 This module provides extension methods for the Uno DI container
 to easily register event middleware components.
+
+Note: All dependencies must be passed explicitly from the composition root.
 """
 
-from typing import Any, Protocol
+from typing import Any, TypeVar, Callable
 
 from uno.infrastructure.di.service_collection import ServiceCollection
+from uno.infrastructure.di.interfaces import MiddlewareRegistry
 from uno.core.events.middleware import (
     CircuitBreakerOptions,
     MetricsOptions,
@@ -22,20 +25,10 @@ from uno.core.events.middleware_di import (
 )
 from uno.core.events.middleware_factory import EventHandlerMiddlewareFactory
 
-
-class MiddlewareRegistry(Protocol):
-    """Protocol for middleware registration."""
-
-    def register_middleware(self, middleware: Any) -> None:
-        """Register middleware globally."""
-        ...
-
-    def register_middleware_for_event_type(
-        self, event_type: str, middleware: Any
-    ) -> None:
-        """Register middleware for a specific event type."""
-        ...
-
+# Type variables
+TService = TypeVar("TService", bound=Any)
+TImplementation = TypeVar("TImplementation", bound=Any)
+TFactory = TypeVar("TFactory", bound=Callable[..., Any])
 
 def add_event_middleware(services: ServiceCollection) -> ServiceCollection:
     """
@@ -49,12 +42,35 @@ def add_event_middleware(services: ServiceCollection) -> ServiceCollection:
 
     Returns:
         The updated service collection
+
+    Example:
+        ```python
+        # Add event middleware services
+        services = add_event_middleware(services)
+        ```
     """
     return register_middleware_services(services)
 
 
 class MiddlewareBuilder:
-    """Builder for configuring and registering middleware components."""
+    """
+    Builder for configuring and registering middleware components.
+
+    This class provides a fluent interface for configuring and registering
+    middleware components with the event system.
+
+    Note: All dependencies must be passed explicitly from the composition root.
+
+    Example:
+        ```python
+        # Configure middleware using builder
+        builder = MiddlewareBuilder(services, registry)
+        builder.add_standard_middleware()  # Add all standard middleware
+        builder.add_retry()  # Add retry middleware
+        builder.add_circuit_breaker()  # Add circuit breaker middleware
+        builder.add_metrics()  # Add metrics middleware
+        ```
+    """
 
     def __init__(self, services: ServiceCollection, registry: MiddlewareRegistry):
         """
@@ -63,6 +79,12 @@ class MiddlewareBuilder:
         Args:
             services: The service collection
             registry: The event handler registry
+
+        Example:
+            ```python
+            # Create middleware builder
+            builder = MiddlewareBuilder(services, registry)
+            ```
         """
         self.services = services
         self.registry = registry
@@ -78,6 +100,15 @@ class MiddlewareBuilder:
 
         Returns:
             The builder instance for chaining
+
+        Example:
+            ```python
+            # Add standard middleware for all events
+            builder.add_standard_middleware()
+
+            # Add standard middleware for specific events
+            builder.add_standard_middleware(["user.created", "user.updated"])
+            ```
         """
         register_standard_middleware(self.services, self.registry, event_types)
         return self
@@ -94,6 +125,19 @@ class MiddlewareBuilder:
 
         Returns:
             The builder instance for chaining
+
+        Example:
+            ```python
+            # Add retry middleware with default options
+            builder.add_retry()
+
+            # Add retry middleware with custom options
+            options = RetryOptions(max_retries=5, base_delay_ms=200)
+            builder.add_retry(options)
+
+            # Add retry middleware for specific events
+            builder.add_retry(event_types=["user.created"])
+            ```
         """
         add_retry_middleware(self.services, self.registry, options, event_types)
         return self
@@ -112,6 +156,19 @@ class MiddlewareBuilder:
 
         Returns:
             The builder instance for chaining
+
+        Example:
+            ```python
+            # Add circuit breaker middleware with default options
+            builder.add_circuit_breaker()
+
+            # Add circuit breaker middleware with custom options
+            options = CircuitBreakerOptions(failure_threshold=3)
+            builder.add_circuit_breaker(options)
+
+            # Add circuit breaker middleware for specific events
+            builder.add_circuit_breaker(event_types=["user.created"])
+            ```
         """
         add_circuit_breaker_middleware(
             self.services, self.registry, options, event_types
@@ -132,6 +189,19 @@ class MiddlewareBuilder:
 
         Returns:
             The builder instance for chaining
+
+        Example:
+            ```python
+            # Add metrics middleware with default options
+            builder.add_metrics()
+
+            # Add metrics middleware with custom options
+            options = MetricsOptions(report_interval_seconds=30)
+            builder.add_metrics(options)
+
+            # Add metrics middleware for specific events
+            builder.add_metrics(event_types=["user.created"])
+            ```
         """
         add_metrics_middleware(self.services, self.registry, options, event_types)
         return self
@@ -140,7 +210,7 @@ class MiddlewareBuilder:
 def configure_event_middleware(
     services: ServiceCollection,
     registry: MiddlewareRegistry,
-    configuration_action: callable[[MiddlewareBuilder], Any] | None = None,
+    configuration_action: Callable[[MiddlewareBuilder], Any] | None = None,
 ) -> None:
     """
     Configure event middleware using a builder pattern.
@@ -149,6 +219,20 @@ def configure_event_middleware(
         services: The service collection
         registry: The event handler registry
         configuration_action: Optional action to configure middleware
+
+    Example:
+        ```python
+        # Configure middleware with default settings
+        configure_event_middleware(services, registry)
+
+        # Configure middleware with custom settings
+        def configure(builder):
+            builder.add_retry()
+            builder.add_circuit_breaker()
+            builder.add_metrics()
+
+        configure_event_middleware(services, registry, configure)
+        ```
     """
     # Register middleware services if not already registered
     middleware_factory = services.try_get_service(EventHandlerMiddlewareFactory)

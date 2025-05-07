@@ -52,6 +52,7 @@ class Dev(LoggingConfig):
 
 class Test(LoggingConfig):
     model_config = TestSettingsConfigDict
+    __test__ = False
 
 
 # DI-managed LoggerService implementation
@@ -342,14 +343,14 @@ class LoggerService:
         JSON: error/trace context fields are flattened at the top level.
         Standard: error/trace context fields appended to the log message if present.
         """
-        cfg = self._config
-        if cfg.JSON_FORMAT:
+        config = self._config
+        if config.JSON_FORMAT:
             import json
 
             class JsonFormatter(logging.Formatter):
                 def format(self, record: logging.LogRecord) -> str:
                     base = {
-                        "timestamp": self.formatTime(record, cfg.DATE_FORMAT),
+                        "timestamp": self.formatTime(record, config.DATE_FORMAT),
                         "level": record.levelname,
                         "logger": record.name,
                         "message": record.getMessage(),
@@ -385,7 +386,7 @@ class LoggerService:
                             msg = f"{msg} | {' '.join(extras)}"
                     return msg
 
-            return StandardFormatter(fmt=cfg.FORMAT, datefmt=cfg.DATE_FORMAT)
+            return StandardFormatter(fmt=config.FORMAT, datefmt=config.DATE_FORMAT)
 
     def reload_config(self) -> None:
         """
@@ -394,9 +395,9 @@ class LoggerService:
         Call after updating config for dynamic, no-restart changes.
         """
         self._configure_root_logger()
-        cfg = self._config
+        config = self._config
         formatter = self._get_formatter()
-        level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
+        level = getattr(logging, config.LEVEL.upper(), logging.INFO)
         for name, logger in self._loggers.items():
             logger.setLevel(level)
             # Remove all handlers robustly (including inherited ones)
@@ -404,23 +405,23 @@ class LoggerService:
                 logger.removeHandler(logger.handlers[0])
             # Prevent duplicate handlers by checking existing ones
             handler_ids = set()
-            if cfg.CONSOLE_OUTPUT:
+            if config.CONSOLE_OUTPUT:
                 console_handler = logging.StreamHandler(sys.stdout)
                 console_handler.setFormatter(formatter)
                 if id(console_handler) not in handler_ids:
                     logger.addHandler(console_handler)
                     handler_ids.add(id(console_handler))
-            if cfg.FILE_OUTPUT and cfg.FILE_PATH:
+            if config.FILE_OUTPUT and config.FILE_PATH:
                 file_handler = logging.handlers.RotatingFileHandler(
-                    cfg.FILE_PATH,
-                    maxBytes=cfg.MAX_BYTES,
-                    backupCount=cfg.BACKUP_COUNT,
+                    config.FILE_PATH,
+                    maxBytes=config.MAX_BYTES,
+                    backupCount=config.BACKUP_COUNT,
                 )
                 file_handler.setFormatter(formatter)
                 if id(file_handler) not in handler_ids:
                     logger.addHandler(file_handler)
                     handler_ids.add(id(file_handler))
-            logger.propagate = cfg.PROPAGATE
+            logger.propagate = config.PROPAGATE
         # For test isolation: clear loggers if not initialized
         if not self._initialized:
             self._loggers.clear()
@@ -467,29 +468,29 @@ class LoggerService:
                 self._logger_service._trace_context_var.reset(self._token)
 
     def _configure_root_logger(self) -> None:
-        cfg = self._config
-        level = getattr(logging, cfg.LEVEL.upper(), logging.INFO)
+        config = self._config
+        level = getattr(logging, config.LEVEL.upper(), logging.INFO)
         handlers = []
         formatter = self._get_formatter()
         # Clear all handlers from root logger to allow reconfiguration (important for tests!)
         root_logger = logging.getLogger()
         for h in list(root_logger.handlers):
             root_logger.removeHandler(h)
-        if cfg.CONSOLE_OUTPUT:
+        if config.CONSOLE_OUTPUT:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setFormatter(formatter)
             handlers.append(console_handler)
-        if cfg.FILE_OUTPUT and cfg.FILE_PATH:
+        if config.FILE_OUTPUT and config.FILE_PATH:
             file_handler = logging.handlers.RotatingFileHandler(
-                cfg.FILE_PATH,
-                maxBytes=cfg.MAX_BYTES,
-                backupCount=cfg.BACKUP_COUNT,
+                config.FILE_PATH,
+                maxBytes=config.MAX_BYTES,
+                backupCount=config.BACKUP_COUNT,
             )
             file_handler.setFormatter(formatter)
             handlers.append(file_handler)
         logging.basicConfig(
             level=level,
             handlers=handlers if handlers else None,
-            format=cfg.FORMAT,
-            datefmt=cfg.DATE_FORMAT,
+            format=config.FORMAT,
+            datefmt=config.DATE_FORMAT,
         )

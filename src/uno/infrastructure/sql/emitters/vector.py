@@ -11,7 +11,7 @@ hybrid vector-graph search.
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
-from uno.core.interfaces import ConfigProtocol
+from uno.infrastructure.sql.interfaces import ConfigProtocol
 from uno.core.errors import FrameworkError
 from uno.infrastructure.logging import LoggerService
 from uno.infrastructure.sql.emitter import SQLEmitter

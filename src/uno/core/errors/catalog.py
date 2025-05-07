@@ -194,6 +194,107 @@ class ErrorCatalog:
             retry_allowed=True,
         )
 
+        # DI error codes
+        register_error(
+            code="DI-0001",
+            message_template="Service discovery validation failed: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Service discovery validation failed",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0002",
+            message_template="Service not found: {message}",
+            category=ErrorCategory.RESOURCE,
+            severity=ErrorSeverity.ERROR,
+            description="Requested service is not registered in the DI container",
+            http_status_code=404,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0003",
+            message_template="Service registration failed: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Service registration is invalid or incompatible",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0004",
+            message_template="Circular dependency detected: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Circular dependency detected during DI resolution",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0005",
+            message_template="Dependency resolution failed: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Dependency could not be resolved in the DI container",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0006",
+            message_template="Scope error: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Error related to DI service scopes",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0007",
+            message_template="Extra parameters provided: {message}",
+            category=ErrorCategory.VALIDATION,
+            severity=ErrorSeverity.ERROR,
+            description="Extra parameters were provided to a DI service constructor",
+            http_status_code=400,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0008",
+            message_template="Missing required parameters: {message}",
+            category=ErrorCategory.VALIDATION,
+            severity=ErrorSeverity.ERROR,
+            description="Required parameters are missing for a DI service constructor",
+            http_status_code=400,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0009",
+            message_template="Factory error: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="DI factory callable failed to produce a service instance",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
+        register_error(
+            code="DI-0010",
+            message_template="Service resolution failed: {message}",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+            description="Service could not be resolved in the DI container",
+            http_status_code=500,
+            retry_allowed=False,
+        )
+
         # Database error codes
         register_error(
             code="DB-0001",
