@@ -39,7 +39,8 @@ service_collection.add_instance(InMemoryVendorRepository, vendor_repo)
 service_collection.add_instance(InventoryItemRepository, repo)
 service_collection.add_instance(InMemoryInventoryItemRepository, repo)
 service_collection.add_singleton(
-    InventoryItemService, implementation_type=InventoryItemService
+    InventoryItemService,
+    factory=lambda: InventoryItemService(repo=repo, logger=logger_service)
 )
 service_collection.add_singleton(
     VendorService,
@@ -48,15 +49,46 @@ service_collection.add_singleton(
 
 # Create service provider with proper initialization
 service_provider = ServiceProvider(service_collection)
-service_provider.configure_services(service_collection)
 
 
-def app_factory() -> FastAPI:
+async def app_factory() -> FastAPI:
     app = FastAPI(title="Uno Example App", version="0.2.0")
 
-    # Use module-level singletons for all endpoints
-    # (repo, vendor_repo, vendor_service, etc. are already resolved above)
-    # ... (rest of the function remains unchanged)
+    # Create service provider with proper initialization
+    service_provider = ServiceProvider(service_collection)
+    await service_provider.configure_services(service_collection)
+
+    # Add middleware for logging and error handling
+    @app.middleware("http")
+    async def logging_middleware(request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        logger_service = service_provider.resolve(LoggerService)
+        logger_service.info(
+            {
+                "event": "http_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "process_time": process_time,
+            }
+        )
+        return response
+
+    # Add exception handler for domain errors
+    @app.exception_handler(DomainValidationError)
+    async def domain_error_handler(
+        request: Request, exc: DomainValidationError
+    ) -> Response:
+        return Response(
+            status_code=400,
+            content={
+                "error": "domain_validation_error",
+                "message": str(exc),
+                "details": exc.details,
+            },
+        )
 
     # --- API Endpoints (rebind all endpoints here, using local repo variables) ---
 
@@ -66,12 +98,12 @@ def app_factory() -> FastAPI:
         response_model=dict,
         status_code=201,
     )
-    def create_inventory_item(data: InventoryItemCreateDTO) -> dict:
+    async def create_inventory_item(data: InventoryItemCreateDTO) -> dict:
         # Use DI to get the service
         inventory_item_service: InventoryItemService = service_provider.resolve(
             InventoryItemService
         ).value
-        result = inventory_item_service.create_inventory_item(
+        result = await inventory_item_service.create_inventory_item(
             aggregate_id=data.id, name=data.name, measurement=data.measurement
         )
         if isinstance(result, Failure):
@@ -87,18 +119,18 @@ def app_factory() -> FastAPI:
         return d
 
     @app.post("/vendors/", tags=["vendors"], response_model=dict, status_code=201)
-    def create_vendor(data: VendorCreateDTO) -> dict:
+    async def create_vendor(data: VendorCreateDTO) -> dict:
         # Use the module-level singleton vendor_service
         vs: VendorService = service_provider.resolve(VendorService).value
-        result = vs.create_vendor(data.id, data.name, data.contact_email)
+        result = await vs.create_vendor(data.id, data.name, data.contact_email)
         if isinstance(result, Failure):
             raise HTTPException(status_code=400, detail=str(result.error))
         vendor = result.unwrap()
         return vendor.model_dump()
 
     @app.get("/inventory/{aggregate_id}", tags=["inventory"], response_model=dict)
-    def get_inventory_item(aggregate_id: str) -> dict:
-        result = repo.get(aggregate_id)
+    async def get_inventory_item(aggregate_id: str) -> dict:
+        result = await repo.get(aggregate_id)
         if isinstance(result, Failure):
             raise result.error
         item = result.unwrap()
@@ -107,9 +139,9 @@ def app_factory() -> FastAPI:
         return d
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
-    def get_vendor(vendor_id: str) -> dict[str, Any]:
+    async def get_vendor(vendor_id: str) -> dict[str, Any]:
         vr: VendorRepository = service_provider.resolve(VendorRepository).value
-        result = vr.get(vendor_id)
+        result = await vr.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(
                 status_code=404, detail=f"Vendor not found: {vendor_id}"
@@ -118,14 +150,14 @@ def app_factory() -> FastAPI:
         return vendor.model_dump()
 
     @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
-    def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> dict[str, Any]:
+    async def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> dict[str, Any]:
         """
         Update an existing vendor.
         """
         from examples.app.domain.vendor.value_objects import EmailAddress
 
         vr: VendorRepository = service_provider.resolve(VendorRepository).value
-        result = vr.get(vendor_id)
+        result = await vr.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(status_code=404, detail=str(result.error))
         vendor = result.value
