@@ -5,12 +5,13 @@ Repository protocol for Vendor (Uno example app).
 Defines the interface for all Vendor repository implementations.
 """
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 from uno.core.errors.result import Success, Failure
 from examples.app.domain.vendor import Vendor
 from examples.app.api.errors import VendorNotFoundError
 
 
+@runtime_checkable
 class VendorRepository(Protocol):
     def save(self, vendor: Vendor) -> None: ...
     def get(

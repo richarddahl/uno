@@ -24,6 +24,7 @@ from uno.core.errors.result import Failure
 
 # --- Dependency Injection Setup (module-level singletons) ---
 from uno.infrastructure.di.service_collection import ServiceCollection
+from uno.infrastructure.di.service_provider import ServiceProvider
 from uno.infrastructure.logging import LoggerService, LoggingConfig
 
 logging_config = LoggingConfig()
@@ -37,15 +38,17 @@ service_collection.add_instance(VendorRepository, vendor_repo)
 service_collection.add_instance(InMemoryVendorRepository, vendor_repo)
 service_collection.add_instance(InventoryItemRepository, repo)
 service_collection.add_instance(InMemoryInventoryItemRepository, repo)
-service_collection.add_singleton(EmailAddress, implementation=EmailAddress)
 service_collection.add_singleton(
-    InventoryItemService, implementation=InventoryItemService
+    InventoryItemService, implementation_type=InventoryItemService
 )
 service_collection.add_singleton(
     VendorService,
-    implementation=lambda: VendorService(repo=vendor_repo, logger=logger_service),
+    factory=lambda: VendorService(repo=vendor_repo, logger=logger_service),
 )
-resolver = service_collection.build()
+
+# Create service provider with proper initialization
+service_provider = ServiceProvider(service_collection)
+service_provider.configure_services(service_collection)
 
 
 def app_factory() -> FastAPI:
@@ -65,7 +68,7 @@ def app_factory() -> FastAPI:
     )
     def create_inventory_item(data: InventoryItemCreateDTO) -> dict:
         # Use DI to get the service
-        inventory_item_service: InventoryItemService = resolver.resolve(
+        inventory_item_service: InventoryItemService = service_provider.resolve(
             InventoryItemService
         ).value
         result = inventory_item_service.create_inventory_item(
@@ -86,7 +89,7 @@ def app_factory() -> FastAPI:
     @app.post("/vendors/", tags=["vendors"], response_model=dict, status_code=201)
     def create_vendor(data: VendorCreateDTO) -> dict:
         # Use the module-level singleton vendor_service
-        vs: VendorService = resolver.resolve(VendorService).value
+        vs: VendorService = service_provider.resolve(VendorService).value
         result = vs.create_vendor(data.id, data.name, data.contact_email)
         if isinstance(result, Failure):
             raise HTTPException(status_code=400, detail=str(result.error))
@@ -105,7 +108,7 @@ def app_factory() -> FastAPI:
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
     def get_vendor(vendor_id: str) -> dict[str, Any]:
-        vr: VendorRepository = resolver.resolve(VendorRepository).value
+        vr: VendorRepository = service_provider.resolve(VendorRepository).value
         result = vr.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(
@@ -121,7 +124,7 @@ def app_factory() -> FastAPI:
         """
         from examples.app.domain.vendor.value_objects import EmailAddress
 
-        vr: VendorRepository = resolver.resolve(VendorRepository).value
+        vr: VendorRepository = service_provider.resolve(VendorRepository).value
         result = vr.get(vendor_id)
         if isinstance(result, Failure):
             raise HTTPException(status_code=404, detail=str(result.error))
@@ -138,7 +141,7 @@ def app_factory() -> FastAPI:
 
     @app.get("/vendors/", tags=["vendors"], response_model=list[dict])
     def list_vendors() -> list[dict[str, Any]]:
-        vr: VendorRepository = resolver.resolve(VendorRepository).value
+        vr: VendorRepository = service_provider.resolve(VendorRepository).value
         vendors = vr.all()
         result = []
         for v in vendors:
