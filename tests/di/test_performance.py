@@ -3,7 +3,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 
 
 # Define test protocols and implementations
@@ -29,7 +29,7 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_concurrent_resolution() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_singleton(ILogger, ConsoleLogger)
     await container.register_transient(IRepository, MemoryRepository)
 

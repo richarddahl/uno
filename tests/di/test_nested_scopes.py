@@ -2,7 +2,8 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer, ScopeError
+from uno.infrastructure.di.container import Container
+from uno.infrastructure.di.errors import ScopeError
 
 
 # Define test protocols and implementations
@@ -18,7 +19,7 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_create_nested_scope() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     # Create a scope

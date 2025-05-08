@@ -3,7 +3,7 @@ from typing import Protocol
 import pytest
 from typing_extensions import runtime_checkable
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import ServiceNotRegisteredError
 
 # Define test protocols and implementations
@@ -29,7 +29,7 @@ class MockLogger:
 
 @pytest.mark.asyncio
 async def test_replace_service() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_singleton(ILogger, ConsoleLogger)
 
     # Define a mock logger for testing
@@ -52,7 +52,7 @@ async def test_replace_service() -> None:
 
 @pytest.mark.asyncio
 async def test_replace_non_existent_service() -> None:
-    container = DIContainer()
+    container = Container()
 
     # Try to replace a service that doesn't exist
     async with container.replace(ILogger, ConsoleLogger, "singleton"):

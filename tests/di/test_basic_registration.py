@@ -2,7 +2,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import ServiceNotRegisteredError
 
 
@@ -36,7 +36,7 @@ async def test_register_and_resolve_singleton() -> None:
     2. The same instance is returned when resolving multiple times
     3. The resolved instance is of the correct type
     """
-    container = DIContainer()
+    container = Container()
     await container.register_singleton(ILogger, ConsoleLogger)
 
     # Resolve the service
@@ -58,7 +58,7 @@ async def test_register_and_resolve_transient() -> None:
     2. Different instances are returned when resolving multiple times
     3. The resolved instances are of the correct type
     """
-    container = DIContainer()
+    container = Container()
     await container.register_transient(IRepository, MemoryRepository)
 
     # Resolve multiple instances
@@ -81,7 +81,7 @@ async def test_register_and_resolve_scoped() -> None:
     3. Different instances are returned in different scopes
     4. The resolved instances are of the correct type
     """
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     # Create a scope and resolve the service
@@ -103,7 +103,7 @@ async def test_service_not_registered() -> None:
     1. Resolving a non-registered service raises ServiceNotRegisteredError
     2. The error contains the correct interface type
     """
-    container = DIContainer()
+    container = Container()
 
     # Try to resolve a service that hasn't been registered
     with pytest.raises(ServiceNotRegisteredError):

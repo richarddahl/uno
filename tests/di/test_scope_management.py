@@ -2,7 +2,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import ScopeError
 
 
@@ -26,7 +26,7 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_scoped_services_isolated_between_scopes() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     # Create two sequential scopes
@@ -42,7 +42,7 @@ async def test_scoped_services_isolated_between_scopes() -> None:
 
 @pytest.mark.asyncio
 async def test_scope_disposal() -> None:
-    container = DIContainer()
+    container = Container()
 
     # Create a disposable service
     class DisposableService:
@@ -65,7 +65,7 @@ async def test_scope_disposal() -> None:
 
 @pytest.mark.asyncio
 async def test_cannot_use_disposed_scope() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     # Create and dispose a scope

@@ -3,7 +3,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 
 
 # Define test protocols and implementations
@@ -32,7 +32,7 @@ class MemoryRepository:
 @pytest.mark.asyncio
 async def test_register_with_sync_factory() -> None:
     """Test registering a service with a synchronous factory function."""
-    container = DIContainer()
+    container = Container()
 
     def create_logger() -> ILogger:
         return ConsoleLogger()
@@ -46,7 +46,7 @@ async def test_register_with_sync_factory() -> None:
 @pytest.mark.asyncio
 async def test_register_with_async_factory() -> None:
     """Test registering a service with an asynchronous factory function."""
-    container = DIContainer()
+    container = Container()
 
     async def create_repository() -> IRepository:
         # Simulate async work

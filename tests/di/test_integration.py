@@ -2,7 +2,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 
 
 # Define test protocols and implementations
@@ -34,13 +34,13 @@ class Service:
 
 @pytest.mark.asyncio
 async def test_complex_dependency_chain() -> None:
-    container = DIContainer()
+    container = Container()
 
     # Define a chain of dependencies
     await container.register_singleton(IDataAccess, DataAccess)
 
     # Register with a factory that resolves dependencies
-    async def create_service() -> IService:
+    async def create_service(container: Container) -> IService:
         data_access = await container.resolve(IDataAccess)
         return Service(data_access)
 

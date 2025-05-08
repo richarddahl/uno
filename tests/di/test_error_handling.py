@@ -2,7 +2,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import (
     DuplicateRegistrationError,
     ScopeError,
@@ -40,7 +40,7 @@ class MemoryRepository:
 @pytest.mark.asyncio
 async def test_duplicate_registration() -> None:
     """Test that registering the same service twice raises DuplicateRegistrationError."""
-    container = DIContainer()
+    container = Container()
     await container.register_singleton(ILogger, ConsoleLogger)
 
     with pytest.raises(DuplicateRegistrationError):
@@ -50,7 +50,7 @@ async def test_duplicate_registration() -> None:
 @pytest.mark.asyncio
 async def test_service_not_registered() -> None:
     """Test that resolving an unregistered service raises ServiceNotRegisteredError."""
-    container = DIContainer()
+    container = Container()
     with pytest.raises(ServiceNotRegisteredError):
         await container.resolve(ILogger)
 
@@ -58,7 +58,7 @@ async def test_service_not_registered() -> None:
 @pytest.mark.asyncio
 async def test_type_mismatch() -> None:
     """Test that registering a service that doesn't implement the interface raises TypeMismatchError."""
-    container = DIContainer()
+    container = Container()
 
     class BadLogger:
         # Missing the 'log' method that ILogger requires
@@ -66,7 +66,7 @@ async def test_type_mismatch() -> None:
 
     with pytest.raises(ServiceCreationError) as excinfo:
         await container.register_singleton(ILogger, BadLogger)
-        
+
     # Verify the underlying cause is a TypeMismatchError
     assert isinstance(excinfo.value.__cause__, TypeMismatchError)
 
@@ -74,7 +74,7 @@ async def test_type_mismatch() -> None:
 @pytest.mark.asyncio
 async def test_resolve_scoped_outside_scope() -> None:
     """Test that resolving a scoped service outside of a scope raises ScopeError."""
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     with pytest.raises(ScopeError):

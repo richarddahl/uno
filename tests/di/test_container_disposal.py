@@ -2,7 +2,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import ScopeError
 
 
@@ -29,7 +29,7 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_container_disposal() -> None:
-    container = DIContainer()
+    container = Container()
 
     # Register a disposable singleton
     class DisposableService:
@@ -58,7 +58,7 @@ async def test_container_disposal() -> None:
 
 @pytest.mark.asyncio
 async def test_dispose_with_active_scope() -> None:
-    container = DIContainer()
+    container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 
     # Create a scope and resolve a service

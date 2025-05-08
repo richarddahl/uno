@@ -3,7 +3,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 
 
 # Define test protocols and implementations
@@ -30,12 +30,12 @@ class MemoryRepository:
 @pytest.mark.asyncio
 async def test_container_create_factory() -> None:
     # Define a configuration function
-    async def configure(container: DIContainer) -> None:
+    async def configure(container: Container) -> None:
         await container.register_singleton(ILogger, ConsoleLogger)
         await container.register_scoped(IRepository, MemoryRepository)
 
     # Create a container using the factory
-    container = await DIContainer.create(configure)
+    container = await Container.create(configure)
 
     # Verify the container is properly configured
     logger = await container.resolve(ILogger)

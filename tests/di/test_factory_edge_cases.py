@@ -6,7 +6,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import DIContainer
+from uno.infrastructure.di.container import Container
 from uno.infrastructure.di.errors import ServiceCreationError, TypeMismatchError
 
 
@@ -23,9 +23,9 @@ class ConsoleLogger:
 @pytest.mark.asyncio
 async def test_factory_returns_wrong_type() -> None:
     """Test that a factory function returning the wrong type raises TypeMismatchError."""
-    container = DIContainer()
+    container = Container()
 
-    def bad_factory(container: DIContainer) -> Any:
+    def bad_factory(container: Container) -> Any:
         return 42  # Integer instead of ILogger
 
     with pytest.raises(ServiceCreationError) as excinfo:
@@ -38,9 +38,9 @@ async def test_factory_returns_wrong_type() -> None:
 @pytest.mark.asyncio
 async def test_async_factory_raises_exception() -> None:
     """Test that an async factory function raising an exception is properly handled."""
-    container = DIContainer()
+    container = Container()
 
-    async def failing_factory(container: DIContainer) -> ILogger:
+    async def failing_factory(container: Container) -> ILogger:
         raise ValueError("Factory failed")
 
     with pytest.raises(ServiceCreationError) as excinfo:
@@ -53,7 +53,7 @@ async def test_async_factory_raises_exception() -> None:
 @pytest.mark.asyncio
 async def test_factory_with_dependencies() -> None:
     """Test that a factory function with dependencies is properly resolved."""
-    container = DIContainer()
+    container = Container()
 
     class Config:
         def __init__(self, log_level: str) -> None:
@@ -68,12 +68,12 @@ async def test_factory_with_dependencies() -> None:
 
     # Use a simple lambda for Config since it doesn't have async dependencies
     await container.register_singleton(Config, lambda container: Config("INFO"))
-    
+
     # Use an async factory for the logger since it needs to await container.resolve
-    async def logger_factory(container: DIContainer) -> ILogger:
+    async def logger_factory(container: Container) -> ILogger:
         config = await container.resolve(Config)
         return ConfiguredLogger(config)
-        
+
     await container.register_singleton(ILogger, logger_factory)
 
     logger = await container.resolve(ILogger)
