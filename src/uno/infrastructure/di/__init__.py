@@ -8,7 +8,17 @@ Public API for uno DI system.
 
 from __future__ import annotations
 
+from uno.infrastructure.di.errors import (
+    DIError,
+    DuplicateRegistrationError,
+    ScopeError,
+    ServiceCreationError,
+    ServiceNotRegisteredError,
+    SyncInAsyncContextError,
+    TypeMismatchError,
+)
 from uno.infrastructure.di.shared_types import ContainerProtocol
+
 from .container import Container
 from .protocols import (
     ScopeProtocol,
@@ -26,10 +36,17 @@ __all__ = [
     "AsyncServiceFactoryProtocol",
     "Container",
     "ContainerProtocol",
+    "DIError",
+    "DuplicateRegistrationError",
     "Lifetime",
+    "ScopeError",
     "ScopeProtocol",
-    "ServiceProtocol",
+    "ServiceCreationError",
     "ServiceFactoryProtocol",
+    "ServiceNotRegisteredError",
+    "ServiceProtocol",
     "ServiceRegistration",
     "ServiceRegistrationProtocol",
+    "SyncInAsyncContextError",
+    "TypeMismatchError",
 ]
