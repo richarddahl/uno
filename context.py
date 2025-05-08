@@ -9,7 +9,7 @@ to avoid circular imports.
 from dataclasses import dataclass, field
 from typing import Any, TypeVar, cast
 
-from uno.core.events.events import DomainEvent
+from uno.events.events import DomainEvent
 
 T = TypeVar("T", bound=DomainEvent)
 
