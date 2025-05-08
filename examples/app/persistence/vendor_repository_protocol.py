@@ -6,7 +6,7 @@ Defines the interface for all Vendor repository implementations.
 """
 
 from typing import Protocol, runtime_checkable
-from uno.core.errors.result import Success, Failure
+from uno.errors.result import Success, Failure
 from examples.app.domain.vendor import Vendor
 from examples.app.api.errors import VendorNotFoundError
 

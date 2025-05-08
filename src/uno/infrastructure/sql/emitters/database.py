@@ -6,7 +6,19 @@
 
 import logging
 
-from uno.core.errors import FrameworkError
+from uno.errors import UnoError
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
 
@@ -276,7 +288,7 @@ class CreatePGULID(SQLEmitter):
             List of SQL statements with metadata
 
         Raises:
-            FrameworkError: If the PGULID SQL file cannot be read
+            UnoError: If the PGULID SQL file cannot be read
         """
         statements = []
 
@@ -300,7 +312,7 @@ class CreatePGULID(SQLEmitter):
 
         except FileNotFoundError as e:
             logging.error(f"Error reading PGULID SQL file: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to read PGULID SQL file: {e}", "SQL_FILE_READ_ERROR"
             )
 

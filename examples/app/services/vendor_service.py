@@ -5,8 +5,8 @@ Service layer for Vendor workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
 
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Result, Success
+from uno.errors.errors import DomainValidationError
+from uno.errors.result import Failure, Result, Success
 from uno.infrastructure.logging import LoggerService
 from ..domain.vendor import Vendor
 from ..persistence.vendor_repository_protocol import VendorRepository

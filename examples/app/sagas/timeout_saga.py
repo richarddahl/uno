@@ -3,8 +3,8 @@ Example TimeoutSaga: demonstrates how to implement timeouts and retries in a Uno
 """
 
 from typing import Any
-from uno.core.events.sagas import Saga
-from uno.core.errors import Result, Success, Failure
+from uno.events.sagas import Saga
+from uno.errors import Result, Success, Failure
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.infrastructure.logging import LoggerService
 

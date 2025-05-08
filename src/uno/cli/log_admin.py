@@ -116,7 +116,7 @@ def set(
     if not update:
         typer.echo("No config fields provided to update.", err=True)
         raise typer.Exit(code=1)
-    from uno.core.errors.result import Success, Failure
+    from uno.errors.result import Success, Failure
 
     result = config_service.update_config(**update)
     if isinstance(result, Failure):

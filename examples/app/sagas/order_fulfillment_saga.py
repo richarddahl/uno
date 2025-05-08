@@ -4,10 +4,10 @@ Example OrderFulfillmentSaga for Uno: demonstrates stateful, multi-step orchestr
 
 from typing import Any
 
-from uno.core.events.saga_store import SagaState
-from uno.core.events.sagas import Saga
-from uno.core.errors import Result, Success, Failure
-from uno.core.errors import FrameworkError
+from uno.events.saga_store import SagaState
+from uno.events.sagas import Saga
+from uno.errors import Result, Success, Failure
+from uno.errors import UnoError
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.infrastructure.logging import LoggerService
 
@@ -95,9 +95,9 @@ class OrderFulfillmentSaga(Saga):
                     status=self.status,
                 )
                 await self.compensate()
-                raise FrameworkError(
+                raise UnoError(
                     message="Payment failed",
-                    error_code=FrameworkError.ErrorCode.INTERNAL_ERROR,
+                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="PaymentFailed",
@@ -110,9 +110,9 @@ class OrderFulfillmentSaga(Saga):
                     f"Inventory reservation failed",
                     status=self.status,
                 )
-                raise FrameworkError(
+                raise UnoError(
                     message="Inventory reservation failed",
-                    error_code=FrameworkError.ErrorCode.INTERNAL_ERROR,
+                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="InventoryReservationFailed",

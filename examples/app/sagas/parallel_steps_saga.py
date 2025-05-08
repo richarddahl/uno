@@ -5,7 +5,7 @@ Example ParallelStepsSaga: demonstrates fork/join (parallel step) orchestration 
 from typing import Any
 
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.core.events.sagas import Saga
+from uno.events.sagas import Saga
 from uno.infrastructure.logging import LoggerService
 
 

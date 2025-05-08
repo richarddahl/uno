@@ -19,8 +19,8 @@ from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
 from examples.app.services.vendor_service import VendorService
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure
+from uno.errors.errors import DomainValidationError
+from uno.errors.result import Failure
 
 # --- Dependency Injection Setup (module-level singletons) ---
 from uno.infrastructure.di.service_collection import ServiceCollection
@@ -40,7 +40,7 @@ service_collection.add_instance(InventoryItemRepository, repo)
 service_collection.add_instance(InMemoryInventoryItemRepository, repo)
 service_collection.add_singleton(
     InventoryItemService,
-    factory=lambda: InventoryItemService(repo=repo, logger=logger_service)
+    factory=lambda: InventoryItemService(repo=repo, logger=logger_service),
 )
 service_collection.add_singleton(
     VendorService,

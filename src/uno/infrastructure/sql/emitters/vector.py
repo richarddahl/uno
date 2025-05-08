@@ -12,7 +12,19 @@ hybrid vector-graph search.
 from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
 from uno.infrastructure.sql.interfaces import ConfigProtocol
-from uno.core.errors import FrameworkError
+from uno.errors import UnoError
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 from uno.infrastructure.logging import LoggerService
 from uno.infrastructure.sql.emitter import SQLEmitter
 from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
@@ -49,7 +61,7 @@ class VectorSQLEmitter(SQLEmitter):
         db_schema = getattr(self.config, "DB_SCHEMA", None)
         db_name = getattr(self.config, "DB_NAME", None)
         if db_schema is None or db_name is None:
-            raise FrameworkError(
+            raise UnoError(
                 "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
             )
 
@@ -446,7 +458,7 @@ class VectorIntegrationEmitter(SQLEmitter):
         db_schema = getattr(self.config, "DB_SCHEMA", None)
         db_name = getattr(self.config, "DB_NAME", None)
         if db_schema is None or db_name is None:
-            raise FrameworkError(
+            raise UnoError(
                 "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
             )
 
@@ -583,7 +595,7 @@ class CreateVectorTables(SQLEmitter):
         db_name = self.config.DB_NAME
 
         if db_schema is None or db_name is None:
-            raise FrameworkError(
+            raise UnoError(
                 "DB config must be provided via DI/config injection.", "CONFIG_ERROR"
             )
 
@@ -742,7 +754,7 @@ class VectorSearchEmitter(SQLEmitter):
             if db_schema:
                 self._schema = db_schema
             else:
-                raise FrameworkError(
+                raise UnoError(
                     "DB config must be provided via DI/config injection.",
                     "CONFIG_ERROR",
                 )
@@ -1094,7 +1106,7 @@ class VectorBatchEmitter(SQLEmitter):
             if db_schema:
                 self._schema = db_schema
             else:
-                raise FrameworkError(
+                raise UnoError(
                     "DB config must be provided via DI/config injection.",
                     "CONFIG_ERROR",
                 )

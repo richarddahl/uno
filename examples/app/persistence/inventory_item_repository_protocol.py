@@ -6,7 +6,7 @@ Defines the interface for all InventoryItem repository implementations.
 """
 
 from typing import Protocol, runtime_checkable
-from uno.core.errors.result import Success, Failure
+from uno.errors.result import Success, Failure
 from examples.app.domain.inventory import InventoryItem
 from examples.app.api.errors import InventoryItemNotFoundError
 

@@ -4,7 +4,7 @@
 Custom API error types for Uno example app, for idiomatic error handling and mapping to HTTP responses.
 """
 
-from uno.core.errors.result import Result, Success, Failure
+from uno.errors.result import Result, Success, Failure
 
 
 class ResourceNotFoundError(Exception):

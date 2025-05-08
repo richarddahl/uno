@@ -18,8 +18,8 @@ from uno.infrastructure.logging.logger import LoggerService
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from uno.core.application.commands import CommandBus
-from uno.core.application.queries import QueryBus
+from uno.application.commands import CommandBus
+from uno.application.queries import QueryBus
 from uno.examples.todolist import initialize_todolist
 from uno.examples.todolist.application.commands import (
     CompleteTodoItemCommand,

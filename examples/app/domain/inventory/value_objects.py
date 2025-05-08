@@ -21,8 +21,8 @@ from pydantic import (
     field_validator,
 )
 
-from uno.core.domain import ValueObject
-from uno.core.errors import Failure, Result, Success
+from uno.domain import ValueObject
+from uno.errors import Failure, Result, Success
 
 if TYPE_CHECKING:
     from .measurement import Measurement

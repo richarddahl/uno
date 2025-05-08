@@ -8,16 +8,16 @@ import hashlib
 from typing import cast
 from examples.app.domain.order import Order
 from examples.app.api.errors import OrderNotFoundError
-from uno.core.errors import Success, Failure
+from uno.errors import Success, Failure
 from uno.infrastructure.logging import LoggerService
 
 
 class InMemoryOrderRepository:
     def __init__(self, logger: LoggerService) -> None:
         self._orders: dict[str, Order] = {}
-        self._event_hashes: dict[
-            str, list[str]
-        ] = {}  # order_id -> list of event hashes
+        self._event_hashes: dict[str, list[str]] = (
+            {}
+        )  # order_id -> list of event hashes
         self._logger = logger
         self._logger.debug("InMemoryOrderRepository initialized.")
 

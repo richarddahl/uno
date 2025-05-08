@@ -6,17 +6,23 @@ from __future__ import annotations
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.core.errors.result import Result, Success, Failure
+from uno.errors.result import Result, Success, Failure
 from uno.infrastructure.sql.interfaces import TransactionManagerProtocol
 from uno.infrastructure.sql.config import SQLConfig
 
 
 class TransactionConfig(BaseModel):
     """SQL transaction configuration."""
-    
-    isolation_level: str = Field(default="READ COMMITTED", description="Transaction isolation level")
-    read_only: bool = Field(default=False, description="Whether transaction is read-only")
-    deferrable: bool = Field(default=False, description="Whether transaction is deferrable")
+
+    isolation_level: str = Field(
+        default="READ COMMITTED", description="Transaction isolation level"
+    )
+    read_only: bool = Field(
+        default=False, description="Whether transaction is read-only"
+    )
+    deferrable: bool = Field(
+        default=False, description="Whether transaction is deferrable"
+    )
 
 
 class TransactionManager:
@@ -24,7 +30,7 @@ class TransactionManager:
 
     def __init__(self, config: SQLConfig) -> None:
         """Initialize transaction manager.
-        
+
         Args:
             config: SQL configuration
         """
@@ -33,10 +39,10 @@ class TransactionManager:
 
     async def begin_transaction(self, session: AsyncSession) -> Result[None, str]:
         """Begin a new transaction.
-        
+
         Args:
             session: Database session
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -50,10 +56,10 @@ class TransactionManager:
 
     async def commit_transaction(self, session: AsyncSession) -> Result[None, str]:
         """Commit the current transaction.
-        
+
         Args:
             session: Database session
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -68,10 +74,10 @@ class TransactionManager:
 
     async def rollback_transaction(self, session: AsyncSession) -> Result[None, str]:
         """Rollback the current transaction.
-        
+
         Args:
             session: Database session
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -87,8 +93,8 @@ class TransactionManager:
     @property
     def current_transaction(self) -> Optional[AsyncSession]:
         """Get current transaction.
-        
+
         Returns:
             Current transaction or None if no transaction is active
         """
-        return self._current_transaction 
+        return self._current_transaction

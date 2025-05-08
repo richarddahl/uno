@@ -13,7 +13,7 @@ from examples.app.domain.inventory import (
     InventoryItemAdjusted,
 )
 from examples.app.api.errors import InventoryItemNotFoundError
-from uno.core.errors import Success, Failure
+from uno.errors import Success, Failure
 from uno.infrastructure.logging import LoggerService
 
 

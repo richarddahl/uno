@@ -5,12 +5,12 @@ Minimal FastAPI integration for Uno sagas: start, send events, and query status.
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from uno.infrastructure.config import config
-from uno.core.events.saga_manager import SagaManager
-from uno.core.events.saga_store import InMemorySagaStore
-from uno.core.events.postgres_saga_store import PostgresSagaStore
-from uno.core.events.event_bus import InMemoryEventBus
-from uno.core.events.command_bus import InMemoryCommandBus
-from uno.core.events.postgres_bus import PostgresEventBus, PostgresCommandBus
+from uno.events.saga_manager import SagaManager
+from uno.events.saga_store import InMemorySagaStore
+from uno.events.postgres_saga_store import PostgresSagaStore
+from uno.events.event_bus import InMemoryEventBus
+from uno.events.command_bus import InMemoryCommandBus
+from uno.events.postgres_bus import PostgresEventBus, PostgresCommandBus
 from examples.app.sagas.order_fulfillment_saga import OrderFulfillmentSaga
 from examples.app.sagas.timeout_saga import TimeoutSaga
 from examples.app.sagas.compensation_chain_saga import CompensationChainSaga

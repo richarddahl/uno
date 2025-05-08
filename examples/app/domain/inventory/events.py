@@ -16,11 +16,11 @@ from pydantic import (
 
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.inventory.value_objects import Count, Grade, Mass, Volume
-from uno.core.errors import Failure, Result, Success
-from uno.core.errors.base import get_error_context
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.events import DomainEvent
-from uno.core.events.base_event import EventUpcasterRegistry
+from uno.errors import Failure, Result, Success
+from uno.errors.base import get_error_context
+from uno.errors.errors import DomainValidationError
+from uno.events import DomainEvent
+from uno.events.base_event import EventUpcasterRegistry
 
 if TYPE_CHECKING:
     from examples.app.domain.vendor.value_objects import EmailAddress
@@ -251,8 +251,8 @@ class InventoryItemCreated(DomainEvent):
     ):
         import logging
 
-        from uno.core.errors.base import get_error_context
-        from uno.core.errors.definitions import DomainValidationError
+        from uno.errors.base import get_error_context
+        from uno.errors.errors import DomainValidationError
 
         logger = logging.getLogger(__name__)
         try:
@@ -369,8 +369,8 @@ class InventoryItemAdjusted(DomainEvent):
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         import logging
 
-        from uno.core.errors.base import get_error_context
-        from uno.core.errors.definitions import DomainValidationError
+        from uno.errors.base import get_error_context
+        from uno.errors.errors import DomainValidationError
 
         logger = logging.getLogger(__name__)
         try:
@@ -449,8 +449,8 @@ class InventoryItemRenamed(DomainEvent):
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
         import logging
 
-        from uno.core.errors.base import get_error_context
-        from uno.core.errors.definitions import DomainValidationError
+        from uno.errors.base import get_error_context
+        from uno.errors.errors import DomainValidationError
 
         logger = logging.getLogger(__name__)
         try:
@@ -1042,7 +1042,7 @@ class InventoryLotSplit(DomainEvent):
     def upcast(
         self, target_version: int
     ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from uno.core.events.base_event import EventUpcasterRegistry
+        from uno.events.base_event import EventUpcasterRegistry
 
         if target_version == self.version:
             return Success(self)
@@ -1074,7 +1074,7 @@ class InventoryLotSplit(DomainEvent):
 
 
 # --- Upcaster registration for InventoryLotSplit (v1 → v2) ---
-from uno.core.events.base_event import EventUpcasterRegistry
+from uno.events.base_event import EventUpcasterRegistry
 
 
 def _upcast_inventory_lot_split_v1_to_v2(data: dict[str, object]) -> dict[str, object]:

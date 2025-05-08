@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
-from uno.core.errors.result import Result, Success, Failure
+from uno.errors.result import Result, Success, Failure
 from uno.infrastructure.sql.interfaces import ConnectionManagerProtocol
 from uno.infrastructure.sql.config import SQLConfig
 from uno.infrastructure.logging.logger import LoggerService
@@ -18,7 +18,7 @@ from uno.infrastructure.logging.logger import LoggerService
 
 class ConnectionHealth(BaseModel):
     """Connection health status."""
-    
+
     is_healthy: bool
     last_check: datetime
     error_count: int
@@ -31,15 +31,15 @@ class ConnectionManager:
     """Manages database connections with connection pooling."""
 
     def __init__(
-        self, 
+        self,
         config: SQLConfig,
         logger: LoggerService,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        health_check_interval: float = 30.0
+        health_check_interval: float = 30.0,
     ) -> None:
         """Initialize connection manager.
-        
+
         Args:
             config: SQL configuration
             logger: Logger service
@@ -60,7 +60,7 @@ class ConnectionManager:
             error_count=0,
             latency_ms=0.0,
             pool_size=0,
-            available_connections=0
+            available_connections=0,
         )
         self._health_check_task: Optional[asyncio.Task] = None
         self._initialize_pool()
@@ -71,12 +71,10 @@ class ConnectionManager:
             try:
                 self._engine = create_async_engine(
                     self._config.get_connection_url(),
-                    **self._config.get_engine_options()
+                    **self._config.get_engine_options(),
                 )
                 self._session_factory = sessionmaker(
-                    self._engine,
-                    class_=AsyncSession,
-                    expire_on_commit=False
+                    self._engine, class_=AsyncSession, expire_on_commit=False
                 )
                 self._start_health_check()
                 return
@@ -86,15 +84,18 @@ class ConnectionManager:
                     f"Failed to initialize connection pool (attempt {attempt + 1}/{self._max_retries}): {str(e)}",
                     name="uno.sql.connection",
                     error=e,
-                    attempt=attempt + 1
+                    attempt=attempt + 1,
                 )
                 if attempt < self._max_retries - 1:
                     asyncio.sleep(self._retry_delay)
                 else:
-                    raise ConnectionError(f"Failed to initialize connection pool after {self._max_retries} attempts: {str(e)}")
+                    raise ConnectionError(
+                        f"Failed to initialize connection pool after {self._max_retries} attempts: {str(e)}"
+                    )
 
     def _start_health_check(self) -> None:
         """Start periodic health check task."""
+
         async def health_check_loop() -> None:
             while True:
                 try:
@@ -105,7 +106,7 @@ class ConnectionManager:
                         "ERROR",
                         f"Health check failed: {str(e)}",
                         name="uno.sql.connection",
-                        error=e
+                        error=e,
                     )
                     await asyncio.sleep(self._retry_delay)
 
@@ -118,7 +119,7 @@ class ConnectionManager:
             async with self._engine.connect() as conn:
                 # Execute a simple query to check connection
                 await conn.execute(text("SELECT 1"))
-                
+
                 # Get pool status
                 pool = self._engine.pool
                 self._health_status = ConnectionHealth(
@@ -127,16 +128,16 @@ class ConnectionManager:
                     error_count=0,
                     latency_ms=(datetime.now() - start_time).total_seconds() * 1000,
                     pool_size=pool.size(),
-                    available_connections=pool.checkedin()
+                    available_connections=pool.checkedin(),
                 )
-                
+
                 self._logger.structured_log(
                     "DEBUG",
                     "Connection health check passed",
                     name="uno.sql.connection",
                     latency_ms=self._health_status.latency_ms,
                     pool_size=self._health_status.pool_size,
-                    available_connections=self._health_status.available_connections
+                    available_connections=self._health_status.available_connections,
                 )
         except Exception as e:
             self._health_status.error_count += 1
@@ -146,13 +147,13 @@ class ConnectionManager:
                 f"Connection health check failed: {str(e)}",
                 name="uno.sql.connection",
                 error=e,
-                error_count=self._health_status.error_count
+                error_count=self._health_status.error_count,
             )
             raise
 
     async def get_connection(self) -> Result[AsyncSession, str]:
         """Get a database connection with retry logic.
-        
+
         Returns:
             Result containing database session or error
         """
@@ -170,19 +171,21 @@ class ConnectionManager:
                     f"Failed to get connection (attempt {attempt + 1}/{self._max_retries}): {str(e)}",
                     name="uno.sql.connection",
                     error=e,
-                    attempt=attempt + 1
+                    attempt=attempt + 1,
                 )
                 if attempt < self._max_retries - 1:
                     await asyncio.sleep(self._retry_delay)
                 else:
-                    return Failure(f"Failed to get connection after {self._max_retries} attempts: {str(e)}")
+                    return Failure(
+                        f"Failed to get connection after {self._max_retries} attempts: {str(e)}"
+                    )
 
     async def release_connection(self, session: AsyncSession) -> Result[None, str]:
         """Release a database connection.
-        
+
         Args:
             session: Database session to release
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -194,13 +197,13 @@ class ConnectionManager:
                 "ERROR",
                 f"Failed to release connection: {str(e)}",
                 name="uno.sql.connection",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to release connection: {str(e)}")
 
     async def close(self) -> Result[None, str]:
         """Close all connections in the pool.
-        
+
         Returns:
             Result indicating success or failure
         """
@@ -212,7 +215,7 @@ class ConnectionManager:
                 except asyncio.CancelledError:
                     pass
                 self._health_check_task = None
-                
+
             if self._engine:
                 await self._engine.dispose()
                 self._engine = None
@@ -223,14 +226,14 @@ class ConnectionManager:
                 "ERROR",
                 f"Failed to close connection pool: {str(e)}",
                 name="uno.sql.connection",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to close connection pool: {str(e)}")
 
     @property
     def engine(self) -> Optional[AsyncEngine]:
         """Get the SQLAlchemy engine.
-        
+
         Returns:
             SQLAlchemy engine or None if not initialized
         """
@@ -239,8 +242,8 @@ class ConnectionManager:
     @property
     def health_status(self) -> ConnectionHealth:
         """Get current connection health status.
-        
+
         Returns:
             Current connection health status
         """
-        return self._health_status 
+        return self._health_status

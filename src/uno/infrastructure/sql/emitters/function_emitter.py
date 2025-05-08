@@ -5,8 +5,8 @@ SQL function emitter implementation.
 from typing import Any
 
 from uno.infrastructure.sql.interfaces import SQLEmitterProtocol
-from uno.core.errors.result import Result, Success, Failure
-from uno.core.errors.base import FrameworkError
+from uno.errors.result import Result, Success, Failure
+from uno.errors.base import UnoError
 
 
 class CreateFunctionEmitter:
@@ -18,7 +18,7 @@ class CreateFunctionEmitter:
         self.name = name
         self.definition = definition
 
-    def emit(self) -> Result[str, FrameworkError]:
+    def emit(self) -> Result[str, UnoError]:
         """
         Emit the SQL statement for creating a function.
         """
@@ -34,7 +34,7 @@ $$ LANGUAGE plpgsql;
             return Success(sql)
         except Exception as e:
             return Failure(
-                FrameworkError(
+                UnoError(
                     f"Failed to create function emitter: {e}",
                     "SQL_EMITTER_ERROR",
                 )
@@ -49,7 +49,7 @@ class DropFunctionEmitter:
     def __init__(self, name: str):
         self.name = name
 
-    def emit(self) -> Result[str, FrameworkError]:
+    def emit(self) -> Result[str, UnoError]:
         """
         Emit the SQL statement for dropping a function.
         """
@@ -58,7 +58,7 @@ class DropFunctionEmitter:
             return Success(sql)
         except Exception as e:
             return Failure(
-                FrameworkError(
+                UnoError(
                     f"Failed to create drop function emitter: {e}",
                     "SQL_EMITTER_ERROR",
                 )

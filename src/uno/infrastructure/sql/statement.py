@@ -5,7 +5,19 @@
 """SQL statement representations with metadata."""
 
 from enum import Enum
-
+from uno.errors import UnoError
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 from pydantic import BaseModel
 
 

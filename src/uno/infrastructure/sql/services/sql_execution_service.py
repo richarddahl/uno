@@ -7,7 +7,7 @@ from typing import Any
 
 from uno.infrastructure.sql.interfaces import SQLExecutionServiceProtocol
 from uno.infrastructure.sql.interfaces import DBManagerProtocol
-from uno.core.errors.base import FrameworkError
+from uno.errors.base import UnoError
 
 
 class SQLExecutionService:
@@ -28,7 +28,7 @@ class SQLExecutionService:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
             self.logger.error(f"Failed to execute DDL: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute DDL: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e
@@ -42,7 +42,7 @@ class SQLExecutionService:
             self.db_manager.execute_script(script)
         except Exception as e:
             self.logger.error(f"Failed to execute script: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute script: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e
@@ -56,10 +56,11 @@ class SQLExecutionService:
             return self.db_manager.execute_emitter(emitter, dry_run)
         except Exception as e:
             self.logger.error(f"Failed to execute emitter: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute emitter: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e
+
     """
     Service for executing SQL statements and scripts.
     """
@@ -77,7 +78,7 @@ class SQLExecutionService:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
             self.logger.error(f"Failed to execute DDL: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute DDL: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e
@@ -91,7 +92,7 @@ class SQLExecutionService:
             self.db_manager.execute_script(script)
         except Exception as e:
             self.logger.error(f"Failed to execute script: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute script: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e
@@ -108,7 +109,7 @@ class SQLExecutionService:
             return [None]
         except Exception as e:
             self.logger.error(f"Failed to execute emitter: {e}")
-            raise FrameworkError(
+            raise UnoError(
                 f"Failed to execute emitter: {e}",
                 "SQL_EXECUTION_ERROR",
             ) from e

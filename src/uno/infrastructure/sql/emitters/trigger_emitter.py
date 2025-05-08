@@ -5,8 +5,8 @@ SQL trigger emitter implementation.
 from typing import Any
 
 from uno.infrastructure.sql.interfaces import SQLEmitterProtocol
-from uno.core.errors.result import Result, Success, Failure
-from uno.core.errors.base import FrameworkError
+from uno.errors.result import Result, Success, Failure
+from uno.errors.base import UnoError
 
 
 class CreateTriggerEmitter:
@@ -21,7 +21,7 @@ class CreateTriggerEmitter:
         self.event = event
         self.table = table
 
-    def emit(self) -> Result[str, FrameworkError]:
+    def emit(self) -> Result[str, UnoError]:
         """
         Emit the SQL statement for creating a trigger.
         """
@@ -37,7 +37,7 @@ END;
             return Success(sql)
         except Exception as e:
             return Failure(
-                FrameworkError(
+                UnoError(
                     f"Failed to create trigger emitter: {e}",
                     "SQL_EMITTER_ERROR",
                 )
@@ -53,7 +53,7 @@ class DropTriggerEmitter:
         self.name = name
         self.table = table
 
-    def emit(self) -> Result[str, FrameworkError]:
+    def emit(self) -> Result[str, UnoError]:
         """
         Emit the SQL statement for dropping a trigger.
         """
@@ -62,7 +62,7 @@ class DropTriggerEmitter:
             return Success(sql)
         except Exception as e:
             return Failure(
-                FrameworkError(
+                UnoError(
                     f"Failed to create drop trigger emitter: {e}",
                     "SQL_EMITTER_ERROR",
                 )

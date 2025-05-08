@@ -9,10 +9,10 @@ from pydantic import ConfigDict
 from examples.app.domain.inventory.value_objects import Count, Money
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.core.errors.base import get_error_context
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Success
-from uno.core.events import DomainEvent
+from uno.errors.base import get_error_context
+from uno.errors.errors import DomainValidationError
+from uno.errors.result import Failure, Success
+from uno.events import DomainEvent
 
 
 class PaymentReceived(DomainEvent):

@@ -7,14 +7,14 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from uno.core.errors.result import Result, Success, Failure
+from uno.errors.result import Result, Success, Failure
 from uno.infrastructure.sql.config import SQLConfig
 from uno.infrastructure.logging.logger import LoggerService
 
 
 class StatementMetrics(BaseModel):
     """SQL statement performance metrics."""
-    
+
     statement: str
     parameters: dict[str, Any]
     execution_time_ms: float
@@ -26,7 +26,7 @@ class StatementMetrics(BaseModel):
 
 class PerformanceMetrics(BaseModel):
     """Overall performance metrics."""
-    
+
     total_queries: int
     total_execution_time_ms: float
     avg_execution_time_ms: float
@@ -43,10 +43,10 @@ class SQLPerformanceMonitor:
         self,
         config: SQLConfig,
         logger: LoggerService,
-        metrics_window: timedelta = timedelta(minutes=5)
+        metrics_window: timedelta = timedelta(minutes=5),
     ) -> None:
         """Initialize performance monitor.
-        
+
         Args:
             config: SQL configuration
             logger: Logger service
@@ -65,10 +65,10 @@ class SQLPerformanceMonitor:
         execution_time_ms: float,
         rows_affected: int,
         user_id: Optional[str] = None,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         """Record statement execution metrics.
-        
+
         Args:
             statement: SQL statement
             parameters: Statement parameters
@@ -84,10 +84,10 @@ class SQLPerformanceMonitor:
             rows_affected=rows_affected,
             timestamp=datetime.now(),
             user_id=user_id,
-            error=error
+            error=error,
         )
         self._statement_metrics.append(metrics)
-        
+
         # Log slow queries
         if execution_time_ms > self._config.DB_SLOW_QUERY_THRESHOLD * 1000:
             self._logger.structured_log(
@@ -96,9 +96,9 @@ class SQLPerformanceMonitor:
                 name="uno.sql.performance",
                 statement=statement,
                 execution_time_ms=execution_time_ms,
-                threshold_ms=self._config.DB_SLOW_QUERY_THRESHOLD * 1000
+                threshold_ms=self._config.DB_SLOW_QUERY_THRESHOLD * 1000,
             )
-        
+
         # Log errors
         if error:
             self._logger.structured_log(
@@ -106,24 +106,23 @@ class SQLPerformanceMonitor:
                 f"Query error: {error}",
                 name="uno.sql.performance",
                 statement=statement,
-                error=error
+                error=error,
             )
 
     def get_metrics(self) -> PerformanceMetrics:
         """Get current performance metrics.
-        
+
         Returns:
             Current performance metrics
         """
         now = datetime.now()
         window_start = now - self._metrics_window
-        
+
         # Filter metrics within window
         window_metrics = [
-            m for m in self._statement_metrics
-            if m.timestamp >= window_start
+            m for m in self._statement_metrics if m.timestamp >= window_start
         ]
-        
+
         if not window_metrics:
             return PerformanceMetrics(
                 total_queries=0,
@@ -132,16 +131,17 @@ class SQLPerformanceMonitor:
                 slow_queries=0,
                 errors=0,
                 start_time=window_start,
-                end_time=now
+                end_time=now,
             )
-        
+
         total_time = sum(m.execution_time_ms for m in window_metrics)
         slow_queries = sum(
-            1 for m in window_metrics
+            1
+            for m in window_metrics
             if m.execution_time_ms > self._config.DB_SLOW_QUERY_THRESHOLD * 1000
         )
         errors = sum(1 for m in window_metrics if m.error)
-        
+
         return PerformanceMetrics(
             total_queries=len(window_metrics),
             total_execution_time_ms=total_time,
@@ -149,23 +149,24 @@ class SQLPerformanceMonitor:
             slow_queries=slow_queries,
             errors=errors,
             start_time=window_start,
-            end_time=now
+            end_time=now,
         )
 
     def get_slow_queries(self) -> list[StatementMetrics]:
         """Get list of slow queries.
-        
+
         Returns:
             List of slow query metrics
         """
         return [
-            m for m in self._statement_metrics
+            m
+            for m in self._statement_metrics
             if m.execution_time_ms > self._config.DB_SLOW_QUERY_THRESHOLD * 1000
         ]
 
     def get_error_queries(self) -> list[StatementMetrics]:
         """Get list of queries with errors.
-        
+
         Returns:
             List of error query metrics
         """
@@ -179,8 +180,8 @@ class SQLPerformanceMonitor:
     @property
     def statement_metrics(self) -> list[StatementMetrics]:
         """Get all statement metrics.
-        
+
         Returns:
             List of all statement metrics
         """
-        return self._statement_metrics 
+        return self._statement_metrics

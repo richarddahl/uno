@@ -6,7 +6,19 @@
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from uno.core.errors import FrameworkError
+from uno.errors import UnoError
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 from uno.infrastructure.sql.interfaces import (
     EngineFactoryProtocol,
 )  # DI protocol for engine factories
@@ -35,7 +47,7 @@ class SQLConfigRegistry:
             config_class: SQLConfig class to register
 
         Raises:
-            FrameworkError: If a class with the same name already exists in the registry
+            UnoError: If a class with the same name already exists in the registry
                          and it's not the same class
         """
         if config_class.__name__ in cls._registry:
@@ -43,7 +55,7 @@ class SQLConfigRegistry:
             existing_class = cls._registry[config_class.__name__]
             if config_class.__module__ == existing_class.__module__:
                 return
-            raise FrameworkError(
+            raise UnoError(
                 f"SQLConfig class: {config_class.__name__} already exists in the registry.",
                 "DUPLICATE_SQLCONFIG",
             )
@@ -74,8 +86,9 @@ class SQLConfigRegistry:
     def emit_all(
         cls,
         connection: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
-        engine_factory: EngineFactoryProtocol
-        | None = None,  # DI: injected, type-hinted with Protocol for extensibility
+        engine_factory: (
+            EngineFactoryProtocol | None
+        ) = None,  # DI: injected, type-hinted with Protocol for extensibility
         config: Any | None = None,  # type: ignore  # Forward ref/circular import workaround
         exclude: list[str] | None = None,
     ) -> None:
@@ -89,7 +102,7 @@ class SQLConfigRegistry:
             exclude: List of config class names to exclude
 
         Raises:
-            FrameworkError: If SQL emission fails
+            UnoError: If SQL emission fails
         """
         exclude = exclude or []
         if connection is None:

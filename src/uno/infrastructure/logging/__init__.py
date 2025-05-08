@@ -1,18 +1,17 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Logging package for the Uno framework.
 
-Exports the core logging API for structured, DI-based logging and error context propagation.
+Exports the core logging API for structured logging.
 """
 
-from .config_service import LoggingConfigService
-from .error_logging_service import ErrorLoggingService
-from .logger import LoggerService, LoggingConfig
+from .protocols import LoggerFactoryProtocol, LoggerProtocol
+from .text_logger import TextLoggerFactory
 
 __all__ = [
-    "LoggingConfigService",
-    "ErrorLoggingService",
-    "LoggerService",
-    "LoggingConfig",
+    "LoggerFactoryProtocol",
+    "LoggerProtocol",
+    "TextLoggerFactory",
 ]

@@ -64,20 +64,33 @@ class ConnectionConfig(BaseModel):
 
 
 from uno.infrastructure.sql.registry import SQLConfigRegistry
-from uno.core.errors.result import Failure, Result, Success
+from uno.errors import UnoError
+from uno.errors.result import Failure, Result, Success
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 from uno.infrastructure.sql.interfaces import EngineFactoryProtocol
 
 
 class SQLConfig(BaseSettings):
     """SQL configuration."""
-    
+
     # Connection settings
     DB_HOST: str = Field(default="localhost")
     DB_PORT: int = Field(default=5432)
     DB_NAME: str = Field(default="uno_db")
     DB_USER: str = Field(default="uno_user")
     DB_PASSWORD: str = Field(default="uno_password")
-    
+
     # SQLAlchemy settings
     DB_POOL_SIZE: int = Field(default=5)
     DB_MAX_OVERFLOW: int = Field(default=10)
@@ -85,54 +98,73 @@ class SQLConfig(BaseSettings):
     DB_POOL_RECYCLE: int = Field(default=1800)
     DB_ECHO: bool = Field(default=False)
     DB_ECHO_POOL: bool = Field(default=False)
-    
+
     # Transaction settings
     DB_ISOLATION_LEVEL: str = Field(default="READ COMMITTED")
     DB_READ_ONLY: bool = Field(default=False)
-    
+
     # Validation settings
     DB_VALIDATE_SYNTAX: bool = Field(default=True)
     DB_VALIDATE_DEPENDENCIES: bool = Field(default=True)
     DB_CHECK_PERMISSIONS: bool = Field(default=True)
-    
+
     # Security settings
     DB_CHECK_SQL_INJECTION: bool = Field(default=True)
     DB_AUDIT_LOGGING: bool = Field(default=True)
-    
-    model_config = ConfigDict(
-        env_prefix="DB_",
-        extra="forbid"
-    )
-    
+
+    model_config = ConfigDict(env_prefix="DB_", extra="forbid")
+
     # Performance settings
-    DB_LOG_PERFORMANCE: bool = Field(default=True, description="Log performance metrics")
-    DB_SLOW_QUERY_THRESHOLD: float = Field(default=1.0, description="Slow query threshold in seconds")
-    
+    DB_LOG_PERFORMANCE: bool = Field(
+        default=True, description="Log performance metrics"
+    )
+    DB_SLOW_QUERY_THRESHOLD: float = Field(
+        default=1.0, description="Slow query threshold in seconds"
+    )
+
     # Testing settings
     DB_TEST_DATABASE: str = Field(default="test_db", description="Test database name")
     DB_TEST_USER: str = Field(default="test_user", description="Test database user")
-    DB_TEST_PASSWORD: str = Field(default="test_password", description="Test database password")
-    
+    DB_TEST_PASSWORD: str = Field(
+        default="test_password", description="Test database password"
+    )
+
     # Documentation settings
-    DB_DOCS_INCLUDE_SCHEMAS: bool = Field(default=True, description="Include schema documentation")
-    DB_DOCS_INCLUDE_TABLES: bool = Field(default=True, description="Include table documentation")
-    DB_DOCS_INCLUDE_VIEWS: bool = Field(default=True, description="Include view documentation")
-    DB_DOCS_INCLUDE_FUNCTIONS: bool = Field(default=True, description="Include function documentation")
-    DB_DOCS_INCLUDE_TRIGGERS: bool = Field(default=True, description="Include trigger documentation")
-    
+    DB_DOCS_INCLUDE_SCHEMAS: bool = Field(
+        default=True, description="Include schema documentation"
+    )
+    DB_DOCS_INCLUDE_TABLES: bool = Field(
+        default=True, description="Include table documentation"
+    )
+    DB_DOCS_INCLUDE_VIEWS: bool = Field(
+        default=True, description="Include view documentation"
+    )
+    DB_DOCS_INCLUDE_FUNCTIONS: bool = Field(
+        default=True, description="Include function documentation"
+    )
+    DB_DOCS_INCLUDE_TRIGGERS: bool = Field(
+        default=True, description="Include trigger documentation"
+    )
+
     # Migration settings
-    DB_MIGRATIONS_DIR: Path = Field(default=Path("migrations"), description="Migrations directory")
-    DB_MIGRATIONS_TABLE: str = Field(default="schema_versions", description="Schema versions table")
-    
+    DB_MIGRATIONS_DIR: Path = Field(
+        default=Path("migrations"), description="Migrations directory"
+    )
+    DB_MIGRATIONS_TABLE: str = Field(
+        default="schema_versions", description="Schema versions table"
+    )
+
     # Logging settings
     DB_LOG_SQL: bool = Field(default=True, description="Log SQL statements")
     DB_LOG_ERRORS: bool = Field(default=True, description="Log SQL errors")
-    DB_LOG_PERFORMANCE: bool = Field(default=True, description="Log performance metrics")
-    
+    DB_LOG_PERFORMANCE: bool = Field(
+        default=True, description="Log performance metrics"
+    )
+
     def get_connection_url(self) -> str:
         """Get SQLAlchemy connection URL."""
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-    
+
     def get_engine_options(self) -> dict[str, Any]:
         """Get SQLAlchemy engine options."""
         return {
@@ -159,10 +191,10 @@ class ConfigManager:
 
     def load_config(self, config_path: str) -> Result[None, str]:
         """Load configuration from file.
-        
+
         Args:
             config_path: Path to configuration file
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -175,7 +207,7 @@ class ConfigManager:
 
     def validate_config(self) -> Result[None, str]:
         """Validate configuration.
-        
+
         Returns:
             Result indicating success or failure
         """
@@ -189,10 +221,10 @@ class ConfigManager:
 
     def _parse_config_file(self, config_path: str) -> dict[str, Any]:
         """Parse configuration file.
-        
+
         Args:
             config_path: Path to configuration file
-            
+
         Returns:
             Configuration dictionary
         """

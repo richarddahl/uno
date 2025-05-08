@@ -5,8 +5,8 @@ Service layer for InventoryItem workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
 
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Result, Success
+from uno.errors.errors import DomainValidationError
+from uno.errors.result import Failure, Result, Success
 from uno.infrastructure.logging import LoggerService
 from examples.app.domain.inventory.item import InventoryItem
 from examples.app.persistence.inventory_item_repository_protocol import (

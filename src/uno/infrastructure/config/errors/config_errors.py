@@ -5,13 +5,16 @@ This module contains error classes that represent configuration-related exceptio
 """
 
 from typing import Any, Dict
-from uno.core.errors.base import FrameworkError
+from uno.errors.base import UnoError
 
-class ConfigNotFoundError(FrameworkError):
+
+class ConfigNotFoundError(UnoError):
     """Error raised when a configuration setting is not found."""
 
-class ConfigInvalidError(FrameworkError):
+
+class ConfigInvalidError(UnoError):
     """Error raised when a configuration setting is invalid."""
 
-class ConfigTypeMismatchError(FrameworkError):
+
+class ConfigTypeMismatchError(UnoError):
     """Error raised when a configuration setting has the wrong type."""

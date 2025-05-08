@@ -1,10 +1,10 @@
 """
 In-memory SnapshotStore implementation for Uno example app.
-Integrates with uno.core.events.snapshots.SnapshotStore for demo/testing purposes.
+Integrates with uno.events.snapshots.SnapshotStore for demo/testing purposes.
 """
 
-from uno.core.events.snapshots import SnapshotStore, Success, Failure
-from uno.core.errors.result import Result
+from uno.events.snapshots import SnapshotStore, Success, Failure
+from uno.errors.result import Result
 from uno.infrastructure.logging import LoggerService
 from typing import Any, TypeVar
 

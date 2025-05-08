@@ -22,12 +22,12 @@ from pydantic import (
 
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.inventory.value_objects import Count, Grade
-from uno.core.domain.aggregate import AggregateRoot
-from uno.core.errors.base import get_error_context
-from uno.core.errors.definitions import DomainValidationError
-from uno.core.errors.result import Failure, Result, Success
-from uno.core.events import DomainEvent
-from uno.core.events.base_event import (
+from uno.domain.aggregate import AggregateRoot
+from uno.errors.base import get_error_context
+from uno.errors.errors import DomainValidationError
+from uno.errors.result import Failure, Result, Success
+from uno.events import DomainEvent
+from uno.events.base_event import (
     EventUpcasterRegistry,
     EventUpcasterRegistry as BaseEventUpcasterRegistry,
 )

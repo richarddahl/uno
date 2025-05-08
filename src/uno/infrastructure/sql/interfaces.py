@@ -6,7 +6,7 @@ Protocols for Uno SQL infrastructure DI/extension points.
 from __future__ import annotations
 
 
-from typing import Protocol, Any
+from typing import Protocol, Any, runtime_checkable
 
 
 class EngineFactoryProtocol(Protocol):
@@ -15,6 +15,7 @@ class EngineFactoryProtocol(Protocol):
     def get_engine(self) -> Any: ...
 
 
+@runtime_checkable
 class ConnectionConfigProtocol(Protocol):
     """
     Protocol for Uno SQL connection configuration.
@@ -63,9 +64,11 @@ SQL infrastructure interfaces and protocols.
 
 from typing import Any, Protocol, TypeVar, runtime_checkable, Generic
 
+
 @runtime_checkable
 class ConfigProtocol(Protocol):
     """Protocol for configuration providers."""
+
     def get(self, key: str, default: Any = None) -> Any: ...
     def get_bool(self, key: str, default: bool = False) -> bool: ...
     def get_int(self, key: str, default: int = 0) -> int: ...
@@ -75,20 +78,25 @@ class ConfigProtocol(Protocol):
 
 T = TypeVar("T")
 
+
+@runtime_checkable
 class UnitOfWorkProtocol(Protocol):
     """Protocol for unit of work implementations."""
+
     def __enter__(self) -> "UnitOfWorkProtocol": ...
     def __exit__(self, exc_type, exc_val, exc_tb) -> None: ...
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
 
+
+@runtime_checkable
 class RepositoryProtocol(Protocol, Generic[T]):
     """Protocol for repository interfaces."""
+
     def add(self, entity: T) -> None: ...
     def get(self, entity_id: str) -> T | None: ...
     def remove(self, entity: T) -> None: ...
     def list(self) -> list[T]: ...
-
 
 
 @runtime_checkable
@@ -100,6 +108,7 @@ class DBManagerProtocol(Protocol):
     """
     DBManagerProtocol: Protocol for database manager services (sync).
     """
+
     def execute_ddl(self, ddl: str) -> None: ...
     def execute_script(self, script: str) -> None: ...
     def execute_from_emitter(self, emitter: Any) -> None: ...
@@ -121,15 +130,31 @@ class DBManagerProtocol(Protocol):
         self, policy_name: str, table_name: str, schema: str | None = None
     ) -> bool: ...
 
+
 class SQLExecutionServiceProtocol(Protocol):
     """
     SQLExecutionProtocol: Protocol for SQL execution services.
     """
+
     def execute_ddl(self, ddl: str) -> None: ...
     def execute_script(self, script: str) -> None: ...
     def execute_emitter(self, emitter: Any, dry_run: bool = False) -> list[Any]: ...
 
-from uno.core.errors.result import Result
+
+from uno.errors import UnoError
+from uno.errors.result import Result
+from uno.infrastructure.sql.errors import (
+    SQLErrorCode,
+    SQLStatementError,
+    SQLExecutionError,
+    SQLSyntaxError,
+    SQLEmitterError,
+    SQLEmitterInvalidConfigError,
+    SQLRegistryClassNotFoundError,
+    SQLRegistryClassAlreadyExistsError,
+    SQLConfigError,
+    SQLConfigInvalidError,
+)
 
 T = TypeVar("T")
 
@@ -217,7 +242,7 @@ class MockHelperProtocol(Protocol):
 
     def create_mock_tables(self, tables: list[dict[str, Any]]) -> None:
         """Create mock tables.
-        
+
         Args:
             tables: List of table definitions
         """

@@ -9,7 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from sqlalchemy import text, MetaData, Table, Column, String, Integer, DateTime
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.core.errors.result import Result, Success, Failure
+from uno.errors.result import Result, Success, Failure
 from uno.infrastructure.sql.config import SQLConfig
 from uno.infrastructure.sql.connection import ConnectionManager
 from uno.infrastructure.logging.logger import LoggerService
@@ -17,7 +17,7 @@ from uno.infrastructure.logging.logger import LoggerService
 
 class MockDatabase(BaseModel):
     """Mock database configuration."""
-    
+
     name: str
     user: str
     password: str
@@ -32,10 +32,10 @@ class SQLTestHelper:
         self,
         config: SQLConfig,
         connection_manager: ConnectionManager,
-        logger: LoggerService
+        logger: LoggerService,
     ) -> None:
         """Initialize test helper.
-        
+
         Args:
             config: SQL configuration
             connection_manager: Connection manager
@@ -46,22 +46,24 @@ class SQLTestHelper:
         self._logger = logger
         self._mock_databases: dict[str, MockDatabase] = {}
 
-    async def create_mock_database(self, name: Optional[str] = None) -> Result[str, str]:
+    async def create_mock_database(
+        self, name: Optional[str] = None
+    ) -> Result[str, str]:
         """Create a mock database.
-        
+
         Args:
             name: Optional database name, defaults to mock_db_{timestamp}
-            
+
         Returns:
             Result containing database name or error
         """
         try:
             db_name = name or f"mock_db_{int(datetime.now().timestamp())}"
-            
+
             async with self._connection_manager.get_connection() as session:
                 # Create database
                 await session.execute(text(f"CREATE DATABASE {db_name}"))
-                
+
                 # Create mock user if needed
                 if self._config.DB_TEST_USER:
                     await session.execute(
@@ -71,22 +73,24 @@ class SQLTestHelper:
                         )
                     )
                     await session.execute(
-                        text(f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {self._config.DB_TEST_USER}")
+                        text(
+                            f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {self._config.DB_TEST_USER}"
+                        )
                     )
-                
+
                 self._mock_databases[db_name] = MockDatabase(
                     name=db_name,
                     user=self._config.DB_TEST_USER,
                     password=self._config.DB_TEST_PASSWORD,
                     created_at=datetime.now(),
-                    tables=[]
+                    tables=[],
                 )
-                
+
                 self._logger.structured_log(
                     "INFO",
                     f"Created mock database {db_name}",
                     name="uno.sql.testing",
-                    database=db_name
+                    database=db_name,
                 )
                 return Success(db_name)
         except Exception as e:
@@ -94,38 +98,40 @@ class SQLTestHelper:
                 "ERROR",
                 f"Failed to create mock database: {str(e)}",
                 name="uno.sql.testing",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to create mock database: {str(e)}")
 
     async def cleanup_mock_database(self, name: str) -> Result[None, str]:
         """Clean up a mock database.
-        
+
         Args:
             name: Database name to clean up
-            
+
         Returns:
             Result indicating success or failure
         """
         try:
             if name not in self._mock_databases:
                 return Failure(f"Mock database {name} not found")
-            
+
             async with self._connection_manager.get_connection() as session:
                 # Drop database
                 await session.execute(text(f"DROP DATABASE {name}"))
-                
+
                 # Drop mock user if needed
                 if self._config.DB_TEST_USER:
-                    await session.execute(text(f"DROP USER {self._config.DB_TEST_USER}"))
-                
+                    await session.execute(
+                        text(f"DROP USER {self._config.DB_TEST_USER}")
+                    )
+
                 del self._mock_databases[name]
-                
+
                 self._logger.structured_log(
                     "INFO",
                     f"Cleaned up mock database {name}",
                     name="uno.sql.testing",
-                    database=name
+                    database=name,
                 )
                 return Success(None)
         except Exception as e:
@@ -133,31 +139,29 @@ class SQLTestHelper:
                 "ERROR",
                 f"Failed to clean up mock database {name}: {str(e)}",
                 name="uno.sql.testing",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to clean up mock database: {str(e)}")
 
     async def create_mock_tables(
-        self,
-        db_name: str,
-        tables: list[dict[str, Any]]
+        self, db_name: str, tables: list[dict[str, Any]]
     ) -> Result[None, str]:
         """Create mock tables in a database.
-        
+
         Args:
             db_name: Database name
             tables: List of table definitions
-            
+
         Returns:
             Result indicating success or failure
         """
         try:
             if db_name not in self._mock_databases:
                 return Failure(f"Mock database {db_name} not found")
-            
+
             async with self._connection_manager.get_connection() as session:
                 metadata = MetaData()
-                
+
                 for table_def in tables:
                     table = Table(
                         table_def["name"],
@@ -167,20 +171,20 @@ class SQLTestHelper:
                                 col["name"],
                                 col["type"],
                                 primary_key=col.get("primary_key", False),
-                                nullable=col.get("nullable", True)
+                                nullable=col.get("nullable", True),
                             )
                             for col in table_def["columns"]
-                        ]
+                        ],
                     )
                     await session.run_sync(metadata.create_all)
                     self._mock_databases[db_name].tables.append(table_def["name"])
-                
+
                 self._logger.structured_log(
                     "INFO",
                     f"Created mock tables in {db_name}",
                     name="uno.sql.testing",
                     database=db_name,
-                    tables=[t["name"] for t in tables]
+                    tables=[t["name"] for t in tables],
                 )
                 return Success(None)
         except Exception as e:
@@ -188,34 +192,34 @@ class SQLTestHelper:
                 "ERROR",
                 f"Failed to create mock tables in {db_name}: {str(e)}",
                 name="uno.sql.testing",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to create mock tables: {str(e)}")
 
     async def cleanup_mock_tables(self, db_name: str) -> Result[None, str]:
         """Clean up mock tables in a database.
-        
+
         Args:
             db_name: Database name
-            
+
         Returns:
             Result indicating success or failure
         """
         try:
             if db_name not in self._mock_databases:
                 return Failure(f"Mock database {db_name} not found")
-            
+
             async with self._connection_manager.get_connection() as session:
                 for table in self._mock_databases[db_name].tables:
                     await session.execute(text(f"DROP TABLE IF EXISTS {table}"))
-                
+
                 self._mock_databases[db_name].tables.clear()
-                
+
                 self._logger.structured_log(
                     "INFO",
                     f"Cleaned up mock tables in {db_name}",
                     name="uno.sql.testing",
-                    database=db_name
+                    database=db_name,
                 )
                 return Success(None)
         except Exception as e:
@@ -223,16 +227,16 @@ class SQLTestHelper:
                 "ERROR",
                 f"Failed to clean up mock tables in {db_name}: {str(e)}",
                 name="uno.sql.testing",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to clean up mock tables: {str(e)}")
 
     async def rollback_transaction(self, session: AsyncSession) -> Result[None, str]:
         """Rollback a transaction for testing.
-        
+
         Args:
             session: Database session
-            
+
         Returns:
             Result indicating success or failure
         """
@@ -244,15 +248,15 @@ class SQLTestHelper:
                 "ERROR",
                 f"Failed to rollback transaction: {str(e)}",
                 name="uno.sql.testing",
-                error=e
+                error=e,
             )
             return Failure(f"Failed to rollback transaction: {str(e)}")
 
     @property
     def mock_databases(self) -> dict[str, MockDatabase]:
         """Get all mock databases.
-        
+
         Returns:
             Dictionary of mock databases
         """
-        return self._mock_databases 
+        return self._mock_databases

@@ -21,7 +21,7 @@ from pathlib import Path
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from uno.core.domain.context_definitions import analyze_dependencies, get_dot_graph
+from uno.domain.context_definitions import analyze_dependencies, get_dot_graph
 
 
 def save_graph(output_path: str, view: bool = False, format: str = "png") -> None:

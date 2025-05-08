@@ -11,7 +11,7 @@ from typing import Any
 from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
 from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.core.errors.result import Failure, Success
+from uno.errors.result import Failure, Success
 from uno.infrastructure.logging import LoggerService
 
 
@@ -67,9 +67,11 @@ class InMemoryVendorRepository:
                 vendor = Vendor(
                     id=event.vendor_id,
                     name=event.name,
-                    contact_email=EmailAddress(value=event.contact_email)
-                    if isinstance(event.contact_email, str)
-                    else event.contact_email,
+                    contact_email=(
+                        EmailAddress(value=event.contact_email)
+                        if isinstance(event.contact_email, str)
+                        else event.contact_email
+                    ),
                 )
             elif isinstance(event, VendorUpdated) and vendor:
                 vendor.name = event.name

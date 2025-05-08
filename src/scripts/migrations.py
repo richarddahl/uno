@@ -529,7 +529,7 @@ def get_default_migration_dirs() -> list:
 
 # Import Uno Core Migration system
 try:
-    from uno.core.migrations.cli import main as core_migrations_main
+    from uno.migrations.cli import main as core_migrations_main
 except ImportError:
     logger.warning(
         "Uno Core Migration system not available. "

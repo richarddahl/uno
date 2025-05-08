@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
-from uno.core.domain import ValueObject
+from uno.domain import ValueObject
 
 # Import value objects
 from examples.app.domain.inventory.value_objects import (
