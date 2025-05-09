@@ -3,28 +3,33 @@
 # SPDX-License-Identifier: MIT
 
 """
-Base error classes and utilities for the Uno error handling framework.
+Base error classes and utilities for the Uno error handling system.
 
 This module provides the foundation for structured error handling with
 error codes, contextual information, and error categories.
 """
 
+from __future__ import annotations
+
 import traceback
-from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any
+from typing import Any, Dict, Optional, Type, TypeVar, cast
+
+T = TypeVar("T", bound="UnoError")
 
 
 class ErrorCategory(Enum):
     """Categories of errors for classification."""
 
-    INTERNAL = auto()  # Internal errors
+    INTERNAL = auto()  # Internal/unknown errors
+    CONFIG = auto()  # Configuration errors
     DI = auto()  # Dependency injection errors
     DB = auto()  # Database errors
     API = auto()  # API errors
-    CONFIG = auto()  # Configuration errors
     EVENT = auto()  # Event handling errors
     VALIDATION = auto()  # Validation errors
+    SECURITY = auto()  # Security-related errors
 
 
 class ErrorSeverity(Enum):
@@ -37,90 +42,102 @@ class ErrorSeverity(Enum):
     FATAL = auto()  # Fatal error that requires system shutdown
 
 
-@dataclass
-class ErrorContext:
-    """Context information for an error instance.
-
-    This lightweight class stores contextual information about an error occurrence.
-    It's designed to be attached to errors and used for logging and debugging.
-    """
-
-    category: ErrorCategory
-    severity: ErrorSeverity = ErrorSeverity.ERROR
-    code: str = "UNKNOWN"
-    details: dict[str, Any] = None
-
-    def __post_init__(self) -> None:
-        """Initialize the error context with default values."""
-        # Ensure details is a dictionary
-        # if it's not already set
-        if self.details is None:
-            self.details = {}
-
-    def add_detail(self, key: str, value: Any) -> None:
-        """Add additional context detail to the error."""
-        if self.details is None:
-            self.details = {}
-        self.details[key] = value
-
-
-class ErrorCode:
-    """
-    Error code constants and utilities.
-
-    This class provides standardized error codes and utilities
-    for working with them.
-    """
-
-    # Core error codes
-    UNKNOWN_ERROR = "CORE-0001"
-
-
 class UnoError(Exception):
-    """
-    Base class for all Uno framework errors.
+    """Base class for all framework errors with structured context.
 
-    This class provides standardized error formatting with error codes,
-    contextual information, and stacktrace capture.
+    This class extends Python's built-in Exception class with additional
+    context information, error categorization, and severity levels.
     """
 
     def __init__(
         self,
         message: str,
-        error_code: str = None,
+        error_code: Optional[str] = None,
         category: ErrorCategory = ErrorCategory.INTERNAL,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **details: Any,
+        **context: Any,
     ):
-        # Only pass the message to Exception
+        """Initialize a new UnoError.
+
+        Args:
+            message: Human-readable error message
+            error_code: Unique identifier for this error type
+            category: General category for this error
+            severity: How severe this error is
+            **context: Additional contextual information about the error
+        """
         super().__init__(message)
-        self.message: str = message
-        self.error_code: str = error_code or "UNKNOWN"
-        self.context = ErrorContext(
+        self.message = message
+        self.error_code = error_code or "UNKNOWN"
+        self.category = category
+        self.severity = severity
+        self.context: Dict[str, Any] = dict(context) if context else {}
+        self.timestamp = datetime.now(timezone.utc)
+
+        # Capture stack trace for debugging
+        self.stacktrace = "".join(traceback.format_exception(*traceback.sys.exc_info()))
+
+    def add_context(self, key: str, value: Any) -> UnoError:
+        """Add additional context to the error.
+
+        Args:
+            key: Context information identifier
+            value: Context information value
+
+        Returns:
+            Self, for method chaining
+        """
+        self.context[key] = value
+        return self  # For method chaining
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to a dictionary for serialization.
+
+        Returns:
+            Dictionary representation of the error
+        """
+        return {
+            "error_code": self.error_code,
+            "message": self.message,
+            "category": self.category.name,
+            "severity": self.severity.name,
+            "context": self.context,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+    @classmethod
+    def wrap(
+        cls: Type[T],
+        exception: Exception,
+        message: Optional[str] = None,
+        error_code: Optional[str] = None,
+        category: ErrorCategory = ErrorCategory.INTERNAL,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        **context: Any,
+    ) -> T:
+        """Wrap an existing exception in a UnoError.
+
+        Args:
+            exception: The exception to wrap
+            message: Optional message override (defaults to str(exception))
+            error_code: Error code for the wrapped exception
+            category: Error category
+            severity: Error severity
+            **context: Additional context information
+
+        Returns:
+            A new UnoError instance with the exception as its cause
+        """
+        if message is None:
+            message = str(exception)
+
+        error = cls(
+            message=message,
+            error_code=error_code or "WRAPPED_ERROR",
             category=category,
             severity=severity,
-            code=self.error_code,
-            details=details if details else None,
+            original_exception=type(exception).__name__,
+            **context,
         )
-
-        # Capture stacktrace
-        self.traceback: str = "".join(
-            traceback.format_exception(*traceback.sys.exc_info())
-        )
-
-        # Store the original cause if this wraps another exception
-        self.original_cause = None
-        if cause := self.__cause__:
-            self.original_cause = cause
-            # Add original error details to context
-            self.context.add_detail("original_error", str(cause))
-            self.context.add_detail("original_error_type", type(cause).__name__)
-
-    def __str__(self) -> str:
-        """Get string representation of error."""
-        return f"{self.error_code}: {self.message}"
-
-    def with_detail(self, key: str, value: Any) -> "UnoError":
-        """Add detail to error context and return self for chaining."""
-        self.context.add_detail(key, value)
-        return self
+        error.__cause__ = exception
+        return error

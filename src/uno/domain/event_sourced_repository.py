@@ -6,7 +6,7 @@ using the event sourcing pattern. Integrates with Uno's DI, logging, error, and 
 """
 
 from typing import Generic, TypeVar
-from uno.infrastructure.di.decorators import framework_service
+from uno.di.decorators import framework_service
 from uno.domain.aggregate import AggregateRoot
 from uno.domain.repository import Repository
 from uno.events.event_store import EventStoreProtocol

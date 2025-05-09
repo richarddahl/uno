@@ -2,16 +2,24 @@
 # SPDX-License-Identifier: MIT
 # SPDX-Package-Name: uno framework
 """
-Logging package for the Uno framework.
+Public API for the Uno logging system.
 
-Exports the core logging API for structured logging.
+This module exports the public API for logging in the Uno framework, providing
+structured logging capabilities and context management.
 """
 
-from .protocols import LoggerFactoryProtocol, LoggerProtocol
-from .text_logger import TextLoggerFactory
+from uno.logging.config import LoggingSettings
+from uno.logging.logger import UnoLogger, get_logger
+from uno.logging.protocols import LogLevel, LoggerProtocol
 
 __all__ = [
-    "LoggerFactoryProtocol",
+    # Core interfaces
     "LoggerProtocol",
-    "TextLoggerFactory",
+    "LogLevel",
+    # Implementation
+    "UnoLogger",
+    # Settings
+    "LoggingSettings",
+    # Factory functions
+    "get_logger",
 ]
