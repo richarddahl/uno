@@ -1,19 +1,43 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
+"""
+Public API for the Uno events package.
 
-# Event sourcing core
-from .base_event import DomainEvent
-from .bus import EventBus, EventBusProtocol
-from .event_store import EventStore, InMemoryEventStore
-from .factory import get_event_bus, get_event_publisher, get_event_store
+This module exports the public API for event sourcing in the Uno framework,
+providing domain events, event bus, and event store capabilities.
+"""
 
-# Event handlers
-from .handlers import (
+# Core protocols
+from uno.events.protocols import (
+    EventBusProtocol,
+    EventPublisherProtocol,
+    EventStoreProtocol,
     EventHandler,
+    EventHandlerMiddleware,
+    CommandHandler,
+)
+
+# Base event types
+from uno.events.base_event import DomainEvent
+from uno.events.deleted_event import DeletedEvent
+from uno.events.restored_event import RestoredEvent
+
+# Configuration and helpers
+from uno.events.config import EventsConfig
+from uno.events.context import EventContext
+from uno.events.priority import EventPriority
+from uno.events.factory import get_event_bus, get_event_publisher, get_event_store
+from uno.events.registry import register_event_handler, subscribe
+
+# In-memory implementations
+from uno.events.implementations.bus import InMemoryEventBus
+from uno.events.implementations.store import InMemoryEventStore
+
+# Handler utilities
+from uno.events.handlers import (
     EventHandlerContext,
     EventHandlerDecorator,
-    EventHandlerMiddleware,
     EventHandlerRegistry,
     LoggingMiddleware,
     TimingMiddleware,
@@ -22,7 +46,7 @@ from .handlers import (
 )
 
 # Middleware
-from .middleware import (
+from uno.events.middleware import (
     CircuitBreakerMiddleware,
     CircuitBreakerState,
     EventMetrics,
@@ -30,52 +54,67 @@ from .middleware import (
     RetryMiddleware,
     RetryOptions,
 )
-from .priority import EventPriority
-from .publisher import EventPublisher, EventPublisherProtocol
-from .registry import register_event_handler, subscribe
 
-# Unit of Work
-from .unit_of_work import (
-    InMemoryUnitOfWork,
-    PostgresUnitOfWork,
-    UnitOfWork,
-    execute_in_transaction,
-    execute_operations,
+# Errors
+from uno.events.errors import (
+    EventErrorCode,
+    EventError,
+    EventPublishError,
+    EventSubscribeError,
+    EventHandlerError,
+    EventSerializationError,
+    EventDeserializationError,
+    EventUpcastError,
+    EventDowncastError,
 )
 
 __all__ = [
-    "CircuitBreakerMiddleware",
-    "CircuitBreakerState",
-    "CoreEventHandler",
-    "DomainEvent",
-    "EventBus",
+    # Core protocols
     "EventBusProtocol",
-    "EventHandler",
-    "EventHandlerContext",
-    "EventHandlerDecorator",
-    "EventHandlerMiddleware",
-    "EventHandlerRegistry",
-    "EventMetrics",
-    "EventPriority",
-    "EventPublisher",
     "EventPublisherProtocol",
-    "EventStore",
-    "InMemoryEventStore",
-    "InMemoryUnitOfWork",
-    "LoggingMiddleware",
-    "MetricsMiddleware",
-    "PostgresUnitOfWork",
-    "RetryMiddleware",
-    "RetryOptions",
-    "TimingMiddleware",
-    "UnitOfWork",
-    "discover_handlers",
-    "execute_in_transaction",
-    "execute_operations",
+    "EventStoreProtocol",
+    "EventHandler",
+    "EventHandlerMiddleware",
+    "CommandHandler",
+    # Base event types
+    "DomainEvent",
+    "DeletedEvent",
+    "RestoredEvent",
+    # Configuration and helpers
+    "EventsConfig",
+    "EventContext",
+    "EventPriority",
     "get_event_bus",
     "get_event_publisher",
     "get_event_store",
-    "handles",
     "register_event_handler",
     "subscribe",
+    # In-memory implementations
+    "InMemoryEventBus",
+    "InMemoryEventStore",
+    # Handler utilities
+    "EventHandlerContext",
+    "EventHandlerDecorator",
+    "EventHandlerRegistry",
+    "LoggingMiddleware",
+    "TimingMiddleware",
+    "discover_handlers",
+    "handles",
+    # Middleware
+    "CircuitBreakerMiddleware",
+    "CircuitBreakerState",
+    "EventMetrics",
+    "MetricsMiddleware",
+    "RetryMiddleware",
+    "RetryOptions",
+    # Errors
+    "EventErrorCode",
+    "EventError",
+    "EventPublishError",
+    "EventSubscribeError",
+    "EventHandlerError",
+    "EventSerializationError",
+    "EventDeserializationError",
+    "EventUpcastError",
+    "EventDowncastError",
 ]

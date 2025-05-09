@@ -7,6 +7,24 @@ if TYPE_CHECKING:
     from uno.events.base_event import DomainEvent
 
 
+class EventContext(BaseModel):
+    """
+    Context information for event processing.
+    
+    This class provides a standardized way to pass context information
+    along with events through the event processing pipeline.
+    """
+    
+    correlation_id: str | None = None
+    causation_id: str | None = None
+    user_id: str | None = None
+    source: str | None = None
+    
+    model_config = ConfigDict(
+        frozen=True,  # Context objects are immutable
+    )
+
+
 class EventHandlerContext(BaseModel):
     """
     Uno canonical Pydantic base model for event handler context objects.

@@ -1,21 +1,24 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
-Event sourcing interfaces and protocols for Uno.
-Defines all core event, bus, handler, and store protocols/ABCs.
+Protocol definitions for the events package.
+
+This module contains the core protocols that define the interfaces for the event
+sourcing system components.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, TypeVar, Generic
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
-from uno.events.base_event import DomainEvent  # Ensure DomainEvent is imported
-
-E = TypeVar("E", bound=DomainEvent)
-C = TypeVar("C")  # Remove bound if Command is not defined
+E = TypeVar("E", bound="DomainEvent")
+C = TypeVar("C")  # Generic command type
 T = TypeVar("T")
 
 
-# --- Event Bus Protocols ---
+@runtime_checkable
 class EventBusProtocol(Protocol):
     """
     Protocol for event buses (pub/sub, async/sync).
@@ -27,6 +30,7 @@ class EventBusProtocol(Protocol):
     async def publish_many(self, events: list[E]) -> None: ...
 
 
+@runtime_checkable
 class EventPublisherProtocol(Protocol):
     """
     Protocol for event publishers (decoupled publishing interface).
@@ -36,7 +40,6 @@ class EventPublisherProtocol(Protocol):
     async def publish_many(self, events: list[E]) -> None: ...
 
 
-# --- Event Handler Protocols ---
 class EventHandler(ABC):
     """
     Base class for event handlers.
@@ -57,20 +60,19 @@ class EventHandlerMiddleware(ABC):
         pass
 
 
-# --- Event Store Protocol ---
+@runtime_checkable
 class EventStoreProtocol(Protocol, Generic[E]):
     """
     Protocol for event store implementations.
     """
 
     async def save_event(self, event: E) -> None: ...
-    async def get_events(self, *args, **kwargs) -> list[E]: ...
+    async def get_events(self, *args: Any, **kwargs: Any) -> list[E]: ...
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
     ) -> list[E]: ...
 
 
-# --- Command Handler Protocol (CQRS) ---
 class CommandHandler(Generic[C, T], ABC):
     """
     Base class for command handlers.
