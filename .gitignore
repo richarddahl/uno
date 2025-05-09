@@ -83,3 +83,4 @@ site
 # PostgreSQL data directory
 data/postgresql/
 context_map.png
+.cursor/rules/uno-rules.mdc
