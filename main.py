@@ -19,7 +19,7 @@ from uno import config
 from uno.application.apidef import app as api_app
 
 # Import error handling utilities
-from uno.core.application.fastapi_error_handlers import setup_error_handlers
+from uno.application.fastapi_error_handlers import setup_error_handlers
 
 # Import the service provider, but don't use it yet
 from uno.examples.todolist import initialize_todolist
@@ -32,9 +32,9 @@ from uno.examples.todolist.api.routes import router as todo_router
 async def lifespan(app: FastAPI) -> None:
     """Lifespan context manager for FastAPI application."""
 
-    from uno.infrastructure.di.provider import configure_base_services, shutdown_services
-    from uno.infrastructure.di.service_collection import ServiceCollection
-    from uno.infrastructure.di.service_provider import ServiceProvider
+    from uno.di.provider import configure_base_services, shutdown_services
+    from uno.di.service_collection import ServiceCollection
+    from uno.di.service_provider import ServiceProvider
 
     # Strict DI: Construct ServiceProvider explicitly at startup
     services = ServiceCollection()
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> None:
     logger.info("Modern DI Service Provider initialized")
 
     # Register services using automatic discovery (optional)
-    from uno.infrastructure.di.discovery import register_services_in_package
+    from uno.di.discovery import register_services_in_package
 
     try:
         # Discover and register services in the application
@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI) -> None:
 
     # Include error handling example endpoints
     try:
-        from uno.core.errors.examples import router as error_examples_router
+        from uno.errors.examples import router as error_examples_router
 
         api_app.include_router(error_examples_router)
         logger.info("Error examples router included")
@@ -138,7 +138,7 @@ if "/static" not in [route.path for route in api_app.routes]:
     )
 
 # Configure the modern dependency injection system with FastAPI
-from uno.infrastructure.di.fastapi_integration import configure_fastapi
+from uno.di.fastapi_integration import configure_fastapi
 
 configure_fastapi(api_app)
 
@@ -301,7 +301,7 @@ def get_schema(schema_name: str):
 @api_app.on_event("startup")
 async def startup_event():
     """Startup event handler."""
-    from uno.infrastructure.di.provider import configure_base_services
+    from uno.di.provider import configure_base_services
     await configure_base_services()
     await initialize_todolist()
 
