@@ -8,23 +8,24 @@ providing detailed error messages and context for DI-related failures.
 from __future__ import annotations
 
 import inspect
+import logging
 import threading
 import traceback
 from contextlib import contextmanager
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
-    Dict,
     Final,
-    List,
-    Optional,
     Protocol,
-    Type,
     TypeVar,
     runtime_checkable,
 )
 
 from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # Prefix for all DI error codes
 ERROR_CODE_PREFIX: Final[str] = "DI"
@@ -186,10 +187,11 @@ class DIContainerError(DIError):
         except Exception as e:
             # If capturing container state fails, add that as context
             self.add_context("container_state_capture_error", str(e))
+            logging.exception("Error capturing container state")
 
     @classmethod
     @contextmanager
-    def using_container(cls, container: ContainerProtocol) -> None:
+    def using_container(cls, container: ContainerProtocol) -> Iterator[None]:
         """Set the current container for the current thread.
 
         This context manager sets the current container for the current thread,
@@ -207,6 +209,9 @@ class DIContainerError(DIError):
         cls._current_container[thread_id] = container
         try:
             yield
+        except Exception:
+            logging.exception("Error during container usage")
+            raise
         finally:
             if previous is not None:
                 cls._current_container[thread_id] = previous
@@ -271,13 +276,13 @@ class DIServiceCreationError(DIContainerError):
         service_key = service_key or type_name
 
         # Create the error message
-        message = f"Error creating service '{service_key}': {str(original_error)}"
+        message = f"Error creating service '{service_key}': {original_error!s}"
 
         # Add service and error information to context
         context["service_type"] = type_name
         context["service_key"] = service_key
         context["original_error_type"] = type(original_error).__name__
-        context["original_error_message"] = str(original_error)
+        context["original_error_message"] = f"{original_error!s}"
 
         # Add dependency chain if available
         if dependency_chain:

@@ -7,12 +7,9 @@ including environment management, settings classes, and file loading.
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Dict, Optional, cast
+from typing import TYPE_CHECKING
 
 import pytest
-from pydantic import Field
 
 from uno.config import (
     ConfigError,
@@ -23,6 +20,15 @@ from uno.config import (
     load_env_files,
     load_settings,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+PORT_8000 = 8000
+PORT_5000 = 5000
+PORT_4000 = 4000
+PORT_5433 = 5433
 
 
 class TestEnvironment:
@@ -103,7 +109,7 @@ class TestUnoSettings:
 
         assert settings.app_name == "default_app"
         assert settings.debug is False
-        assert settings.port == 8000
+        assert settings.port == PORT_8000
         assert settings.secret_key is None
 
     def test_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -116,7 +122,7 @@ class TestUnoSettings:
 
         assert settings.app_name == "test_app"
         assert settings.debug is True
-        assert settings.port == 5000
+        assert settings.port == PORT_5000
 
     def test_env_override(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -140,7 +146,7 @@ class TestUnoSettings:
             # Environment variables should take precedence
             assert settings.app_name == "env_app"
             # Other values should come from .env file
-            assert settings.port == 4000
+            assert settings.port == PORT_4000
         finally:
             os.chdir(cwd)
 
@@ -252,7 +258,7 @@ class TestConfigIntegration:
         settings = load_settings(self.DatabaseSettings)
 
         assert settings.host == "db.example.com"
-        assert settings.port == 5433
+        assert settings.port == PORT_5433
         assert settings.username == "postgres"  # Default value
 
     def test_get_config(self, monkeypatch: pytest.MonkeyPatch) -> None:

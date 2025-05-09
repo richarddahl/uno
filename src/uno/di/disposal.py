@@ -23,14 +23,14 @@ class DisposalError(Exception):
 class _DisposalManager:
     """Manages service disposal for the container."""
 
-    def __init__(self, container: "Container") -> None:
+    def __init__(self, container: Container) -> None:
         self.container = container
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
     async def dispose_service(self, service: Any) -> None:
         """Safely dispose a service if it supports disposal."""
         if hasattr(service, "dispose"):
-            dispose = getattr(service, "dispose")
+            dispose = service.dispose
             if asyncio.iscoroutinefunction(dispose):
                 await dispose()
             else:

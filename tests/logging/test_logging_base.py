@@ -61,32 +61,27 @@ class TestLoggingSettings:
         """Test default logging settings."""
         settings = LoggingSettings()
 
-        assert settings.level == LogLevel.INFO
+        assert settings.level == "INFO"
         assert settings.json_format is False
         assert settings.include_timestamp is True
         assert settings.include_level is True
         assert settings.console_enabled is True
         assert settings.file_enabled is False
         assert settings.file_path is None
-        assert settings.async_logging is False
-        assert isinstance(settings.module_levels, dict)
-        assert len(settings.module_levels) == 0
 
     def test_override_settings(self) -> None:
         """Test overriding default settings."""
         settings = LoggingSettings(
-            level=LogLevel.DEBUG,
+            level="DEBUG",
             json_format=True,
             file_enabled=True,
             file_path="/tmp/log.txt",
-            module_levels={"uno.api": LogLevel.ERROR},
         )
 
-        assert settings.level == LogLevel.DEBUG
+        assert settings.level == "DEBUG"
         assert settings.json_format is True
         assert settings.file_enabled is True
         assert settings.file_path == "/tmp/log.txt"
-        assert settings.module_levels["uno.api"] == LogLevel.ERROR
 
     def test_load_from_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test loading settings from environment variables."""
@@ -94,15 +89,13 @@ class TestLoggingSettings:
         monkeypatch.setenv("UNO_LOGGING_JSON_FORMAT", "true")
         monkeypatch.setenv("UNO_LOGGING_FILE_ENABLED", "true")
         monkeypatch.setenv("UNO_LOGGING_FILE_PATH", "/var/log/app.log")
-        monkeypatch.setenv("UNO_LOGGING_MODULE_LEVEL_uno.api", "ERROR")
 
         settings = LoggingSettings.load()
 
-        assert settings.level == LogLevel.DEBUG
+        assert settings.level == "DEBUG"
         assert settings.json_format is True
         assert settings.file_enabled is True
         assert settings.file_path == "/var/log/app.log"
-        assert settings.module_levels.get("uno.api") == LogLevel.ERROR
 
 
 class TestUnoLogger:

@@ -2,7 +2,6 @@
 
 import asyncio
 import threading
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,18 +15,18 @@ from uno.errors.base import ErrorCategory, ErrorSeverity
 
 # Mock classes to simulate the container protocol
 class MockScope:
-    def __init__(self, scope_id: str, parent=None):
+    def __init__(self, scope_id: str, parent=None) -> None:
         self.id = scope_id
         self.parent = parent
         self.services = [f"service_{i}" for i in range(3)]
         self.disposed = False
 
-    def get_service_keys(self):
+    def get_service_keys(self) -> list[str]:
         return self.services
 
 
 class MockContainer:
-    def __init__(self, scope=None):
+    def __init__(self, scope=None) -> None:
         self.current_scope = scope
         self.registrations = [f"registration_{i}" for i in range(5)]
         self.scopes = []
@@ -35,17 +34,17 @@ class MockContainer:
         if scope:
             self.scopes = [scope]
 
-    def get_registration_keys(self):
+    def get_registration_keys(self) -> list[str]:
         return self.registrations
 
-    def get_scope_chain(self):
+    def get_scope_chain(self) -> list[MockScope]:
         return self.scopes
 
 
 class TestDIContainerDisposedError:
     """Tests for DIContainerDisposedError."""
 
-    def test_init_with_basic_info(self):
+    def test_init_with_basic_info(self) -> None:
         """Test initialization with basic container info."""
         container = MockContainer()
         container.disposed = True
@@ -57,7 +56,7 @@ class TestDIContainerDisposedError:
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
 
-    def test_init_with_custom_message(self):
+    def test_init_with_custom_message(self) -> None:
         """Test initialization with a custom error message."""
         container = MockContainer()
         container.disposed = True
@@ -69,7 +68,7 @@ class TestDIContainerDisposedError:
 
         assert "Cannot resolve service from disposed container" in str(error)
 
-    def test_init_with_operation_name(self):
+    def test_init_with_operation_name(self) -> None:
         """Test initialization with operation name."""
         container = MockContainer()
         container.disposed = True
@@ -83,7 +82,7 @@ class TestDIContainerDisposedError:
 class TestDIScopeDisposedError:
     """Tests for DIScopeDisposedError."""
 
-    def test_init_with_basic_info(self):
+    def test_init_with_basic_info(self) -> None:
         """Test initialization with basic scope info."""
         scope = MockScope("test_scope")
         scope.disposed = True
@@ -96,7 +95,7 @@ class TestDIScopeDisposedError:
         assert error.severity == ErrorSeverity.ERROR
         assert error.context["scope_id"] == "test_scope"
 
-    def test_init_with_custom_message(self):
+    def test_init_with_custom_message(self) -> None:
         """Test initialization with a custom error message."""
         scope = MockScope("test_scope")
         scope.disposed = True
@@ -107,7 +106,7 @@ class TestDIScopeDisposedError:
 
         assert "Cannot get service from disposed scope" in str(error)
 
-    def test_init_with_operation_name(self):
+    def test_init_with_operation_name(self) -> None:
         """Test initialization with operation name."""
         scope = MockScope("test_scope")
         scope.disposed = True
@@ -117,7 +116,7 @@ class TestDIScopeDisposedError:
         assert "Operation 'get_service' attempted on disposed scope" in str(error)
         assert error.context["operation_name"] == "get_service"
 
-    def test_init_with_container(self):
+    def test_init_with_container(self) -> None:
         """Test initialization with container context."""
         scope = MockScope("test_scope")
         scope.disposed = True
@@ -132,7 +131,7 @@ class TestDIScopeDisposedError:
 class TestSyncInAsyncContextError:
     """Tests for SyncInAsyncContextError."""
 
-    def test_init_with_basic_info(self):
+    def test_init_with_basic_info(self) -> None:
         """Test initialization with basic info."""
         error = SyncInAsyncContextError()
 
@@ -141,7 +140,7 @@ class TestSyncInAsyncContextError:
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
 
-    def test_init_with_custom_message(self):
+    def test_init_with_custom_message(self) -> None:
         """Test initialization with a custom error message."""
         error = SyncInAsyncContextError(
             message="Sync get_service() called from async context"
@@ -149,7 +148,7 @@ class TestSyncInAsyncContextError:
 
         assert "Sync get_service() called from async context" in str(error)
 
-    def test_init_with_method_name(self):
+    def test_init_with_method_name(self) -> None:
         """Test initialization with method name."""
         error = SyncInAsyncContextError(method_name="get_service")
 
@@ -158,7 +157,7 @@ class TestSyncInAsyncContextError:
         )
         assert error.context["method_name"] == "get_service"
 
-    def test_init_with_container(self):
+    def test_init_with_container(self) -> None:
         """Test initialization with container context."""
         container = MockContainer()
 
@@ -168,13 +167,13 @@ class TestSyncInAsyncContextError:
         assert error.context["container_registrations"] == container.registrations
 
     @pytest.mark.asyncio
-    async def test_detect_async_context(self):
+    async def test_detect_async_context(self) -> None:
         """Test that the error correctly detects an async context."""
         # This simulates what would happen if code tried to detect
         # if we're in an async context
 
         # Define a function that checks if there's a running event loop
-        def is_in_async_context():
+        def is_in_async_context() -> bool:
             try:
                 asyncio.get_running_loop()
                 return True
@@ -185,7 +184,7 @@ class TestSyncInAsyncContextError:
         # because pytest-asyncio runs the entire test in an asyncio event loop
         sync_result = None
 
-        def check_in_thread():
+        def check_in_thread() -> None:
             nonlocal sync_result
             sync_result = is_in_async_context()
 

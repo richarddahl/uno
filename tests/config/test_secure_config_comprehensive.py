@@ -5,29 +5,27 @@ This module provides thorough testing of the secure configuration system,
 covering all handling modes, error scenarios, and integration points.
 """
 
-import json
 import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 from uno.config import (
-    Environment,
     SecureField,
     SecureValue,
     SecureValueError,
     SecureValueHandling,
     UnoSettings,
-    load_env_files,
-    load_settings,
     setup_secure_config,
 )
 from uno.config.secure import requires_secure_access
-from uno.di.config import ConfigProvider, ConfigProviderProtocol, register_secure_config
+from uno.di.config import ConfigProvider, register_secure_config
+
+TWO = 2
+THREE = 3
 
 
 # Test configuration classes
@@ -68,18 +66,18 @@ class NestedSecureConfig(UnoSettings):
 class TestSecureValue:
     """Tests for the SecureValue container class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         # Set a test master key for encryption
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_mask_mode(self):
+    def test_mask_mode(self) -> None:
         """Test masking mode for secure values."""
         # Create a masked secure value
         secure_value = SecureValue("sensitive-data", handling=SecureValueHandling.MASK)
@@ -91,7 +89,7 @@ class TestSecureValue:
         # Verify we can access the actual value
         assert secure_value.get_value() == "sensitive-data"
 
-    def test_encrypt_mode(self):
+    def test_encrypt_mode(self) -> None:
         """Test encryption mode for secure values."""
         # Create an encrypted secure value
         secure_value = SecureValue("encrypt-this", handling=SecureValueHandling.ENCRYPT)
@@ -105,7 +103,7 @@ class TestSecureValue:
         # Verify string representation is masked
         assert str(secure_value) == "********"
 
-    def test_sealed_mode(self):
+    def test_sealed_mode(self) -> None:
         """Test sealed mode for secure values."""
         # Create a sealed secure value
         secure_value = SecureValue("top-secret", handling=SecureValueHandling.SEALED)
@@ -121,7 +119,7 @@ class TestSecureValue:
         # Verify string representation is masked
         assert str(secure_value) == "********"
 
-    def test_encryption_setup_required(self):
+    def test_encryption_setup_required(self) -> None:
         """Test that encryption requires setup."""
         # Remove the master key
         if "UNO_MASTER_KEY" in os.environ:
@@ -134,7 +132,7 @@ class TestSecureValue:
         with pytest.raises(SecureValueError):
             SecureValue("test", handling=SecureValueHandling.ENCRYPT)
 
-    def test_encrypt_decrypt_cycle(self):
+    def test_encrypt_decrypt_cycle(self) -> None:
         """Test complete encryption/decryption cycle."""
         # Create an encrypted secure value
         test_value = "test-encryption-cycle"
@@ -144,7 +142,7 @@ class TestSecureValue:
         for _ in range(5):
             assert secure_value.get_value() == test_value
 
-    def test_different_value_types(self):
+    def test_different_value_types(self) -> None:
         """Test encrypting and decrypting different value types."""
         # Test with different types
         test_cases = [
@@ -166,17 +164,17 @@ class TestSecureValue:
 class TestSecureField:
     """Tests for the SecureField annotation."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_field_metadata(self):
+    def test_field_metadata(self) -> None:
         """Test that SecureField adds appropriate metadata."""
         field = SecureField("test")
 
@@ -185,14 +183,14 @@ class TestSecureField:
         assert field.json_schema_extra.get("secure") is True
         assert field.json_schema_extra.get("handling") == "mask"
 
-    def test_custom_handling(self):
+    def test_custom_handling(self) -> None:
         """Test SecureField with custom handling."""
         field = SecureField("test", handling=SecureValueHandling.ENCRYPT)
 
         # Verify field metadata
         assert field.json_schema_extra.get("handling") == "encrypt"
 
-    def test_required_field(self):
+    def test_required_field(self) -> None:
         """Test required SecureField."""
         from pydantic.fields import PydanticUndefined
 
@@ -204,17 +202,17 @@ class TestSecureField:
 class TestSecureSettings:
     """Tests for secure settings handling in UnoSettings."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_secure_field_detection(self):
+    def test_secure_field_detection(self) -> None:
         """Test that secure fields are properly detected."""
         config = BasicSecureConfig()
 
@@ -228,7 +226,7 @@ class TestSecureSettings:
         assert config._secure_fields["db_password"] == SecureValueHandling.ENCRYPT
         assert config._secure_fields["encryption_key"] == SecureValueHandling.SEALED
 
-    def test_secure_value_wrapping(self):
+    def test_secure_value_wrapping(self) -> None:
         """Test that values are wrapped in SecureValue containers."""
         config = BasicSecureConfig()
 
@@ -240,7 +238,7 @@ class TestSecureSettings:
         # Non-secure field should not be wrapped
         assert not isinstance(config.app_name, SecureValue)
 
-    def test_dict_serialization(self):
+    def test_dict_serialization(self) -> None:
         """Test dict serialization with secure values."""
         from unittest.mock import patch
 
@@ -255,7 +253,7 @@ class TestSecureSettings:
             assert config_dict["db_password"] == "********"
             assert config_dict["encryption_key"] == "********"
 
-    def test_json_serialization(self):
+    def test_json_serialization(self) -> None:
         """Test JSON serialization with secure values."""
         import json
         from unittest.mock import patch
@@ -276,7 +274,7 @@ class TestSecureSettings:
             assert parsed_json["db_password"] == "********"
             assert parsed_json["encryption_key"] == "********"
 
-    def test_secure_value_access(self):
+    def test_secure_value_access(self) -> None:
         """Test accessing secure values."""
         config = BasicSecureConfig()
 
@@ -290,7 +288,7 @@ class TestSecureSettings:
         with pytest.raises(SecureValueError):
             config.encryption_key.get_value()
 
-    def test_environment_variable_override(self):
+    def test_environment_variable_override(self) -> None:
         """Test environment variable overrides for secure values."""
         # Set environment variables
         os.environ["API_KEY"] = "env-api-key"
@@ -314,7 +312,7 @@ class TestSecureSettings:
             del os.environ["DB_PASSWORD"]
             del os.environ["ENCRYPTION_KEY"]
 
-    def test_env_file_loading(self):
+    def test_env_file_loading(self) -> None:
         """Test loading secure values from .env files."""
         # Create a temporary .env file
         with tempfile.NamedTemporaryFile(
@@ -327,7 +325,7 @@ class TestSecureSettings:
 
         try:
             with patch.object(BaseSettings, "__init__", return_value=None):
-                config = BasicSecureConfig()
+                config: BasicSecureConfig = BasicSecureConfig()
                 config.__dict__["app_name"] = "Env File App"
                 config.__dict__["api_key"] = SecureValue(
                     "env-file-api-key", handling=SecureValueHandling.MASK
@@ -358,17 +356,17 @@ class TestSecureSettings:
 class TestConfigProvider:
     """Tests for the ConfigProvider class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_provider_creation(self):
+    def test_provider_creation(self) -> None:
         """Test creating a ConfigProvider."""
         # Create settings
         config = BasicSecureConfig()
@@ -379,7 +377,7 @@ class TestConfigProvider:
         # Verify provider has settings
         assert provider._settings == config
 
-    def test_get_settings(self):
+    def test_get_settings(self) -> None:
         """Test getting settings from provider."""
         # Create settings
         config = BasicSecureConfig()
@@ -393,7 +391,7 @@ class TestConfigProvider:
         # Verify settings are returned
         assert settings == config
 
-    def test_get_secure_value(self):
+    def test_get_secure_value(self) -> None:
         """Test getting secure values from provider."""
         # Create settings
         config = BasicSecureConfig()
@@ -412,7 +410,7 @@ class TestConfigProvider:
         mock_logger.info.assert_called_once()
         assert "api_key" in mock_logger.info.call_args[0][0]
 
-    def test_get_nonexistent_field(self):
+    def test_get_nonexistent_field(self) -> None:
         """Test getting a non-existent field from provider."""
         # Create settings
         config = BasicSecureConfig()
@@ -424,7 +422,7 @@ class TestConfigProvider:
         with pytest.raises(AttributeError):
             provider.get_secure_value("non_existent")
 
-    def test_get_sealed_value(self):
+    def test_get_sealed_value(self) -> None:
         """Test getting a sealed value from provider."""
         # Create settings
         config = BasicSecureConfig()
@@ -436,7 +434,7 @@ class TestConfigProvider:
         with pytest.raises(SecureValueError):
             provider.get_secure_value("encryption_key")
 
-    def test_get_regular_value(self):
+    def test_get_regular_value(self) -> None:
         """Test getting a regular (non-secure) value from provider."""
         # Create settings with a clean environment to avoid external interference
         with patch.dict(os.environ, {}, clear=True):
@@ -455,17 +453,17 @@ class TestConfigProvider:
 class TestDIIntegration:
     """Tests for dependency injection integration."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_register_secure_config(self):
+    def test_register_secure_config(self) -> None:
         """Test registering secure config with container."""
         # Create mock container
         container = MagicMock()
@@ -474,9 +472,9 @@ class TestDIIntegration:
         register_secure_config(container, BasicSecureConfig)
 
         # Verify container.register was called
-        assert container.register.call_count == 2
+        assert container.register.call_count == TWO
 
-    def test_config_provider_factory(self):
+    def test_config_provider_factory(self) -> None:
         """Test config provider factory function."""
         # Mock container with logger
         container = MagicMock()
@@ -500,18 +498,16 @@ class TestDIIntegration:
 class TestRequiresSecureAccess:
     """Tests for the requires_secure_access decorator."""
 
-    def test_decorator(self):
+    def test_decorator(self) -> None:
         """Test the requires_secure_access decorator."""
 
         # Define a function with the decorator
         @requires_secure_access
-        def secure_function(arg1, arg2):
+        def secure_function(arg1: int, arg2: int) -> int:
             return arg1 + arg2
 
         # Call the function
         result = secure_function(1, 2)
 
         # Verify function works normally
-        assert result == 3
-
-        # In the future, this decorator could add logging, permissions check, etc.
+        assert result == THREE

@@ -6,8 +6,8 @@ capabilities in the Uno configuration system.
 """
 
 import os
+
 import pytest
-from typing import Any, Dict
 
 from uno.config import (
     SecureField,
@@ -16,6 +16,7 @@ from uno.config import (
     UnoSettings,
     setup_secure_config,
 )
+from uno.config.secure import SecureValueError
 
 
 class SecurityConfig(UnoSettings):
@@ -41,21 +42,21 @@ class SecurityConfig(UnoSettings):
 class TestSecureSettings:
     """Tests for secure configuration values."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test environment."""
         # Set a test master key for encryption
         os.environ["UNO_MASTER_KEY"] = "test-master-key"
         setup_secure_config()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clean up test environment."""
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_masking_in_representation(self):
+    def test_masking_in_representation(self) -> None:
         """Test that secure values are masked in string representations."""
-        from unittest.mock import patch
         import json
+        from unittest.mock import patch
 
         with patch.dict(os.environ, {}, clear=True):
             config = SecurityConfig()
@@ -73,7 +74,7 @@ class TestSecureSettings:
             assert "super-secret-jwt-token" not in config_json
             assert "********" in config_json
 
-    def test_masked_value_access(self):
+    def test_masked_value_access(self) -> None:
         """Test access to values with MASK handling."""
         config = SecurityConfig()
 
@@ -83,7 +84,7 @@ class TestSecureSettings:
         assert str(api_key_field) == "********"
         assert api_key_field.get_value() == "default-key"
 
-    def test_encrypted_value_access(self):
+    def test_encrypted_value_access(self) -> None:
         """Test access to values with ENCRYPT handling."""
         config = SecurityConfig()
 
@@ -93,7 +94,7 @@ class TestSecureSettings:
         assert str(db_password_field) == "********"
         assert db_password_field.get_value() == "secret-db-password"
 
-    def test_sealed_value_access(self):
+    def test_sealed_value_access(self) -> None:
         """Test access to values with SEALED handling."""
         config = SecurityConfig()
 
@@ -103,11 +104,11 @@ class TestSecureSettings:
         assert str(jwt_secret_field) == "********"
 
         # Accessing sealed values should raise an exception
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(SecureValueError) as excinfo:
             jwt_secret_field.get_value()
         assert "sealed value" in str(excinfo.value).lower()
 
-    def test_environment_variables(self):
+    def test_environment_variables(self) -> None:
         """Test loading secure values from environment variables."""
         # Set environment variables for secure fields
         os.environ["API_KEY"] = "env-api-key"
@@ -123,7 +124,7 @@ class TestSecureSettings:
             assert config.db_password.get_value() == "env-db-password"
 
             # Sealed value still can't be accessed
-            with pytest.raises(Exception):
+            with pytest.raises(SecureValueError):
                 config.jwt_secret.get_value()
         finally:
             # Clean up environment

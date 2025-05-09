@@ -11,15 +11,17 @@ import contextlib
 import json
 import logging
 import sys
-import threading
-from collections.abc import Generator
 from contextvars import ContextVar
-from logging import Handler, Logger, StreamHandler
-from typing import Any
+from logging import StreamHandler
+from typing import TYPE_CHECKING, Any
 
 from uno.errors import UnoError
 from uno.logging.config import LoggingSettings
 from uno.logging.protocols import LoggerProtocol, LogLevel
+from uno.utilities.security import sanitize_sensitive_info
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 # Context variable for storing log context data
 _log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})
@@ -148,16 +150,18 @@ class StructuredFormatter(logging.Formatter):
         return str(value)
 
 
+# Updated UnoLogger to use simplified LoggingSettings
 class UnoLogger(LoggerProtocol):
     """Default logger implementation for the Uno framework."""
 
     def __init__(
         self,
         name: str,
-        level: LogLevel = LogLevel.INFO,
+        level: str = "INFO",
         settings: LoggingSettings | None = None,
     ) -> None:
-        """Initialize a new logger.
+        """
+        Initialize a new logger.
 
         Args:
             name: Logger name
@@ -176,18 +180,15 @@ class UnoLogger(LoggerProtocol):
         # Bound context values for this logger instance
         self._bound_context: dict[str, Any] = {}
 
-    def _configure(self, level: LogLevel) -> None:
-        """Configure the logger with the provided settings.
+    def _configure(self, level: str) -> None:
+        """
+        Configure the logger with the provided settings.
 
         Args:
             level: Default log level
         """
-        # Apply module-specific level if available
-        if self.name in self._settings.module_levels:
-            level = self._settings.module_levels[self.name]
-
         # Set default level
-        self._logger.setLevel(level.to_stdlib_level())
+        self._logger.setLevel(level.upper())
 
         # Clear any existing handlers
         for handler in list(self._logger.handlers):
@@ -291,6 +292,9 @@ class UnoLogger(LoggerProtocol):
                         extra["error_code"] = value.error_code
             else:
                 extra[key] = value
+
+        # Sanitize sensitive information
+        extra = sanitize_sensitive_info(extra)
 
         # Log with all context
         self._logger.log(level, message, exc_info=exc_info, extra=extra)

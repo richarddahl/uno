@@ -10,8 +10,6 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlalchemy import text, MetaData, Table, Column, String, Integer, DateTime
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.errors.result import Result, Success, Failure
-from uno.infrastructure.sql.config import SQLConfig
 from uno.infrastructure.sql.connection import ConnectionManager
 from uno.infrastructure.logging.logger import LoggerService
 
@@ -25,7 +23,7 @@ class Migration(BaseModel):
     sql_up: str
     sql_down: str
     created_at: datetime
-    applied_at:int | Nonedatetime] = None
+    applied_at: int | None = None
 
 
 class MigrationManager:
@@ -33,18 +31,22 @@ class MigrationManager:
 
     def __init__(
         self,
-        config: SQLConfig,
+        db_migrations_table: str,
+        db_migrations_dir: str,
         connection_manager: ConnectionManager,
         logger: LoggerService,
     ) -> None:
-        """Initialize migration manager.
+        """
+        Initialize migration manager.
 
         Args:
-            config: SQL configuration
+            db_migrations_table: Name of the migrations table
+            db_migrations_dir: Directory for migration files
             connection_manager: Connection manager
             logger: Logger service
         """
-        self._config = config
+        self._db_migrations_table = db_migrations_table
+        self._db_migrations_dir = db_migrations_dir
         self._connection_manager = connection_manager
         self._logger = logger
         self._migrations: list[Migration] = []
@@ -56,7 +58,7 @@ class MigrationManager:
             async with self._connection_manager.get_connection() as session:
                 metadata = MetaData()
                 Table(
-                    self._config.DB_MIGRATIONS_TABLE,
+                    self._db_migrations_table,
                     metadata,
                     Column("version", Integer, primary_key=True),
                     Column("name", String, nullable=False),
@@ -77,8 +79,9 @@ class MigrationManager:
 
     async def create_migration(
         self, name: str, description: str, sql_up: str, sql_down: str
-    ) -> Result[Migration, str]:
-        """Create a new migration.
+    ) -> Migration:
+        """
+        Create a new migration.
 
         Args:
             name: Migration name
@@ -87,17 +90,18 @@ class MigrationManager:
             sql_down: SQL for rolling back migration
 
         Returns:
-            Result containing migration or error
+            The created migration instance.
+
+        Raises:
+            Exception: If migration creation fails.
         """
         try:
-            # Get current version
             async with self._connection_manager.get_connection() as session:
                 result = await session.execute(
-                    text(f"SELECT MAX(version) FROM {self._config.DB_MIGRATIONS_TABLE}")
+                    text(f"SELECT MAX(version) FROM {self._db_migrations_table}")
                 )
                 current_version = result.scalar() or 0
 
-                # Create migration
                 migration = Migration(
                     version=current_version + 1,
                     name=name,
@@ -107,8 +111,7 @@ class MigrationManager:
                     created_at=datetime.now(),
                 )
 
-                # Save migration file
-                migrations_dir = Path(self._config.DB_MIGRATIONS_DIR)
+                migrations_dir = Path(self._db_migrations_dir)
                 migrations_dir.mkdir(parents=True, exist_ok=True)
 
                 migration_file = migrations_dir / f"{migration.version:04d}_{name}.sql"
@@ -129,7 +132,7 @@ class MigrationManager:
                     name="uno.sql.migration",
                     migration=migration.dict(),
                 )
-                return Success(migration)
+                return migration
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -137,28 +140,25 @@ class MigrationManager:
                 name="uno.sql.migration",
                 error=e,
             )
-            return Failure(f"Failed to create migration: {str(e)}")
+            raise Exception(f"Failed to create migration: {str(e)}")
 
-    async def apply_migrations(
-        self, target_version:int | Noneint] = None
-    ) -> Result[None, str]:
-        """Apply pending migrations.
+    async def apply_migrations(self, target_version: int | None = None) -> None:
+        """
+        Apply pending migrations.
 
         Args:
             target_version: Optional target version to migrate to
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            Exception: If applying migrations fails.
         """
         try:
             async with self._connection_manager.get_connection() as session:
-                # Get current version
                 result = await session.execute(
-                    text(f"SELECT MAX(version) FROM {self._config.DB_MIGRATIONS_TABLE}")
+                    text(f"SELECT MAX(version) FROM {self._db_migrations_table}")
                 )
                 current_version = result.scalar() or 0
 
-                # Get pending migrations
                 pending = [
                     m
                     for m in self._migrations
@@ -169,13 +169,11 @@ class MigrationManager:
 
                 for migration in pending:
                     try:
-                        # Apply migration
                         await session.execute(text(migration.sql_up))
 
-                        # Record migration
                         await session.execute(
                             text(
-                                f"INSERT INTO {self._config.DB_MIGRATIONS_TABLE} "
+                                f"INSERT INTO {self._db_migrations_table} "
                                 f"(version, name, description, applied_at) "
                                 f"VALUES (:version, :name, :description, :applied_at)"
                             ),
@@ -203,12 +201,11 @@ class MigrationManager:
                             error=e,
                         )
                         await session.rollback()
-                        return Failure(
+                        raise Exception(
                             f"Failed to apply migration {migration.version}: {str(e)}"
                         )
 
                 await session.commit()
-                return Success(None)
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -216,34 +213,32 @@ class MigrationManager:
                 name="uno.sql.migration",
                 error=e,
             )
-            return Failure(f"Failed to apply migrations: {str(e)}")
+            raise Exception(f"Failed to apply migrations: {str(e)}")
 
-    async def rollback_migration(self, version: int) -> Result[None, str]:
-        """Rollback a specific migration.
+    async def rollback_migration(self, version: int) -> None:
+        """
+        Rollback a specific migration.
 
         Args:
             version: Version to rollback
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            Exception: If rollback fails.
         """
         try:
             async with self._connection_manager.get_connection() as session:
-                # Get migration
                 migration = next(
                     (m for m in self._migrations if m.version == version), None
                 )
                 if not migration:
-                    return Failure(f"Migration version {version} not found")
+                    raise Exception(f"Migration version {version} not found")
 
                 try:
-                    # Rollback migration
                     await session.execute(text(migration.sql_down))
 
-                    # Remove migration record
                     await session.execute(
                         text(
-                            f"DELETE FROM {self._config.DB_MIGRATIONS_TABLE} WHERE version = :version"
+                            f"DELETE FROM {self._db_migrations_table} WHERE version = :version"
                         ),
                         {"version": version},
                     )
@@ -257,7 +252,6 @@ class MigrationManager:
                         migration=migration.dict(),
                     )
                     await session.commit()
-                    return Success(None)
                 except Exception as e:
                     self._logger.structured_log(
                         "ERROR",
@@ -266,7 +260,7 @@ class MigrationManager:
                         error=e,
                     )
                     await session.rollback()
-                    return Failure(f"Failed to rollback migration: {str(e)}")
+                    raise Exception(f"Failed to rollback migration: {str(e)}")
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -274,27 +268,29 @@ class MigrationManager:
                 name="uno.sql.migration",
                 error=e,
             )
-            return Failure(f"Failed to rollback migration: {str(e)}")
+            raise Exception(f"Failed to rollback migration: {str(e)}")
 
-    async def get_migration_status(self) -> Result[list[Migration], str]:
-        """Get migration status.
+    async def get_migration_status(self) -> list[Migration]:
+        """
+        Get migration status.
 
         Returns:
-            Result containing list of migrations with status
+            List of migrations with status.
+
+        Raises:
+            Exception: If fetching migration status fails.
         """
         try:
             async with self._connection_manager.get_connection() as session:
                 result = await session.execute(
-                    text(
-                        f"SELECT version, applied_at FROM {self._config.DB_MIGRATIONS_TABLE}"
-                    )
+                    text(f"SELECT version, applied_at FROM {self._db_migrations_table}")
                 )
                 applied = {row[0]: row[1] for row in result.fetchall()}
 
                 for migration in self._migrations:
                     migration.applied_at = applied.get(migration.version)
 
-                return Success(self._migrations)
+                return self._migrations
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -302,7 +298,7 @@ class MigrationManager:
                 name="uno.sql.migration",
                 error=e,
             )
-            return Failure(f"Failed to get migration status: {str(e)}")
+            raise Exception(f"Failed to get migration status: {str(e)}")
 
     @property
     def migrations(self) -> list[Migration]:

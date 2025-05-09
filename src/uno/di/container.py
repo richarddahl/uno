@@ -21,20 +21,19 @@ from uno.di.errors import (
 )
 from uno.di.registration import ServiceRegistration
 from uno.di.resolution import _Scope
-from uno.di.protocols import ContainerProtocol
+from uno.di.protocols import (
+    AsyncServiceFactoryProtocol,
+    ServiceFactoryProtocol,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
 
-    from uno.di.types import (
-        AsyncServiceFactoryProtocol,
-        ServiceFactoryProtocol,
-    )
 
 T = TypeVar("T")
 
 
-class Container(ContainerProtocol):
+class Container:
     """Dependency Injection container for managing service lifetimes.
 
     This container supports three service lifetimes:
@@ -161,7 +160,9 @@ class Container(ContainerProtocol):
     async def register_singleton(
         self,
         interface: type[T],
-        implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
         replace: bool = False,
     ) -> None:
         """Register a service with singleton lifetime.
@@ -186,7 +187,9 @@ class Container(ContainerProtocol):
     async def register_scoped(
         self,
         interface: type[T],
-        implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
         replace: bool = False,
     ) -> None:
         """Register a service with scoped lifetime.
@@ -194,7 +197,7 @@ class Container(ContainerProtocol):
         Args:
             interface: type[T]
                 The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T]
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
                 Either a class that implements the interface, a synchronous factory function,
                 or an asynchronous factory function that returns an instance of the implementation.
             replace: bool
@@ -211,7 +214,9 @@ class Container(ContainerProtocol):
     async def register_transient(
         self,
         interface: type[T],
-        implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
         replace: bool = False,
     ) -> None:
         """Register a service with transient lifetime.
@@ -219,7 +224,7 @@ class Container(ContainerProtocol):
         Args:
             interface: type[T]
                 The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T]
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
                 Either a class that implements the interface, a synchronous factory function,
                 or an asynchronous factory function that returns an instance of the implementation.
             replace: bool
@@ -236,7 +241,9 @@ class Container(ContainerProtocol):
     async def _register(
         self,
         interface: type[T],
-        implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
         lifetime: Literal["singleton", "scoped", "transient"],
         replace: bool = False,
     ) -> None:
@@ -245,7 +252,7 @@ class Container(ContainerProtocol):
         Args:
             interface: type[T]
                 The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T]
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
                 Either a class that implements the interface, a synchronous factory function,
                 or an asynchronous factory function that returns an instance of the implementation.
             lifetime: Literal["singleton", "scoped", "transient"]
@@ -273,7 +280,7 @@ class Container(ContainerProtocol):
         elif interface in self._registrations and not replace:
             raise DuplicateRegistrationError(interface)
 
-        registration = ServiceRegistration(interface, implementation, lifetime)  # type: ignore
+        registration = ServiceRegistration(interface, implementation, lifetime)
         self._registrations[interface] = registration
 
         # Create singleton instance immediately
@@ -315,14 +322,16 @@ class Container(ContainerProtocol):
     async def _create_service(
         self,
         interface: type[T],
-        implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
     ) -> T:
         """Create a service instance from the implementation.
 
         Args:
             interface: type[T]
                 The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T]
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
                 Either a class that implements the interface, a synchronous factory function,
                 or an asynchronous factory function that returns an instance of the implementation.
 
@@ -375,7 +384,9 @@ class Container(ContainerProtocol):
     async def replace(
         self,
         interface: type[Any],
-        implementation: type[Any] | ServiceFactory[Any] | AsyncServiceFactory[Any],
+        implementation: type[Any]
+        | ServiceFactoryProtocol[Any]
+        | AsyncServiceFactoryProtocol[Any],
         lifetime: Literal["singleton", "scoped", "transient"],
     ) -> AsyncGenerator[None]:
         """Temporarily replace a service registration for testing.
@@ -386,7 +397,7 @@ class Container(ContainerProtocol):
         Args:
             interface: type[T]
                 The interface type of the service to replace.
-            implementation: type[T] | ServiceFactory[T] | AsyncServiceFactory[T]
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
                 The new implementation to use during the test.
             lifetime: Literal["singleton", "scoped", "transient"]
                 The lifetime of the replacement service.
