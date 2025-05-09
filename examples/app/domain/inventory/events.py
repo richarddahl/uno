@@ -70,7 +70,7 @@ class GradeAssignedToLot(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create GradeAssignedToLot", details={"error": str(exc)}
+                    "Failed to create GradeAssignedToLot", details={"error": exc!s}
                 )
             )
 
@@ -134,7 +134,7 @@ class MassMeasured(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create MassMeasured", details={"error": str(exc)}
+                    "Failed to create MassMeasured", details={"error": exc!s}
                 )
             )
 
@@ -198,7 +198,7 @@ class VolumeMeasured(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create VolumeMeasured", details={"error": str(exc)}
+                    "Failed to create VolumeMeasured", details={"error": exc!s}
                 )
             )
 
@@ -803,7 +803,7 @@ class InventoryLotAdjusted(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create InventoryLotAdjusted", details={"error": str(exc)}
+                    "Failed to create InventoryLotAdjusted", details={"error": exc!s}
                 )
             )
 
@@ -915,7 +915,7 @@ class InventoryLotsCombined(DomainEvent):
             return Failure(
                 DomainValidationError(
                     "Failed to create InventoryLotsCombined",
-                    details={"error": str(exc)},
+                    details={"error": exc!s},
                 )
             )
 
@@ -1028,7 +1028,7 @@ class InventoryLotSplit(DomainEvent):
             return Success(event)
         except Exception as exc:
             # Always include split_quantities in details for relevant errors
-            details = {"error": str(exc)}
+            details = {"error": exc!s}
             if "split_quantities" not in details:
                 details["split_quantities"] = (
                     split_quantities if "split_quantities" in locals() else None
@@ -1061,7 +1061,7 @@ class InventoryLotSplit(DomainEvent):
                         details={
                             "from": self.version,
                             "to": target_version,
-                            "error": str(exc),
+                            "error": exc!s,
                         },
                     )
                 )

@@ -76,7 +76,7 @@ class PaymentReceived(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create PaymentReceived", details={"error": str(exc)}
+                    "Failed to create PaymentReceived", details={"error": exc!s}
                 )
             )
 
@@ -198,7 +198,7 @@ class OrderCreated(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create OrderCreated", details={"error": str(exc)}
+                    "Failed to create OrderCreated", details={"error": exc!s}
                 )
             )
 
@@ -269,7 +269,7 @@ class OrderFulfilled(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create OrderFulfilled", details={"error": str(exc)}
+                    "Failed to create OrderFulfilled", details={"error": exc!s}
                 )
             )
 
@@ -326,7 +326,7 @@ class OrderCancelled(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create OrderCancelled", details={"error": str(exc)}
+                    "Failed to create OrderCancelled", details={"error": exc!s}
                 )
             )
 

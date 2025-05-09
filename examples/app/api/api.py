@@ -23,8 +23,8 @@ from uno.errors.errors import DomainValidationError
 from uno.errors.result import Failure
 
 # --- Dependency Injection Setup (module-level singletons) ---
-from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.service_provider import ServiceProvider
+from uno.di.service_collection import ServiceCollection
+from uno.di.service_provider import ServiceProvider
 from uno.infrastructure.logging import LoggerService, LoggingConfig
 
 logging_config = LoggingConfig()
@@ -85,7 +85,7 @@ async def app_factory() -> FastAPI:
             status_code=400,
             content={
                 "error": "domain_validation_error",
-                "message": str(exc),
+                "message": exc!s,
                 "details": exc.details,
             },
         )

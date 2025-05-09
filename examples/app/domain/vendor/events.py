@@ -72,7 +72,7 @@ class VendorEmailUpdated(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create VendorEmailUpdated", details={"error": str(exc)}
+                    "Failed to create VendorEmailUpdated", details={"error": exc!s}
                 )
             )
 
@@ -150,7 +150,7 @@ class VendorCreated(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create VendorCreated", details={"error": str(exc)}
+                    "Failed to create VendorCreated", details={"error": exc!s}
                 )
             )
 
@@ -227,7 +227,7 @@ class VendorUpdated(DomainEvent):
         except Exception as exc:
             return Failure(
                 DomainValidationError(
-                    "Failed to create VendorUpdated", details={"error": str(exc)}
+                    "Failed to create VendorUpdated", details={"error": exc!s}
                 )
             )
 
