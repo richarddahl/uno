@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     # Use TYPE_CHECKING to avoid circular imports
-    from uno.infrastructure.di.container import Container
+    from uno.di.container import Container
 
 T = TypeVar("T")
 

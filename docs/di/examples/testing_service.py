@@ -12,27 +12,36 @@ This example demonstrates:
 from typing import Protocol, List, Dict, Any
 from dataclasses import dataclass
 from unittest import TestCase, main
-from uno.infrastructure.di.decorators import (
-    service, singleton, ServiceMock, ServiceContract,
-    ServiceScope, ServiceVersion
+from uno.di.decorators import (
+    service,
+    singleton,
+    ServiceMock,
+    ServiceContract,
+    ServiceScope,
+    ServiceVersion,
 )
-from uno.infrastructure.di.service_collection import ServiceCollection
-from uno.infrastructure.di.service_provider import ServiceProvider
-from uno.infrastructure.di.errors import ServiceConfigurationError
+from uno.di.service_collection import ServiceCollection
+from uno.di.service_provider import ServiceProvider
+from uno.di.errors import ServiceConfigurationError
+
 
 # Define interfaces
 class IUserService(Protocol):
     """Interface for user services."""
+
     async def get_user(self, user_id: str) -> dict[str, Any]:
         """Get a user by ID."""
         ...
+
     async def create_user(self, user_data: dict[str, Any]) -> dict[str, Any]:
         """Create a new user."""
         ...
 
+
 # Define service contracts
 class UserServiceContract(ServiceContract):
     """Contract for user service validation."""
+
     def validate_get_user(self, user_id: str) -> None:
         """Validate get_user parameters."""
         if not user_id:
@@ -49,10 +58,12 @@ class UserServiceContract(ServiceContract):
         if "email" not in user_data:
             raise ServiceConfigurationError("User email is required")
 
+
 # Define service options
 @dataclass
 class UserServiceOptions:
     """Options for user service."""
+
     max_users: int = 1000
     allow_duplicate_emails: bool = False
 
@@ -61,16 +72,18 @@ class UserServiceOptions:
         if self.max_users < 1:
             raise ServiceConfigurationError("Max users must be positive")
 
+
 # Implement service
 @service(
     interface=IUserService,
     scope=ServiceScope.SINGLETON,
     options_type=UserServiceOptions,
     version="1.0.0",
-    contract=UserServiceContract()
+    contract=UserServiceContract(),
 )
 class UserService:
     """User service implementation."""
+
     def __init__(self, options: UserServiceOptions):
         self.options = options
         self.users: dict[str, dict[str, Any]] = {}
@@ -94,9 +107,11 @@ class UserService:
         self.users[user_id] = user_data
         return {"id": user_id, **user_data}
 
+
 # Implement service mock
 class UserServiceMock(ServiceMock):
     """Mock implementation of user service."""
+
     def __init__(self):
         self.users: dict[str, dict[str, Any]] = {}
         self.get_user_calls = 0
@@ -114,24 +129,26 @@ class UserServiceMock(ServiceMock):
         self.users[user_id] = user_data
         return {"id": user_id, **user_data}
 
+
 # Test cases
 class UserServiceTests(TestCase):
     """Test cases for user service."""
+
     def setUp(self):
         """Set up test environment."""
         self.services = ServiceCollection()
         self.services.add_singleton(IUserService, UserService)
-        self.services.configure[UserServiceOptions](lambda options: {
-            "max_users": 10,
-            "allow_duplicate_emails": False
-        })
+        self.services.configure[UserServiceOptions](
+            lambda options: {"max_users": 10, "allow_duplicate_emails": False}
+        )
         self.provider = ServiceProvider(self.services)
 
     def test_get_user(self):
         """Test get_user method."""
+
         async def run_test():
             service = self.provider.get_service(IUserService)
-            
+
             # Test with non-existent user
             result = await service.get_user("nonexistent")
             self.assertEqual(result, {})
@@ -144,13 +161,15 @@ class UserServiceTests(TestCase):
             self.assertEqual(result["email"], user_data["email"])
 
         import asyncio
+
         asyncio.run(run_test())
 
     def test_create_user(self):
         """Test create_user method."""
+
         async def run_test():
             service = self.provider.get_service(IUserService)
-            
+
             # Test valid user creation
             user_data = {"name": "Test User", "email": "test@example.com"}
             result = await service.create_user(user_data)
@@ -164,22 +183,22 @@ class UserServiceTests(TestCase):
 
             # Test max users limit
             for i in range(9):  # Already created 1 user
-                await service.create_user({
-                    "name": f"User {i}",
-                    "email": f"user{i}@example.com"
-                })
+                await service.create_user(
+                    {"name": f"User {i}", "email": f"user{i}@example.com"}
+                )
 
             with self.assertRaises(ServiceConfigurationError):
-                await service.create_user({
-                    "name": "Extra User",
-                    "email": "extra@example.com"
-                })
+                await service.create_user(
+                    {"name": "Extra User", "email": "extra@example.com"}
+                )
 
         import asyncio
+
         asyncio.run(run_test())
 
     def test_mock_service(self):
         """Test service with mock implementation."""
+
         async def run_test():
             # Create service collection with mock
             services = ServiceCollection()
@@ -201,13 +220,15 @@ class UserServiceTests(TestCase):
             self.assertEqual(service.get_user_calls, 1)
 
         import asyncio
+
         asyncio.run(run_test())
 
     def test_service_contract(self):
         """Test service contract validation."""
+
         async def run_test():
             service = self.provider.get_service(IUserService)
-            
+
             # Test invalid user ID
             with self.assertRaises(ServiceConfigurationError):
                 await service.get_user("")
@@ -223,7 +244,9 @@ class UserServiceTests(TestCase):
                 await service.create_user({"email": "test@example.com"})
 
         import asyncio
+
         asyncio.run(run_test())
 
+
 if __name__ == "__main__":
-    main() 
+    main()

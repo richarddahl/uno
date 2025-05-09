@@ -6,8 +6,8 @@ from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import Container
-from uno.infrastructure.di.errors import ServiceCreationError, TypeMismatchError
+from uno.di.container import Container
+from uno.di.errors import ServiceCreationError, TypeMismatchError
 
 
 @runtime_checkable

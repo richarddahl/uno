@@ -2,8 +2,8 @@ from typing import Any, Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import Container
-from uno.infrastructure.di.errors import (
+from uno.di.container import Container
+from uno.di.errors import (
     DuplicateRegistrationError,
     ScopeError,
     ServiceCreationError,

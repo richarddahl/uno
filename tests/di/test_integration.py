@@ -2,7 +2,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import Container
+from uno.di.container import Container
 
 
 # Define test protocols and implementations

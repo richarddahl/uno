@@ -2,8 +2,8 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from uno.infrastructure.di.container import Container
-from uno.infrastructure.di.errors import ServiceNotRegisteredError
+from uno.di.container import Container
+from uno.di.errors import ServiceNotRegisteredError
 
 
 # Define test protocols and implementations

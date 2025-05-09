@@ -11,22 +11,22 @@ import contextlib
 import logging
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
-from uno.infrastructure.di.disposal import _DisposalManager
-from uno.infrastructure.di.errors import (
+from uno.di.disposal import _DisposalManager
+from uno.di.errors import (
     DuplicateRegistrationError,
     ScopeError,
     ServiceCreationError,
     ServiceNotRegisteredError,
     TypeMismatchError,
 )
-from uno.infrastructure.di.registration import ServiceRegistration
-from uno.infrastructure.di.resolution import _Scope
-from uno.infrastructure.di.shared_types import ContainerProtocol
+from uno.di.registration import ServiceRegistration
+from uno.di.resolution import _Scope
+from uno.di.shared_types import ContainerProtocol
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
 
-    from uno.infrastructure.di.types import (
+    from uno.di.types import (
         AsyncServiceFactoryProtocol,
         ServiceFactoryProtocol,
     )

@@ -16,23 +16,19 @@ from typing import Any
 
 
 class ErrorCategory(Enum):
-    """
-    Categories of errors for classification.
-
-    These categories help classify errors for appropriate handling
-    and reporting.
-    """
+    """Categories of errors for classification."""
 
     INTERNAL = auto()  # Internal errors
     DI = auto()  # Dependency injection errors
+    DB = auto()  # Database errors
+    API = auto()  # API errors
+    CONFIG = auto()  # Configuration errors
+    EVENT = auto()  # Event handling errors
+    VALIDATION = auto()  # Validation errors
 
 
 class ErrorSeverity(Enum):
-    """
-    Severity levels for errors.
-
-    These severity levels help prioritize error handling and reporting.
-    """
+    """Severity levels for errors."""
 
     INFO = auto()  # Informational message, not an error
     WARNING = auto()  # Warning that might need attention
@@ -41,22 +37,31 @@ class ErrorSeverity(Enum):
     FATAL = auto()  # Fatal error that requires system shutdown
 
 
-@dataclass(frozen=True)
-class ErrorInfo:
-    """
-    Information about an error code.
+@dataclass
+class ErrorContext:
+    """Context information for an error instance.
 
-    This class stores metadata about error codes for documentation
-    and consistent handling.
+    This lightweight class stores contextual information about an error occurrence.
+    It's designed to be attached to errors and used for logging and debugging.
     """
 
-    code: str
-    message_template: str
     category: ErrorCategory
-    severity: ErrorSeverity
-    description: str
-    http_status_code: int | None = None
-    retry_allowed: bool = True
+    severity: ErrorSeverity = ErrorSeverity.ERROR
+    code: str = "UNKNOWN"
+    details: dict[str, Any] = None
+
+    def __post_init__(self) -> None:
+        """Initialize the error context with default values."""
+        # Ensure details is a dictionary
+        # if it's not already set
+        if self.details is None:
+            self.details = {}
+
+    def add_detail(self, key: str, value: Any) -> None:
+        """Add additional context detail to the error."""
+        if self.details is None:
+            self.details = {}
+        self.details[key] = value
 
 
 class ErrorCode:
@@ -79,15 +84,43 @@ class UnoError(Exception):
     contextual information, and stacktrace capture.
     """
 
-    def __init__(self, message: str, error_code: str, **context: Any):
-        # Only pass the message to Exception, never keyword arguments
+    def __init__(
+        self,
+        message: str,
+        error_code: str = None,
+        category: ErrorCategory = ErrorCategory.INTERNAL,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        **details: Any,
+    ):
+        # Only pass the message to Exception
         super().__init__(message)
         self.message: str = message
-        self.error_code: str = error_code
+        self.error_code: str = error_code or "UNKNOWN"
+        self.context = ErrorContext(
+            category=category,
+            severity=severity,
+            code=self.error_code,
+            details=details if details else None,
+        )
+
+        # Capture stacktrace
         self.traceback: str = "".join(
             traceback.format_exception(*traceback.sys.exc_info())
         )
 
+        # Store the original cause if this wraps another exception
+        self.original_cause = None
+        if cause := self.__cause__:
+            self.original_cause = cause
+            # Add original error details to context
+            self.context.add_detail("original_error", str(cause))
+            self.context.add_detail("original_error_type", type(cause).__name__)
+
     def __str__(self) -> str:
         """Get string representation of error."""
         return f"{self.error_code}: {self.message}"
+
+    def with_detail(self, key: str, value: Any) -> "UnoError":
+        """Add detail to error context and return self for chaining."""
+        self.context.add_detail(key, value)
+        return self

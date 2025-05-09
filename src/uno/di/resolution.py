@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from uno.infrastructure.di.errors import ScopeError, ServiceNotRegisteredError
+from uno.di.errors import ScopeError, ServiceNotRegisteredError
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from uno.infrastructure.di.shared_types import ContainerProtocol
+    from uno.di.shared_types import ContainerProtocol
 
 T = TypeVar("T")
 

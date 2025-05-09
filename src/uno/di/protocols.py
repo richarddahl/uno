@@ -6,9 +6,9 @@ This module contains the core protocols that define the interface for the DI con
 
 from typing import Literal, Protocol, runtime_checkable
 
-from uno.infrastructure.di.registration import ServiceRegistration
-from uno.infrastructure.di.shared_types import ContainerProtocol, T_co
-from uno.infrastructure.di.types import (
+from uno.di.registration import ServiceRegistration
+from uno.di.shared_types import ContainerProtocol, T_co
+from uno.di.types import (
     AsyncServiceFactoryProtocol,
     ServiceFactoryProtocol,
     T,

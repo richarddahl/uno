@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
-from uno.infrastructure.di.shared_types import T, ContainerProtocol
+from uno.di.shared_types import T, ContainerProtocol
 
 # Rename to include Protocol suffix for consistency
 ServiceFactoryProtocol = Callable[[ContainerProtocol], T]

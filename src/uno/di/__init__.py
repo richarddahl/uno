@@ -8,7 +8,7 @@ Public API for uno DI system.
 
 from __future__ import annotations
 
-from uno.infrastructure.di.errors import (
+from uno.di.errors import (
     DIError,
     DuplicateRegistrationError,
     ScopeError,
@@ -17,7 +17,7 @@ from uno.infrastructure.di.errors import (
     SyncInAsyncContextError,
     TypeMismatchError,
 )
-from uno.infrastructure.di.shared_types import ContainerProtocol
+from uno.di.shared_types import ContainerProtocol
 
 from .container import Container
 from .protocols import (

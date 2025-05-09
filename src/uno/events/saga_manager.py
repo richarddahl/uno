@@ -6,8 +6,8 @@ from typing import Any, Type
 from uno.events.sagas import Saga
 from uno.events.saga_store import SagaStore, SagaState
 from uno.errors import UnoError, ErrorCode
-from uno.infrastructure.di.service_provider import ServiceProvider
-from uno.infrastructure.di.service_scope import Scope
+from uno.di.service_provider import ServiceProvider
+from uno.di.service_scope import Scope
 
 
 class SagaManager:

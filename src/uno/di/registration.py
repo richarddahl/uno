@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, Literal
 
-from uno.infrastructure.di.shared_types import T
+from uno.di.shared_types import T
 
 if TYPE_CHECKING:
-    from uno.infrastructure.di.types import (
+    from uno.di.types import (
         AsyncServiceFactoryProtocol,
         ServiceFactoryProtocol,
     )

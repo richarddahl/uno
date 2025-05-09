@@ -4,14 +4,15 @@ Error classes for the uno DI system.
 This module contains all error classes used by the DI system, including their error codes.
 """
 
-from typing import Final
+from typing import Any, Final
 
-from uno.errors.base import UnoError
+from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
 
 __all__ = [
     "DIError",
     "DuplicateRegistrationError",
     "ScopeError",
+    "ServiceCreationError",
     "ServiceNotRegisteredError",
     "SyncInAsyncContextError",
     "TypeMismatchError",
@@ -24,9 +25,17 @@ ERROR_CODE_PREFIX: Final[str] = "DI"
 class DIError(UnoError):
     """Base class for all DI-related errors."""
 
-    def __init__(self, message: str, error_code: str | None = None) -> None:
+    def __init__(
+        self, message: str, error_code: str | None = None, **details: Any
+    ) -> None:
         """Initialize a DI error."""
-        super().__init__(message, error_code or f"{ERROR_CODE_PREFIX}_ERROR")
+        super().__init__(
+            message=message,
+            error_code=error_code or f"{ERROR_CODE_PREFIX}_ERROR",
+            category=ErrorCategory.DI,
+            severity=ErrorSeverity.ERROR,
+            **details,
+        )
 
 
 class ServiceCreationError(DIError):
@@ -34,9 +43,11 @@ class ServiceCreationError(DIError):
 
     def __init__(self, interface: type, error: Exception) -> None:
         """Initialize a service creation error."""
+        details = {"interface": interface.__name__, "error_type": type(error).__name__}
         super().__init__(
-            f"Failed to create service {interface.__name__}: {error}",
-            f"{ERROR_CODE_PREFIX}_SERVICE_CREATION",
+            message=f"Failed to create service {interface.__name__}: {error}",
+            error_code=f"{ERROR_CODE_PREFIX}_SERVICE_CREATION",
+            **details,
         )
 
 
@@ -45,9 +56,15 @@ class TypeMismatchError(DIError):
 
     def __init__(self, interface: type, actual_type: type) -> None:
         """Initialize a type mismatch error."""
+        details = {
+            "expected_type": interface.__name__,
+            "actual_type": actual_type.__name__,
+        }
         super().__init__(
-            f"Expected {interface.__name__}, got {actual_type.__name__}",
-            f"{ERROR_CODE_PREFIX}_TYPE_MISMATCH",
+            message=f"Expected {interface.__name__}, got {actual_type.__name__}",
+            error_code=f"{ERROR_CODE_PREFIX}_TYPE_MISMATCH",
+            severity=ErrorSeverity.ERROR,
+            **details,
         )
 
 
@@ -57,8 +74,9 @@ class ServiceNotRegisteredError(DIError):
     def __init__(self, interface: type) -> None:
         """Initialize a service not registered error."""
         super().__init__(
-            f"Service {interface.__name__} is not registered",
-            f"{ERROR_CODE_PREFIX}_SERVICE_NOT_REGISTERED",
+            message=f"Service {interface.__name__} is not registered",
+            error_code=f"{ERROR_CODE_PREFIX}_SERVICE_NOT_REGISTERED",
+            interface_name=interface.__name__,
         )
 
 
@@ -68,8 +86,9 @@ class DuplicateRegistrationError(DIError):
     def __init__(self, interface: type) -> None:
         """Initialize a duplicate registration error."""
         super().__init__(
-            f"Service {interface.__name__} is already registered",
-            f"{ERROR_CODE_PREFIX}_DUPLICATE_REGISTRATION",
+            message=f"Service {interface.__name__} is already registered",
+            error_code=f"{ERROR_CODE_PREFIX}_DUPLICATE_REGISTRATION",
+            interface_name=interface.__name__,
         )
 
 
@@ -78,8 +97,9 @@ class SyncInAsyncContextError(DIError):
 
     def __init__(self, method: str) -> None:
         super().__init__(
-            f"{method} cannot be called from an async context. Use the async version instead.",
-            f"{ERROR_CODE_PREFIX}_SYNC_IN_ASYNC_CONTEXT",
+            message=f"{method} cannot be called from an async context. Use the async version instead.",
+            error_code=f"{ERROR_CODE_PREFIX}_SYNC_IN_ASYNC_CONTEXT",
+            method=method,
         )
 
 
@@ -89,16 +109,18 @@ class ScopeError(DIError):
     def __init__(self, message: str) -> None:
         """Initialize a scope error."""
         super().__init__(
-            message,
-            f"{ERROR_CODE_PREFIX}_SCOPE_ERROR",
+            message=message,
+            error_code=f"{ERROR_CODE_PREFIX}_SCOPE_ERROR",
         )
 
     @classmethod
     def outside_scope(cls, interface: type) -> "ScopeError":
         """Create a scope error for resolving a scoped service outside a scope."""
-        return cls(
+        error = cls(
             f"Cannot resolve scoped service {interface.__name__} outside a scope"
         )
+        error.with_detail("interface_name", interface.__name__)
+        return error
 
     @classmethod
     def already_in_scope(cls) -> "ScopeError":
