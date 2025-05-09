@@ -15,6 +15,13 @@ from typing import TypeVar
 
 from uno.config.base import ConfigError, Environment, UnoSettings
 from uno.config.env_loader import get_env_value, load_env_files
+from uno.config.secure import (
+    SecureField,
+    SecureValue,
+    SecureValueError,
+    SecureValueHandling,
+    requires_secure_access,
+)
 
 T = TypeVar("T", bound=UnoSettings)
 
@@ -53,9 +60,25 @@ def get_config(settings_class: type[T]) -> T:
     return load_settings(settings_class)
 
 
+def setup_secure_config(master_key: str | bytes | None = None) -> None:
+    """Set up secure configuration with encryption capabilities.
+
+    This function initializes the encryption system for secure config values.
+
+    Args:
+        master_key: Master encryption key (will use UNO_MASTER_KEY env var if None)
+    """
+    SecureValue.setup_encryption(master_key)
+
+
 __all__ = [
     "ConfigError",
     "Environment",
+    # Secure configuration
+    "SecureField",
+    "SecureValue",
+    "SecureValueError",
+    "SecureValueHandling",
     # Base classes
     "UnoSettings",
     "get_config",
@@ -63,4 +86,6 @@ __all__ = [
     "load_env_files",
     # Loading functions
     "load_settings",
+    "requires_secure_access",
+    "setup_secure_config",
 ]

@@ -10,11 +10,13 @@ from __future__ import annotations
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
+from pydantic import model_serializer, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from uno.errors import ErrorCategory, UnoError, create_error
+from uno.config.secure import SecureValue, SecureValueHandling
+from uno.errors import ErrorCategory, UnoError
 
 
 class ConfigError(UnoError):
@@ -110,9 +112,15 @@ class UnoSettings(BaseSettings):
         validate_default=True,
     )
 
+    # Keep track of secure fields
+    _secure_fields: ClassVar[dict[str, SecureValueHandling]] = {}
+
+    # Track if we've initialized secure values for this instance
+    _secure_values_initialized: bool = False
+
     @classmethod
     def from_env(cls: type[T], env: Environment | None = None) -> T:
-        """Load settings from environment or specific env file.
+        """Load settings from environment or specific env file (Pydantic v2 compatible).
 
         Args:
             env: Optional environment to load settings for
@@ -123,15 +131,23 @@ class UnoSettings(BaseSettings):
         if env is None:
             env = Environment.get_current()
 
-        # Load from env-specific file if available
+        # Determine the env file to use
         env_file = f".env.{env.value}"
         if Path(env_file).exists():
-            return cls(
-                _env_file=env_file,
-                **cls._get_environment_overrides(),
+            # Dynamically create a subclass with the correct env_file in model_config
+            dynamic_env_settings: type[T] = type(
+                "DynamicEnvSettings",
+                (cls,),
+                {
+                    "model_config": SettingsConfigDict(
+                        **{**getattr(cls, "model_config", {}), "env_file": env_file}
+                    )
+                },
             )
 
-        # Fallback to default .env file
+            return dynamic_env_settings(**cls._get_environment_overrides())
+
+        # Fallback to default .env file (already in model_config)
         return cls(**cls._get_environment_overrides())
 
     @classmethod
@@ -154,3 +170,61 @@ class UnoSettings(BaseSettings):
             result[clean_key] = value
 
         return result
+
+    @model_validator(mode="after")
+    def _handle_secure_fields(self) -> UnoSettings:
+        """Process secure fields and wrap them in SecureValue containers.
+
+        This method is called after the model is validated and initialized,
+        and it processes any fields marked as secure to ensure proper handling.
+
+        Returns:
+            The processed settings object
+        """
+        if self._secure_values_initialized:
+            return self
+
+        # Extract secure field information from the schema
+        schema = self.model_json_schema()
+        properties = schema.get("properties", {})
+
+        # Find all secure fields
+        secure_fields: dict[str, SecureValueHandling] = {}
+        for field_name, field_schema in properties.items():
+            if field_schema.get("secure"):
+                handling = field_schema.get("handling", "mask")
+                secure_fields[field_name] = SecureValueHandling(handling)
+
+        # Update class-level tracking of secure fields
+        self._secure_fields.update(secure_fields)
+
+        # Process each secure field
+        for field_name, handling in secure_fields.items():
+            value = getattr(self, field_name, None)
+
+            # Skip if already a SecureValue
+            if isinstance(value, SecureValue):
+                continue
+
+            # Skip if None
+            if value is None:
+                continue
+
+            # Wrap in SecureValue
+            secure_value = SecureValue(value, handling=handling)
+            setattr(self, field_name, secure_value)
+
+        self._secure_values_initialized = True
+        return self
+
+    @model_serializer(mode="plain")
+    def _mask_secure_fields(self) -> dict[str, Any]:
+        """Mask secure fields and optionally unwrap SecureValue for non-masked fields."""
+        d = super().__dict__.copy()
+        for k in self._secure_fields:
+            if k in d:
+                d[k] = "********"
+        for k, v in d.items():
+            if k not in self._secure_fields and isinstance(v, SecureValue):
+                d[k] = v.get_value()
+        return d
