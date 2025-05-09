@@ -9,7 +9,7 @@ from typing import cast
 from examples.app.domain.order import Order
 from examples.app.api.errors import OrderNotFoundError
 from uno.errors import Success, Failure
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class InMemoryOrderRepository:

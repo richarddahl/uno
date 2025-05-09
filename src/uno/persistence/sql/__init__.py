@@ -11,9 +11,9 @@ and other database objects.
 
 # Core SQL generation and execution components
 # SQL builders for functions and triggers
-from uno.infrastructure.sql.builders.function import SQLFunctionBuilder
-from uno.infrastructure.sql.builders.index import SQLIndexBuilder
-from uno.infrastructure.sql.builders.trigger import SQLTriggerBuilder
+from uno.persistence.sql.builders.function import SQLFunctionBuilder
+from uno.persistence.sql.builders.index import SQLIndexBuilder
+from uno.persistence.sql.builders.trigger import SQLTriggerBuilder
 
 __all__ = [
     "SQLFunctionBuilder",

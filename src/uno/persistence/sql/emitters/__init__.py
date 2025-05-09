@@ -8,7 +8,7 @@ This package provides concrete implementations of SQL emitters for
 common database operations.
 """
 
-from uno.infrastructure.sql.emitters.grants import AlterGrants
+from uno.persistence.sql.emitters.grants import AlterGrants
 from .trigger_emitter import CreateTriggerEmitter, DropTriggerEmitter
 from .function_emitter import CreateFunctionEmitter, DropFunctionEmitter
 
@@ -19,12 +19,12 @@ __all__ = [
     "DropFunctionEmitter",
     "AlterGrants",
 ]
-from uno.infrastructure.sql.emitters.table import TableMergeFunction
-from uno.infrastructure.sql.emitters.triggers import (
+from uno.persistence.sql.emitters.table import TableMergeFunction
+from uno.persistence.sql.emitters.triggers import (
     InsertMetaRecordTrigger,
     RecordUserAuditFunction,
 )
-from uno.infrastructure.sql.emitters.vector import (
+from uno.persistence.sql.emitters.vector import (
     VectorIntegrationEmitter,
     VectorSQLEmitter,
 )

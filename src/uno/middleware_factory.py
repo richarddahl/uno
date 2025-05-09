@@ -13,7 +13,7 @@ from uno.events.middleware import (
     RetryMiddleware,
     RetryOptions,
 )
-from uno.infrastructure.logging.factory import LoggerServiceFactory
+from uno.logging.factory import LoggerServiceFactory
 
 
 class EventHandlerMiddlewareFactory:

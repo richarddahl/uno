@@ -10,10 +10,10 @@ from typing import Any
 
 from babel import dates, numbers
 
-from uno.infrastructure.config import GeneralConfig
+from uno.config import GeneralConfig
 
 
-from uno.infrastructure.logging.logger import LoggerService
+from uno.logging.logger import LoggerService
 
 
 def import_from_path(

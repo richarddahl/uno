@@ -6,8 +6,9 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar, Self
 from uno.base_model import FrameworkBaseModel
 from pydantic import Field, ConfigDict, model_validator
-from uno.errors.result import Success, Failure
 import time
+from uno.errors import DomainValidationError
+from uno.logging import get_logger
 
 T_ID = TypeVar("T_ID")
 
@@ -48,6 +49,8 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    _logger = get_logger(__name__)
+
     def __eq__(self, other: Any) -> bool:
         """
         Entities are equal if their id is equal and type matches.
@@ -68,26 +71,30 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    def from_dict(
-        cls, data: dict[str, Any]
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """
-        Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
+        Thin wrapper for Pydantic's `model_validate()`. Raises exceptions for Uno error handling.
         Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
         Returns:
-            Success[Self, Exception](entity) if valid, Failure[Self, Exception](error) otherwise.
+            The validated entity instance.
+        Raises:
+            DomainValidationError: If validation fails.
         """
         try:
-            return Success[Self, Exception](cls.model_validate(data))
+            return cls.model_validate(data)
         except Exception as exc:
-            return Failure[Self, Exception](
-                Exception(f"Failed to create {cls.__name__} from dict: {exc}")
-            )
+            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
+            raise DomainValidationError(f"Validation failed for {cls.__name__}: {exc}")
 
     @model_validator(mode="after")
     def check_invariants(self, values: dict[str, Any]) -> Self:
         """
         Validate the entity's invariants. Override in subclasses for custom validation.
-        Raises ValueError or returns values if valid.
+        Raises DomainValidationError or returns values if valid.
         """
-        return self
+        try:
+            # Custom invariant checks here
+            return self
+        except Exception as exc:
+            self._logger.error(f"Invariant check failed for entity {self.id}: {exc}")
+            raise DomainValidationError(f"Invariant check failed: {exc}")

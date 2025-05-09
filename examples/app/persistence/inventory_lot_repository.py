@@ -8,7 +8,7 @@ import hashlib
 from examples.app.domain.inventory import InventoryLot
 from examples.app.api.errors import InventoryLotNotFoundError
 from uno.errors import Success, Failure
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class InMemoryInventoryLotRepository:

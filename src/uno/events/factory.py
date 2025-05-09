@@ -6,7 +6,7 @@ Provides injectable, testable, and configurable access to event bus, publisher, 
 from uno.events.bus import EventBus, EventBusProtocol
 from uno.events.event_store import EventStore, InMemoryEventStore
 from uno.events.publisher import EventPublisher, EventPublisherProtocol
-from uno.infrastructure.logging.logger import LoggerService, LoggingConfig
+from uno.logging.logger import LoggerService, LoggingConfig
 
 # Module-level singletons (can be replaced/configured via DI)
 # Module-level singletons for event infrastructure (set via DI/testing setters)

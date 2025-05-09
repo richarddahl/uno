@@ -19,24 +19,24 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 
 from uno.errors import UnoError
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLExecutionError,
     SQLSyntaxError,
 )
-from uno.infrastructure.sql.interfaces import (
+from uno.persistence.sql.interfaces import (
     ConfigProtocol,
     ConnectionConfigProtocol,
     EngineFactoryProtocol,
 )
-from uno.infrastructure.logging import LoggerService
-from uno.infrastructure.sql.observers import BaseObserver, SQLObserver
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
-from uno.infrastructure.sql.config import ConnectionConfig
-from uno.infrastructure.sql.engine import SyncEngineFactory, sync_connection
+from uno.logging import LoggerService
+from uno.persistence.sql.observers import BaseObserver, SQLObserver
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.config import ConnectionConfig
+from uno.persistence.sql.engine import SyncEngineFactory, sync_connection
 
 if TYPE_CHECKING:
-    from uno.infrastructure.sql.engine import SyncEngineFactory
+    from uno.persistence.sql.engine import SyncEngineFactory
 
 T = TypeVar("T", bound="SQLEmitter")
 

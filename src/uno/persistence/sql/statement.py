@@ -6,7 +6,7 @@
 
 from enum import Enum
 from uno.errors import UnoError
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,

@@ -13,7 +13,7 @@ from uno.events.interfaces import EventStoreProtocol
 from uno.errors.result import Failure, Result, Success
 
 if TYPE_CHECKING:
-    from uno.infrastructure.logging.logger import LoggerService
+    from uno.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 

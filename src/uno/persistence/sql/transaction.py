@@ -7,8 +7,8 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from uno.errors.result import Result, Success, Failure
-from uno.infrastructure.sql.interfaces import TransactionManagerProtocol
-from uno.infrastructure.sql.config import SQLConfig
+from uno.persistence.sql.interfaces import TransactionManagerProtocol
+from uno.persistence.sql.config import SQLConfig
 
 
 class TransactionConfig(BaseModel):

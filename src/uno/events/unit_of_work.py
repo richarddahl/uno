@@ -6,17 +6,14 @@ event persistence and publishing within transactional boundaries.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, TypeVar
+from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncTransaction
 
-from uno.errors.result import Failure, Result, Success
 from uno.events.event_store import EventStore
-from uno.infrastructure.logging.logger import LoggerService
-from uno.infrastructure.logging.logger import LoggingConfig
-
+from uno.logging.logger import LoggerService, LoggingConfig
 
 T = TypeVar("T")
 
@@ -30,22 +27,22 @@ class UnitOfWork(ABC):
     """
 
     @abstractmethod
-    async def commit(self) -> Result[None, Exception]:
+    async def commit(self) -> None:
         """
         Commit all changes made within this unit of work.
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnitOfWorkCommitError: If the commit fails.
         """
         ...
 
     @abstractmethod
-    async def rollback(self) -> Result[None, Exception]:
+    async def rollback(self) -> None:
         """
         Roll back all changes made within this unit of work.
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnitOfWorkRollbackError: If the rollback fails.
         """
         ...
 
@@ -94,55 +91,47 @@ class InMemoryUnitOfWork(UnitOfWork):
 
         self._committed = False
 
-    async def commit(self) -> Result[None, Exception]:
+    async def commit(self) -> None:
         """
-        Mark the unit of work as committed.
+        Commit the current unit of work.
 
-        In memory, there's nothing to actually commit, but we track the state
-        for consistency with the interface.
-
-        Returns:
-            Result with None on success
+        Raises:
+            UnitOfWorkCommitError: If the commit fails.
         """
         try:
             self._committed = True
             self.logger.structured_log(
                 "DEBUG", "In-memory unit of work committed", name="uno.events.uow"
             )
-            return Success(None)
-        except Exception as e:
+        except Exception as exc:
             self.logger.structured_log(
                 "ERROR",
-                f"Error committing in-memory unit of work: {e}",
+                f"Failed to commit in-memory unit of work: {exc}",
                 name="uno.events.uow",
-                error=e,
+                error=exc,
             )
-            return Failure(e)
+            raise UnitOfWorkCommitError(f"Commit failed: {exc}")
 
-    async def rollback(self) -> Result[None, Exception]:
+    async def rollback(self) -> None:
         """
-        Mark the unit of work as rolled back.
+        Rollback the current unit of work.
 
-        In memory, there's nothing to actually roll back, but we track the state
-        for consistency with the interface.
-
-        Returns:
-            Result with None on success
+        Raises:
+            UnitOfWorkRollbackError: If the rollback fails.
         """
         try:
             self._committed = False
             self.logger.structured_log(
                 "DEBUG", "In-memory unit of work rolled back", name="uno.events.uow"
             )
-            return Success(None)
-        except Exception as e:
+        except Exception as exc:
             self.logger.structured_log(
                 "ERROR",
-                f"Error rolling back in-memory unit of work: {e}",
+                f"Failed to rollback in-memory unit of work: {exc}",
                 name="uno.events.uow",
-                error=e,
+                error=exc,
             )
-            return Failure(e)
+            raise UnitOfWorkRollbackError(f"Rollback failed: {exc}")
 
     @classmethod
     @asynccontextmanager
@@ -213,49 +202,47 @@ class PostgresUnitOfWork(UnitOfWork):
         else:
             self.logger = LoggerService(LoggingConfig())
 
-    async def commit(self) -> Result[None, Exception]:
+    async def commit(self) -> None:
         """
-        Commit the transaction.
+        Commit the current unit of work.
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnitOfWorkCommitError: If the commit fails.
         """
         try:
             await self.transaction.commit()
             self.logger.structured_log(
                 "DEBUG", "PostgreSQL unit of work committed", name="uno.events.uow"
             )
-            return Success(None)
-        except Exception as e:
+        except Exception as exc:
             self.logger.structured_log(
                 "ERROR",
-                f"Error committing PostgreSQL unit of work: {e}",
+                f"Failed to commit PostgreSQL unit of work: {exc}",
                 name="uno.events.uow",
-                error=e,
+                error=exc,
             )
-            return Failure(e)
+            raise UnitOfWorkCommitError(f"Commit failed: {exc}")
 
-    async def rollback(self) -> Result[None, Exception]:
+    async def rollback(self) -> None:
         """
-        Roll back the transaction.
+        Rollback the current unit of work.
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnitOfWorkRollbackError: If the rollback fails.
         """
         try:
             await self.transaction.rollback()
             self.logger.structured_log(
                 "DEBUG", "PostgreSQL unit of work rolled back", name="uno.events.uow"
             )
-            return Success(None)
-        except Exception as e:
+        except Exception as exc:
             self.logger.structured_log(
                 "ERROR",
-                f"Error rolling back PostgreSQL unit of work: {e}",
+                f"Failed to rollback PostgreSQL unit of work: {exc}",
                 name="uno.events.uow",
-                error=e,
+                error=exc,
             )
-            return Failure(e)
+            raise UnitOfWorkRollbackError(f"Rollback failed: {exc}")
 
     @classmethod
     @asynccontextmanager

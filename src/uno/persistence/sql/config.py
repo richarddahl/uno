@@ -13,12 +13,12 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import Table
 from pydantic_settings import BaseSettings
-from uno.infrastructure.config.base import ProdSettingsConfigDict
-from uno.infrastructure.sql.interfaces import ConfigManagerProtocol
+from uno.config.base import ProdSettingsConfigDict
+from uno.persistence.sql.interfaces import ConfigManagerProtocol
 
 if TYPE_CHECKING:
-    from uno.infrastructure.sql.engine import SyncEngineFactory
-    from uno.infrastructure.sql.interfaces import ConnectionConfigProtocol
+    from uno.persistence.sql.engine import SyncEngineFactory
+    from uno.persistence.sql.interfaces import ConnectionConfigProtocol
 
 
 class ConnectionConfig(BaseModel):
@@ -63,10 +63,10 @@ class ConnectionConfig(BaseModel):
             return uri
 
 
-from uno.infrastructure.sql.registry import SQLConfigRegistry
+from uno.persistence.sql.registry import SQLConfigRegistry
 from uno.errors import UnoError
 from uno.errors.result import Failure, Result, Success
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -78,7 +78,7 @@ from uno.infrastructure.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.infrastructure.sql.interfaces import EngineFactoryProtocol
+from uno.persistence.sql.interfaces import EngineFactoryProtocol
 
 
 class SQLConfig(BaseSettings):

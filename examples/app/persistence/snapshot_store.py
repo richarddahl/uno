@@ -5,7 +5,7 @@ Integrates with uno.events.snapshots.SnapshotStore for demo/testing purposes.
 
 from uno.events.snapshots import SnapshotStore, Success, Failure
 from uno.errors.result import Result
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 from typing import Any, TypeVar
 
 T = TypeVar("T")

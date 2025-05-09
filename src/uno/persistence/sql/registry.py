@@ -7,7 +7,7 @@
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from uno.errors import UnoError
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -19,12 +19,12 @@ from uno.infrastructure.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.infrastructure.sql.interfaces import (
+from uno.persistence.sql.interfaces import (
     EngineFactoryProtocol,
 )  # DI protocol for engine factories
 
 if TYPE_CHECKING:
-    from uno.infrastructure.sql.config import SQLConfig
+    from uno.persistence.sql.config import SQLConfig
 
 
 class SQLConfigRegistry:

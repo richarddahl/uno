@@ -13,7 +13,7 @@ from contextlib import contextmanager, asynccontextmanager
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from uno.infrastructure.sql.interfaces import ConnectionConfigProtocol
+    from uno.persistence.sql.interfaces import ConnectionConfigProtocol
 
 
 class SyncEngineFactory:

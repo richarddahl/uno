@@ -12,9 +12,9 @@ from sqlalchemy import (
     insert,
     text,
 )
-from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 
 
 class InsertMetaRecordFunction(SQLEmitter):

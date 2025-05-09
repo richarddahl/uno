@@ -7,7 +7,7 @@
 
 import asyncio
 
-from uno.infrastructure.database.manager import DBManager
+from uno.database.manager import DBManager
 
 if __name__ == "__main__":
     db_manager = DBManager()

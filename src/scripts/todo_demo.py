@@ -13,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from uno.infrastructure.logging.logger import LoggerService
+from uno.logging.logger import LoggerService
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))

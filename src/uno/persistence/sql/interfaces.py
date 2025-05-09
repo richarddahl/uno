@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
-    from uno.infrastructure.sql.statement import SQLStatement
+    from uno.persistence.sql.statement import SQLStatement
 
 
 class SQLEmitterProtocol(Protocol):
@@ -143,7 +143,7 @@ class SQLExecutionServiceProtocol(Protocol):
 
 from uno.errors import UnoError
 from uno.errors.result import Result
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,

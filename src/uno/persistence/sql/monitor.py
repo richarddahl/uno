@@ -6,27 +6,41 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from datetime import datetime
 from pydantic import BaseModel, Field
-from uno.infrastructure.sql.interfaces import PerformanceMonitorProtocol
+from uno.persistence.sql.interfaces import PerformanceMonitorProtocol
 
 
 class PerformanceMetrics(BaseModel):
     """SQL performance metrics."""
-    
-    total_executions: int = Field(default=0, description="Total number of statement executions")
-    total_duration: float = Field(default=0.0, description="Total execution duration in seconds")
-    avg_duration: float = Field(default=0.0, description="Average execution duration in seconds")
-    min_duration: float = Field(default=float("inf"), description="Minimum execution duration in seconds")
-    max_duration: float = Field(default=0.0, description="Maximum execution duration in seconds")
+
+    total_executions: int = Field(
+        default=0, description="Total number of statement executions"
+    )
+    total_duration: float = Field(
+        default=0.0, description="Total execution duration in seconds"
+    )
+    avg_duration: float = Field(
+        default=0.0, description="Average execution duration in seconds"
+    )
+    min_duration: float = Field(
+        default=float("inf"), description="Minimum execution duration in seconds"
+    )
+    max_duration: float = Field(
+        default=0.0, description="Maximum execution duration in seconds"
+    )
     error_count: int = Field(default=0, description="Number of execution errors")
 
 
 class StatementMetrics(BaseModel):
     """SQL statement performance metrics."""
-    
+
     statement: str = Field(..., description="SQL statement")
     executions: int = Field(default=0, description="Number of executions")
-    total_duration: float = Field(default=0.0, description="Total execution duration in seconds")
-    avg_duration: float = Field(default=0.0, description="Average execution duration in seconds")
+    total_duration: float = Field(
+        default=0.0, description="Total execution duration in seconds"
+    )
+    avg_duration: float = Field(
+        default=0.0, description="Average execution duration in seconds"
+    )
     last_execution: datetime = Field(..., description="Last execution timestamp")
     error_count: int = Field(default=0, description="Number of execution errors")
 
@@ -41,7 +55,7 @@ class PerformanceMonitor:
 
     def record_execution_time(self, statement: Any, duration: float) -> None:
         """Record statement execution time.
-        
+
         Args:
             statement: SQL statement
             duration: Execution duration in seconds
@@ -49,7 +63,9 @@ class PerformanceMonitor:
         # Update overall metrics
         self._metrics.total_executions += 1
         self._metrics.total_duration += duration
-        self._metrics.avg_duration = self._metrics.total_duration / self._metrics.total_executions
+        self._metrics.avg_duration = (
+            self._metrics.total_duration / self._metrics.total_executions
+        )
         self._metrics.min_duration = min(self._metrics.min_duration, duration)
         self._metrics.max_duration = max(self._metrics.max_duration, duration)
 
@@ -57,10 +73,9 @@ class PerformanceMonitor:
         statement_str = str(statement)
         if statement_str not in self._statement_metrics:
             self._statement_metrics[statement_str] = StatementMetrics(
-                statement=statement_str,
-                last_execution=datetime.now()
+                statement=statement_str, last_execution=datetime.now()
             )
-        
+
         metrics = self._statement_metrics[statement_str]
         metrics.executions += 1
         metrics.total_duration += duration
@@ -69,7 +84,7 @@ class PerformanceMonitor:
 
     def get_performance_metrics(self) -> dict[str, Any]:
         """Get performance metrics.
-        
+
         Returns:
             Dictionary containing performance metrics
         """
@@ -78,16 +93,16 @@ class PerformanceMonitor:
             "statements": {
                 stmt: metrics.model_dump()
                 for stmt, metrics in self._statement_metrics.items()
-            }
+            },
         }
 
     def record_error(self, statement: Any) -> None:
         """Record statement execution error.
-        
+
         Args:
             statement: SQL statement
         """
         self._metrics.error_count += 1
         statement_str = str(statement)
         if statement_str in self._statement_metrics:
-            self._statement_metrics[statement_str].error_count += 1 
+            self._statement_metrics[statement_str].error_count += 1

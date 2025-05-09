@@ -10,7 +10,7 @@ from typing import Any
 from uno.errors.result import Success, Failure, Result
 from uno.events.handlers import EventHandlerContext
 from uno.events.interfaces import EventHandlerMiddleware
-from uno.infrastructure.logging.logger import LoggerService
+from uno.logging.logger import LoggerService
 
 
 @dataclass

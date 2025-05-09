@@ -3,14 +3,17 @@ AggregateRoot base class for Uno's DDD/event sourcing model.
 """
 
 from __future__ import annotations
+
 from typing import TypeVar
-from pydantic import PrivateAttr, ConfigDict
+
+from pydantic import ConfigDict, PrivateAttr
+
 from uno.domain.entity import Entity
+from uno.errors import AggregateNotDeletedError, DomainValidationError
 from uno.events.base_event import DomainEvent
 from uno.events.deleted_event import DeletedEvent
 from uno.events.restored_event import RestoredEvent
-from uno.errors import Success, Failure, AggregateNotDeletedError
-
+from uno.logging import get_logger
 
 T_ID = TypeVar("T_ID")
 
@@ -34,6 +37,7 @@ class AggregateRoot(Entity[T_ID]):
             ...
     """
 
+    _logger = get_logger(__name__)
     _events: list[DomainEvent] = PrivateAttr(default_factory=list)
     version: int = 0
     _is_deleted: bool = PrivateAttr(default=False)
@@ -58,32 +62,34 @@ class AggregateRoot(Entity[T_ID]):
         """
         pass
 
-    def validate(self) -> Success[None, Exception] | Failure[None, Exception]:
+    def validate(self) -> None:
         """
         Validate the aggregate's invariants. Override in subclasses for custom validation.
-        Returns:
-            Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
+        Raises:
+            DomainValidationError: If validation fails.
         """
-        return Success[None, Exception](None)
+        try:
+            # Custom validation logic here
+            pass
+        except Exception as exc:
+            self._logger.error(f"Validation failed for aggregate {self.id}: {exc}")
+            raise DomainValidationError(f"Validation failed: {exc}")
 
-    def add_event(
-        self, event: DomainEvent
-    ) -> Success[None, Exception] | Failure[None, Exception]:
+    def add_event(self, event: DomainEvent) -> None:
         """
         Adds an event to the aggregate. Prevents restoring if not deleted.
-        Returns:
-            Success[None, Exception](None) if added, Failure[None, Exception](AggregateNotDeletedError) if restoring when not deleted.
+        Raises:
+            AggregateNotDeletedError: If restoring when not deleted.
         """
         if isinstance(event, RestoredEvent) and not self.is_deleted:
-            return Failure[None, Exception](
-                AggregateNotDeletedError(
-                    f"Cannot restore aggregate {self.id}: not deleted."
-                )
+            self._logger.error(f"Cannot restore aggregate {self.id}: not deleted.")
+            raise AggregateNotDeletedError(
+                f"Cannot restore aggregate {self.id}: not deleted."
             )
         self.apply_event(event)
         self._events.append(event)
         self.version += 1
-        return Success[None, Exception](None)
+        self._logger.info(f"Event {event.event_type} added to aggregate {self.id}.")
 
     def clear_events(self) -> None:
         self._events.clear()
@@ -105,33 +111,37 @@ class AggregateRoot(Entity[T_ID]):
         self._is_deleted = False
 
     @classmethod
-    def from_events(
-        cls, events: list[DomainEvent]
-    ) -> Success[AggregateRoot, Exception] | Failure[AggregateRoot, Exception]:
+    def from_events(cls, events: list[DomainEvent]) -> AggregateRoot:
+        """
+        Rehydrates an aggregate from a list of events.
+        Returns:
+            The rehydrated aggregate instance.
+        Raises:
+            Exception: If no events are provided or rehydration fails.
+        """
         if not events:
-            return Failure[AggregateRoot, Exception](
-                Exception(f"No events to rehydrate aggregate for {cls.__name__}.")
-            )
+            raise Exception(f"No events to rehydrate aggregate for {cls.__name__}.")
         try:
             instance = cls(id=getattr(events[0], "aggregate_id", None))
             for event in events:
                 instance.apply_event(event)
                 instance.version += 1
-            return Success[AggregateRoot, Exception](instance)
+            return instance
         except Exception as exc:
-            return Failure[AggregateRoot, Exception](
-                Exception(
-                    f"Error rehydrating aggregate {cls.__name__} from core.events: {exc}"
-                )
+            raise Exception(
+                f"Error rehydrating aggregate {cls.__name__} from events: {exc}"
             )
 
-    def assert_not_deleted(self) -> Success[None, Exception] | Failure[None, Exception]:
+    def assert_not_deleted(self) -> None:
+        """
+        Ensures the aggregate is not deleted.
+        Raises:
+            AggregateNotDeletedError: If the aggregate is deleted.
+        """
         if self.is_deleted:
-            return Failure[None, Exception](
-                AggregateNotDeletedError(
-                    f"Aggregate {self.id} is deleted and cannot be mutated."
-                )
+            self._logger.error(f"Aggregate {self.id} is deleted and cannot be mutated.")
+            raise AggregateNotDeletedError(
+                f"Aggregate {self.id} is deleted and cannot be mutated."
             )
-        return Success[None, Exception](None)
 
     model_config = ConfigDict(frozen=False, extra="forbid")

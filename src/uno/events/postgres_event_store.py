@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uno.events.base_event import DomainEvent
 from uno.events.event_store import EventStore
 from uno.errors.result import Result, Success, Failure
-from uno.infrastructure.sql.config import SQLConfig
-from uno.infrastructure.sql.connection import ConnectionManager
-from uno.infrastructure.logging.logger import LoggerService
+from uno.persistence.sql.config import SQLConfig
+from uno.persistence.sql.connection import ConnectionManager
+from uno.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 

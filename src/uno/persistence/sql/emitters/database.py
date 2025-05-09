@@ -7,7 +7,7 @@
 import logging
 
 from uno.errors import UnoError
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -19,8 +19,8 @@ from uno.infrastructure.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 
 
 class CreateRolesAndDatabase(SQLEmitter):

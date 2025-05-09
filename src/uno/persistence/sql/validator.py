@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 from uno.errors.result import Result, Success, Failure
-from uno.infrastructure.sql.interfaces import SQLValidatorProtocol
-from uno.infrastructure.sql.config import SQLConfig
+from uno.persistence.sql.interfaces import SQLValidatorProtocol
+from uno.persistence.sql.config import SQLConfig
 
 
 class SQLValidator:

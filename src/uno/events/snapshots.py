@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from uno.domain.core import AggregateRoot
-    from uno.infrastructure.logging.logger import LoggerService
+    from uno.logging.logger import LoggerService
 
 # Application imports
 from uno.errors.result import Failure, Result, Success

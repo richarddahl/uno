@@ -3,17 +3,17 @@
 import logging
 from contextlib import contextmanager
 
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.db_manager import (
+from uno.database.config import ConnectionConfig
+from uno.database.db_manager import (
     DBManager,  # Our new DBManager for DDL operations
 )
-from uno.infrastructure.database.engine import SyncEngineFactory
-from uno.infrastructure.database.manager import (
+from uno.database.engine import SyncEngineFactory
+from uno.database.manager import (
     DBManager as InitDBManager,  # Renamed to avoid confusion
 )
 from uno.meta.sqlconfigs import MetaTypeSQLConfig
 from uno.settings import uno_settings
-from uno.infrastructure.sql.emitters.database import (
+from uno.persistence.sql.emitters.database import (
     CreatePGULID,
     CreateRolesAndDatabase,
     CreateSchemasAndExtensions,
@@ -23,7 +23,7 @@ from uno.infrastructure.sql.emitters.database import (
     RevokeAndGrantPrivilegesAndSetSearchPaths,
     SetRole,
 )
-from uno.infrastructure.sql.emitters.table import InsertMetaRecordFunction
+from uno.persistence.sql.emitters.table import InsertMetaRecordFunction
 
 # Initialize a logger
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ if not logger.hasHandlers():
 engine_factory = SyncEngineFactory(logger=logger)
 
 # Import vector emitters
-from uno.infrastructure.sql.emitters.vector import (
+from uno.persistence.sql.emitters.vector import (
     CreateVectorTables,
     VectorIntegrationEmitter,
     VectorSQLEmitter,

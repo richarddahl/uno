@@ -9,7 +9,7 @@ from uno.events.sagas import Saga
 from uno.errors import Result, Success, Failure
 from uno.errors import UnoError
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class OrderFulfillmentSaga(Saga):

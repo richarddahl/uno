@@ -12,43 +12,38 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any, ClassVar, TypeVar, cast
+from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
-from uno.errors.result import Failure, Result, Success
-from uno.events.context import EventHandlerContext
-from uno.events.base_event import DomainEvent
-from uno.infrastructure.logging.logger import LoggerService
-from uno.infrastructure.logging.logger import LoggingConfig
-
-# Import AsyncEventHandlerAdapter - import here to avoid circular imports
-from uno.async_utils import (
+from uno.utiitlies import (
     AsyncEventHandlerAdapter,
-    FunctionHandlerAdapter,
     EventHandlerProtocol,
+    FunctionHandlerAdapter,
 )
-
+from uno.di.container import DIContainer
+from uno.events.base_event import DomainEvent
+from uno.events.config import EventsConfig
+from uno.events.context import EventHandlerContext
+from uno.events.errors import EventHandlerError
+from uno.logging.protocols import LoggerProtocol
 
 T = TypeVar("T")
 
 
-# EventHandlerContext is now defined in context.py
+@runtime_checkable
+class EventHandler(Protocol):
+    """Protocol for event handlers."""
 
-
-class EventHandler(ABC):
-    """Base class for event handlers."""
-
-    @abstractmethod
-    async def handle(self, context: EventHandlerContext) -> Result[Any, Exception]:
+    async def handle(self, event: DomainEvent) -> None:
         """
         Handle the event.
 
         Args:
-            context: The event handler context
+            event: The domain event to handle
 
-        Returns:
-            Result with a value on success, or an error
+        Raises:
+            EventHandlerError: If the handler encounters an error
         """
-        pass
+        ...
 
 
 class EventHandlerMiddleware(ABC):
@@ -57,33 +52,35 @@ class EventHandlerMiddleware(ABC):
     @abstractmethod
     async def process(
         self,
-        context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Result[Any, Exception]:
+        event: DomainEvent,
+        next_middleware: Callable[[DomainEvent], None],
+    ) -> None:
         """
         Process the event and pass it to the next middleware.
 
         Args:
-            context: The event handler context
+            event: The domain event to process
             next_middleware: The next middleware to call
 
-        Returns:
-            Result with a value on success, or an error
+        Raises:
+            EventHandlerError: If an error occurs during processing
         """
-        pass
+        ...
 
 
 class EventHandlerRegistry:
-    """Registry for event handlers and middleware. Requires DI-injected LoggerService."""
+    """Registry for event handlers and middleware."""
 
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol, container: DIContainer = None) -> None:
         """
         Initialize the registry.
 
         Args:
-            logger: DI-injected LoggerService instance
+            logger: Logger for structured logging
+            container: Optional DI container for resolving dependencies
         """
         self.logger = logger
+        self.container = container
         self._handlers: dict[str, list[EventHandler]] = {}
         self._middleware: list[EventHandlerMiddleware] = []
         self._middleware_by_event_type: dict[str, list[EventHandlerMiddleware]] = {}
@@ -107,19 +104,19 @@ class EventHandlerRegistry:
             handler_adapter = AsyncEventHandlerAdapter(handler, self.logger)
             self._handlers[event_type].append(handler_adapter)
 
-            self.logger.structured_log(
-                "DEBUG",
-                f"Registered callable handler for event type {event_type} (wrapped with AsyncEventHandlerAdapter)",
-                name="uno.events.handlers",
+            self.logger.debug(
+                "Registered callable handler for event type",
+                event_type=event_type,
+                handler_type="AsyncEventHandlerAdapter",
             )
         else:
             # Handler is already an EventHandler instance
             self._handlers[event_type].append(handler)
 
-            self.logger.structured_log(
-                "DEBUG",
-                f"Registered handler {handler.__class__.__name__} for event type {event_type}",
-                name="uno.events.handlers",
+            self.logger.debug(
+                "Registered handler for event type",
+                event_type=event_type,
+                handler_name=handler.__class__.__name__,
             )
 
     def register_middleware(self, middleware: EventHandlerMiddleware) -> None:
@@ -131,10 +128,8 @@ class EventHandlerRegistry:
         """
         self._middleware.append(middleware)
 
-        self.logger.structured_log(
-            "DEBUG",
-            f"Registered middleware {middleware.__class__.__name__}",
-            name="uno.events.handlers",
+        self.logger.debug(
+            "Registered middleware", middleware_name=middleware.__class__.__name__
         )
 
     def register_middleware_for_event_type(
@@ -152,10 +147,10 @@ class EventHandlerRegistry:
 
         self._middleware_by_event_type[event_type].append(middleware)
 
-        self.logger.structured_log(
-            "DEBUG",
-            f"Registered middleware {middleware.__class__.__name__} for event type {event_type}",
-            name="uno.events.handlers",
+        self.logger.debug(
+            "Registered middleware for event type",
+            event_type=event_type,
+            middleware_name=middleware.__class__.__name__,
         )
 
     def register_middleware_from_factory(
@@ -177,28 +172,20 @@ class EventHandlerRegistry:
                 # Register middleware for specific event types
                 for event_type in event_types:
                     for middleware in middleware_stack:
-                        if (
-                            event_type in self._middleware
-                            and self._middleware[event_type]
-                        ):
-                            self.register_middleware_for_event_type(
-                                event_type, middleware
-                            )
+                        self.register_middleware_for_event_type(event_type, middleware)
             else:
                 # Register middleware globally
                 for middleware in middleware_stack:
                     self.register_middleware(middleware)
 
-            self.logger.structured_log(
-                "INFO",
-                f"Registered {len(middleware_stack)} middleware components from factory",
-                name="uno.events.handlers",
+            self.logger.info(
+                "Registered middleware from factory",
+                component_count=len(middleware_stack),
             )
         else:
-            self.logger.structured_log(
-                "WARN",
+            self.logger.warning(
                 "Factory does not have create_default_middleware_stack method",
-                name="uno.events.handlers",
+                factory_name=factory.__class__.__name__,
             )
 
     def get_handlers(self, event_type: str) -> list[EventHandler]:
@@ -262,28 +249,65 @@ class EventHandlerRegistry:
         self._middleware.clear()
         self._middleware_by_event_type.clear()
 
-        self.logger.structured_log(
-            "DEBUG",
-            "Cleared all handlers and middleware",
-            name="uno.events.handlers.registry",
-        )
+        self.logger.debug("Cleared all handlers and middleware")
+
+    async def resolve_handler_dependencies(self, handler: Any) -> None:
+        """
+        Resolve handler dependencies using the DI container.
+
+        Args:
+            handler: The handler to resolve dependencies for
+
+        Raises:
+            ValueError: If no container is available
+        """
+        if not self.container:
+            raise ValueError("No DI container available for dependency resolution")
+
+        # Check if handler has dependencies to be injected
+        if hasattr(handler, "__dependencies__") and handler.__dependencies__:
+            for dep_name, dep_type in handler.__dependencies__.items():
+                try:
+                    # Resolve the dependency from the container
+                    dependency = await self.container.resolve(dep_type)
+
+                    # Set the dependency on the handler
+                    setattr(handler, dep_name, dependency)
+
+                    self.logger.debug(
+                        "Resolved dependency for handler",
+                        handler=handler.__class__.__name__,
+                        dependency=dep_name,
+                        dependency_type=dep_type.__name__,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        "Failed to resolve dependency for handler",
+                        handler=handler.__class__.__name__,
+                        dependency=dep_name,
+                        dependency_type=dep_type.__name__,
+                        error=str(e),
+                    )
+                    raise
 
 
 class MiddlewareChainBuilder:
     """Builds a middleware chain for an event handler."""
 
-    def __init__(self, handler: EventHandler):
+    def __init__(self, handler: EventHandler, logger: LoggerProtocol):
         """
         Initialize the middleware chain builder.
 
         Args:
             handler: The event handler to wrap with middleware
+            logger: Logger for structured logging
         """
         self.handler = handler
+        self.logger = logger
 
     def build_chain(
         self, middleware: list[EventHandlerMiddleware]
-    ) -> Callable[[EventHandlerContext], Result[Any, Exception]]:
+    ) -> Callable[[DomainEvent], None]:
         """
         Build a middleware chain for the handler.
 
@@ -298,8 +322,8 @@ class MiddlewareChainBuilder:
             return self._create_handler_executor(self.handler)
 
         # The innermost function in the chain calls the handler
-        def final_middleware_fn(context: EventHandlerContext) -> Result[Any, Exception]:
-            return self._execute_handler(self.handler, context)
+        async def final_middleware_fn(event: DomainEvent) -> None:
+            await self._execute_handler(self.handler, event)
 
         # Build the chain from innermost to outermost
         middleware_fn = final_middleware_fn
@@ -314,8 +338,8 @@ class MiddlewareChainBuilder:
     def _create_middleware_executor(
         self,
         middleware: EventHandlerMiddleware,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Callable[[EventHandlerContext], Result[Any, Exception]]:
+        next_middleware: Callable[[DomainEvent], None],
+    ) -> Callable[[DomainEvent], None]:
         """
         Create a function that executes a middleware component.
 
@@ -327,19 +351,14 @@ class MiddlewareChainBuilder:
             Function that processes an event through this middleware
         """
 
-        async def execute_middleware(
-            context: EventHandlerContext,
-        ) -> Result[Any, Exception]:
-            try:
-                return await middleware.process(context, next_middleware)
-            except Exception as e:
-                return Failure(e)
+        async def execute_middleware(event: DomainEvent) -> None:
+            await middleware.process(event, next_middleware)
 
         return execute_middleware
 
     def _create_handler_executor(
         self, handler: EventHandler
-    ) -> Callable[[EventHandlerContext], Result[Any, Exception]]:
+    ) -> Callable[[DomainEvent], None]:
         """
         Create a function that executes a handler.
 
@@ -350,36 +369,48 @@ class MiddlewareChainBuilder:
             Function that processes an event through this handler
         """
 
-        async def execute_handler(
-            context: EventHandlerContext,
-        ) -> Result[Any, Exception]:
-            return await self._execute_handler(handler, context)
+        async def execute_handler(event: DomainEvent) -> None:
+            await self._execute_handler(handler, event)
 
         return execute_handler
 
-    async def _execute_handler(
-        self, handler: EventHandler, context: EventHandlerContext
-    ) -> Result[Any, Exception]:
+    async def _execute_handler(self, handler: EventHandler, event: DomainEvent) -> None:
         """
         Execute a handler and handle exceptions.
 
         Args:
             handler: The handler to execute
-            context: The event handler context
+            event: The domain event
 
-        Returns:
-            Result with the handler's return value or an error
+        Raises:
+            EventHandlerError: If the handler fails
         """
         try:
-            return await handler.handle(context)
+            await handler.handle(event)
         except Exception as e:
-            return Failure(e)
+            handler_name = getattr(handler, "__class__", type(handler)).__name__
+            self.logger.error(
+                "Handler execution failed",
+                handler=handler_name,
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                error=str(e),
+                exc_info=e,
+            )
+
+            if isinstance(e, EventHandlerError):
+                raise
+
+            raise EventHandlerError(
+                event_type=event.event_type, handler_name=handler_name, reason=str(e)
+            ) from e
 
 
 class EventHandlerDecorator:
     """Decorator for event handlers."""
 
     _registry: ClassVar[EventHandlerRegistry | None] = None
+    _container: ClassVar[DIContainer | None] = None
 
     @classmethod
     def set_registry(cls, registry: EventHandlerRegistry) -> None:
@@ -392,42 +423,54 @@ class EventHandlerDecorator:
         cls._registry = registry
 
     @classmethod
-    def get_registry(cls, logger: LoggerService) -> EventHandlerRegistry:
+    def set_container(cls, container: DIContainer) -> None:
         """
-        Get the registry, creating it if needed with a DI-injected logger.
+        Set the DI container to use for handler dependencies.
 
         Args:
-            logger: DI-injected LoggerService
+            container: The DI container to use
+        """
+        cls._container = container
+
+    @classmethod
+    def get_registry(cls, logger: LoggerProtocol) -> EventHandlerRegistry:
+        """
+        Get the registry, creating it if needed.
+
+        Args:
+            logger: Logger for structured logging
+
         Returns:
             The registry
         """
         if cls._registry is None:
-            cls._registry = EventHandlerRegistry(logger)
+            cls._registry = EventHandlerRegistry(logger, cls._container)
         return cls._registry
 
     @classmethod
-    def handles(
-        cls, event_type: str, logger: LoggerService
-    ) -> Callable[[type[EventHandler]], type[EventHandler]]:
+    def handles(cls, event_type: str) -> Callable[[type[Any]], type[Any]]:
         """
-        Decorator to register a handler for an event type, with DI-injected logger.
+        Decorator to register a handler for an event type.
 
         Args:
             event_type: The event type to handle
-            logger: DI-injected LoggerService
+
         Returns:
             Decorator function
         """
 
-        def decorator(handler_class: type[EventHandler]) -> type[EventHandler]:
-            registry = cls.get_registry(logger)
-            handler = handler_class()
-            registry.register_handler(event_type, handler)
+        def decorator(handler_class: type[Any]) -> type[Any]:
+            # Set the event type on the class
+            handler_class._event_type = event_type
+            handler_class._is_event_handler = True
+
+            # Mark that this class needs to be registered (will be done at runtime)
             return handler_class
 
         return decorator
 
 
+# Export the decorator function
 handles = EventHandlerDecorator.handles
 
 
@@ -435,321 +478,350 @@ class EventBus:
     """Event bus for dispatching events to handlers."""
 
     def __init__(
-        self, logger: LoggerService, registry: EventHandlerRegistry | None = None
+        self,
+        logger: LoggerProtocol,
+        config: EventsConfig,
+        registry: EventHandlerRegistry | None = None,
     ):
         """
         Initialize the event bus.
 
         Args:
-            logger: DI-injected LoggerService
+            logger: Logger for structured logging
+            config: Event system configuration
             registry: Optional registry to use
         """
         self.logger = logger
+        self.config = config
         self.registry = registry or EventHandlerRegistry(logger)
 
     async def publish(
         self, event: DomainEvent, metadata: dict[str, Any] | None = None
-    ) -> Result[list[Result[Any, Exception]], Exception]:
-        """Publish an event to all registered handlers."""
+    ) -> None:
+        """
+        Publish an event to all registered handlers.
+
+        Args:
+            event: The event to publish
+            metadata: Optional metadata for the event
+
+        Raises:
+            EventHandlerError: If any handler fails
+        """
         event_type = event.event_type
 
         # Add some default metadata if none provided
         metadata = metadata or {}
         metadata.setdefault("published_at", time.time())
 
-        # Create context
-        context = EventHandlerContext(event=event, metadata=metadata)
-
         # Get handlers for this event type from the registry
         handlers = self.registry.get_handlers(event_type)
 
         if not handlers:
-            self.logger.structured_log(
-                "DEBUG",
-                f"No handlers registered for event {event_type}",
-                name="events.bus",
-                event_id=event.event_id,
+            self.logger.debug(
+                "No handlers registered for event",
+                event_type=event_type,
+                event_id=getattr(event, "event_id", None),
             )
-            return Success([])
+            return
 
         # Build middleware chain for this event type
         middleware_chain = self.registry.build_middleware_chain(event_type)
+        handler_count = len(handlers)
+        success_count = 0
+
+        self.logger.debug(
+            "Publishing event to handlers",
+            event_type=event_type,
+            event_id=getattr(event, "event_id", None),
+            handler_count=handler_count,
+        )
 
         # Execute handlers with middleware
-        results: list[Result[Any, Exception]] = []
-
         for handler in handlers:
             try:
                 start_time = time.time()
 
-                # Execute handler with middleware chain
-                if middleware_chain:
-                    # Use a class-based approach to completely avoid closure binding issues
-                    class HandlerExecutor:
-                        def __init__(self, handler_instance):
-                            self.handler = handler_instance
+                # Before executing, resolve any dependencies
+                if self.registry.container:
+                    await self.registry.resolve_handler_dependencies(handler)
 
-                        async def execute(
-                            self, ctx: EventHandlerContext
-                        ) -> Result[Any, Exception]:
-                            return await self.handler.handle(ctx)
-
-                    class MiddlewareProcessor:
-                        def __init__(self, middleware_instance, next_processor):
-                            self.middleware = middleware_instance
-                            self.next_processor = next_processor
-
-                        async def process(
-                            self, ctx: EventHandlerContext
-                        ) -> Result[Any, Exception]:
-                            return await self.middleware.process(
-                                ctx, self.next_processor
-                            )
-
-                    # Create the handler executor
-                    executor = HandlerExecutor(handler)
-
-                    # Start with the handler's execute method
-                    processor = executor.execute
-
-                    # Build the chain from inside out
-                    for middleware in reversed(middleware_chain):
-                        middleware_processor = MiddlewareProcessor(
-                            middleware, processor
-                        )
-                        processor = middleware_processor.process
-
-                    # Execute the chain
-                    result = await processor(context)
-                else:
-                    # No middleware, execute the handler directly
-                    result = await handler.handle(context)
+                # Build and execute the middleware chain
+                chain_builder = MiddlewareChainBuilder(handler, self.logger)
+                chain = chain_builder.build_chain(middleware_chain)
+                await chain(event)
 
                 end_time = time.time()
                 elapsed_ms = (end_time - start_time) * 1000
 
-                results.append(result)
-
                 handler_name = handler.__class__.__name__
-                if result.is_success:
-                    self.logger.structured_log(
-                        "DEBUG",
-                        f"Handler {handler_name} successfully processed {event_type} in {elapsed_ms:.2f}ms",
-                        name="events.bus",
-                        handler=handler_name,
-                        event_id=event.event_id,
-                        event_type=event_type,
-                        elapsed_ms=elapsed_ms,
-                    )
-                else:
-                    self.logger.structured_log(
-                        "WARNING",
-                        f"Handler {handler_name} failed to process {event_type}: {result.error}",
-                        name="events.bus",
-                        handler=handler_name,
-                        event_id=event.event_id,
-                        event_type=event_type,
-                        error=result.error,
-                        elapsed_ms=elapsed_ms,
-                    )
+                success_count += 1
+
+                self.logger.debug(
+                    "Handler successfully processed event",
+                    handler=handler_name,
+                    event_id=getattr(event, "event_id", None),
+                    event_type=event_type,
+                    elapsed_ms=elapsed_ms,
+                )
 
             except Exception as e:
                 handler_name = getattr(handler, "__class__", type(handler)).__name__
-                self.logger.structured_log(
-                    "ERROR",
-                    f"Error executing handler {handler_name} for event {event_type}: {e}",
-                    name="events.bus",
-                    handler=handler_name,
-                    event_id=event.event_id,
-                    event_type=event_type,
-                    error=e,
-                )
-                results.append(Failure(e))
 
-        self.logger.structured_log(
-            "INFO",
-            f"Published event {event_type} to {len(handlers)} handlers",
-            name="events.bus",
-            event_id=event.event_id,
-            handler_count=len(handlers),
-            success_count=sum(1 for r in results if r.is_success),
-            failure_count=sum(1 for r in results if not r.is_success),
+                self.logger.error(
+                    "Handler failed to process event",
+                    handler=handler_name,
+                    event_id=getattr(event, "event_id", None),
+                    event_type=event_type,
+                    error=str(e),
+                    exc_info=e,
+                )
+
+                # Only retry if configured and not already an EventHandlerError
+                if self.config.retry_attempts > 0 and not isinstance(
+                    e, EventHandlerError
+                ):
+                    await self._retry_handler(handler, event, metadata)
+                elif not isinstance(e, EventHandlerError):
+                    # Wrap in EventHandlerError if it's not already one
+                    raise EventHandlerError(
+                        event_type=event_type, handler_name=handler_name, reason=str(e)
+                    ) from e
+                else:
+                    # Re-raise if it's already an EventHandlerError
+                    raise
+
+        self.logger.info(
+            "Published event to handlers",
+            event_type=event_type,
+            event_id=getattr(event, "event_id", None),
+            handler_count=handler_count,
+            success_count=success_count,
         )
 
-        return Success(results)
+    async def _retry_handler(
+        self, handler: EventHandler, event: DomainEvent, metadata: dict[str, Any]
+    ) -> None:
+        """
+        Retry a failed handler based on configuration settings.
+
+        Args:
+            handler: The event handler to retry
+            event: The event to handle
+            metadata: Event metadata
+
+        Raises:
+            EventHandlerError: If all retry attempts fail
+        """
+        import asyncio
+
+        retry_count = 0
+        last_error = None
+        handler_name = getattr(handler, "__class__", type(handler)).__name__
+
+        while retry_count < self.config.retry_attempts:
+            retry_count += 1
+
+            # Wait before retrying
+            await asyncio.sleep(self.config.retry_delay_ms / 1000.0)
+
+            try:
+                self.logger.info(
+                    "Retrying event handler",
+                    event_id=getattr(event, "event_id", None),
+                    event_type=getattr(event, "event_type", None),
+                    handler=handler_name,
+                    retry_count=retry_count,
+                    max_retries=self.config.retry_attempts,
+                )
+
+                await handler.handle(event)
+
+                self.logger.info(
+                    "Retry succeeded",
+                    event_id=getattr(event, "event_id", None),
+                    event_type=getattr(event, "event_type", None),
+                    handler=handler_name,
+                    retry_count=retry_count,
+                )
+
+                return
+            except Exception as exc:
+                last_error = exc
+                self.logger.warning(
+                    "Retry failed",
+                    event_id=getattr(event, "event_id", None),
+                    event_type=event.event_type,
+                    handler=handler_name,
+                    retry_count=retry_count,
+                    max_retries=self.config.retry_attempts,
+                    error=str(exc),
+                )
+
+        # All retries failed
+        self.logger.error(
+            "All retry attempts failed",
+            event_id=getattr(event, "event_id", None),
+            event_type=event.event_type,
+            handler=handler_name,
+            retry_count=retry_count,
+            max_retries=self.config.retry_attempts,
+        )
+
+        if last_error:
+            if isinstance(last_error, EventHandlerError):
+                raise last_error
+
+            raise EventHandlerError(
+                event_type=event.event_type,
+                handler_name=handler_name,
+                reason=f"Failed after {retry_count} retry attempts: {last_error}",
+            ) from last_error
 
     async def publish_many(
         self, events: list[DomainEvent], metadata: dict[str, Any] | None = None
-    ) -> Result[list[Result[list[Result[Any, Exception]], Exception]], Exception]:
-        """Publish multiple events to all registered handlers."""
-        results: list[Result[list[Result[Any, Exception]], Exception]] = []
+    ) -> None:
+        """
+        Publish multiple events to all registered handlers.
+
+        Args:
+            events: The events to publish
+            metadata: Optional metadata for the events
+
+        Raises:
+            EventHandlerError: If any handler fails
+        """
+        if not events:
+            self.logger.debug("No events to publish")
+            return
+
+        self.logger.info("Publishing multiple events", event_count=len(events))
 
         for event in events:
-            result = await self.publish(event, metadata)
-            results.append(result)
+            await self.publish(event, metadata)
 
-        return Success(results)
-
-
-from uno.events.middleware.retry import RetryMiddleware
-from uno.events.middleware.metrics import MetricsMiddleware
-from uno.events.middleware.circuit_breaker import CircuitBreakerMiddleware
-
-# Common middleware implementations
+        self.logger.debug("All events published successfully", event_count=len(events))
 
 
 class LoggingMiddleware(EventHandlerMiddleware):
     """Middleware for logging event handling."""
 
-    def __init__(self, logger_factory: Callable[..., LoggerService] | None = None):
+    def __init__(self, logger: LoggerProtocol):
         """
         Initialize the middleware.
 
         Args:
-            logger_factory: Optional factory for creating loggers
+            logger: Logger for structured logging
         """
-        # Use provided logger factory or create a default logger
-        if logger_factory:
-            self.logger = logger_factory("logging_middleware")
-        else:
-            self.logger = LoggerService(LoggingConfig())
+        self.logger = logger
 
     async def process(
         self,
-        context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Result[Any, Exception]:
+        event: DomainEvent,
+        next_middleware: Callable[[DomainEvent], None],
+    ) -> None:
         """
         Log event handling and pass to next middleware.
 
         Args:
-            context: The event handler context
+            event: The domain event to process
             next_middleware: The next middleware to call
 
-        Returns:
-            Result from the next middleware
+        Raises:
+            EventHandlerError: If the handler fails
         """
-        event = context.event
-
-        self.logger.structured_log(
-            "DEBUG",
-            f"Processing event {event.event_type}",
-            name="uno.events.handlers.middleware",
-            event_id=event.event_id,
-            aggregate_id=event.aggregate_id,
+        self.logger.debug(
+            "Processing event",
+            event_type=event.event_type,
+            event_id=getattr(event, "event_id", None),
+            aggregate_id=getattr(event, "aggregate_id", None),
         )
 
         try:
-            result = await next_middleware(context)
+            await next_middleware(event)
 
-            if result.is_failure:
-                self.logger.structured_log(
-                    "ERROR",
-                    f"Event handling failed for {event.event_type}: {result.error}",
-                    name="uno.events.handlers.middleware",
-                    error=result.error,
-                    event_id=event.event_id,
-                    aggregate_id=event.aggregate_id,
-                )
-            else:
-                self.logger.structured_log(
-                    "DEBUG",
-                    f"Event handling succeeded for {event.event_type}",
-                    name="uno.events.handlers.middleware",
-                    event_id=event.event_id,
-                    aggregate_id=event.aggregate_id,
-                )
-
-            return result
-
-        except Exception as e:
-            self.logger.structured_log(
-                "ERROR",
-                f"Unexpected error handling event {event.event_type}: {e}",
-                name="uno.events.handlers.middleware",
-                error=e,
-                event_id=event.event_id,
-                aggregate_id=event.aggregate_id,
+            self.logger.debug(
+                "Event handled successfully",
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                aggregate_id=getattr(event, "aggregate_id", None),
             )
-            return Failure(e)
+        except Exception as e:
+            self.logger.error(
+                "Error handling event",
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                aggregate_id=getattr(event, "aggregate_id", None),
+                error=str(e),
+                exc_info=e,
+            )
+            raise
 
 
 class TimingMiddleware(EventHandlerMiddleware):
     """Middleware for timing event handling."""
 
-    def __init__(self, logger_factory: Callable[..., LoggerService] | None = None):
+    def __init__(self, logger: LoggerProtocol):
         """
         Initialize the middleware.
 
         Args:
-            logger_factory: Optional factory for creating loggers
+            logger: Logger for structured logging
         """
-        # Use provided logger factory or create a default logger
-        if logger_factory:
-            self.logger = logger_factory("timing_middleware")
-        else:
-            self.logger = LoggerService(LoggingConfig())
+        self.logger = logger
 
     async def process(
         self,
-        context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Result[Any, Exception]:
+        event: DomainEvent,
+        next_middleware: Callable[[DomainEvent], None],
+    ) -> None:
         """
         Time event handling and pass to next middleware.
 
         Args:
-            context: The event handler context
+            event: The domain event to process
             next_middleware: The next middleware to call
 
-        Returns:
-            Result from the next middleware
+        Raises:
+            EventHandlerError: If the handler fails
         """
         import time
 
-        event = context.event
         start_time = time.time()
 
         try:
-            result = await next_middleware(context)
+            await next_middleware(event)
 
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.structured_log(
-                "DEBUG",
-                f"Event {event.event_type} handled in {elapsed_ms:.2f}ms",
-                name="uno.events.handlers.middleware",
-                event_id=event.event_id,
-                aggregate_id=event.aggregate_id,
-                elapsed_ms=elapsed_ms,
+            self.logger.debug(
+                "Event handled",
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                aggregate_id=getattr(event, "aggregate_id", None),
+                elapsed_ms=f"{elapsed_ms:.2f}",
             )
-
-            return result
-
         except Exception as e:
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.structured_log(
-                "ERROR",
-                f"Error handling event {event.event_type} after {elapsed_ms:.2f}ms: {e}",
-                name="uno.events.handlers.middleware",
-                error=e,
-                event_id=event.event_id,
-                aggregate_id=event.aggregate_id,
-                elapsed_ms=elapsed_ms,
+            self.logger.error(
+                "Error handling event",
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                aggregate_id=getattr(event, "aggregate_id", None),
+                elapsed_ms=f"{elapsed_ms:.2f}",
+                error=str(e),
             )
-
-            return Failure(e)
+            raise
 
 
 # Automatic event handler discovery
-
-
-def discover_handlers(
+async def discover_handlers(
     package: str | ModuleType,
-    logger: LoggerService,
+    logger: LoggerProtocol,
+    container: DIContainer = None,
     registry: EventHandlerRegistry | None = None,
 ) -> EventHandlerRegistry:
     """
@@ -758,44 +830,34 @@ def discover_handlers(
     This function scans a package and its subpackages for event handlers,
     automatically registering them with the registry. Handlers can be:
 
-    1. Classes that inherit from EventHandler
+    1. Classes that implement the EventHandler protocol
     2. Classes decorated with @handles(event_type)
     3. Functions decorated with @function_handler(event_type)
     4. Any object with an _is_event_handler attribute set to True
 
     Args:
         package: The package/module to scan
-        logger: DI-injected LoggerService
+        logger: Logger for structured logging
+        container: Optional DI container for dependency injection
         registry: Optional registry to use
+
+    Returns:
+        The registry with discovered handlers
     """
-    registry = registry or EventHandlerRegistry(logger)
+    registry = registry or EventHandlerRegistry(logger, container)
 
-    # Import the decorator module
-    from uno.events.decorators import EventHandlerDecorator
-
-    # Use provided registry or create a new one
-    registry = registry or EventHandlerRegistry()
-
-    # Use provided logger factory or create a default logger
-    if logger_factory:
-        logger = logger_factory("handler_discovery")
-    else:
-        logger = LoggerService(LoggingConfig())
-
-    # Set the logger and registry for the decorator
-    EventHandlerDecorator.set_logger(logger)
+    # Set the registry for the decorator
     EventHandlerDecorator.set_registry(registry)
+    if container:
+        EventHandlerDecorator.set_container(container)
 
     # Get the package as a module
     if isinstance(package, str):
         try:
             package_module = importlib.import_module(package)
         except ImportError as e:
-            logger.structured_log(
-                "ERROR",
-                f"Error importing package {package}: {e}",
-                name="uno.events.handlers.discovery",
-                error=e,
+            logger.error(
+                "Error importing package", package=package, error=str(e), exc_info=e
             )
             return registry
     else:
@@ -804,10 +866,8 @@ def discover_handlers(
     # Get the package directory
     package_path = getattr(package_module, "__path__", None)
     if not package_path:
-        logger.structured_log(
-            "ERROR",
-            f"Package {package_module.__name__} has no __path__ attribute",
-            name="uno.events.handlers.discovery",
+        logger.error(
+            "Package has no __path__ attribute", package=package_module.__name__
         )
         return registry
 
@@ -835,7 +895,7 @@ def discover_handlers(
 
                         # Check for handlers that aren't already registered
                         if inspect.isclass(item):
-                            # Check for EventHandler subclasses
+                            # Check for EventHandler implementers
                             if (
                                 issubclass(item, EventHandler)
                                 and item != EventHandler
@@ -859,17 +919,17 @@ def discover_handlers(
                                         setattr(
                                             item, "_registered_with_discovery", True
                                         )
-                                        logger.structured_log(
-                                            "DEBUG",
-                                            f"Registered handler class {item.__name__} for event {event_type}",
-                                            name="uno.events.handlers.discovery",
+                                        logger.debug(
+                                            "Registered handler class",
+                                            handler=item.__name__,
+                                            event_type=event_type,
                                         )
                                 except Exception as e:
                                     # Couldn't instantiate, probably needs constructor arguments
-                                    logger.structured_log(
-                                        "DEBUG",
-                                        f"Couldn't auto-instantiate handler class {item.__name__}: {e}",
-                                        name="uno.events.handlers.discovery",
+                                    logger.debug(
+                                        "Couldn't auto-instantiate handler class",
+                                        handler=item.__name__,
+                                        error=str(e),
                                     )
 
                         # Check for handlers marked with the decorator
@@ -881,10 +941,10 @@ def discover_handlers(
                                 if event_type:
                                     registry.register_handler(event_type, item)
                                     setattr(item, "_registered_with_discovery", True)
-                                    logger.structured_log(
-                                        "DEBUG",
-                                        f"Registered decorated handler {item.__name__} for event {event_type}",
-                                        name="uno.events.handlers.discovery",
+                                    logger.debug(
+                                        "Registered decorated handler",
+                                        handler=item.__name__,
+                                        event_type=event_type,
                                     )
 
                     except (AttributeError, TypeError) as e:
@@ -895,12 +955,7 @@ def discover_handlers(
                     import_recursive(module)
 
             except ImportError as e:
-                logger.structured_log(
-                    "ERROR",
-                    f"Error importing module {full_name}: {e}",
-                    name="uno.events.handlers.discovery",
-                    error=e,
-                )
+                logger.error("Error importing module", module=full_name, error=str(e))
 
     # Start the recursive import process
     import_recursive(package_module)
@@ -909,10 +964,8 @@ def discover_handlers(
     final_handler_count = sum(len(handlers) for handlers in registry._handlers.values())
     new_handlers = final_handler_count - initial_handler_count
 
-    logger.structured_log(
-        "INFO",
-        f"Discovered {new_handlers} new event handlers (total: {final_handler_count})",
-        name="uno.events.handlers.discovery",
+    logger.info(
+        "Discovered event handlers",
         new_handlers=new_handlers,
         total_handlers=final_handler_count,
     )

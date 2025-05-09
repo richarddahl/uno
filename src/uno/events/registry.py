@@ -2,7 +2,7 @@ from typing import Any, Callable, TypeVar, cast
 from uno.events.base_event import DomainEvent
 from uno.events.interfaces import EventBusProtocol
 from uno.events.priority import EventPriority
-from uno.infrastructure.logging.logger import LoggerService
+from uno.logging.logger import LoggerService
 
 HandlerFnT = TypeVar("HandlerFnT")
 

@@ -10,9 +10,9 @@ from typing import ClassVar, Self
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import Column
 
-from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 from uno.utilities import snake_to_camel, snake_to_caps_snake
 
 
@@ -345,9 +345,7 @@ class GraphSQLEmitter(SQLEmitter):
         return_value = (
             "OLD"
             if operation == "delete_sql"
-            else "NULL"
-            if operation == "truncate_sql"
-            else "NEW"
+            else "NULL" if operation == "truncate_sql" else "NEW"
         )
 
         nodes_sql = "".join([getattr(node, operation)() for node in self.nodes])

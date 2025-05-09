@@ -7,7 +7,8 @@ Exposes endpoints for InventoryItem aggregate.
 
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+import time
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from examples.app.domain.vendor.value_objects import EmailAddress
@@ -19,44 +20,38 @@ from examples.app.persistence.vendor_repository import InMemoryVendorRepository
 from examples.app.persistence.vendor_repository_protocol import VendorRepository
 from examples.app.services.inventory_item_service import InventoryItemService
 from examples.app.services.vendor_service import VendorService
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure
 
-# --- Dependency Injection Setup (module-level singletons) ---
-from uno.di.service_collection import ServiceCollection
-from uno.di.service_provider import ServiceProvider
-from uno.infrastructure.logging import LoggerService, LoggingConfig
-
-logging_config = LoggingConfig()
-logger_service = LoggerService(logging_config)
-vendor_repo = InMemoryVendorRepository(logger_service)
-repo = InMemoryInventoryItemRepository(logger_service)
-
-service_collection = ServiceCollection()
-service_collection.add_instance(LoggerService, logger_service)
-service_collection.add_instance(VendorRepository, vendor_repo)
-service_collection.add_instance(InMemoryVendorRepository, vendor_repo)
-service_collection.add_instance(InventoryItemRepository, repo)
-service_collection.add_instance(InMemoryInventoryItemRepository, repo)
-service_collection.add_singleton(
-    InventoryItemService,
-    factory=lambda: InventoryItemService(repo=repo, logger=logger_service),
-)
-service_collection.add_singleton(
-    VendorService,
-    factory=lambda: VendorService(repo=vendor_repo, logger=logger_service),
-)
-
-# Create service provider with proper initialization
-service_provider = ServiceProvider(service_collection)
+# Import the new DI, error, config, and logging systems
+from uno.di.container import DIContainer
+from uno.domain.di import register_domain_services
+from uno.events.di import register_event_services
+from uno.domain.errors import DomainValidationError
+from uno.logging.protocols import LoggerProtocol
+from uno.events.config import EventsConfig
+from uno.domain.config import DomainConfig
 
 
 async def app_factory() -> FastAPI:
-    app = FastAPI(title="Uno Example App", version="0.2.0")
+    """
+    Create and configure the FastAPI application with DI container.
 
-    # Create service provider with proper initialization
-    service_provider = ServiceProvider(service_collection)
-    await service_provider.configure_services(service_collection)
+    Returns:
+        The configured FastAPI application
+    """
+    # Create and configure the DI container
+    container = DIContainer()
+
+    # Register core services from uno framework
+    await _register_core_services(container)
+
+    # Register example app services
+    await _register_app_services(container)
+
+    # Create and configure the FastAPI app
+    app = FastAPI(title="Uno Example App", version="0.3.0")
+
+    # Store the container in the app state
+    app.state.container = container
 
     # Add middleware for logging and error handling
     @app.middleware("http")
@@ -64,15 +59,16 @@ async def app_factory() -> FastAPI:
         start_time = time.time()
         response = await call_next(request)
         process_time = time.time() - start_time
-        logger_service = service_provider.resolve(LoggerService)
-        logger_service.info(
-            {
-                "event": "http_request",
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "process_time": process_time,
-            }
+
+        # Get the logger from the container
+        logger = await container.resolve(LoggerProtocol)
+
+        logger.info(
+            "HTTP Request",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            process_time_ms=round(process_time * 1000, 2),
         )
         return response
 
@@ -85,13 +81,13 @@ async def app_factory() -> FastAPI:
             status_code=400,
             content={
                 "error": "domain_validation_error",
-                "message": exc!s,
-                "details": exc.details,
+                "message": str(exc),
+                "details": exc.details if hasattr(exc, "details") else {},
             },
+            media_type="application/json",
         )
 
-    # --- API Endpoints (rebind all endpoints here, using local repo variables) ---
-
+    # --- API Endpoints ---
     @app.post(
         "/inventory/",
         tags=["inventory"],
@@ -99,90 +95,149 @@ async def app_factory() -> FastAPI:
         status_code=201,
     )
     async def create_inventory_item(data: InventoryItemCreateDTO) -> dict:
-        # Use DI to get the service
-        inventory_item_service: InventoryItemService = service_provider.resolve(
-            InventoryItemService
-        ).value
-        result = await inventory_item_service.create_inventory_item(
-            aggregate_id=data.id, name=data.name, measurement=data.measurement
-        )
-        if isinstance(result, Failure):
-            error = result.error
-            if isinstance(error, DomainValidationError) and "already exists" in str(
-                error
-            ):
+        # Use DI to get the service from the container
+        inventory_item_service = await container.resolve(InventoryItemService)
+
+        try:
+            item = await inventory_item_service.create_inventory_item(
+                aggregate_id=data.id, name=data.name, measurement=data.measurement
+            )
+            return item.model_dump()
+        except DomainValidationError as error:
+            if "already exists" in str(error):
                 raise HTTPException(status_code=409, detail=str(error))
             raise HTTPException(status_code=422, detail=str(error))
-        item = result.unwrap()
-        d = item.model_dump()
-        # Always return measurement as a dict with 'type', 'unit', and 'value' (for count measurements)
-        return d
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     @app.post("/vendors/", tags=["vendors"], response_model=dict, status_code=201)
     async def create_vendor(data: VendorCreateDTO) -> dict:
-        # Use the module-level singleton vendor_service
-        vs: VendorService = service_provider.resolve(VendorService).value
-        result = await vs.create_vendor(data.id, data.name, data.contact_email)
-        if isinstance(result, Failure):
-            raise HTTPException(status_code=400, detail=str(result.error))
-        vendor = result.unwrap()
-        return vendor.model_dump()
+        # Use DI to get the service from the container
+        vendor_service = await container.resolve(VendorService)
+
+        try:
+            vendor = await vendor_service.create_vendor(
+                data.id, data.name, data.contact_email
+            )
+            return vendor.model_dump()
+        except DomainValidationError as error:
+            raise HTTPException(status_code=400, detail=str(error))
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     @app.get("/inventory/{aggregate_id}", tags=["inventory"], response_model=dict)
     async def get_inventory_item(aggregate_id: str) -> dict:
-        result = await repo.get(aggregate_id)
-        if isinstance(result, Failure):
-            raise result.error
-        item = result.unwrap()
-        d = item.model_dump()
-        # Always return measurement as a dict with 'type', 'unit', and 'value' (for count measurements)
-        return d
+        inventory_repo = await container.resolve(InventoryItemRepository)
+
+        try:
+            item = await inventory_repo.get(aggregate_id)
+            if not item:
+                raise HTTPException(
+                    status_code=404, detail=f"Inventory item not found: {aggregate_id}"
+                )
+            return item.model_dump()
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     @app.get("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
     async def get_vendor(vendor_id: str) -> dict[str, Any]:
-        vr: VendorRepository = service_provider.resolve(VendorRepository).value
-        result = await vr.get(vendor_id)
-        if isinstance(result, Failure):
-            raise HTTPException(
-                status_code=404, detail=f"Vendor not found: {vendor_id}"
-            )
-        vendor = result.value
-        return vendor.model_dump()
+        vendor_repo = await container.resolve(VendorRepository)
+
+        try:
+            vendor = await vendor_repo.get(vendor_id)
+            if not vendor:
+                raise HTTPException(
+                    status_code=404, detail=f"Vendor not found: {vendor_id}"
+                )
+            return vendor.model_dump()
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     @app.put("/vendors/{vendor_id}", tags=["vendors"], response_model=dict)
     async def update_vendor(vendor_id: str, data: VendorUpdateDTO) -> dict[str, Any]:
         """
         Update an existing vendor.
         """
-        from examples.app.domain.vendor.value_objects import EmailAddress
-
-        vr: VendorRepository = service_provider.resolve(VendorRepository).value
-        result = await vr.get(vendor_id)
-        if isinstance(result, Failure):
-            raise HTTPException(status_code=404, detail=str(result.error))
-        vendor = result.value
-        vendor.name = data.name
-        from pydantic import ValidationError
+        vendor_repo = await container.resolve(VendorRepository)
 
         try:
-            vendor.contact_email = EmailAddress(value=data.contact_email)
-        except ValidationError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        vr.save(vendor)
-        return vendor.model_dump()
+            vendor = await vendor_repo.get(vendor_id)
+            if not vendor:
+                raise HTTPException(
+                    status_code=404, detail=f"Vendor not found: {vendor_id}"
+                )
+
+            vendor.name = data.name
+
+            try:
+                vendor.contact_email = EmailAddress(value=data.contact_email)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+            await vendor_repo.save(vendor)
+            return vendor.model_dump()
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     @app.get("/vendors/", tags=["vendors"], response_model=list[dict])
-    def list_vendors() -> list[dict[str, Any]]:
-        vr: VendorRepository = service_provider.resolve(VendorRepository).value
-        vendors = vr.all()
-        result = []
-        for v in vendors:
-            result.append(v.model_dump())
-        return result
+    async def list_vendors() -> list[dict[str, Any]]:
+        vendor_repo = await container.resolve(VendorRepository)
 
-    # ...repeat for all other endpoints, rebinding vendor_repo, lot_repo, order_repo as needed...
+        try:
+            vendors = await vendor_repo.all()
+            return [v.model_dump() for v in vendors]
+        except Exception as error:
+            raise HTTPException(status_code=500, detail=str(error))
 
     return app
+
+
+async def _register_core_services(container: DIContainer) -> None:
+    """
+    Register core services with the DI container.
+
+    Args:
+        container: The DI container
+    """
+    # Register domain and events services from uno framework
+    await register_domain_services(container)
+    await register_event_services(container)
+
+
+async def _register_app_services(container: DIContainer) -> None:
+    """
+    Register example app services with the DI container.
+
+    Args:
+        container: The DI container
+    """
+    # Get the logger from the container (registered by domain services)
+    logger = await container.resolve(LoggerProtocol)
+
+    # Register repositories as singletons
+    vendor_repo = InMemoryVendorRepository(logger)
+    inventory_repo = InMemoryInventoryItemRepository(logger)
+
+    await container.register_singleton(VendorRepository, lambda _: vendor_repo)
+    await container.register_singleton(
+        InventoryItemRepository, lambda _: inventory_repo
+    )
+
+    # Register services with dependencies
+    await container.register_singleton(
+        VendorService, lambda c: VendorService(repo=vendor_repo, logger=logger)
+    )
+
+    await container.register_singleton(
+        InventoryItemService,
+        lambda c: InventoryItemService(repo=inventory_repo, logger=logger),
+    )
 
 
 class InventoryItemCreateDTO(BaseModel):

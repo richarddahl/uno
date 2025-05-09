@@ -4,11 +4,11 @@
 
 """SQL observers for monitoring and logging SQL operations."""
 
-# from uno.infrastructure.logging.logger import get_logger  # Removed for DI-based injection
+# from uno.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 from typing import Protocol
 
-from uno.infrastructure.sql.statement import SQLStatement
+from uno.persistence.sql.statement import SQLStatement
 
 
 class SQLObserver(Protocol):

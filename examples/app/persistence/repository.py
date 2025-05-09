@@ -14,7 +14,7 @@ from examples.app.domain.inventory import (
 )
 from examples.app.api.errors import InventoryItemNotFoundError
 from uno.errors import Success, Failure
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class InMemoryInventoryItemRepository:

@@ -9,8 +9,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from uno.errors.result import Result, Success, Failure
-from uno.infrastructure.sql.config import SQLConfig
-from uno.infrastructure.logging.logger import LoggerService
+from uno.persistence.sql.config import SQLConfig
+from uno.logging.logger import LoggerService
 
 
 class SecurityViolation(BaseModel):

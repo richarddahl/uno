@@ -12,7 +12,7 @@ from uno.events.interfaces import EventBusProtocol, EventPublisherProtocol
 from uno.errors.result import Failure, Result
 
 if TYPE_CHECKING:
-    from uno.infrastructure.logging.logger import LoggerService
+    from uno.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -44,7 +44,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
             logger (LoggerService | None): Logger for structured/debug logging. Defaults to a new LoggerService if not provided.
         """
         self.event_bus = event_bus
-        from uno.infrastructure.logging.logger import LoggerService, Dev
+        from uno.logging.logger import LoggerService, Dev
 
         self.logger = logger or LoggerService(Dev())
         self.logger = logger or LoggerService(Dev())

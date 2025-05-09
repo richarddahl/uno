@@ -7,7 +7,7 @@ Implements orchestration, error context propagation, and DI-ready business logic
 
 from uno.errors.errors import DomainValidationError
 from uno.errors.result import Failure, Result, Success
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 from ..domain.vendor import Vendor
 from ..persistence.vendor_repository_protocol import VendorRepository
 

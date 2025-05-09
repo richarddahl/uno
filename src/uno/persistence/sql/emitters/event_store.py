@@ -4,8 +4,8 @@
 
 """SQL emitters for event store operations."""
 
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 
 
 class CreateDomainEventsTable(SQLEmitter):

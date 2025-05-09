@@ -6,7 +6,7 @@ from typing import Any
 
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.events.sagas import Saga
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class ParallelStepsSaga(Saga):

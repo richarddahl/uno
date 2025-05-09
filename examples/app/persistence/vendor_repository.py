@@ -12,7 +12,7 @@ from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.errors.result import Failure, Success
-from uno.infrastructure.logging import LoggerService
+from uno.logging import LoggerService
 
 
 class InMemoryVendorRepository:

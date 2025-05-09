@@ -3,13 +3,12 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from uno.events.base_event import DomainEvent
 from uno.events.interfaces import EventBusProtocol
-from uno.errors.result import Result, Success
-
-if TYPE_CHECKING:
-    from uno.infrastructure.logging.logger import LoggerService
+from uno.events.errors import EventPublishError, EventHandlerError
+from uno.events.config import EventsConfig
+from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -23,22 +22,24 @@ class InMemoryEventBus(EventBusProtocol):
         - This contract is enforced by logging the canonical dict form of each event.
 
     Error Handling:
-        - All public methods return a Result type for error propagation.
-        - Errors are logged using structured logging when possible.
+        - Uses structured exception-based error handling
+        - Errors are logged using structured logging
 
     Type Parameters:
         - E: DomainEvent (or subclass)
     """
 
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol, config: EventsConfig) -> None:
         """
         Initialize the in-memory event bus.
 
         Args:
-            logger (LoggerService): Logger instance for structured and debug logging.
+            logger: Logger instance for structured logging
+            config: Events configuration settings
         """
         self._subscribers: dict[str, list[Any]] = {}
         self.logger = logger
+        self.config = config
 
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
@@ -52,85 +53,199 @@ class InMemoryEventBus(EventBusProtocol):
         """
         return event.to_dict()
 
-    async def publish(
-        self, event: E, metadata: dict[str, Any] | None = None
-    ) -> Result[None, Exception]:
+    async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> None:
         """
         Publish a single event to all subscribers.
 
         Args:
-            event (E): The event to publish.
-            metadata (dict[str, Any] | None): Optional metadata for the event.
-        Returns:
-            Result[None, Exception]: Success if all handlers complete, Failure if any error occurs.
+            event: The event to publish
+            metadata: Optional metadata for the event
+
+        Raises:
+            EventPublishError: If publishing fails
+            EventHandlerError: If any handler fails
         """
+        metadata = metadata or {}
+
         try:
             # Log canonical dict for audit/debug
             self.logger.debug(
-                f"Publishing event (canonical): {self._canonical_event_dict(event)}"
+                "Publishing event",
+                event_data=self._canonical_event_dict(event),
+                event_type=getattr(event, "event_type", None),
+                event_id=getattr(event, "event_id", None),
+                metadata=metadata,
             )
-            for handler in self._subscribers.get(event.event_type, []):
-                result = await handler(event)
-                from uno.errors.result import Failure
 
-                if isinstance(result, Failure):
-                    exc = result.error
-                    if hasattr(self.logger, "structured_log"):
-                        self.logger.structured_log(
-                            "ERROR",
-                            f"Failed to publish event: {event}",
-                            name="uno.events.bus",
-                            error=exc,
-                            event_id=getattr(event, "event_id", None),
-                            event_type=getattr(event, "event_type", None),
-                            error_message=exc!s,
-                        )
+            handlers = self._subscribers.get(event.event_type, [])
+
+            if not handlers:
+                self.logger.debug(
+                    "No handlers registered for event",
+                    event_type=event.event_type,
+                    event_id=getattr(event, "event_id", None),
+                )
+                return
+
+            for handler in handlers:
+                try:
+                    await handler(event)
+                except Exception as exc:
+                    self.logger.error(
+                        "Handler failed for event",
+                        event_id=getattr(event, "event_id", None),
+                        event_type=getattr(event, "event_type", None),
+                        handler=str(handler),
+                        error=str(exc),
+                        metadata=metadata,
+                        exc_info=exc,
+                    )
+
+                    # Retry logic based on configuration
+                    if self.config.retry_attempts > 0:
+                        await self._retry_handler(handler, event, metadata)
                     else:
-                        self.logger.error(f"Failed to publish event: {event} - {exc}")
-            return Success(None)
+                        raise EventHandlerError(
+                            event_type=event.event_type,
+                            handler_name=str(handler),
+                            reason=str(exc),
+                        ) from exc
+
+            self.logger.debug(
+                "Event published successfully",
+                event_type=event.event_type,
+                event_id=getattr(event, "event_id", None),
+                handler_count=len(handlers),
+            )
+
         except Exception as exc:
-            # Log using structured_log so the error message is present for test assertions
-            if hasattr(self.logger, "structured_log"):
-                self.logger.structured_log(
-                    "ERROR",
-                    f"Failed to publish event: {event}",
-                    name="uno.events.bus",
-                    error=exc,
+            self.logger.error(
+                "Failed to publish event",
+                event_id=getattr(event, "event_id", None),
+                event_type=getattr(event, "event_type", None),
+                error=str(exc),
+                metadata=metadata,
+                exc_info=exc,
+            )
+
+            if isinstance(exc, (EventPublishError, EventHandlerError)):
+                raise
+
+            raise EventPublishError(
+                event_type=getattr(event, "event_type", type(event).__name__),
+                reason=str(exc),
+            ) from exc
+
+    async def _retry_handler(
+        self, handler: Any, event: E, metadata: dict[str, Any]
+    ) -> None:
+        """
+        Retry a failed handler based on configuration settings.
+
+        Args:
+            handler: The event handler to retry
+            event: The event to handle
+            metadata: Event metadata
+
+        Raises:
+            EventHandlerError: If all retry attempts fail
+        """
+        import asyncio
+
+        retry_count = 0
+        last_error = None
+
+        while retry_count < self.config.retry_attempts:
+            retry_count += 1
+
+            # Wait before retrying
+            await asyncio.sleep(self.config.retry_delay_ms / 1000.0)
+
+            try:
+                self.logger.info(
+                    "Retrying event handler",
                     event_id=getattr(event, "event_id", None),
                     event_type=getattr(event, "event_type", None),
-                    error_message=exc!s,
+                    handler=str(handler),
+                    retry_count=retry_count,
+                    max_retries=self.config.retry_attempts,
                 )
-            else:
-                self.logger.error(f"Failed to publish event: {event} - {exc}")
-            return Success(None)
 
-    async def publish_many(self, events: list[E]) -> Result[None, Exception]:
+                await handler(event)
+
+                self.logger.info(
+                    "Retry succeeded",
+                    event_id=getattr(event, "event_id", None),
+                    event_type=getattr(event, "event_type", None),
+                    handler=str(handler),
+                    retry_count=retry_count,
+                )
+
+                return
+            except Exception as exc:
+                last_error = exc
+                self.logger.warning(
+                    "Retry failed",
+                    event_id=getattr(event, "event_id", None),
+                    event_type=getattr(event, "event_type", None),
+                    handler=str(handler),
+                    retry_count=retry_count,
+                    max_retries=self.config.retry_attempts,
+                    error=str(exc),
+                )
+
+        # All retries failed
+        self.logger.error(
+            "All retry attempts failed",
+            event_id=getattr(event, "event_id", None),
+            event_type=getattr(event, "event_type", None),
+            handler=str(handler),
+            retry_count=retry_count,
+            max_retries=self.config.retry_attempts,
+        )
+
+        if last_error:
+            raise EventHandlerError(
+                event_type=getattr(event, "event_type", type(event).__name__),
+                handler_name=str(handler),
+                reason=f"Failed after {retry_count} retry attempts: {last_error}",
+            ) from last_error
+
+    async def publish_many(self, events: list[E]) -> None:
         """
         Publish a list of events to all subscribers.
 
         Args:
-            events (list[E]): The events to publish.
-        Returns:
-            Result[None, Exception]: Success if all handlers complete, Failure if any error occurs.
+            events: The events to publish
+
+        Raises:
+            EventPublishError: If publishing any event fails
         """
-        try:
-            for event in events:
-                await self.publish(event)
-            return Success(None)
-        except Exception as exc:
-            self.logger.error(
-                f"Failed to publish events: {events} - {exc}", exc_info=True
-            )
-            return Success(None)
+        if not events:
+            self.logger.debug("No events to publish")
+            return
+
+        self.logger.info("Publishing multiple events", event_count=len(events))
+
+        for event in events:
+            await self.publish(event)
+
+        self.logger.debug("All events published successfully", event_count=len(events))
 
     def subscribe(self, event_type: str, handler: Any) -> None:
         """
         Subscribe a handler to a specific event type.
 
         Args:
-            event_type (str): The event type to subscribe to.
-            handler (Any): The handler function/coroutine to invoke for this event type.
+            event_type: The event type to subscribe to
+            handler: The handler function/coroutine to invoke for this event type
         """
+        self.logger.debug(
+            "Subscribing handler to event type",
+            event_type=event_type,
+            handler=str(handler),
+        )
+
         self._subscribers.setdefault(event_type, []).append(handler)
 
 

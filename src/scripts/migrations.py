@@ -38,8 +38,8 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from uno.infrastructure.logging.logger import LoggerService
-from uno.infrastructure.database.config import ConnectionConfig
+from uno.logging.logger import LoggerService
+from uno.database.config import ConnectionConfig
 from uno.settings import uno_settings
 
 
@@ -84,7 +84,7 @@ def get_alembic_config() -> Config:
     config.set_main_option("script_location", str(migrations_dir))
 
     # Override SQLAlchemy URL if needed
-    from uno.infrastructure.database.config import ConnectionConfig
+    from uno.database.config import ConnectionConfig
     from uno.settings import uno_settings
 
     # Use login role (not admin) since login role has connect permission
@@ -268,8 +268,8 @@ from alembic import context
 # Import Uno configuration and model base
 from uno.settings import uno_settings
 from uno.model import Base
-from uno.infrastructure.database.config import ConnectionConfig
-from uno.infrastructure.database.engine import sync_connection, SyncEngineFactory
+from uno.database.config import ConnectionConfig
+from uno.database.engine import sync_connection, SyncEngineFactory
 import uno.attributes.models  # noqa: F401
 import uno.authorization.models  # noqa: F401
 import uno.meta.models  # noqa: F401

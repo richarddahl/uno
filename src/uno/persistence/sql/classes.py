@@ -12,18 +12,18 @@ modules.
 
 import warnings
 
-from uno.infrastructure.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.infrastructure.sql.config import SQLConfig
-from uno.infrastructure.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
-from uno.infrastructure.sql.observers import LoggingSQLObserver, SQLObserver
+from uno.persistence.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.persistence.sql.config import SQLConfig
+from uno.persistence.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
+from uno.persistence.sql.observers import LoggingSQLObserver, SQLObserver
 
 # Re-export from new modular structure
-from uno.infrastructure.sql.registry import SQLConfigRegistry
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.registry import SQLConfigRegistry
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 
 # Show deprecation warning
 warnings.warn(
-    "Importing from uno.infrastructure.sql.classes is deprecated. "
+    "Importing from uno.persistence.sql.classes is deprecated. "
     "Import from the appropriate modules instead.",
     DeprecationWarning,
     stacklevel=2,

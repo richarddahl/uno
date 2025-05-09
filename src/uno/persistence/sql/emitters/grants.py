@@ -4,8 +4,8 @@
 
 """SQL emitters for altering grants and permissions."""
 
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 
 
 class AlterGrants(SQLEmitter):

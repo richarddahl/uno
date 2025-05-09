@@ -7,9 +7,9 @@ from __future__ import annotations
 from typing import Any, Self
 
 from uno.base_model import FrameworkBaseModel
+from uno.errors import DomainValidationError
+from uno.logging import get_logger
 from pydantic import Field, ConfigDict, model_validator
-
-from uno.errors.result import Failure, Success
 
 
 class ValueObject(FrameworkBaseModel):
@@ -38,6 +38,7 @@ class ValueObject(FrameworkBaseModel):
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+    _logger = get_logger(__name__)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -46,20 +47,19 @@ class ValueObject(FrameworkBaseModel):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    def from_dict(
-        cls: type[Self], data: dict[str, Any]
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def from_dict(cls: type[Self], data: dict[str, Any]) -> Self:
         """
-        Creates a value object from a dict using the Uno contract. Returns Result for Uno error handling.
+        Creates a value object from a dict using the Uno contract. Raises exceptions for Uno error handling.
         Returns:
-            Success[Self, Exception](value_object) if valid, Failure[Self, Exception](error) otherwise.
+            The validated value object instance.
+        Raises:
+            DomainValidationError: If validation fails.
         """
         try:
-            return Success[Self, Exception](cls.model_validate(data))
+            return cls.model_validate(data)
         except Exception as exc:
-            return Failure[Self, Exception](
-                Exception(f"Failed to create {cls.__name__} from dict: {exc}")
-            )
+            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
+            raise DomainValidationError(f"Validation failed for {cls.__name__}: {exc}")
 
     def __eq__(self, other: Any) -> bool:
         """

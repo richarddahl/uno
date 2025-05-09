@@ -5,9 +5,10 @@ Service layer for InventoryItem workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
 
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Result, Success
-from uno.infrastructure.logging import LoggerService
+from uno.domain.errors import DomainValidationError, EntityNotFoundError
+from uno.logging.protocols import LoggerProtocol
+from uno.domain.config import DomainConfig
+
 from examples.app.domain.inventory.item import InventoryItem
 from examples.app.persistence.inventory_item_repository_protocol import (
     InventoryItemRepository,
@@ -20,208 +21,310 @@ class InventoryItemService:
     Orchestrates domain logic, repository, and error context propagation.
     """
 
-    def __init__(self, repo: InventoryItemRepository, logger: LoggerService) -> None:
+    def __init__(
+        self,
+        repo: InventoryItemRepository,
+        logger: LoggerProtocol,
+        config: DomainConfig = None,
+    ) -> None:
+        """
+        Initialize the service with its dependencies.
+
+        Args:
+            repo: Repository for InventoryItem entities
+            logger: Logger for structured logging
+            config: Optional domain configuration settings
+        """
         self.repo = repo
         self.logger = logger
+        self.config = config
 
     async def create_inventory_item(
         self, aggregate_id: str, name: str, measurement: int
-    ) -> Result[InventoryItem, Exception]:
+    ) -> InventoryItem:
         """
-        Create a new InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
+        Create a new InventoryItem.
+
+        Args:
+            aggregate_id: Unique identifier for the inventory item
+            name: Name of the inventory item
+            measurement: Initial measurement value
+
+        Returns:
+            The created InventoryItem
+
+        Raises:
+            DomainValidationError: If validation fails or item already exists
         """
-        result = self.repo.get(aggregate_id)
-        if not isinstance(result, Failure):
+        # Check if item already exists
+        existing_item = await self.repo.get(aggregate_id)
+
+        if existing_item:
             self.logger.warning(
-                {
-                    "event": "inventory_item_exists",
+                "Inventory item already exists",
+                aggregate_id=aggregate_id,
+                service="InventoryItemService.create_inventory_item",
+            )
+
+            raise DomainValidationError(
+                message=f"InventoryItem already exists: {aggregate_id}",
+                details={
                     "aggregate_id": aggregate_id,
                     "service": "InventoryItemService.create_inventory_item",
-                }
+                },
             )
-            return Failure(
-                DomainValidationError(
-                    f"InventoryItem already exists: {aggregate_id}",
-                    details={
+
+        # Create the new item
+        try:
+            item = await InventoryItem.create(
+                aggregate_id=aggregate_id, name=name, measurement=measurement
+            )
+
+            # Save the item
+            await self.repo.save(item)
+
+            self.logger.info(
+                "Inventory item created",
+                aggregate_id=aggregate_id,
+                name=name,
+                measurement=measurement,
+                service="InventoryItemService.create_inventory_item",
+            )
+
+            return item
+
+        except DomainValidationError as error:
+            # Log the error with context
+            self.logger.warning(
+                "Failed to create inventory item",
+                aggregate_id=aggregate_id,
+                error=str(error),
+                service="InventoryItemService.create_inventory_item",
+            )
+
+            # Add service context if not already present
+            if hasattr(error, "details"):
+                error.details.update(
+                    {
                         "aggregate_id": aggregate_id,
                         "service": "InventoryItemService.create_inventory_item",
-                    },
+                    }
                 )
-            )
-        item_result = await InventoryItem.create(
-            aggregate_id=aggregate_id, name=name, measurement=measurement
-        )
-        if isinstance(item_result, Failure):
-            self.logger.warning(
-                {
-                    "event": "inventory_item_create_failed",
-                    "aggregate_id": aggregate_id,
-                    "error": str(item_result.error),
-                    "service": "InventoryItemService.create_inventory_item",
-                }
-            )
-            err = item_result.error
-            # Attach service context if not already present
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.create_inventory_item",
-                }
-            return Failure(err)
-        item = item_result.unwrap()
-        save_result = self.repo.save(item)
-        if isinstance(save_result, Failure):
-            self.logger.error(
-                {
-                    "event": "inventory_item_save_failed",
-                    "aggregate_id": aggregate_id,
-                    "error": str(save_result.error),
-                    "service": "InventoryItemService.create_inventory_item",
-                }
-            )
-            err = save_result.error
-            return Failure(err)
-        self.logger.info(
-            {
-                "event": "inventory_item_created",
-                "aggregate_id": aggregate_id,
-                "service": "InventoryItemService.create_inventory_item",
-            }
-        )
-        return Success(item)
 
-    def rename_inventory_item(
+            raise
+        except Exception as error:
+            # Log unexpected errors
+            self.logger.error(
+                "Unexpected error creating inventory item",
+                aggregate_id=aggregate_id,
+                error=str(error),
+                service="InventoryItemService.create_inventory_item",
+                exc_info=error,
+            )
+
+            # Wrap in domain error
+            raise DomainValidationError(
+                message=f"Failed to create inventory item: {error}",
+                details={
+                    "aggregate_id": aggregate_id,
+                    "service": "InventoryItemService.create_inventory_item",
+                },
+            ) from error
+
+    async def rename_inventory_item(
         self, aggregate_id: str, new_name: str
-    ) -> Result[InventoryItem, Exception]:
+    ) -> InventoryItem:
         """
-        Rename an InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
-        """
-        result = self.repo.get(aggregate_id)
-        if isinstance(result, Failure):
-            self.logger.warning(
-                {
-                    "event": "inventory_item_not_found",
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.rename_inventory_item",
-                }
-            )
-            err = result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.rename_inventory_item",
-                }
-            return Failure(err)
-        item = result.value
-        rename_result = item.rename(new_name)
-        if isinstance(rename_result, Failure):
-            self.logger.warning(
-                {
-                    "event": "inventory_item_rename_failed",
-                    "aggregate_id": aggregate_id,
-                    "error": str(rename_result.error),
-                    "service": "InventoryItemService.rename_inventory_item",
-                }
-            )
-            err = rename_result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.rename_inventory_item",
-                }
-            return Failure(err)
-        save_result = self.repo.save(item)
-        if isinstance(save_result, Failure):
-            self.logger.error(
-                {
-                    "event": "inventory_item_save_failed",
-                    "aggregate_id": aggregate_id,
-                    "error": str(save_result.error),
-                    "service": "InventoryItemService.rename_inventory_item",
-                }
-            )
-            err = save_result.error
-            return Failure(err)
-        self.logger.info(
-            {
-                "event": "inventory_item_renamed",
-                "aggregate_id": aggregate_id,
-                "new_name": new_name,
-                "service": "InventoryItemService.rename_inventory_item",
-            }
-        )
-        return Success(item)
+        Rename an InventoryItem.
 
-    def adjust_inventory_measurement(
-        self, aggregate_id: str, adjustment: int
-    ) -> Result[InventoryItem, Exception]:
+        Args:
+            aggregate_id: ID of the inventory item to rename
+            new_name: New name for the inventory item
+
+        Returns:
+            The updated InventoryItem
+
+        Raises:
+            EntityNotFoundError: If the item doesn't exist
+            DomainValidationError: If validation fails
         """
-        Adjust the measurement of an InventoryItem. Returns Success(InventoryItem) or Failure(DomainValidationError) with error context.
-        """
-        result = self.repo.get(aggregate_id)
-        if isinstance(result, Failure):
+        # Get the item
+        item = await self.repo.get(aggregate_id)
+
+        if not item:
             self.logger.warning(
-                {
-                    "event": "inventory_item_not_found",
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.adjust_inventory_measurement",
-                }
+                "Inventory item not found",
+                aggregate_id=aggregate_id,
+                service="InventoryItemService.rename_inventory_item",
             )
-            err = result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "aggregate_id": aggregate_id,
-                    "service": "InventoryItemService.adjust_inventory_measurement",
-                }
-            return Failure(err)
-        item = result.value
-        adjust_result = item.adjust_measurement(adjustment)
-        if isinstance(adjust_result, Failure):
+
+            raise EntityNotFoundError(
+                entity_type="InventoryItem",
+                entity_id=aggregate_id,
+                service="InventoryItemService.rename_inventory_item",
+            )
+
+        try:
+            # Rename the item
+            item.rename(new_name)
+
+            # Save the updated item
+            await self.repo.save(item)
+
+            self.logger.info(
+                "Inventory item renamed",
+                aggregate_id=aggregate_id,
+                new_name=new_name,
+                service="InventoryItemService.rename_inventory_item",
+            )
+
+            return item
+
+        except DomainValidationError as error:
+            # Log the error with context
+            self.logger.warning(
+                "Failed to rename inventory item",
+                aggregate_id=aggregate_id,
+                new_name=new_name,
+                error=str(error),
+                service="InventoryItemService.rename_inventory_item",
+            )
+
+            # Add service context if not already present
+            if hasattr(error, "details"):
+                error.details.update(
+                    {
+                        "aggregate_id": aggregate_id,
+                        "service": "InventoryItemService.rename_inventory_item",
+                    }
+                )
+
+            raise
+        except Exception as error:
+            # Log unexpected errors
             self.logger.error(
-                {
-                    "event": "inventory_item_adjust_failed",
-                    "aggregate_id": aggregate_id,
-                    "adjustment": adjustment,
-                    "error": str(adjust_result.error),
-                    "service": "InventoryItemService.adjust_inventory_measurement",
-                }
+                "Unexpected error renaming inventory item",
+                aggregate_id=aggregate_id,
+                new_name=new_name,
+                error=str(error),
+                service="InventoryItemService.rename_inventory_item",
+                exc_info=error,
             )
-            return Failure(
-                DomainValidationError(
-                    str(adjust_result.error),
-                    details={
+
+            # Wrap in domain error
+            raise DomainValidationError(
+                message=f"Failed to rename inventory item: {error}",
+                details={
+                    "aggregate_id": aggregate_id,
+                    "service": "InventoryItemService.rename_inventory_item",
+                },
+            ) from error
+
+    async def adjust_inventory_measurement(
+        self, aggregate_id: str, adjustment: int
+    ) -> InventoryItem:
+        """
+        Adjust the measurement of an InventoryItem.
+
+        Args:
+            aggregate_id: ID of the inventory item to adjust
+            adjustment: Amount to adjust the measurement by (positive or negative)
+
+        Returns:
+            The updated InventoryItem
+
+        Raises:
+            EntityNotFoundError: If the item doesn't exist
+            DomainValidationError: If validation fails
+        """
+        # Get the item
+        item = await self.repo.get(aggregate_id)
+
+        if not item:
+            self.logger.warning(
+                "Inventory item not found",
+                aggregate_id=aggregate_id,
+                service="InventoryItemService.adjust_inventory_measurement",
+            )
+
+            raise EntityNotFoundError(
+                entity_type="InventoryItem",
+                entity_id=aggregate_id,
+                service="InventoryItemService.adjust_inventory_measurement",
+            )
+
+        try:
+            # Apply configuration-based rules if available
+            if (
+                self.config
+                and hasattr(self.config, "strict_validation")
+                and self.config.strict_validation
+            ):
+                # In strict validation mode, don't allow negative adjustments that would result in negative inventory
+                if adjustment < 0 and (item.measurement + adjustment) < 0:
+                    raise DomainValidationError(
+                        message="Adjustment would result in negative inventory",
+                        details={
+                            "aggregate_id": aggregate_id,
+                            "current_measurement": item.measurement,
+                            "adjustment": adjustment,
+                            "service": "InventoryItemService.adjust_inventory_measurement",
+                        },
+                    )
+
+            # Adjust the measurement
+            item.adjust_measurement(adjustment)
+
+            # Save the updated item
+            await self.repo.save(item)
+
+            self.logger.info(
+                "Inventory measurement adjusted",
+                aggregate_id=aggregate_id,
+                adjustment=adjustment,
+                new_measurement=item.measurement,
+                service="InventoryItemService.adjust_inventory_measurement",
+            )
+
+            return item
+
+        except DomainValidationError as error:
+            # Log the error with context
+            self.logger.warning(
+                "Failed to adjust inventory measurement",
+                aggregate_id=aggregate_id,
+                adjustment=adjustment,
+                error=str(error),
+                service="InventoryItemService.adjust_inventory_measurement",
+            )
+
+            # Add service context if not already present
+            if hasattr(error, "details"):
+                error.details.update(
+                    {
                         "aggregate_id": aggregate_id,
                         "service": "InventoryItemService.adjust_inventory_measurement",
-                        **(
-                            adjust_result.error.details
-                            if hasattr(adjust_result.error, "details")
-                            else {}
-                        ),
-                    },
+                    }
                 )
-            )
-        save_result = self.repo.save(item)
-        if isinstance(save_result, Failure):
+
+            raise
+        except Exception as error:
+            # Log unexpected errors
             self.logger.error(
-                {
-                    "event": "inventory_item_save_failed",
+                "Unexpected error adjusting inventory measurement",
+                aggregate_id=aggregate_id,
+                adjustment=adjustment,
+                error=str(error),
+                service="InventoryItemService.adjust_inventory_measurement",
+                exc_info=error,
+            )
+
+            # Wrap in domain error
+            raise DomainValidationError(
+                message=f"Failed to adjust inventory measurement: {error}",
+                details={
                     "aggregate_id": aggregate_id,
                     "adjustment": adjustment,
-                    "error": str(save_result.error),
                     "service": "InventoryItemService.adjust_inventory_measurement",
-                }
-            )
-            return Failure(save_result.error)
-        self.logger.info(
-            {
-                "event": "inventory_item_adjusted",
-                "aggregate_id": aggregate_id,
-                "adjustment": adjustment,
-                "service": "InventoryItemService.adjust_inventory_measurement",
-            }
-        )
-        return Success(item)
+                },
+            ) from error

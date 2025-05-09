@@ -4,7 +4,7 @@ SQL trigger emitter implementation.
 
 from typing import Any
 
-from uno.infrastructure.sql.interfaces import SQLEmitterProtocol
+from uno.persistence.sql.interfaces import SQLEmitterProtocol
 from uno.errors.result import Result, Success, Failure
 from uno.errors.base import UnoError
 

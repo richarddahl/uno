@@ -11,9 +11,9 @@ hybrid vector-graph search.
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.engine import Connection
-from uno.infrastructure.sql.interfaces import ConfigProtocol
+from uno.persistence.sql.interfaces import ConfigProtocol
 from uno.errors import UnoError
-from uno.infrastructure.sql.errors import (
+from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -25,9 +25,9 @@ from uno.infrastructure.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.infrastructure.logging import LoggerService
-from uno.infrastructure.sql.emitter import SQLEmitter
-from uno.infrastructure.sql.statement import SQLStatement, SQLStatementType
+from uno.logging import LoggerService
+from uno.persistence.sql.emitter import SQLEmitter
+from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 from typing import Any, Protocol, TypeVar
 
 T = TypeVar("T")

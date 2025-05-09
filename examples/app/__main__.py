@@ -7,15 +7,20 @@ Starts the FastAPI demo app for the InventoryItem vertical slice.
 Extend this to add more aggregates, endpoints, and demo logic.
 """
 
+import asyncio
 import uvicorn
 
 from examples.app.api.api import app_factory
-import asyncio
+
 
 async def create_app():
+    """Create and configure the FastAPI application."""
     return await app_factory()
 
+
 if __name__ == "__main__":
+    # Get the app using asyncio.run to handle the async factory
     app = asyncio.run(create_app())
+
+    # Run the app with uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    uvicorn.run(app, host="127.0.0.1", port=8000)

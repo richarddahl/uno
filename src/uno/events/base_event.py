@@ -18,6 +18,7 @@ from uno.base_model import FrameworkBaseModel
 from pydantic import Field, ConfigDict, model_validator
 
 from uno.errors.result import Failure, Success
+from uno.logging import get_logger
 
 # NOTE: Strict DI mode: All dependencies must be passed explicitly. Do not use service locator patterns.
 from uno.services.hash_service_protocol import HashServiceProtocol
@@ -51,6 +52,7 @@ def uno_json_encoder(obj: Any) -> Any:
 class DomainEvent(FrameworkBaseModel):
     # --- Event class registry for dynamic resolution ---
     _event_class_registry: ClassVar[dict[str, type["DomainEvent"]]] = {}
+    _logger = get_logger(__name__)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -118,14 +120,18 @@ class DomainEvent(FrameworkBaseModel):
         """
         payload = self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
         payload_json = json.dumps(payload, default=uno_json_encoder)
-        if hash_service is not None:
-            self.event_hash = hash_service.compute_hash(payload_json)
-        else:
-            import hashlib
+        try:
+            if hash_service is not None:
+                self.event_hash = hash_service.compute_hash(payload_json)
+            else:
+                import hashlib
 
-            self.event_hash = hashlib.sha256(payload_json.encode()).hexdigest()
-
-    # Note: event_hash is now settable via set_event_hash, not by validator.
+                self.event_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+        except Exception as exc:
+            self._logger.error(
+                f"Failed to compute event hash for {self.event_id}: {exc}"
+            )
+            raise
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -138,25 +144,20 @@ class DomainEvent(FrameworkBaseModel):
         return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
 
     @classmethod
-    async def from_dict(
-        cls, data: dict[str, Any]
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         """
-        Thin wrapper for Pydantic's `model_validate()`. Returns Result for Uno error handling.
-        Hash computation is now explicit and uses set_event_hash().
+        Thin wrapper for Pydantic's `model_validate()`. Raises exceptions for Uno error handling.
         Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
-
-        Args:
-            data (dict[str, Any]): The event data dict.
         Returns:
-            Success[Self, Exception](event) if valid, Failure[Self, Exception](error) otherwise.
+            The validated event instance.
+        Raises:
+            EventValidationError: If validation fails.
         """
         try:
-            instance = cls.model_validate(data)
-            instance.set_event_hash()
-            return Success(instance)
+            return cls.model_validate(data)
         except Exception as exc:
-            return Failure(exc)
+            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
+            raise EventValidationError(f"Validation failed for {cls.__name__}: {exc}")
 
     def validate_event(self) -> Success[None, Exception] | Failure[None, Exception]:
         """
@@ -164,7 +165,12 @@ class DomainEvent(FrameworkBaseModel):
         Returns:
             Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
         """
-        return Success[None, Exception](None)
+        try:
+            # Custom validation logic here
+            return Success[None, Exception](None)
+        except Exception as exc:
+            self._logger.error(f"Validation failed for event {self.event_id}: {exc}")
+            return Failure(exc)
 
 
 def verify_event_stream_integrity(events: list[DomainEvent]) -> bool:
@@ -177,12 +183,16 @@ def verify_event_stream_integrity(events: list[DomainEvent]) -> bool:
         return True
     prev_hash = None
     for idx, event in enumerate(events):
-        # Recompute hash and compare
-        if idx > 0 and event.previous_hash != prev_hash:
-            raise ValueError(
-                f"Chain broken at index {idx}: previous_hash does not match"
-            )
-        prev_hash = event.event_hash
+        try:
+            # Recompute hash and compare
+            if idx > 0 and event.previous_hash != prev_hash:
+                raise ValueError(
+                    f"Chain broken at index {idx}: previous_hash does not match"
+                )
+            prev_hash = event.event_hash
+        except ValueError as exc:
+            DomainEvent._logger.error(f"Event stream integrity check failed: {exc}")
+            raise
     return True
 
 

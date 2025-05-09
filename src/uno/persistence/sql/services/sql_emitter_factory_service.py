@@ -4,8 +4,8 @@ SQL emitter factory service implementation.
 
 from typing import Any
 
-from uno.infrastructure.sql.interfaces import SQLEmitterFactoryProtocol
-from uno.infrastructure.sql.emitters import (
+from uno.persistence.sql.interfaces import SQLEmitterFactoryProtocol
+from uno.persistence.sql.emitters import (
     CreateTriggerEmitter,
     DropTriggerEmitter,
     CreateFunctionEmitter,
@@ -21,11 +21,11 @@ class SQLEmitterFactoryService:
     def create(self, emitter_type: str, **kwargs: Any) -> Any:
         """
         Create a SQL emitter based on the type and provided arguments.
-        
+
         Args:
             emitter_type: Type of emitter to create ('trigger', 'function')
             kwargs: Additional arguments for the emitter
-            
+
         Returns:
             The created emitter instance
         """
@@ -36,7 +36,7 @@ class SQLEmitterFactoryService:
                     kwargs["definition"],
                     kwargs["when"],
                     kwargs["event"],
-                    kwargs["table"]
+                    kwargs["table"],
                 )
             else:
                 return DropTriggerEmitter(kwargs["name"], kwargs["table"])
@@ -46,11 +46,14 @@ class SQLEmitterFactoryService:
             else:
                 return DropFunctionEmitter(kwargs["name"])
         raise ValueError(f"Unknown emitter type: {emitter_type}")
+
     """
     Factory service for creating SQL emitters.
     """
 
-    def create_trigger_emitter(self, name: str, definition: str, when: str, event: str, table: str) -> Any:
+    def create_trigger_emitter(
+        self, name: str, definition: str, when: str, event: str, table: str
+    ) -> Any:
         """
         Create a trigger emitter.
         """
@@ -73,11 +76,14 @@ class SQLEmitterFactoryService:
         Create a drop function emitter.
         """
         return DropFunctionEmitter(name)
+
     """
     Factory service for creating SQL emitters.
     """
 
-    def create_trigger_emitter(self, name: str, definition: str, when: str, event: str, table: str) -> Any:
+    def create_trigger_emitter(
+        self, name: str, definition: str, when: str, event: str, table: str
+    ) -> Any:
         """
         Create a trigger emitter.
         """
