@@ -4,15 +4,30 @@ Protocol definitions for the uno DI system.
 This module contains the core protocols that define the interface for the DI container and its components.
 """
 
-from typing import Literal, Protocol, runtime_checkable
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal, Protocol, runtime_checkable
 
-from uno.di.registration import ServiceRegistration
-from uno.di.shared_types import ContainerProtocol, T_co
-from uno.di.types import (
-    AsyncServiceFactoryProtocol,
-    ServiceFactoryProtocol,
-    T,
-)
+from uno.di.types import T, T_co
+
+
+@runtime_checkable
+class ContainerProtocol(Protocol):
+    """Protocol for DI container."""
+
+    _registrations: dict[type[Any], Any]
+    _singleton_scope: Any
+
+    async def resolve(self, service_type: type[T]) -> T: ...
+
+    async def _dispose_service(self, service: T) -> None: ...
+
+    async def _create_service(self, interface: type[T], implementation: Any) -> T: ...
+
+
+# Rename to include Protocol suffix for consistency
+ServiceFactoryProtocol = Callable[[ContainerProtocol], T]
+AsyncServiceFactoryProtocol = Callable[[ContainerProtocol], Awaitable[T]]
+Lifetime = Literal["singleton", "scoped", "transient"]
 
 
 @runtime_checkable
@@ -76,4 +91,17 @@ class ServiceRegistrationProtocol(Protocol[T]):
 
     def __repr__(self) -> str:
         """Represent a service registration as a string."""
+        ...
+
+
+@runtime_checkable
+class ConfigProviderProtocol(Protocol[T_co]):
+    """Protocol for config providers used in dependency injection."""
+
+    def get_settings(self) -> T_co:
+        """Get the wrapped settings object."""
+        ...
+
+    def get_secure_value(self, field_name: str) -> Any:
+        """Get the value of a secure field."""
         ...

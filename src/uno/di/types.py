@@ -2,14 +2,8 @@
 Type definitions for uno DI system.
 """
 
-from __future__ import annotations
+from typing import Any, TypeVar
 
-from collections.abc import Awaitable, Callable
-from typing import Literal
-
-from uno.di.shared_types import T, ContainerProtocol
-
-# Rename to include Protocol suffix for consistency
-ServiceFactoryProtocol = Callable[[ContainerProtocol], T]
-AsyncServiceFactoryProtocol = Callable[[ContainerProtocol], Awaitable[T]]
-Lifetime = Literal["singleton", "scoped", "transient"]
+T = TypeVar("T", bound=Any)
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)

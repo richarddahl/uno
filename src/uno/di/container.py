@@ -21,7 +21,7 @@ from uno.di.errors import (
 )
 from uno.di.registration import ServiceRegistration
 from uno.di.resolution import _Scope
-from uno.di.shared_types import ContainerProtocol
+from uno.di.protocols import ContainerProtocol
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable

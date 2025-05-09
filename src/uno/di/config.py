@@ -8,15 +8,14 @@ the configuration system with secure value handling.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Generic, Protocol, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from uno.config import (
-    SecureField,
     SecureValue,
-    SecureValueHandling,
     UnoSettings,
     requires_secure_access,
 )
+from uno.di.protocols import ConfigProviderProtocol
 
 T = TypeVar("T", bound=UnoSettings)
 
@@ -81,22 +80,9 @@ class ConfigProvider(Generic[T]):
         return value
 
 
-# Protocol definition for ConfigProvider registration in DI container
-class ConfigProviderProtocol(Protocol[T]):
-    """Protocol for config providers used in dependency injection."""
-
-    def get_settings(self) -> T:
-        """Get the wrapped settings object."""
-        ...
-
-    def get_secure_value(self, field_name: str) -> Any:
-        """Get the value of a secure field."""
-        ...
-
-
 def register_secure_config(
     container: Any,  # Actual type would be Container from DI module
-    settings_class: Type[T],
+    settings_class: type[T],
     lifetime: str = "singleton",
 ) -> None:
     """Register secure configuration with the DI container.
@@ -128,14 +114,14 @@ def register_secure_config(
 
     # Register the provider with the container
     container.register(
-        ConfigProviderProtocol[settings_class],
+        ConfigProviderProtocol[T],
         factory=create_config_provider,
         lifetime=lifetime,
     )
 
     # Also register the concrete provider type for use cases that need the specific type
     container.register(
-        ConfigProvider[settings_class],
+        ConfigProvider[T],
         factory=create_config_provider,
         lifetime=lifetime,
     )

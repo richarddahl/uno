@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, Literal
 
-from uno.di.shared_types import T
+from uno.di.types import T
 
 if TYPE_CHECKING:
     from uno.di.types import (

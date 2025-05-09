@@ -17,20 +17,18 @@ from uno.di.errors import (
     SyncInAsyncContextError,
     TypeMismatchError,
 )
-from uno.di.shared_types import ContainerProtocol
+from uno.di.protocols import ContainerProtocol
 
 from .container import Container
 from .protocols import (
+    AsyncServiceFactoryProtocol,
+    Lifetime,
     ScopeProtocol,
+    ServiceFactoryProtocol,
     ServiceProtocol,
     ServiceRegistrationProtocol,
 )
 from .registration import ServiceRegistration
-from .types import (
-    AsyncServiceFactoryProtocol,
-    Lifetime,
-    ServiceFactoryProtocol,
-)
 
 __all__ = [
     "AsyncServiceFactoryProtocol",

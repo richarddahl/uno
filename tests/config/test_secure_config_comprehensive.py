@@ -27,7 +27,7 @@ from uno.config import (
     setup_secure_config,
 )
 from uno.config.secure import requires_secure_access
-from uno.config.di import ConfigProvider, ConfigProviderProtocol, register_secure_config
+from uno.di.config import ConfigProvider, ConfigProviderProtocol, register_secure_config
 
 
 # Test configuration classes

@@ -11,7 +11,7 @@ from uno.di.errors import ScopeError, ServiceNotRegisteredError
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from uno.di.shared_types import ContainerProtocol
+    from uno.di.protocols import ContainerProtocol
 
 T = TypeVar("T")
 
