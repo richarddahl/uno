@@ -44,14 +44,15 @@ dependencies = [
   "aiohttp>=3.9.1",
   "croniter>=2.0.1",
   # Additional modern dependencies
-  "structlog>=24.1.0", # Structured logging
-  "rich>=13.6.0",      # Rich terminal output
-  "httpx>=0.25.2",     # Modern HTTP client
-  "redis>=5.0.1",      # Redis client for caching
-  "msgspec>=0.18.4",   # Fast serialization
-  "tenacity>=8.2.3",   # Retrying library
-  "cachetools>=5.3.2", # Caching utilities
-  "graphviz",          # Graph visualization
+  "structlog>=24.1.0",    # Structured logging
+  "rich>=13.6.0",         # Rich terminal output
+  "httpx>=0.25.2",        # Modern HTTP client
+  "redis>=5.0.1",         # Redis client for caching
+  "msgspec>=0.18.4",      # Fast serialization
+  "tenacity>=8.2.3",      # Retrying library
+  "cachetools>=5.3.2",    # Caching utilities
+  "graphviz",             # Graph visualization
+  "cryptography>=40.0.1", # Cryptography library
 ]
 
 [project.urls]
