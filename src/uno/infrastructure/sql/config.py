@@ -187,7 +187,7 @@ class ConfigManager:
 
     def __init__(self) -> None:
         """Initialize config manager."""
-        self._config: Optional[SQLConfig] = None
+        self._config:int | NoneSQLConfig] = None
 
     def load_config(self, config_path: str) -> Result[None, str]:
         """Load configuration from file.

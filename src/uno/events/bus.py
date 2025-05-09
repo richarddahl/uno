@@ -83,7 +83,7 @@ class InMemoryEventBus(EventBusProtocol):
                             error=exc,
                             event_id=getattr(event, "event_id", None),
                             event_type=getattr(event, "event_type", None),
-                            error_message=str(exc),
+                            error_message=exc!s,
                         )
                     else:
                         self.logger.error(f"Failed to publish event: {event} - {exc}")
@@ -98,7 +98,7 @@ class InMemoryEventBus(EventBusProtocol):
                     error=exc,
                     event_id=getattr(event, "event_id", None),
                     event_type=getattr(event, "event_type", None),
-                    error_message=str(exc),
+                    error_message=exc!s,
                 )
             else:
                 self.logger.error(f"Failed to publish event: {event} - {exc}")

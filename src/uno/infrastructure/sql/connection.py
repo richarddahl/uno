@@ -52,8 +52,8 @@ class ConnectionManager:
         self._max_retries = max_retries
         self._retry_delay = retry_delay
         self._health_check_interval = health_check_interval
-        self._engine: Optional[AsyncEngine] = None
-        self._session_factory: Optional[sessionmaker[AsyncSession]] = None
+        self._engine:int | NoneAsyncEngine] = None
+        self._session_factory:int | Nonesessionmaker[AsyncSession]] = None
         self._health_status = ConnectionHealth(
             is_healthy=False,
             last_check=datetime.now(),
@@ -62,7 +62,7 @@ class ConnectionManager:
             pool_size=0,
             available_connections=0,
         )
-        self._health_check_task: Optional[asyncio.Task] = None
+        self._health_check_task:int | Noneasyncio.Task] = None
         self._initialize_pool()
 
     def _initialize_pool(self) -> None:
@@ -231,7 +231,7 @@ class ConnectionManager:
             return Failure(f"Failed to close connection pool: {str(e)}")
 
     @property
-    def engine(self) -> Optional[AsyncEngine]:
+    def engine(self) ->int | NoneAsyncEngine]:
         """Get the SQLAlchemy engine.
 
         Returns:

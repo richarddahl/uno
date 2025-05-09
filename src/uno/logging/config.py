@@ -46,7 +46,7 @@ class LoggingSettings(UnoSettings):
         default=False, description="Whether to output logs to file"
     )
 
-    file_path: Optional[str] = Field(
+    file_path: str | None = Field(
         default=None, description="Path to log file (if file logging is enabled)"
     )
 
@@ -56,7 +56,7 @@ class LoggingSettings(UnoSettings):
     )
 
     # Module-specific levels
-    module_levels: Dict[str, LogLevel] = Field(
+    module_levels: dict[str, LogLevel] = Field(
         default_factory=dict, description="Module-specific log levels"
     )
 
@@ -84,7 +84,7 @@ class LoggingSettings(UnoSettings):
         return settings
 
 
-def get_env_value_pairs() -> Dict[str, str]:
+def get_env_value_pairs() -> dict[str, str]:
     """Get all environment variables as key-value pairs.
 
     This is a helper function for parsing module-specific log levels.

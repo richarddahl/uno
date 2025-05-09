@@ -25,7 +25,7 @@ class Migration(BaseModel):
     sql_up: str
     sql_down: str
     created_at: datetime
-    applied_at: Optional[datetime] = None
+    applied_at:int | Nonedatetime] = None
 
 
 class MigrationManager:
@@ -140,7 +140,7 @@ class MigrationManager:
             return Failure(f"Failed to create migration: {str(e)}")
 
     async def apply_migrations(
-        self, target_version: Optional[int] = None
+        self, target_version:int | Noneint] = None
     ) -> Result[None, str]:
         """Apply pending migrations.
 

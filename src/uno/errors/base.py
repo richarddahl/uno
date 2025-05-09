@@ -14,7 +14,7 @@ from __future__ import annotations
 import traceback
 from datetime import datetime, timezone
 from enum import Enum, auto
-from typing import Any, Dict, Optional, Type, TypeVar, cast
+from typing import Any, TypeVar
 
 T = TypeVar("T", bound="UnoError")
 
@@ -52,7 +52,7 @@ class UnoError(Exception):
     def __init__(
         self,
         message: str,
-        error_code: Optional[str] = None,
+        error_code: str | None = None,
         category: ErrorCategory = ErrorCategory.INTERNAL,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,
@@ -71,7 +71,7 @@ class UnoError(Exception):
         self.error_code = error_code or "UNKNOWN"
         self.category = category
         self.severity = severity
-        self.context: Dict[str, Any] = dict(context) if context else {}
+        self.context: dict[str, Any] = dict(context) if context else {}
         self.timestamp = datetime.now(timezone.utc)
 
         # Capture stack trace for debugging
@@ -90,7 +90,7 @@ class UnoError(Exception):
         self.context[key] = value
         return self  # For method chaining
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert error to a dictionary for serialization.
 
         Returns:
@@ -107,10 +107,10 @@ class UnoError(Exception):
 
     @classmethod
     def wrap(
-        cls: Type[T],
+        cls: type[T],
         exception: Exception,
-        message: Optional[str] = None,
-        error_code: Optional[str] = None,
+        message: str | None = None,
+        error_code: str | None = None,
         category: ErrorCategory = ErrorCategory.INTERNAL,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,

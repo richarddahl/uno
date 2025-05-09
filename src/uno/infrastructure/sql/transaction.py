@@ -35,7 +35,7 @@ class TransactionManager:
             config: SQL configuration
         """
         self._config = config
-        self._current_transaction: Optional[AsyncSession] = None
+        self._current_transaction:int | NoneAsyncSession] = None
 
     async def begin_transaction(self, session: AsyncSession) -> Result[None, str]:
         """Begin a new transaction.
@@ -91,7 +91,7 @@ class TransactionManager:
             return Failure(f"Failed to rollback transaction: {str(e)}")
 
     @property
-    def current_transaction(self) -> Optional[AsyncSession]:
+    def current_transaction(self) ->int | NoneAsyncSession]:
         """Get current transaction.
 
         Returns:

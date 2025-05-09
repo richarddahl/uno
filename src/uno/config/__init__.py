@@ -11,9 +11,7 @@ settings in the Uno framework.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Type, TypeVar, cast, get_type_hints
-
-from pydantic import create_model
+from typing import TypeVar
 
 from uno.config.base import ConfigError, Environment, UnoSettings
 from uno.config.env_loader import get_env_value, load_env_files
@@ -21,7 +19,7 @@ from uno.config.env_loader import get_env_value, load_env_files
 T = TypeVar("T", bound=UnoSettings)
 
 
-def load_settings(settings_class: Type[T], env: Optional[Environment] = None) -> T:
+def load_settings(settings_class: type[T], env: Environment | None = None) -> T:
     """Load settings from environment variables and .env files.
 
     This function loads configuration settings for the specified class,
@@ -40,7 +38,7 @@ def load_settings(settings_class: Type[T], env: Optional[Environment] = None) ->
     return settings_class.from_env(env)
 
 
-def get_config(settings_class: Type[T]) -> T:
+def get_config(settings_class: type[T]) -> T:
     """Get configuration for a component.
 
     This is a convenience wrapper around load_settings with global config caching.
@@ -56,13 +54,13 @@ def get_config(settings_class: Type[T]) -> T:
 
 
 __all__ = [
+    "ConfigError",
+    "Environment",
     # Base classes
     "UnoSettings",
-    "Environment",
-    "ConfigError",
-    # Loading functions
-    "load_settings",
     "get_config",
     "get_env_value",
     "load_env_files",
+    # Loading functions
+    "load_settings",
 ]

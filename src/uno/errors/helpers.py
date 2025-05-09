@@ -16,10 +16,10 @@ T = TypeVar("T", bound=UnoError)
 
 def create_error(
     message: str,
-    error_code: Optional[str] = None,
+    error_code: str | None = None,
     category: ErrorCategory = ErrorCategory.INTERNAL,
     severity: ErrorSeverity = ErrorSeverity.ERROR,
-    error_class: Type[UnoError] = UnoError,
+    error_class: type[UnoError] = UnoError,
     **context: Any,
 ) -> UnoError:
     """Create a UnoError with the given parameters.
@@ -46,11 +46,11 @@ def create_error(
 
 def wrap_exception(
     exception: Exception,
-    message: Optional[str] = None,
+    message: str | None = None,
     error_code: str = "WRAPPED_ERROR",
     category: ErrorCategory = ErrorCategory.INTERNAL,
     severity: ErrorSeverity = ErrorSeverity.ERROR,
-    error_class: Type[UnoError] = UnoError,
+    error_class: type[UnoError] = UnoError,
     **context: Any,
 ) -> UnoError:
     """Wrap an existing exception in a UnoError.
@@ -80,7 +80,7 @@ def wrap_exception(
     )
 
 
-def error_context_from_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+def error_context_from_dict(data: dict[str, Any]) -> dict[str, Any]:
     """Extract relevant context information from a dictionary.
 
     This utility helps create standardized context information

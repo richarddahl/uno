@@ -10,12 +10,12 @@ from uno.infrastructure.sql.interfaces import SQLLoggerProtocol
 
 class LogConfig(BaseModel):
     """SQL logging configuration."""
-    
+
     log_level: str = Field(default="INFO", description="Logging level")
-    log_file: Optional[str] = Field(default=None, description="Log file path")
+    log_file: str | None = Field(default=None, description="Log file path")
     log_format: str = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        description="Log message format"
+        description="Log message format",
     )
     log_sql: bool = Field(default=True, description="Log SQL statements")
     log_errors: bool = Field(default=True, description="Log SQL errors")
@@ -27,7 +27,7 @@ class SQLLogger:
 
     def __init__(self, config: LogConfig) -> None:
         """Initialize SQL logger.
-        
+
         Args:
             config: Logging configuration
         """
@@ -36,7 +36,7 @@ class SQLLogger:
 
     def log_statement(self, statement: Any) -> None:
         """Log SQL statement.
-        
+
         Args:
             statement: SQL statement
         """
@@ -46,7 +46,7 @@ class SQLLogger:
 
     def log_error(self, error: Exception) -> None:
         """Log SQL error.
-        
+
         Args:
             error: SQL error
         """
@@ -57,4 +57,4 @@ class SQLLogger:
     def _setup_logger(self) -> None:
         """Set up logger."""
         # TODO: Implement logger setup
-        pass 
+        pass

@@ -20,12 +20,12 @@ class TableDocumentation(BaseModel):
 
     name: str
     schema: str
-    description: Optional[str]
+    description: str | None
     columns: list[dict[str, Any]]
     indexes: list[dict[str, Any]]
     foreign_keys: list[dict[str, Any]]
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at:int | Nonedatetime]
 
 
 class FunctionDocumentation(BaseModel):
@@ -33,12 +33,12 @@ class FunctionDocumentation(BaseModel):
 
     name: str
     schema: str
-    description: Optional[str]
+    description: str | None
     parameters: list[dict[str, Any]]
     return_type: str
     language: str
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at:int | Nonedatetime]
 
 
 class ViewDocumentation(BaseModel):
@@ -46,11 +46,11 @@ class ViewDocumentation(BaseModel):
 
     name: str
     schema: str
-    description: Optional[str]
+    description: str | None
     definition: str
     columns: list[dict[str, Any]]
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at:int | Nonedatetime]
 
 
 class TriggerDocumentation(BaseModel):
@@ -59,12 +59,12 @@ class TriggerDocumentation(BaseModel):
     name: str
     table: str
     schema: str
-    description: Optional[str]
+    description: str | None
     event: str
     timing: str
     function: str
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at:int | Nonedatetime]
 
 
 class SQLDocumentationGenerator:

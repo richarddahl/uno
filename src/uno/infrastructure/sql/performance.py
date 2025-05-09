@@ -20,8 +20,8 @@ class StatementMetrics(BaseModel):
     execution_time_ms: float
     rows_affected: int
     timestamp: datetime
-    user_id: Optional[str]
-    error: Optional[str]
+    user_id: str | None
+    error: str | None
 
 
 class PerformanceMetrics(BaseModel):
@@ -64,8 +64,8 @@ class SQLPerformanceMonitor:
         parameters: dict[str, Any],
         execution_time_ms: float,
         rows_affected: int,
-        user_id: Optional[str] = None,
-        error: Optional[str] = None,
+        user_id: str | None = None,
+        error: str | None = None,
     ) -> None:
         """Record statement execution metrics.
 

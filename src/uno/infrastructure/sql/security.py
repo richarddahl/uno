@@ -20,8 +20,8 @@ class SecurityViolation(BaseModel):
     violation_type: str
     statement: str
     parameters: dict[str, Any]
-    user_id: Optional[str]
-    ip_address: Optional[str]
+    user_id: str | None
+    ip_address: str | None
     details: dict[str, Any]
 
 
@@ -32,8 +32,8 @@ class SQLSecurityManager:
         self,
         config: SQLConfig,
         logger: LoggerService,
-        allowed_sql_keywords: Optional[set[str]] = None,
-        blocked_sql_keywords: Optional[set[str]] = None,
+        allowed_sql_keywords:int | Noneset[str]] = None,
+        blocked_sql_keywords:int | Noneset[str]] = None,
     ) -> None:
         """Initialize SQL security manager.
 
@@ -161,8 +161,8 @@ class SQLSecurityManager:
     def check_permissions(
         self,
         statement: str,
-        user_id: Optional[str] = None,
-        required_permissions: Optional[set[str]] = None,
+        user_id: str | None = None,
+        required_permissions:int | Noneset[str]] = None,
     ) -> Result[None, str]:
         """Check if user has required permissions for statement.
 
@@ -206,8 +206,8 @@ class SQLSecurityManager:
         self,
         statement: str,
         parameters: dict[str, Any],
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
     ) -> Result[None, str]:
         """Audit SQL statement execution.
 
@@ -248,9 +248,9 @@ class SQLSecurityManager:
         violation_type: str,
         statement: str,
         parameters: dict[str, Any],
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
+        details:dict[str, Any] | None= None,
     ) -> None:
         """Log security violation.
 

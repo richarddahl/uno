@@ -45,7 +45,7 @@ class Container(ContainerProtocol):
     Attributes:
         _singleton_scope: ScopeProtocol[Any]
             The singleton scope that contains all singleton services.
-        _current_scope: Optional[ScopeProtocol[Any]]
+        _current_scope:int | NoneScopeProtocol[Any]]
             The current active scope, if any.
         _registrations: dict[type[Any], ServiceRegistration[Any]]
             Dictionary mapping service interfaces to their registrations.

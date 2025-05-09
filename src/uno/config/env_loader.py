@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 from dotenv import load_dotenv
 
-from uno.config.base import ConfigError, Environment
+from uno.config.base import Environment
 
 
-def find_env_files(env: Environment, base_dir: Optional[Path] = None) -> List[Path]:
+def find_env_files(env: Environment, base_dir: Path | None = None) -> list[Path]:
     """Find all applicable .env files for the given environment.
 
     This searches for both the base .env file and the environment-specific
@@ -59,9 +58,9 @@ def find_env_files(env: Environment, base_dir: Optional[Path] = None) -> List[Pa
 
 def load_env_files(
     env: Environment = Environment.DEVELOPMENT,
-    base_dir: Optional[Path] = None,
+    base_dir: Path | None = None,
     override: bool = True,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Load environment variables from .env files.
 
     Args:
@@ -75,8 +74,8 @@ def load_env_files(
     env_files = find_env_files(env, base_dir)
 
     # Track which variables we've loaded
-    loaded_vars: Set[str] = set()
-    result: Dict[str, str] = {}
+    loaded_vars: set[str] = set()
+    result: dict[str, str] = {}
 
     # Load each file in priority order
     for env_file in env_files:
@@ -86,22 +85,22 @@ def load_env_files(
         # Also build a return dictionary of what was loaded
         with env_file.open() as f:
             for line in f:
-                line = line.strip()
+                line_ = line.strip()
 
                 # Skip comments and empty lines
-                if not line or line.startswith("#"):
+                if not line_ or line_.startswith("#"):
                     continue
 
                 # Parse KEY=VALUE format
-                if "=" in line:
-                    key, value = line.split("=", 1)
+                if "=" in line_:
+                    key, value = line_.split("=", 1)
                     key = key.strip()
                     value = value.strip()
 
                     # Remove quotes if present
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    elif value.startswith("'") and value.endswith("'"):
+                    if (value.startswith('"') and value.endswith('"')) or (
+                        value.startswith("'") and value.endswith("'")
+                    ):
                         value = value[1:-1]
 
                     # Only add if we haven't loaded this variable or if overriding
@@ -113,8 +112,8 @@ def load_env_files(
 
 
 def get_env_value(
-    key: str, default: Optional[str] = None, env: Environment = Environment.DEVELOPMENT
-) -> Optional[str]:
+    key: str, default: str | None = None, env: Environment = Environment.DEVELOPMENT
+) -> str | None:
     """Get an environment variable with proper .env file fallbacks.
 
     Args:

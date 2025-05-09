@@ -12,16 +12,17 @@ import json
 import logging
 import sys
 import threading
+from collections.abc import Generator
 from contextvars import ContextVar
 from logging import Handler, Logger, StreamHandler
-from typing import Any, Dict, Generator, Optional, cast
+from typing import Any
 
 from uno.errors import UnoError
 from uno.logging.config import LoggingSettings
-from uno.logging.protocols import LogLevel, LoggerProtocol
+from uno.logging.protocols import LoggerProtocol, LogLevel
 
 # Context variable for storing log context data
-_log_context: ContextVar[Dict[str, Any]] = ContextVar("log_context", default={})
+_log_context: ContextVar[dict[str, Any]] = ContextVar("log_context", default={})
 
 
 class StructuredFormatter(logging.Formatter):
@@ -63,7 +64,7 @@ class StructuredFormatter(logging.Formatter):
             Formatted log string
         """
         # Extract extra fields from record
-        extra: Dict[str, Any] = {}
+        extra: dict[str, Any] = {}
         for key, value in record.__dict__.items():
             if key not in logging.LogRecord.__dict__ and key != "message":
                 extra[key] = value
@@ -81,7 +82,7 @@ class StructuredFormatter(logging.Formatter):
             message = super().format(record)
             return self._format_text(record, message, extra)
 
-    def _format_json(self, record: logging.LogRecord, extra: Dict[str, Any]) -> str:
+    def _format_json(self, record: logging.LogRecord, extra: dict[str, Any]) -> str:
         """Format a log record as JSON.
 
         Args:
@@ -108,7 +109,7 @@ class StructuredFormatter(logging.Formatter):
         return json.dumps(log_data)
 
     def _format_text(
-        self, record: logging.LogRecord, message: str, extra: Dict[str, Any]
+        self, record: logging.LogRecord, message: str, extra: dict[str, Any]
     ) -> str:
         """Format a log record as plain text.
 
@@ -141,7 +142,7 @@ class StructuredFormatter(logging.Formatter):
             if " " in value:
                 return f'"{value}"'
             return value
-        if isinstance(value, (dict, list)):
+        if isinstance(value, dict | list):
             # Convert complex types to JSON
             return json.dumps(value)
         return str(value)
@@ -154,7 +155,7 @@ class UnoLogger(LoggerProtocol):
         self,
         name: str,
         level: LogLevel = LogLevel.INFO,
-        settings: Optional[LoggingSettings] = None,
+        settings: LoggingSettings | None = None,
     ) -> None:
         """Initialize a new logger.
 
@@ -173,7 +174,7 @@ class UnoLogger(LoggerProtocol):
         self._configure(level)
 
         # Bound context values for this logger instance
-        self._bound_context: Dict[str, Any] = {}
+        self._bound_context: dict[str, Any] = {}
 
     def _configure(self, level: LogLevel) -> None:
         """Configure the logger with the provided settings.
@@ -307,7 +308,7 @@ class UnoLogger(LoggerProtocol):
         self._logger.setLevel(level.to_stdlib_level())
 
     @contextlib.contextmanager
-    def context(self, **kwargs: Any) -> Generator[None, None, None]:
+    def context(self, **kwargs: Any) -> Generator[None]:
         """Add context information to all logs within this context.
 
         Args:
@@ -355,7 +356,7 @@ class UnoLogger(LoggerProtocol):
         return self.bind(correlation_id=correlation_id)
 
 
-def get_logger(name: str, level: Optional[LogLevel] = None) -> LoggerProtocol:
+def get_logger(name: str, level: LogLevel | None = None) -> LoggerProtocol:
     """Get a logger for the specified name.
 
     Args:

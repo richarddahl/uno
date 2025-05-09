@@ -10,9 +10,8 @@ from __future__ import annotations
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, TypeVar, cast
+from typing import Any, TypeVar
 
-from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from uno.errors import ErrorCategory, UnoError, create_error
@@ -22,7 +21,7 @@ class ConfigError(UnoError):
     """Base class for configuration-related errors."""
 
     def __init__(
-        self, message: str, error_code: Optional[str] = None, **context: Any
+        self, message: str, error_code: str | None = None, **context: Any
     ) -> None:
         """Initialize a configuration error.
 
@@ -47,7 +46,7 @@ class Environment(str, Enum):
     PRODUCTION = "production"
 
     @classmethod
-    def from_string(cls, value: Optional[str]) -> Environment:
+    def from_string(cls, value: str | None) -> Environment:
         """Convert a string to an Environment enum value.
 
         Args:
@@ -112,7 +111,7 @@ class UnoSettings(BaseSettings):
     )
 
     @classmethod
-    def from_env(cls: Type[T], env: Optional[Environment] = None) -> T:
+    def from_env(cls: type[T], env: Environment | None = None) -> T:
         """Load settings from environment or specific env file.
 
         Args:
@@ -136,14 +135,14 @@ class UnoSettings(BaseSettings):
         return cls(**cls._get_environment_overrides())
 
     @classmethod
-    def _get_environment_overrides(cls) -> Dict[str, Any]:
+    def _get_environment_overrides(cls) -> dict[str, Any]:
         """Get environment-specific overrides from env vars.
 
         Returns:
             Dictionary of environment variable overrides
         """
         # Extract environment variables that match the prefix
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         prefix = cls.model_config.get("env_prefix", "")
 
         for key, value in os.environ.items():

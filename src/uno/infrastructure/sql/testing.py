@@ -46,9 +46,7 @@ class SQLTestHelper:
         self._logger = logger
         self._mock_databases: dict[str, MockDatabase] = {}
 
-    async def create_mock_database(
-        self, name: Optional[str] = None
-    ) -> Result[str, str]:
+    async def create_mock_database(self, name: str | None = None) -> Result[str, str]:
         """Create a mock database.
 
         Args:

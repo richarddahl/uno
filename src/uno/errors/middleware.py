@@ -24,7 +24,7 @@ class ErrorMiddleware:
     def __init__(
         self,
         include_traceback: bool = False,
-        logger: Optional[logging.Logger] = None,
+        logger:int | Nonelogging.Logger] = None,
         handle_non_uno_errors: bool = True,
     ):
         """
