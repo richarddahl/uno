@@ -14,12 +14,7 @@ from collections.abc import Callable
 from types import ModuleType
 from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
-from uno.utiitlies import (
-    AsyncEventHandlerAdapter,
-    EventHandlerProtocol,
-    FunctionHandlerAdapter,
-)
-from uno.di.container import DIContainer
+from uno.di.container import Container
 from uno.events.base_event import DomainEvent
 from uno.events.config import EventsConfig
 from uno.events.context import EventHandlerContext
@@ -71,7 +66,7 @@ class EventHandlerMiddleware(ABC):
 class EventHandlerRegistry:
     """Registry for event handlers and middleware."""
 
-    def __init__(self, logger: LoggerProtocol, container: DIContainer = None) -> None:
+    def __init__(self, logger: LoggerProtocol, container: Container = None) -> None:
         """
         Initialize the registry.
 
@@ -410,7 +405,7 @@ class EventHandlerDecorator:
     """Decorator for event handlers."""
 
     _registry: ClassVar[EventHandlerRegistry | None] = None
-    _container: ClassVar[DIContainer | None] = None
+    _container: ClassVar[Container | None] = None
 
     @classmethod
     def set_registry(cls, registry: EventHandlerRegistry) -> None:
@@ -423,7 +418,7 @@ class EventHandlerDecorator:
         cls._registry = registry
 
     @classmethod
-    def set_container(cls, container: DIContainer) -> None:
+    def set_container(cls, container: Container) -> None:
         """
         Set the DI container to use for handler dependencies.
 
@@ -821,7 +816,7 @@ class TimingMiddleware(EventHandlerMiddleware):
 async def discover_handlers(
     package: str | ModuleType,
     logger: LoggerProtocol,
-    container: DIContainer = None,
+    container: Container = None,
     registry: EventHandlerRegistry | None = None,
 ) -> EventHandlerRegistry:
     """

@@ -20,6 +20,8 @@ from uno.errors import ErrorCategory, UnoError
 from uno.logging import LogLevel, LoggerProtocol, UnoLogger, get_logger
 from uno.logging.config import LoggingSettings
 
+pytestmark = pytest.mark.usefixtures('allow_logging')
+
 
 class TestLogLevel:
     """Tests for the LogLevel enum."""

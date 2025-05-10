@@ -9,11 +9,11 @@ from typing import cast
 from examples.app.domain.order import Order
 from examples.app.api.errors import OrderNotFoundError
 from uno.errors import Success, Failure
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class InMemoryOrderRepository:
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         self._orders: dict[str, Order] = {}
         self._event_hashes: dict[str, list[str]] = (
             {}

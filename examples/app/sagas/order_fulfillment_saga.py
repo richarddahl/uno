@@ -9,7 +9,7 @@ from uno.events.sagas import Saga
 from uno.errors import Result, Success, Failure
 from uno.errors import UnoError
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class OrderFulfillmentSaga(Saga):
@@ -17,7 +17,7 @@ class OrderFulfillmentSaga(Saga):
     Orchestrates order fulfillment: reserve inventory, process payment, complete or compensate.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol | None = None) -> None:
         """
         Args:
             logger: Optional DI-injected logger. If not provided, uses get_saga_logger().

@@ -5,14 +5,14 @@ Integrates with uno.events.snapshots.SnapshotStore for demo/testing purposes.
 
 from uno.events.snapshots import SnapshotStore, Success, Failure
 from uno.errors.result import Result
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 
 class InMemorySnapshotStore(SnapshotStore):
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         self._snapshots: dict[str, dict[str, Any]] = {}
         self.logger = logger
 

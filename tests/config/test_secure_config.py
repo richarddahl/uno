@@ -26,11 +26,11 @@ class SecurityConfig(UnoSettings):
     app_name: str = "Test App"
 
     # Field with simple masking (plaintext in memory, masked in logs)
-    api_key: str = SecureField("default-key")
+    api_key: str = SecureField("default-key", json_schema_extra={"env": "API_KEY"})
 
     # Field with encryption (encrypted in storage, decrypted when accessed)
     db_password: str = SecureField(
-        "secret-db-password", handling=SecureValueHandling.ENCRYPT
+        "secret-db-password", handling=SecureValueHandling.ENCRYPT, json_schema_extra={"env": "DB_PASSWORD"}
     )
 
     # Field that's always encrypted (even in memory)

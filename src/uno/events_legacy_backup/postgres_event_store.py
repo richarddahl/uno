@@ -12,7 +12,7 @@ from uno.events.event_store import EventStore
 from uno.errors.result import Result, Success, Failure
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -24,7 +24,7 @@ class PostgresEventStore(EventStore[E], Generic[E]):
         self,
         config: SQLConfig,
         connection_manager: ConnectionManager,
-        logger: LoggerService,
+        logger: LoggerProtocol,
     ) -> None:
         """Initialize PostgreSQL event store.
 

@@ -13,7 +13,7 @@ from typing import Any, TypeVar
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncTransaction
 
 from uno.events.event_store import EventStore
-from uno.logging.logger import LoggerService, LoggingConfig
+from uno.logging import LoggerProtocol, get_logger
 
 T = TypeVar("T")
 
@@ -72,7 +72,7 @@ class InMemoryUnitOfWork(UnitOfWork):
     def __init__(
         self,
         event_store: EventStore,
-        logger_factory: Callable[..., LoggerService] | None = None,
+        logger_factory: Callable[..., LoggerProtocol] | None = None,
     ):
         """
         Initialize the in-memory unit of work.
@@ -87,7 +87,7 @@ class InMemoryUnitOfWork(UnitOfWork):
         if logger_factory:
             self.logger = logger_factory("uow_inmem")
         else:
-            self.logger = LoggerService(LoggingConfig())
+            self.logger = get_logger("uno.events.uow")
 
         self._committed = False
 
@@ -138,7 +138,7 @@ class InMemoryUnitOfWork(UnitOfWork):
     async def begin(
         cls,
         event_store: EventStore,
-        logger_factory: Callable[..., LoggerService] | None = None,
+        logger_factory: Callable[..., LoggerProtocol] | None = None,
     ) -> AsyncGenerator["InMemoryUnitOfWork", None]:
         """
         Begin a new in-memory unit of work.
@@ -159,7 +159,7 @@ class InMemoryUnitOfWork(UnitOfWork):
             if logger_factory:
                 logger = logger_factory("uow_inmem")
             else:
-                logger = LoggerService(LoggingConfig())
+                logger = get_logger("uno.events.uow")
 
             logger.structured_log(
                 "ERROR", f"Error in unit of work: {e}", name="uno.events.uow", error=e
@@ -181,7 +181,7 @@ class PostgresUnitOfWork(UnitOfWork):
         event_store: EventStore,
         session: AsyncSession,
         transaction: AsyncTransaction,
-        logger_factory: Callable[..., LoggerService] | None = None,
+        logger_factory: Callable[..., LoggerProtocol] | None = None,
     ):
         """
         Initialize the PostgreSQL unit of work.
@@ -200,7 +200,7 @@ class PostgresUnitOfWork(UnitOfWork):
         if logger_factory:
             self.logger = logger_factory("uow_postgres")
         else:
-            self.logger = LoggerService(LoggingConfig())
+            self.logger = get_logger("uno.events.uow")
 
     async def commit(self) -> None:
         """
@@ -250,7 +250,7 @@ class PostgresUnitOfWork(UnitOfWork):
         cls,
         event_store: EventStore,
         session_factory: Callable[..., AsyncSession],
-        logger_factory: Callable[..., LoggerService] | None = None,
+        logger_factory: Callable[..., LoggerProtocol] | None = None,
     ) -> AsyncGenerator["PostgresUnitOfWork", None]:
         """
         Begin a new PostgreSQL unit of work.
@@ -274,7 +274,7 @@ class PostgresUnitOfWork(UnitOfWork):
                     if logger_factory:
                         logger = logger_factory("uow_postgres")
                     else:
-                        logger = LoggerService(LoggingConfig())
+                        logger = get_logger("uno.events.uow")
 
                     logger.structured_log(
                         "ERROR",

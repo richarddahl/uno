@@ -7,10 +7,10 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from uno.errors.result import Result
+
 from uno.events.handlers import EventHandlerContext
 from uno.events.interfaces import EventHandlerMiddleware
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 @dataclass
@@ -48,11 +48,11 @@ class EventMetrics:
 class MetricsMiddleware(EventHandlerMiddleware):
     """
     MetricsMiddleware: Collects metrics about event handler performance.
-    Requires a DI-injected LoggerService instance (strict DI).
+    Requires a DI-injected LoggerProtocol instance (strict DI).
     """
 
     def __init__(
-        self, logger: LoggerService, report_interval_seconds: float = 60.0
+        self, logger: LoggerProtocol, report_interval_seconds: float = 60.0
     ) -> None:
         self.logger = logger
         self.report_interval_seconds = report_interval_seconds
@@ -62,19 +62,25 @@ class MetricsMiddleware(EventHandlerMiddleware):
     async def process(
         self,
         context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Result[Any, Exception]:
+        next_middleware: Callable[[EventHandlerContext], None],
+    ) -> None:
         event = context.event
         start_time = time.time()
-        result = await next_middleware(context)
-        end_time = time.time()
-        duration_ms = (end_time - start_time) * 1000
-        self.metrics[event.event_type].record(duration_ms, result.is_success)
-        current_time = time.time()
-        if current_time - self.last_report_time >= self.report_interval_seconds:
-            self._report_metrics()
-            self.last_report_time = current_time
-        return result
+        try:
+            await next_middleware(context)
+            is_success = True
+        except Exception as e:
+            is_success = False
+            raise
+        finally:
+            end_time = time.time()
+            duration_ms = (end_time - start_time) * 1000
+            self.metrics[event.event_type].record(duration_ms, is_success)
+            current_time = time.time()
+            if current_time - self.last_report_time >= self.report_interval_seconds:
+                self._report_metrics()
+                self.last_report_time = current_time
+        # No return value; exceptions propagate
 
     def _report_metrics(self) -> None:
         for event_type, metrics in self.metrics.items():

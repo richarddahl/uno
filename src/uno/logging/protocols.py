@@ -15,15 +15,15 @@ import logging
 from contextlib import contextmanager
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    Generator,
-    Optional,
     Protocol,
     TypeVar,
     runtime_checkable,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 # Define standard logging levels
@@ -124,7 +124,7 @@ class LoggerProtocol(Protocol):
         ...
 
     @contextmanager
-    def context(self, **kwargs: Any) -> Generator[None, None, None]:
+    def context(self, **kwargs: Any) -> Generator[None]:
         """Add context information to all logs within this context.
 
         This creates a context manager that adds the provided context

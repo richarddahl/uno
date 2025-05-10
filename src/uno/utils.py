@@ -13,11 +13,11 @@ from babel import dates, numbers
 from uno.config import GeneralConfig
 
 
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 def import_from_path(
-    module_name: str, file_path: str, logger: LoggerService | None = None
+    module_name: str, file_path: str, logger: LoggerProtocol | None = None
 ) -> Any:
     """Import a module given its name and file path. Logs errors via DI logger if provided."""
     try:

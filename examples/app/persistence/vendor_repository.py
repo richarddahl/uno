@@ -12,7 +12,7 @@ from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.errors.result import Failure, Success
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class InMemoryVendorRepository:
@@ -21,7 +21,7 @@ class InMemoryVendorRepository:
     Stores and replays domain events for each Vendor by ID.
     """
 
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """Initialize the in-memory event store."""
         self._events: dict[str, list[Any]] = {}
         self._logger = logger

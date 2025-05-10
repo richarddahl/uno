@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Canonical event base for Uno's DDD/event sourcing system.
 All domain/integration events should inherit from this class.
@@ -5,249 +8,236 @@ All domain/integration events should inherit from this class.
 
 from __future__ import annotations
 
-import logging
-import uuid
-import time
-import json
 import decimal
 import enum
-from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+import json
+import time
+import uuid
+from typing import Any, ClassVar, Self
+
+from pydantic import ConfigDict, Field
 
 from uno.base_model import FrameworkBaseModel
-from pydantic import Field, ConfigDict, model_validator
-
-from uno.errors.result import Failure, Success
 from uno.logging import get_logger
 
-# NOTE: Strict DI mode: All dependencies must be passed explicitly. Do not use service locator patterns.
-from uno.services.hash_service_protocol import HashServiceProtocol
+logger = get_logger("uno.events")
 
-if TYPE_CHECKING:
-    import collections.abc
-    from uno.errors.result import Failure as FailureType, Success as SuccessType
-    from uno.services.default_hash_service import DefaultHashService
+# Global registry of event classes
+_EVENT_CLASSES: dict[str, type[DomainEvent]] = {}
 
 
-def uno_json_encoder(obj: Any) -> Any:
-    if isinstance(obj, enum.Enum):
-        return obj.value
-    if isinstance(obj, decimal.Decimal):
-        return float(obj)
-    if isinstance(obj, FrameworkBaseModel):
-        if hasattr(obj, "to_dict") and callable(obj.to_dict):
-            return obj.to_dict()
-        return obj.model_dump(
-            mode="json", exclude_none=True, exclude_unset=True, by_alias=True
-        )
-    if hasattr(obj, "to_dict") and callable(obj.to_dict):
-        return obj.to_dict()
-    if hasattr(obj, "__dict__"):
-        return obj.__dict__
-    raise RuntimeError(
-        f"Object of type {type(obj)} is not JSON serializable. Implement to_dict or inherit FrameworkBaseModel."
+class EventMetadata(FrameworkBaseModel):
+    """
+    Standard metadata for domain events in Uno Framework.
+
+    This class represents standard metadata that should be included with all events.
+    """
+
+    created_at: float = Field(
+        default_factory=time.time,
+        description="Unix timestamp when the event was created",
     )
-
-
-class DomainEvent(FrameworkBaseModel):
-    # --- Event class registry for dynamic resolution ---
-    _event_class_registry: ClassVar[dict[str, type["DomainEvent"]]] = {}
-    _logger = get_logger(__name__)
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # Register by class name and event_type if available
-        DomainEvent._event_class_registry[cls.__name__] = cls
-        event_type = getattr(cls, "event_type", None)
-        if event_type and event_type != "domain_event":
-            DomainEvent._event_class_registry[event_type] = cls
-
-    @classmethod
-    def get_event_class(cls, event_type: str) -> type["DomainEvent"]:
-        """
-        Look up the event class by event_type or class name.
-        Raises KeyError if not found.
-        Uno canonical Pydantic base model for all events.
-
-        Canonical serialization and hashing contract (Uno standard):
-        - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for event serialization, hashing, storage, and transport.
-        - Unset and None fields are treated identically; they are excluded from serialization and do not affect event_hash.
-        - This contract is enforced by dedicated tests (see test_event_serialization_is_deterministic).
-
-        - All model-wide concerns (e.g., upcasting, hash computation) are handled via @model_validator methods.
-        - All type hints use modern Python syntax (str, int, dict[str, Any], Self, etc.).
-        - All serialization/deserialization uses Pydantic's built-in methods (`model_dump`, `model_validate`).
-        - If broader Python idioms are needed, thin wrappers (e.g., to_dict, from_dict) are provided that simply call the canonical Pydantic methods.
-        - This is the **only** pattern permitted for Uno base models.
-
-        Base class for all domain and integration events in Uno.
-        Events are immutable and serializable.
-        Implements canonical event hash chaining for tamper detection.
-
-        - 'version' is an instance field (serialized with the event)
-        - '__version__' is a class-level canonical version (used for upcasting logic)
-        - 'event_hash' is computed automatically at creation time (model_validator)
-        """
-        try:
-            return cls._event_class_registry[event_type]
-        except KeyError:
-            raise RuntimeError(
-                f"No DomainEvent class registered for event_type '{event_type}'"
-            )
-
-    version: int = 1
-    __version__: ClassVar[int] = 1
-    event_id: str = Field(default_factory=lambda: "evt_" + uuid.uuid4().hex)
-    event_type: ClassVar[str] = "domain_event"
-    timestamp: float = Field(default_factory=lambda: time.time())
-    correlation_id: str | None = None
-    causation_id: str | None = None
-    metadata: dict[str, Any] = {}
-    previous_hash: str | None = None
-    event_hash: str = Field(default_factory=lambda: "")
+    correlation_id: str | None = Field(
+        default=None, description="ID linking related events in a flow"
+    )
+    causation_id: str | None = Field(
+        default=None, description="ID of the event that caused this event"
+    )
+    user_id: str | None = Field(
+        default=None, description="ID of the user who triggered this event"
+    )
+    source: str | None = Field(
+        default=None, description="Source system that generated the event"
+    )
 
     model_config = ConfigDict(
-        frozen=True,
-        json_encoders={Enum: lambda e: e.value},
-        validate_assignment=True,
+        frozen=True,  # Events are immutable
+        json_encoders={
+            decimal.Decimal: lambda v: float(v),
+            uuid.UUID: lambda v: str(v),
+            enum.Enum: lambda v: v.value,
+        },
     )
 
-    def set_event_hash(self, hash_service: HashServiceProtocol | None = None) -> None:
-        """
-        Compute and set the event_hash field using the provided hash_service.
-        If no hash_service is given, falls back to sha256.
-        This method must be called explicitly after event creation.
-        """
-        payload = self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
-        payload_json = json.dumps(payload, default=uno_json_encoder)
-        try:
-            if hash_service is not None:
-                self.event_hash = hash_service.compute_hash(payload_json)
-            else:
-                import hashlib
 
-                self.event_hash = hashlib.sha256(payload_json.encode()).hexdigest()
-        except Exception as exc:
-            self._logger.error(
-                f"Failed to compute event hash for {self.event_id}: {exc}"
-            )
-            raise
+# Base class for all domain events
+class DomainEvent:
+    """
+    Base class for all domain events in Uno Framework.
+
+    This class provides common functionality for all domain events:
+    - Event registration/discovery
+    - Event versioning
+    - Event serialization (to_dict)
+    - Event deserialization (upcast/from_dict)
+    - Tampering detection (event_hash)
+
+    All domain events must have:
+    - event_id: Unique ID for each event instance
+    - aggregate_id: ID of the aggregate this event belongs to
+    - event_type: Type name for this event class
+    - version: Schema version for this event (enables upcasting)
+    """
+
+    event_id: str
+    aggregate_id: str
+    event_type: ClassVar[str]
+    version: int = 1
+    event_hash: str | None = None
+    metadata: EventMetadata | None = None
+
+    _registered: ClassVar[bool] = False
+
+    def __init__(self) -> None:
+        """
+        Initialize a new domain event with a unique ID.
+
+        Each event instance gets a unique event_id. The aggregate_id
+        must be set by the subclass to identify which entity/aggregate
+        this event applies to.
+        """
+        self.event_id = str(uuid.uuid4())
+        self.event_hash = None  # Initialized later when needed
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        """
+        Automatically register event subclasses in the global registry.
+
+        This allows events to be dynamically discovered and reconstructed
+        from serialized form.
+        """
+        super().__init_subclass__(**kwargs)
+
+        if not hasattr(cls, "event_type"):
+            cls.event_type = cls.__name__
+
+        if not cls._registered and cls.event_type:
+            if cls.event_type in _EVENT_CLASSES:
+                logger.warning(
+                    f"Event type '{cls.event_type}' is already registered. "
+                    f"Overwriting previous registration."
+                )
+
+            _EVENT_CLASSES[cls.event_type] = cls
+            cls._registered = True
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Canonical serialization: returns dict using Uno contract.
-        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
+        Convert event to a dictionary for serialization.
+
+        Override this in subclasses if needed for custom serialization.
 
         Returns:
-            dict[str, Any]: The event as a dict, suitable for serialization or storage.
+            Dictionary representation of the event
         """
-        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+        # Get all attributes except private ones
+        result = {
+            key: value
+            for key, value in self.__dict__.items()
+            if not key.startswith("_") and key != "metadata"
+        }
+
+        # Include metadata if present
+        if hasattr(self, "metadata") and self.metadata:
+            result["metadata"] = self.metadata.model_dump()
+
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
         """
-        Thin wrapper for Pydantic's `model_validate()`. Raises exceptions for Uno error handling.
-        Use this only if a broader Python API is required; otherwise, prefer `model_validate()` directly.
+        Create an event instance from a dictionary.
+
+        Args:
+            data: Dictionary containing event data
+
         Returns:
-            The validated event instance.
+            New event instance
+
         Raises:
-            EventValidationError: If validation fails.
+            ValueError: If the data doesn't match the expected format
         """
-        try:
-            return cls.model_validate(data)
-        except Exception as exc:
-            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
-            raise EventValidationError(f"Validation failed for {cls.__name__}: {exc}")
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data)}")
 
-    def validate_event(self) -> Success[None, Exception] | Failure[None, Exception]:
+        instance = cls()
+
+        # Copy all fields from dict to object
+        for key, value in data.items():
+            if key != "metadata":
+                setattr(instance, key, value)
+
+        # Handle metadata separately
+        if "metadata" in data and data["metadata"]:
+            instance.metadata = EventMetadata.model_validate(data["metadata"])
+
+        return instance
+
+    @classmethod
+    def get_event_class(cls, event_type: str) -> type[DomainEvent]:
         """
-        Validate the event's invariants. Override in subclasses for custom validation.
+        Get the event class for a given event type.
+
+        Args:
+            event_type: The type string for the event
+
         Returns:
-            Success[None, Exception](None) if valid, Failure[None, Exception](error) otherwise.
+            Event class
+
+        Raises:
+            ValueError: If the event type is not registered
         """
+        if event_type not in _EVENT_CLASSES:
+            raise ValueError(f"Unknown event type: {event_type}")
+        return _EVENT_CLASSES[event_type]
+
+    @classmethod
+    def upcast(cls, data: dict[str, Any]) -> DomainEvent:
+        """
+        Upgrade an event from an older version to the current version.
+
+        This method handles event schema migrations by applying transformations
+        to update the event data to the latest schema version.
+
+        Args:
+            data: Dictionary containing event data
+
+        Returns:
+            Upcasted event instance
+
+        Raises:
+            ValueError: If the event type is not registered or upcast fails
+        """
+        if "event_type" not in data:
+            raise ValueError("Event data missing 'event_type' field")
+
+        event_type = data["event_type"]
+
         try:
-            # Custom validation logic here
-            return Success[None, Exception](None)
-        except Exception as exc:
-            self._logger.error(f"Validation failed for event {self.event_id}: {exc}")
-            return Failure(exc)
+            event_class = cls.get_event_class(event_type)
+            return event_class.from_dict(data)
+        except Exception as e:
+            raise ValueError(f"Failed to upcast event: {e}") from e
 
+    def calculate_hash(self, hash_service: HashServiceProtocol) -> str:
+        """
+        Calculate a hash for this event using the provided hash service.
 
-def verify_event_stream_integrity(events: list[DomainEvent]) -> bool:
-    """
-    Verify the integrity of a sequence of events using hash chaining.
-    Raises ValueError if the chain is broken or tampered with.
-    Returns True if the chain is valid.
-    """
-    if not events:
-        return True
-    prev_hash = None
-    for idx, event in enumerate(events):
-        try:
-            # Recompute hash and compare
-            if idx > 0 and event.previous_hash != prev_hash:
-                raise ValueError(
-                    f"Chain broken at index {idx}: previous_hash does not match"
-                )
-            prev_hash = event.event_hash
-        except ValueError as exc:
-            DomainEvent._logger.error(f"Event stream integrity check failed: {exc}")
-            raise
-    return True
+        This hash can be used to verify event integrity and detect tampering.
 
+        Args:
+            hash_service: Service for generating cryptographic hashes
 
-class EventUpcasterRegistry:
-    """
-    Registry for event upcasters, supporting versioned event migration.
-    Usage:
-        @EventUpcasterRegistry.register(MyEvent, 1)
-        def upcast_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
-            ...
-        # OR
-        EventUpcasterRegistry.register_upcaster(MyEvent, 1, upcast_v1_to_v2)
-        migrated = EventUpcasterRegistry.apply(MyEvent, old_data, 1, 2)
-    """
+        Returns:
+            Hash string for the event
+        """
+        # Get serialized event data excluding the hash itself
+        event_data = self.to_dict()
+        if "event_hash" in event_data:
+            del event_data["event_hash"]
 
-    _registry: ClassVar[
-        dict[
-            tuple[type, int],
-            collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
-        ]
-    ] = {}
+        # Convert to a stable string representation
+        sorted_json = json.dumps(event_data, sort_keys=True)
 
-    @classmethod
-    def register(cls, event_type: type, from_version: int) -> collections.abc.Callable[
-        [collections.abc.Callable[[dict[str, Any]], dict[str, Any]]],
-        collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
-    ]:
-        def decorator(
-            func: collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
-        ) -> collections.abc.Callable[[dict[str, Any]], dict[str, Any]]:
-            cls._registry[(event_type, from_version)] = func
-            return func
-
-        return decorator
-
-    @classmethod
-    def register_upcaster(
-        cls,
-        event_type: type,
-        from_version: int,
-        upcaster_fn: collections.abc.Callable[[dict[str, Any]], dict[str, Any]],
-    ) -> None:
-        cls._registry[(event_type, from_version)] = upcaster_fn
-
-    @classmethod
-    def apply(
-        cls, event_type: type, data: dict[str, Any], from_version: int, to_version: int
-    ) -> dict[str, Any]:
-        v = from_version
-        while v < to_version:
-            upcaster = cls._registry.get((event_type, v))
-            if not upcaster:
-                raise ValueError(
-                    f"No upcaster for {event_type.__name__} v{v} -> v{v + 1}"
-                )
-            data = upcaster(data)
-            v += 1
-        return data
+        # Calculate hash
+        return hash_service.hash_string(sorted_json)

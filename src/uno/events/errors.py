@@ -1,13 +1,29 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """
-Event system error definitions.
+Error types specific to the events package.
+
+This module defines custom exception types used throughout the event sourcing system.
 """
 
 from typing import Any
 
 from uno.errors.base import UnoError
+
+__all__ = [
+    "EventErrorCode",
+    "EventError",
+    "EventHandlerError",
+    "EventPublishError",
+    "EventStoreError",
+    "EventNotFoundError",
+    "EventConflictError",
+    "EventSubscribeError",
+    "EventSerializationError",
+    "EventDeserializationError",
+    "EventReplayError",
+]
 
 # -----------------------------------------------------------------------------
 # Event error codes
@@ -26,6 +42,35 @@ class EventErrorCode:
     DOWNCAST_ERROR = "EVENT-1007"
     STORE_ERROR = "EVENT-1008"
     REPLAY_ERROR = "EVENT-1009"
+
+
+# -----------------------------------------------------------------------------
+# Event exceptions
+# -----------------------------------------------------------------------------
+
+
+class EventError(UnoError):
+    """Base class for all event-related errors."""
+
+    error_code = None
+
+
+class EventStoreError(EventError):
+    """Base class for event store errors."""
+
+    error_code = EventErrorCode.STORE_ERROR
+
+
+class EventNotFoundError(EventStoreError):
+    """Error raised when an event is not found in the event store."""
+
+    pass
+
+
+class EventConflictError(EventStoreError):
+    """Error raised when there's a conflict while saving events."""
+
+    pass
 
 
 # -----------------------------------------------------------------------------
@@ -138,19 +183,6 @@ class EventDowncastError(UnoError):
             event_type=event_type,
             from_version=from_version,
             to_version=to_version,
-            reason=reason,
-            **context,
-        )
-
-
-class EventStoreError(UnoError):
-    """Raised when event storage fails."""
-
-    def __init__(self, event_type: str, reason: str, **context: Any):
-        super().__init__(
-            message=f"Failed to store event '{event_type}': {reason}",
-            error_code=EventErrorCode.STORE_ERROR,
-            event_type=event_type,
             reason=reason,
             **context,
         )

@@ -1,8 +1,10 @@
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 from uno.events.base_event import DomainEvent
 from uno.events.interfaces import EventBusProtocol
 from uno.events.priority import EventPriority
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
+from uno.logging.logger import get_logger
 
 HandlerFnT = TypeVar("HandlerFnT")
 
@@ -13,7 +15,7 @@ def subscribe(
     priority: EventPriority = EventPriority.NORMAL,
     *,
     event_bus: EventBusProtocol | None = None,
-    logger: LoggerService,
+    logger: LoggerProtocol,
 ) -> Callable[[HandlerFnT], HandlerFnT]:
     """
     Decorator to register an event handler with the event bus.
@@ -55,7 +57,7 @@ def register_event_handler(
     priority: EventPriority = EventPriority.NORMAL,
     *,
     event_bus: EventBusProtocol | None = None,
-    logger: LoggerService,
+    logger: LoggerProtocol,
 ) -> None:
     """
     Register an event handler function or object with the event bus (DI/config-friendly).

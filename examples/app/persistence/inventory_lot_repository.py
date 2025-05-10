@@ -8,11 +8,11 @@ import hashlib
 from examples.app.domain.inventory import InventoryLot
 from examples.app.api.errors import InventoryLotNotFoundError
 from uno.errors import Success, Failure
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class InMemoryInventoryLotRepository:
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         self._lots: dict[str, InventoryLot] = {}
         self._event_hashes: dict[str, list[str]] = {}  # lot_id -> list of event hashes
         self._logger = logger

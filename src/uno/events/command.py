@@ -6,7 +6,8 @@ Modernized and integrated for DI, error handling, and extensibility.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, Generic, TypeVar
-from uno.errors.result import Result, Failure
+from uno.events.errors import UnoError
+
 
 C = TypeVar("C", bound="Command")
 T = TypeVar("T")
@@ -53,14 +54,18 @@ class CommandBus:
         cls._middleware.append(middleware)
 
     @classmethod
-    async def dispatch(cls, command: Command) -> Result[Any, Exception]:
-        """Dispatch a command to its registered handler, returning Failure if no handler is registered."""
+    async def dispatch(cls, command: Command) -> Any:
+        """
+        Dispatch a command to its registered handler.
+        Raises:
+            UnoError: if no handler is registered or if the handler raises an error.
+        Returns:
+            The result of the command handler.
+        """
         command_type = type(command)
         if command_type not in cls._handlers:
-            return Failure(
-                ValueError(
-                    f"No handler registered for command type {command_type.__name__}"
-                )
+            raise UnoError(
+                f"No handler registered for command type {command_type.__name__}"
             )
         handler = cls._handlers[command_type]
         # Apply middleware (if any)
@@ -70,4 +75,4 @@ class CommandBus:
         try:
             return await result(command)
         except Exception as e:
-            return Failure(e)
+            raise UnoError(f"Error while dispatching command: {e}") from e

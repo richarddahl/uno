@@ -543,7 +543,7 @@ class DIServiceCreationError(DIError):
         )
 
 
-class DIContainerDisposedError(DIError):
+class ContainerDisposedError(DIError):
     """Raised when trying to use a disposed container."""
 
     def __init__(

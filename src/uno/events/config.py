@@ -7,6 +7,7 @@ This module provides configuration settings for the events module.
 from typing import Literal
 
 from pydantic import Field, SecretStr
+from pydantic_settings import SettingsConfigDict
 
 from uno.config.base import UnoSettings
 
@@ -16,46 +17,50 @@ class EventsConfig(UnoSettings):
 
     # Event bus settings
     event_bus_type: Literal["memory", "postgres", "redis"] = Field(
-        "memory", description="Type of event bus to use", env="UNO_EVENTS_BUS_TYPE"
-    )
+        default="memory",
+        description="Type of event bus to use",
+        validation_alias="UNO_EVENTS_BUS_TYPE",
+    )  # No change needed, already correct
 
     # Event store settings
     event_store_type: Literal["memory", "postgres", "json"] = Field(
-        "memory", description="Type of event store to use", env="UNO_EVENTS_STORE_TYPE"
-    )
+        default="memory",
+        description="Type of event store to use",
+        validation_alias="UNO_EVENTS_STORE_TYPE",
+    )  # No change needed, already correct
 
     # Performance settings
     batch_size: int = Field(
         100,
         description="Maximum number of events to process in a batch",
-        env="UNO_EVENTS_BATCH_SIZE",
-    )
+        validation_alias="UNO_EVENTS_BATCH_SIZE",
+    )  # No change needed, already correct
 
     # Publication settings
     retry_attempts: int = Field(
         3,
         description="Number of retry attempts for event publication",
-        env="UNO_EVENTS_RETRY_ATTEMPTS",
-    )
+        validation_alias="UNO_EVENTS_RETRY_ATTEMPTS",
+    )  # No change needed, already correct
 
     retry_delay_ms: int = Field(
-        500,
+        default=500,
         description="Delay in milliseconds between retry attempts",
-        env="UNO_EVENTS_RETRY_DELAY_MS",
-    )
+        validation_alias="UNO_EVENTS_RETRY_DELAY_MS",
+    )  # No change needed, already correct
 
     # Database settings
-    db_connection_string: SecretStr = Field(
-        None,
+    db_connection_string: SecretStr | None = Field(
+        default=None,
         description="Connection string for the event store database",
-        env="UNO_EVENTS_DB_CONNECTION",
-    )
+        validation_alias="UNO_EVENTS_DB_CONNECTION",
+    )  # No change needed, already correct
 
     # Handler settings
     parallel_handlers: bool = Field(
-        False,
+        default=False,
         description="Whether to run event handlers in parallel",
-        env="UNO_EVENTS_PARALLEL_HANDLERS",
-    )
+        validation_alias="UNO_EVENTS_PARALLEL_HANDLERS",
+    )  # No change needed, already correct
 
-    model_config = {"env_prefix": "UNO_EVENTS_"}
+    model_config = SettingsConfigDict(env_prefix="UNO_EVENTS_")

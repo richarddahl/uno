@@ -21,7 +21,7 @@ from uno.errors.base import get_error_context
 from uno.errors.errors import DomainValidationError
 from uno.errors.result import Failure, Result, Success
 from uno.events import DomainEvent
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 # --- Aggregate ---

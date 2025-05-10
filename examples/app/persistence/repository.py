@@ -14,13 +14,13 @@ from examples.app.domain.inventory import (
 )
 from examples.app.api.errors import InventoryItemNotFoundError
 from uno.errors import Success, Failure
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class InMemoryInventoryItemRepository:
     """A minimal in-memory event-sourced repo for InventoryItem."""
 
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         self._events: dict[str, list[Any]] = {}
         self._logger = logger
         self._logger.debug("InMemoryInventoryItemRepository initialized.")

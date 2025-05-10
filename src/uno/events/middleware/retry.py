@@ -5,10 +5,10 @@ RetryMiddleware: Automatically retries failed event handlers.
 import asyncio
 from collections.abc import Callable
 from typing import Any
-from uno.errors.result import Result
+
 from uno.events.handlers import EventHandlerContext
 from uno.events.interfaces import EventHandlerMiddleware
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 from dataclasses import dataclass, field
 
 
@@ -35,11 +35,11 @@ class RetryOptions:
 class RetryMiddleware(EventHandlerMiddleware):
     """
     RetryMiddleware: Automatically retries failed event handlers.
-    Requires a DI-injected LoggerService instance (strict DI).
+    Requires a DI-injected LoggerProtocol instance (strict DI).
     """
 
     def __init__(
-        self, logger: LoggerService, options: RetryOptions | None = None
+        self, logger: LoggerProtocol, options: RetryOptions | None = None
     ) -> None:
         self.logger = logger
         self.options = options or RetryOptions()
@@ -47,14 +47,14 @@ class RetryMiddleware(EventHandlerMiddleware):
     async def process(
         self,
         context: EventHandlerContext,
-        next_middleware: Callable[[EventHandlerContext], Result[Any, Exception]],
-    ) -> Result[Any, Exception]:
+        next_middleware: Callable[[EventHandlerContext], None],
+    ) -> None:
         event = context.event
         attempt = 0
         while True:
-            result = await next_middleware(context)
-            if result.is_success or attempt >= self.options.max_retries:
-                if attempt > 0 and result.is_success:
+            try:
+                await next_middleware(context)
+                if attempt > 0:
                     self.logger.structured_log(
                         "INFO",
                         f"Event {event.event_type} succeeded after {attempt + 1} attempts",
@@ -62,35 +62,26 @@ class RetryMiddleware(EventHandlerMiddleware):
                         event_id=event.event_id,
                         aggregate_id=event.aggregate_id,
                     )
-                elif attempt > 0:
+                return
+            except Exception as err:
+                if not self.options.should_retry(err) or attempt >= self.options.max_retries:
                     self.logger.structured_log(
                         "ERROR",
                         f"Event {event.event_type} failed after {attempt + 1} attempts",
                         name="uno.events.middleware.retry",
                         event_id=event.event_id,
                         aggregate_id=event.aggregate_id,
-                        error=result.error,
+                        error=err,
                     )
-                return result
-            if not self.options.should_retry(result.error):
+                    raise
                 self.logger.structured_log(
-                    "DEBUG",
-                    f"Error not retryable for event {event.event_type}: {result.error}",
+                    "WARNING",
+                    f"Retrying event {event.event_type} (attempt {attempt + 1}) after {self.options.get_delay_ms(attempt)}ms",
                     name="uno.events.middleware.retry",
-                    error=result.error,
                     event_id=event.event_id,
                     aggregate_id=event.aggregate_id,
+                    attempt=attempt + 1,
+                    delay_ms=self.options.get_delay_ms(attempt),
                 )
-                return result
-            attempt += 1
-            delay_ms = self.options.get_delay_ms(attempt)
-            self.logger.structured_log(
-                "WARNING",
-                f"Retrying event {event.event_type} (attempt {attempt + 1}) after {delay_ms}ms",
-                name="uno.events.middleware.retry",
-                event_id=event.event_id,
-                aggregate_id=event.aggregate_id,
-                attempt=attempt,
-                delay_ms=delay_ms,
-            )
-            await asyncio.sleep(delay_ms / 1000)
+                await asyncio.sleep(self.options.get_delay_ms(attempt) / 1000)
+                attempt += 1

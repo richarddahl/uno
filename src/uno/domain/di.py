@@ -5,14 +5,14 @@ This module provides extension methods to register domain services
 with the DI container.
 """
 
-from uno.di.container import DIContainer
+from uno.di.container import Container
 from uno.domain.config import DomainConfig
 from uno.domain.repository import Repository
 from uno.domain.event_sourced_repository import EventSourcedRepository
 from uno.logging.protocols import LoggerProtocol
 
 
-async def register_domain_services(container: DIContainer) -> None:
+async def register_domain_services(container: Container) -> None:
     """
     Register all domain module services with the DI container.
 
