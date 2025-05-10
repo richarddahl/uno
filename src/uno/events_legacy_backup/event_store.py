@@ -13,7 +13,7 @@ from uno.events.interfaces import EventStoreProtocol
 from uno.errors.result import Failure, Result, Success
 
 if TYPE_CHECKING:
-    from uno.logging.logger import LoggerService
+    from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -102,12 +102,12 @@ class InMemoryEventStore(EventStore[E]):
     Stores events in a Python list grouped by aggregate_id.
     """
 
-    def __init__(self, logger: "LoggerService"):
+    def __init__(self, logger: "LoggerProtocol"):
         """
         Initialize the in-memory event store.
 
         Args:
-            logger (LoggerService): Logger instance for structured and debug logging.
+            logger (LoggerProtocol): Logger instance for structured and debug logging.
         """
         self.logger = logger
         self._events: dict[str, list[E]] = {}

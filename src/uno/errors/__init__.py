@@ -44,7 +44,7 @@ from uno.errors.component_errors import (
     DIServiceNotRegisteredError,
     DICircularDependencyError,
     DIServiceCreationError,
-    DIContainerDisposedError,
+    ContainerDisposedError,
     DIScopeDisposedError,
     # Event errors
     EventError,
@@ -199,7 +199,7 @@ __all__ = [
     "DIServiceNotRegisteredError",
     "DICircularDependencyError",
     "DIServiceCreationError",
-    "DIContainerDisposedError",
+    "ContainerDisposedError",
     "DIScopeDisposedError",
     # Event errors
     "EventError",

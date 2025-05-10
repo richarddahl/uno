@@ -9,26 +9,26 @@ providing orchestration and coordination capabilities for long-running processes
 """
 
 from uno.sagas.errors import (
-    SagaError,
-    SagaStoreError,
-    SagaNotFoundError,
     SagaAlreadyExistsError,
     SagaCompensationError,
+    SagaError,
+    SagaNotFoundError,
+    SagaStoreError,
 )
-from uno.sagas.protocols import Saga, SagaState, SagaStore
 from uno.sagas.implementations.memory import InMemorySagaStore
+from uno.sagas.manager import SagaManager
+from uno.sagas.protocols import SagaProtocol, SagaState, SagaStoreProtocol
 
 __all__ = [
-    # Core protocols
-    "Saga",
-    "SagaState",
-    "SagaStore",
-    # Errors
-    "SagaError",
-    "SagaStoreError",
-    "SagaNotFoundError",
+    # Core protocols, errors, implementations and manager - sorted alphabetically
+    "InMemorySagaStore",
     "SagaAlreadyExistsError",
     "SagaCompensationError",
-    # Implementations
-    "InMemorySagaStore",
+    "SagaError",
+    "SagaManager",
+    "SagaNotFoundError",
+    "SagaProtocol",
+    "SagaState",
+    "SagaStoreError",
+    "SagaStoreProtocol",
 ]

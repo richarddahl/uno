@@ -139,15 +139,28 @@ class StructuredFormatter(logging.Formatter):
         Returns:
             Formatted value string
         """
+        import datetime
+        import uuid
+
         if isinstance(value, str):
             # Quote strings that contain spaces
             if " " in value:
                 return f'"{value}"'
             return value
+        if isinstance(value, datetime.datetime | datetime.date):
+            return value.isoformat()
+        if isinstance(value, uuid.UUID):
+            return str(value)
         if isinstance(value, dict | list):
             # Convert complex types to JSON
+            try:
+                return json.dumps(value)
+            except TypeError:
+                return str(value)
+        try:
             return json.dumps(value)
-        return str(value)
+        except TypeError:
+            return str(value)
 
 
 # Updated UnoLogger to use simplified LoggingSettings

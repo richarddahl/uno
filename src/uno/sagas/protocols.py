@@ -8,11 +8,15 @@ This module contains the core protocols that define the interfaces for saga/proc
 components.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from abc import abstractmethod
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
-E = TypeVar("E")  # Event type
-C = TypeVar("C")  # Command type
+E = TypeVar("E")
+E_co = TypeVar("E_co", covariant=True)  # Event type
+E_contra = TypeVar("E_contra", contravariant=True)  # Event type
+C = TypeVar("C")
+C_co = TypeVar("C_co", covariant=True)  # Command type
+C_contra = TypeVar("C_contra", contravariant=True)  # Command type
 
 
 class SagaState:
@@ -26,51 +30,78 @@ class SagaState:
         self.data = data
 
 
-class SagaStore(ABC):
+@runtime_checkable
+class SagaStoreProtocol(Protocol):
     """
     Protocol for saga state persistence.
+
+    This protocol defines the interface for saga state storage and retrieval.
+    Implementations must provide concrete methods for saving, loading, and deleting
+    saga state.
     """
 
-    @abstractmethod
     async def save_state(self, saga_id: str, state: SagaState) -> None:
-        pass
+        """
+        Save the current state of a saga.
 
-    @abstractmethod
+        Args:
+            saga_id: Unique identifier for the saga
+            state: Current state of the saga
+        """
+        ...
+
     async def load_state(self, saga_id: str) -> SagaState | None:
-        pass
+        """
+        Load the state of a saga.
 
-    @abstractmethod
+        Args:
+            saga_id: Unique identifier for the saga
+
+        Returns:
+            The saga's state if found, None otherwise
+        """
+        ...
+
     async def delete_state(self, saga_id: str) -> None:
-        pass
+        """
+        Delete the state of a saga.
+
+        Args:
+            saga_id: Unique identifier for the saga
+        """
+        ...
 
 
-class Saga(ABC, Generic[E, C]):
+@runtime_checkable
+class SagaProtocol(Protocol, Generic[E_contra, C_co]):
     """
-    Base class for sagas/process managers.
+    Protocol for sagas/process managers.
+
+    Defines the interface for saga components that handle events and maintain state.
     """
 
-    @abstractmethod
-    async def start(self, event: E) -> list[C]:
-        """
-        Start a new saga instance based on the triggering event.
-        Returns commands to be executed.
-        """
-        pass
+    saga_id: str
+    saga_state: SagaState
 
     @abstractmethod
-    async def handle(self, event: E) -> list[C]:
+    async def handle_event(self, event: E_contra) -> None:
         """
-        Handle an event in an ongoing saga.
-        Returns commands to be executed.
+        Handle an event in the saga.
+
+        Args:
+            event: The event to process
         """
-        pass
+        ...
 
     @abstractmethod
-    async def complete(self) -> None:
+    def is_completed(self) -> bool:
         """
-        Mark the saga as completed.
+        Check if the saga is completed.
+
+        Returns:
+            True if the saga is completed, False otherwise
         """
-        pass
+        ...
 
     @abstractmethod
     async def compensate(self, error: Exception) -> list[C]:
@@ -78,4 +109,4 @@ class Saga(ABC, Generic[E, C]):
         Compensate for a failure in the saga.
         Returns compensating commands to be executed.
         """
-        pass
+        ...

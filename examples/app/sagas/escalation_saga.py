@@ -5,7 +5,7 @@ Example EscalationSaga: demonstrates escalation/alerting and human-in-the-loop i
 from typing import Any
 from uno.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class EscalationSaga(Saga):
@@ -13,7 +13,7 @@ class EscalationSaga(Saga):
     Orchestrates a process with escalation on repeated failure and human approval.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol | None = None) -> None:
         """
         Args:
             logger: Optional DI-injected logger. If not provided, uses get_saga_logger().

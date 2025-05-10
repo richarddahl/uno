@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING, TypeVar, Generic
 
 from uno.events.base_event import DomainEvent
 from uno.events.interfaces import EventBusProtocol, EventPublisherProtocol
-from uno.errors.result import Failure, Result
+from uno.events.errors import UnoError
+
 
 if TYPE_CHECKING:
-    from uno.logging.logger import LoggerService
+    from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -27,28 +28,25 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         - This contract is enforced by logging the canonical dict form of each event.
 
     Error Handling:
-        - All public methods return a Result type for error propagation.
+        - All public methods raise UnoError on error for error propagation.
         - Errors are logged using structured logging when possible.
     """
 
     def __init__(
         self,
         event_bus: EventBusProtocol,
-        logger: LoggerService | None = None,
+        logger: LoggerProtocol | None = None,
     ) -> None:
         """
         Initialize the event publisher.
 
         Args:
             event_bus (EventBusProtocol): The event bus to delegate publishing to.
-            logger (LoggerService | None): Logger for structured/debug logging. Defaults to a new LoggerService if not provided.
+            logger (LoggerProtocol | None): Logger for structured/debug logging. Defaults to a new LoggerProtocol if not provided.
         """
         self.event_bus = event_bus
-        from uno.logging.logger import LoggerService, Dev
-
-        self.logger = logger or LoggerService(Dev())
-        self.logger = logger or LoggerService(Dev())
-
+        # Use the injected logger or a no-op fallback
+        self.logger = logger
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
         Canonical event serialization for storage, logging, and transport.
@@ -61,53 +59,37 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         """
         return event.to_dict()
 
-    async def publish(self, event: E) -> Result[None, Exception]:
+    async def publish(self, event: E) -> None:
         """
         Publish a single event via the injected event bus.
-
-        Args:
-            event (E): The event to publish.
-        Returns:
-            Result[None, Exception]: Success if published, Failure if any error occurs.
+        Raises:
+            UnoError: if publishing fails
         """
         try:
-            self.logger.structured_log(
-                "DEBUG",
-                "Publishing event (canonical)",
-                event=self._canonical_event_dict(event),
-            )
-            result = await self.event_bus.publish(event)
-            if result.is_success:
+            if self.logger:
+                self.logger.debug(f"Publishing event (canonical): {self._canonical_event_dict(event)}")
+            await self.event_bus.publish(event)
+            if self.logger:
                 self.logger.debug(f"Published event: {event}")
-            else:
-                self.logger.error(f"Failed to publish event: {event}, result: {result}")
-            return result
         except Exception as e:
-            self.logger.error(f"Exception during publish: {e!s}")
-            return Failure(e)
+            if self.logger:
+                self.logger.error(f"Exception during publish: {e!s}")
+            raise UnoError(f"Failed to publish event: {event!r}") from e
 
-    async def publish_many(self, events: list[E]) -> Result[None, Exception]:
+    async def publish_many(self, events: list[E]) -> None:
         """
         Publish a list of events via the injected event bus.
-
-        Args:
-            events (list[E]): The events to publish.
-        Returns:
-            Result[None, Exception]: Success if all published, Failure if any error occurs.
+        Raises:
+            UnoError: if publishing any event fails
         """
         try:
-            for event in events:
-                self.logger.structured_log(
-                    "DEBUG",
-                    "Publishing event (canonical)",
-                    event=self._canonical_event_dict(event),
-                )
-            result = await self.event_bus.publish_many(events)
-            if result.is_success:
+            if self.logger:
+                for event in events:
+                    self.logger.debug(f"Publishing event (canonical): {self._canonical_event_dict(event)}")
+            await self.event_bus.publish_many(events)
+            if self.logger:
                 self.logger.debug(f"Published {len(events)} events")
-            else:
-                self.logger.error(f"Failed to publish events, result: {result}")
-            return result
         except Exception as e:
-            self.logger.error(f"Exception during publish_many: {e!s}")
-            return Failure(e)
+            if self.logger:
+                self.logger.error(f"Exception during publish_many: {e!s}")
+            raise UnoError(f"Failed to publish events: {events!r}") from e

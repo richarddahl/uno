@@ -6,7 +6,7 @@ import threading
 import pytest
 
 from uno.di.errors import (
-    DIContainerDisposedError,
+    ContainerDisposedError,
     DIScopeDisposedError,
     SyncInAsyncContextError,
 )
@@ -41,15 +41,15 @@ class MockContainer:
         return self.scopes
 
 
-class TestDIContainerDisposedError:
-    """Tests for DIContainerDisposedError."""
+class TestContainerDisposedError:
+    """Tests for ContainerDisposedError."""
 
     def test_init_with_basic_info(self) -> None:
         """Test initialization with basic container info."""
         container = MockContainer()
         container.disposed = True
 
-        error = DIContainerDisposedError(container=container)
+        error = ContainerDisposedError(container=container)
 
         assert "Operation attempted on disposed container" in str(error)
         assert error.error_code == "DI_CONTAINER_DISPOSED"
@@ -61,7 +61,7 @@ class TestDIContainerDisposedError:
         container = MockContainer()
         container.disposed = True
 
-        error = DIContainerDisposedError(
+        error = ContainerDisposedError(
             message="Cannot resolve service from disposed container",
             container=container,
         )
@@ -73,7 +73,7 @@ class TestDIContainerDisposedError:
         container = MockContainer()
         container.disposed = True
 
-        error = DIContainerDisposedError(operation_name="resolve", container=container)
+        error = ContainerDisposedError(operation_name="resolve", container=container)
 
         assert "Operation 'resolve' attempted on disposed container" in str(error)
         assert error.context["operation_name"] == "resolve"

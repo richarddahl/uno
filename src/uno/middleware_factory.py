@@ -2,7 +2,7 @@
 Factory for creating event handler middleware with proper logging integration.
 
 This module provides factories for creating middleware instances with
-standardized logging configuration using the LoggerServiceFactory pattern.
+standardized logging configuration using the LoggerProtocolFactory pattern.
 """
 
 from uno.errors.result import Result
@@ -13,13 +13,13 @@ from uno.events.middleware import (
     RetryMiddleware,
     RetryOptions,
 )
-from uno.logging.factory import LoggerServiceFactory
+from uno.logging.factory import LoggerProtocolFactory
 
 
 class EventHandlerMiddlewareFactory:
     """Factory for creating event handler middleware with consistent logging."""
 
-    def __init__(self, logger_factory: LoggerServiceFactory):
+    def __init__(self, logger_factory: LoggerProtocolFactory):
         """
         Initialize the middleware factory.
 
@@ -34,7 +34,7 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.retry",
     ) -> RetryMiddleware:
         """
-        Create a RetryMiddleware instance (strict DI: inject LoggerService).
+        Create a RetryMiddleware instance (strict DI: inject LoggerProtocol).
 
         Args:
             options: Optional retry options
@@ -53,7 +53,7 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.circuit_breaker",
     ) -> CircuitBreakerMiddleware:
         """
-        Create a CircuitBreakerMiddleware instance (strict DI: inject LoggerService).
+        Create a CircuitBreakerMiddleware instance (strict DI: inject LoggerProtocol).
 
         Args:
             event_types: Optional list of event types to apply circuit breaking to
@@ -74,7 +74,7 @@ class EventHandlerMiddlewareFactory:
         component_name: str = "events.middleware.metrics",
     ) -> MetricsMiddleware:
         """
-        Create a MetricsMiddleware instance (strict DI: inject LoggerService).
+        Create a MetricsMiddleware instance (strict DI: inject LoggerProtocol).
 
         Args:
             report_interval_seconds: Interval in seconds to report metrics
@@ -119,7 +119,7 @@ class EventHandlerMiddlewareFactory:
 
 
 def create_middleware_factory(
-    logger_factory: LoggerServiceFactory,
+    logger_factory: LoggerProtocolFactory,
 ) -> EventHandlerMiddlewareFactory:
     """
     Create a middleware factory with the given logger factory.

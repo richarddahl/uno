@@ -7,7 +7,7 @@ import pytest
 
 from uno.di.errors import (
     DICircularDependencyError,
-    DIContainerError,
+    ContainerError,
     DIServiceCreationError,
     DIServiceNotFoundError,
 )
@@ -41,13 +41,13 @@ class MockContainer:
         return self.scopes
 
 
-class TestDIContainerError:
-    """Tests for the DIContainerError base class."""
+class TestContainerError:
+    """Tests for the ContainerError base class."""
 
     def test_init_with_explicit_container(self):
         """Test initializing with an explicitly provided container."""
         mock_container = MockContainer()
-        error = DIContainerError("Test error", container=mock_container)
+        error = ContainerError("Test error", container=mock_container)
 
         assert "Test error" in str(error)
         assert error.error_code == "DI_CONTAINER_ERROR"
@@ -60,7 +60,7 @@ class TestDIContainerError:
         """Test initializing with a container that has an active scope."""
         mock_scope = MockScope("test_scope")
         mock_container = MockContainer(scope=mock_scope)
-        error = DIContainerError("Test error", container=mock_container)
+        error = ContainerError("Test error", container=mock_container)
 
         assert "current_scope_id" in error.context
         assert error.context["current_scope_id"] == "test_scope"
@@ -72,7 +72,7 @@ class TestDIContainerError:
     def test_init_without_capturing_container_state(self):
         """Test initializing without capturing container state."""
         mock_container = MockContainer()
-        error = DIContainerError(
+        error = ContainerError(
             "Test error", container=mock_container, capture_container_state=False
         )
 
@@ -85,7 +85,7 @@ class TestDIContainerError:
             "Test exception"
         )
 
-        error = DIContainerError("Test error", container=mock_container)
+        error = ContainerError("Test error", container=mock_container)
 
         assert "container_state_capture_error" in error.context
         assert "Test exception" in error.context["container_state_capture_error"]
@@ -95,12 +95,12 @@ class TestDIContainerError:
         mock_container = MockContainer()
 
         # Container should be set during the context
-        with DIContainerError.using_container(mock_container):
-            error = DIContainerError("Test error")
+        with ContainerError.using_container(mock_container):
+            error = ContainerError("Test error")
             assert "container_registrations" in error.context
 
         # Container should be cleared after the context
-        error = DIContainerError("Test error")
+        error = ContainerError("Test error")
         assert "container_registrations" not in error.context
 
     def test_using_container_with_nested_contexts(self):
@@ -108,14 +108,14 @@ class TestDIContainerError:
         outer_container = MockContainer()
         inner_container = MockContainer()
 
-        with DIContainerError.using_container(outer_container):
-            outer_error = DIContainerError("Outer error")
+        with ContainerError.using_container(outer_container):
+            outer_error = ContainerError("Outer error")
 
-            with DIContainerError.using_container(inner_container):
-                inner_error = DIContainerError("Inner error")
+            with ContainerError.using_container(inner_container):
+                inner_error = ContainerError("Inner error")
 
             # After inner context, should revert to outer container
-            after_inner_error = DIContainerError("After inner error")
+            after_inner_error = ContainerError("After inner error")
 
         # Ensure each error captured the right container
         assert (
@@ -137,13 +137,13 @@ class TestDIContainerError:
         thread_id = threading.get_ident()
 
         try:
-            with DIContainerError.using_container(mock_container):
+            with ContainerError.using_container(mock_container):
                 raise ValueError("Test exception")
         except ValueError:
             pass
 
         # Check that thread-local container is cleaned up
-        assert thread_id not in DIContainerError._current_container
+        assert thread_id not in ContainerError._current_container
 
 
 class TestDIServiceCreationError:

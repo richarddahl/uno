@@ -272,7 +272,7 @@ def SecureField(
     Returns:
         Field with secure value handling
     """
-    field_info = Field(default, **kwargs)
+    field_info = Field(default, json_schema_extra=kwargs.pop('json_schema_extra', {}), **kwargs)
     field_info.json_schema_extra = field_info.json_schema_extra or {}
     field_info.json_schema_extra["secure"] = True
     field_info.json_schema_extra["handling"] = handling.value

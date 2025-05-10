@@ -7,7 +7,7 @@ Implements orchestration, error context propagation, and DI-ready business logic
 
 from uno.errors.errors import DomainValidationError
 from uno.errors.result import Failure, Result, Success
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 from ..domain.vendor import Vendor
 from ..persistence.vendor_repository_protocol import VendorRepository
 
@@ -18,7 +18,7 @@ class VendorService:
     Orchestrates domain logic, repository, and error context propagation.
     """
 
-    def __init__(self, repo: VendorRepository, logger: LoggerService) -> None:
+    def __init__(self, repo: VendorRepository, logger: LoggerProtocol) -> None:
         self.repo = repo
         self.logger = logger
 

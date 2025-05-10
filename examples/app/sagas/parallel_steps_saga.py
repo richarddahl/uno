@@ -6,7 +6,7 @@ from typing import Any
 
 from examples.app.sagas.saga_logging import get_saga_logger
 from uno.events.sagas import Saga
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class ParallelStepsSaga(Saga):
@@ -14,7 +14,7 @@ class ParallelStepsSaga(Saga):
     Orchestrates a process where multiple independent steps must complete before proceeding.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol | None = None) -> None:
         """
         Args:
             logger: Optional DI-injected logger. If not provided, uses get_saga_logger().

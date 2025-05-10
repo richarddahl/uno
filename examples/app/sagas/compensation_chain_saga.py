@@ -5,7 +5,7 @@ Example CompensationChainSaga: demonstrates multi-step compensation in a Uno sag
 from typing import Any
 from uno.events.sagas import Saga
 from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class CompensationChainSaga(Saga):
@@ -13,7 +13,7 @@ class CompensationChainSaga(Saga):
     Orchestrates a process with multiple steps and chained compensations on failure.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol | None = None) -> None:
         """
         Args:
             logger: Optional DI-injected logger. If not provided, uses get_saga_logger().

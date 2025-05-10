@@ -22,10 +22,11 @@ class InMemoryUnitOfWork(UnitOfWork):
     This is useful for testing and simple applications where persistence is not required.
     """
 
-    def __init__(self):
+    def __init__(self, event_store=None):
         self._changes: Dict[str, Any] = {}
         self._committed = False
         self._rolled_back = False
+        self.event_store = event_store
 
     async def commit(self) -> None:
         """
@@ -67,7 +68,7 @@ class InMemoryUnitOfWork(UnitOfWork):
                 await uow.commit()
             ```
         """
-        uow = cls()
+        uow = cls(**kwargs)
         try:
             yield uow
         except Exception:

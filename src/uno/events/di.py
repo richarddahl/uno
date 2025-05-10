@@ -7,16 +7,17 @@ with the DI container.
 
 from typing import cast
 
-from uno.di.container import DIContainer
-from uno.events.bus import InMemoryEventBus
+from uno.di.container import Container
+from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.config import EventsConfig
-from uno.events.event_bus import EventBusProtocol
-from uno.events.event_store import EventStoreProtocol
-from uno.events.postgres_event_store import PostgresEventStore
+from uno.events.protocols import EventBusProtocol, EventStoreProtocol
+from uno.persistence.event_sourcing.implementations.postgres.event_store import (
+    PostgresEventStore,
+)
 from uno.logging.protocols import LoggerProtocol
 
 
-async def register_event_services(container: DIContainer) -> None:
+async def register_event_services(container: Container) -> None:
     """
     Register all event module services with the DI container.
 
@@ -36,7 +37,7 @@ async def register_event_services(container: DIContainer) -> None:
     # Additional event system service registrations would go here
 
 
-async def _register_event_bus(container: DIContainer, config: EventsConfig) -> None:
+async def _register_event_bus(container: Container, config: EventsConfig) -> None:
     """
     Register the appropriate event bus implementation based on configuration.
 
@@ -72,7 +73,7 @@ async def _register_event_bus(container: DIContainer, config: EventsConfig) -> N
         )
 
 
-async def _register_event_store(container: DIContainer, config: EventsConfig) -> None:
+async def _register_event_store(container: Container, config: EventsConfig) -> None:
     """
     Register the appropriate event store implementation based on configuration.
 

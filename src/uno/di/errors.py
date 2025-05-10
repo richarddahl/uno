@@ -113,7 +113,7 @@ class DIError(UnoError):
 # =============================================================================
 
 
-class DIContainerError(DIError):
+class ContainerError(DIError):
     """Base class for errors that capture container state.
 
     This error class is used when a container instance is available and should
@@ -195,7 +195,7 @@ class DIContainerError(DIError):
         """Set the current container for the current thread.
 
         This context manager sets the current container for the current thread,
-        which will be used by any DIContainerError instances created within
+        which will be used by any ContainerError instances created within
         the context manager's scope that don't have a container explicitly provided.
 
         Args:
@@ -243,7 +243,7 @@ class ServiceCreationError(DIError):
         self.__cause__ = error
 
 
-class DIServiceCreationError(DIContainerError):
+class DIServiceCreationError(ContainerError):
     """Enhanced error raised when a service cannot be created.
 
     This error is raised when the container encounters an error while creating
@@ -357,7 +357,7 @@ class ServiceNotRegisteredError(DIError):
         )
 
 
-class DIServiceNotFoundError(DIContainerError):
+class DIServiceNotFoundError(ContainerError):
     """Enhanced error raised when a service is not found in the container.
 
     This error is raised when a service is requested from the container but
@@ -430,7 +430,7 @@ class DuplicateRegistrationError(DIError):
         )
 
 
-class DICircularDependencyError(DIContainerError):
+class DICircularDependencyError(ContainerError):
     """Error raised when a circular dependency is detected.
 
     This error is raised when the container detects a circular dependency
@@ -477,7 +477,7 @@ class DICircularDependencyError(DIContainerError):
         )
 
 
-class SyncInAsyncContextError(DIContainerError):
+class SyncInAsyncContextError(ContainerError):
     """Raised when a sync DI API is called from an async context (event loop running)."""
 
     def __init__(
@@ -571,7 +571,7 @@ class ScopeError(DIError):
         return cls("Scope has been disposed", error_code="SCOPE_DISPOSED")
 
 
-class DIContainerDisposedError(DIContainerError):
+class ContainerDisposedError(ContainerError):
     """Enhanced error raised when an operation is attempted on a disposed container.
 
     This error is raised when an operation is attempted on a container that has
@@ -627,7 +627,7 @@ class DIContainerDisposedError(DIContainerError):
         )
 
 
-class DIScopeDisposedError(DIContainerError):
+class DIScopeDisposedError(ContainerError):
     """Enhanced error raised when an operation is attempted on a disposed scope.
 
     This error is raised when an operation is attempted on a scope that has
@@ -782,8 +782,8 @@ def container_disposed_error(
     operation: str,
     container: ContainerProtocol | None = None,
     **context: Any,
-) -> DIContainerDisposedError:
-    """Create a DIContainerDisposedError.
+) -> ContainerDisposedError:
+    """Create a ContainerDisposedError.
 
     Args:
         operation: The operation that was attempted
@@ -791,9 +791,9 @@ def container_disposed_error(
         **context: Additional context to include
 
     Returns:
-        A new DIContainerDisposedError instance
+        A new ContainerDisposedError instance
     """
-    return DIContainerDisposedError(
+    return ContainerDisposedError(
         operation=operation,
         container=container,
         **context,

@@ -33,6 +33,7 @@ from uno.events.registry import register_event_handler, subscribe
 # In-memory implementations
 from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.implementations.store import InMemoryEventStore
+from uno.events.implementations.command import InMemoryCommandBus
 
 # Handler utilities
 from uno.events.handlers import (
@@ -92,6 +93,7 @@ __all__ = [
     # In-memory implementations
     "InMemoryEventBus",
     "InMemoryEventStore",
+    "InMemoryCommandBus",
     # Handler utilities
     "EventHandlerContext",
     "EventHandlerDecorator",

@@ -15,6 +15,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol, TypeVar, cast, TYPE_CHECKING
 
+from uno.events.errors import EventStoreError
+from uno.errors.base import UnoError
+
+
 # Third-party imports
 from sqlalchemy import TIMESTAMP, Column, MetaData, String, Table, insert, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -23,13 +27,15 @@ from sqlalchemy.dialects.postgresql import JSONB
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from uno.domain.core import AggregateRoot
-    from uno.logging.logger import LoggerService
+    from uno.logging.protocols import LoggerProtocol
 
 # Application imports
-from uno.errors.result import Failure, Result, Success
+
 
 
 T = TypeVar("T")
+
+
 
 
 class SnapshotStrategy(Protocol):
@@ -154,7 +160,12 @@ class SnapshotStore(ABC):
     """Interface for snapshot storage and retrieval."""
 
     @abstractmethod
-    async def save_snapshot(self, aggregate: object) -> Result[None, Exception]:
+    async def save_snapshot(self, aggregate: object) -> None:
+        """
+        Save a snapshot of the aggregate.
+        Raises:
+            UnoError: if saving fails
+        """
         """
         Save a snapshot of an aggregate.
 
@@ -162,14 +173,23 @@ class SnapshotStore(ABC):
             aggregate: The aggregate to snapshot
 
         Returns:
-            Result with None on success, or an error
+            None
+        Raises:
+            UnoError: if saving fails
         """
         ...
 
     @abstractmethod
     async def get_snapshot(
         self, aggregate_id: str, aggregate_type: type[T]
-    ) -> Result[T | None, Exception]:
+    ) -> T | None:
+        """
+        Get a snapshot of the aggregate.
+        Returns:
+            The snapshot if found, None if not found.
+        Raises:
+            UnoError: if retrieval fails
+        """
         """
         Get the latest snapshot for an aggregate.
 
@@ -178,12 +198,19 @@ class SnapshotStore(ABC):
             aggregate_type: The type of the aggregate
 
         Returns:
-            Result with the snapshot if found, None if not found, or an error
+            The snapshot if found, None if not found.
+        Raises:
+            UnoError: if retrieval fails
         """
         ...
 
     @abstractmethod
-    async def delete_snapshot(self, aggregate_id: str) -> Result[None, Exception]:
+    async def delete_snapshot(self, aggregate_id: str) -> None:
+        """
+        Delete a snapshot by aggregate ID.
+        Raises:
+            UnoError: if deletion fails
+        """
         """
         Delete a snapshot.
 
@@ -191,7 +218,9 @@ class SnapshotStore(ABC):
             aggregate_id: The ID of the aggregate
 
         Returns:
-            Result with None on success, or an error
+            None
+        Raises:
+            UnoError: if saving fails
         """
         ...
 
@@ -199,7 +228,7 @@ class SnapshotStore(ABC):
 class InMemorySnapshotStore(SnapshotStore):
     """In-memory implementation of SnapshotStore."""
 
-    def __init__(self, logger: LoggerService):
+    def __init__(self, logger: LoggerProtocol):
         """
         Initialize the store.
 
@@ -209,15 +238,15 @@ class InMemorySnapshotStore(SnapshotStore):
         self.logger = logger
         self._snapshots: dict[str, AggregateRoot] = {}
 
-    async def save_snapshot(self, aggregate: AggregateRoot) -> Result[None, Exception]:
+    async def save_snapshot(self, aggregate: AggregateRoot) -> None:
         """
         Save a snapshot in memory.
 
         Args:
             aggregate: The aggregate to snapshot
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If saving fails.
         """
         try:
             self.logger.structured_log(
@@ -225,10 +254,7 @@ class InMemorySnapshotStore(SnapshotStore):
                 f"Saving snapshot for aggregate {aggregate.id}",
                 name="uno.events.snapshots",
             )
-
             self._snapshots[str(aggregate.id)] = aggregate
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -236,11 +262,9 @@ class InMemorySnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to save in-memory snapshot")
 
-    async def get_snapshot(
-        self, aggregate_id: str, aggregate_type: type[T]
-    ) -> Result[T | None, Exception]:
+    async def get_snapshot(self, aggregate_id: str, aggregate_type: type[T]) -> T | None:
         """
         Get a snapshot from memory.
 
@@ -249,7 +273,10 @@ class InMemorySnapshotStore(SnapshotStore):
             aggregate_type: The type of the aggregate
 
         Returns:
-            Result with the snapshot if found, None if not found, or an error
+            The snapshot if found and type matches, or None if not found.
+
+        Raises:
+            UnoError: If retrieval fails.
         """
         try:
             self.logger.structured_log(
@@ -257,7 +284,6 @@ class InMemorySnapshotStore(SnapshotStore):
                 f"Getting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
             if aggregate_id in self._snapshots:
                 snapshot = self._snapshots[aggregate_id]
                 if isinstance(snapshot, aggregate_type):
@@ -266,21 +292,19 @@ class InMemorySnapshotStore(SnapshotStore):
                         f"Found snapshot for aggregate {aggregate_id}",
                         name="uno.events.snapshots",
                     )
-                    return Success(cast("T", snapshot))
+                    return cast(T, snapshot)
                 else:
                     self.logger.structured_log(
                         "WARN",
                         f"Snapshot type mismatch for {aggregate_id}",
                         name="uno.events.snapshots",
                     )
-
             self.logger.structured_log(
                 "DEBUG",
                 f"No snapshot found for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-            return Success(None)
-
+            return None
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -288,17 +312,17 @@ class InMemorySnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to get in-memory snapshot")
 
-    async def delete_snapshot(self, aggregate_id: str) -> Result[None, Exception]:
+    async def delete_snapshot(self, aggregate_id: str) -> None:
         """
         Delete a snapshot from memory.
 
         Args:
             aggregate_id: The ID of the aggregate
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If deletion fails.
         """
         try:
             self.logger.structured_log(
@@ -306,7 +330,6 @@ class InMemorySnapshotStore(SnapshotStore):
                 f"Deleting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
             if aggregate_id in self._snapshots:
                 del self._snapshots[aggregate_id]
                 self.logger.structured_log(
@@ -314,9 +337,6 @@ class InMemorySnapshotStore(SnapshotStore):
                     f"Deleted snapshot for aggregate {aggregate_id}",
                     name="uno.events.snapshots",
                 )
-
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -324,13 +344,13 @@ class InMemorySnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to delete in-memory snapshot")
 
 
 class FileSystemSnapshotStore(SnapshotStore):
     """File system implementation of SnapshotStore."""
 
-    def __init__(self, logger: LoggerService, snapshot_dir: str = "./snapshots"):
+    def __init__(self, logger: LoggerProtocol, snapshot_dir: str = "./snapshots"):
         """
         Initialize the store.
 
@@ -355,7 +375,7 @@ class FileSystemSnapshotStore(SnapshotStore):
             exclude_none=True, exclude_unset=True, by_alias=True
         )
 
-    async def save_snapshot(self, aggregate: AggregateRoot) -> Result[None, Exception]:
+    async def save_snapshot(self, aggregate: AggregateRoot) -> None:
         """
         Save a snapshot to the file system.
 
@@ -365,27 +385,22 @@ class FileSystemSnapshotStore(SnapshotStore):
         Args:
             aggregate: The aggregate to snapshot
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If saving fails or aggregate is invalid.
         """
         try:
             aggregate_id = getattr(aggregate, "id", None)
             if not aggregate_id:
-                return Failure(ValueError("Aggregate must have an id field"))
-
+                raise UnoError("Aggregate must have an id field")
             path = self._get_snapshot_path(aggregate_id)
-            # Canonical serialization enforced here
             canonical_snapshot = self._canonical_snapshot_dict(aggregate)
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(canonical_snapshot, f, ensure_ascii=False, sort_keys=True)
-
             self.logger.structured_log(
                 "DEBUG",
                 f"Saved snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -393,11 +408,9 @@ class FileSystemSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to save file system snapshot")
 
-    async def get_snapshot(
-        self, aggregate_id: str, aggregate_type: type[T]
-    ) -> Result[T | None, Exception]:
+    async def get_snapshot(self, aggregate_id: str, aggregate_type: type[T]) -> T | None:
         """
         Get a snapshot from the file system.
 
@@ -406,7 +419,10 @@ class FileSystemSnapshotStore(SnapshotStore):
             aggregate_type: The type of the aggregate
 
         Returns:
-            Result with the snapshot if found, None if not found, or an error
+            The snapshot if found and type matches, or None if not found.
+
+        Raises:
+            UnoError: If retrieval or deserialization fails.
         """
         try:
             self.logger.structured_log(
@@ -414,7 +430,6 @@ class FileSystemSnapshotStore(SnapshotStore):
                 f"Getting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
             snapshot_path = self._get_snapshot_path(aggregate_id)
             if not snapshot_path.exists():
                 self.logger.structured_log(
@@ -422,13 +437,9 @@ class FileSystemSnapshotStore(SnapshotStore):
                     f"No snapshot file found for aggregate {aggregate_id}",
                     name="uno.events.snapshots",
                 )
-                return Success(None)
-
-            # Read from file
+                return None
             with open(snapshot_path) as f:
                 aggregate_dict = json.load(f)
-
-            # Check type
             stored_type = aggregate_dict.pop("_type", None)
             if stored_type != aggregate_type.__name__:
                 self.logger.structured_log(
@@ -436,26 +447,16 @@ class FileSystemSnapshotStore(SnapshotStore):
                     f"Snapshot type mismatch for {aggregate_id}: expected {aggregate_type.__name__}, got {stored_type}",
                     name="uno.events.snapshots",
                 )
-                return Success(None)
-
-            # Check if the aggregate type has a from_dict method
+                return None
             if not hasattr(aggregate_type, "from_dict"):
-                return Failure(
-                    ValueError(
-                        f"Aggregate type {aggregate_type.__name__} does not implement from_dict method"
-                    )
-                )
-
-            # Restore aggregate
+                raise UnoError(f"Aggregate type {aggregate_type.__name__} does not implement from_dict method")
             aggregate = aggregate_type.from_dict(aggregate_dict)
-
             self.logger.structured_log(
                 "DEBUG",
                 f"Retrieved snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-            return Success(aggregate)
-
+            return aggregate
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -463,17 +464,17 @@ class FileSystemSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to get file system snapshot")
 
-    async def delete_snapshot(self, aggregate_id: str) -> Result[None, Exception]:
+    async def delete_snapshot(self, aggregate_id: str) -> None:
         """
         Delete a snapshot from the file system.
 
         Args:
             aggregate_id: The ID of the aggregate
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If deletion fails.
         """
         try:
             self.logger.structured_log(
@@ -481,7 +482,6 @@ class FileSystemSnapshotStore(SnapshotStore):
                 f"Deleting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
             snapshot_path = self._get_snapshot_path(aggregate_id)
             if snapshot_path.exists():
                 os.remove(snapshot_path)
@@ -490,9 +490,6 @@ class FileSystemSnapshotStore(SnapshotStore):
                     f"Deleted snapshot file for aggregate {aggregate_id}",
                     name="uno.events.snapshots",
                 )
-
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -500,13 +497,13 @@ class FileSystemSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to delete file system snapshot")
 
 
 class PostgresSnapshotStore(SnapshotStore):
     """PostgreSQL implementation of SnapshotStore."""
 
-    def __init__(self, logger: LoggerService, async_session_factory):
+    def __init__(self, logger: LoggerProtocol, async_session_factory):
         """
         Initialize the store.
 
@@ -553,15 +550,15 @@ class PostgresSnapshotStore(SnapshotStore):
             )
             await session.commit()
 
-    async def save_snapshot(self, aggregate: AggregateRoot) -> Result[None, Exception]:
+    async def save_snapshot(self, aggregate: AggregateRoot) -> None:
         """
         Save a snapshot to PostgreSQL.
 
         Args:
             aggregate: The aggregate to snapshot
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If saving fails or aggregate is invalid.
         """
         try:
             self.logger.structured_log(
@@ -569,22 +566,11 @@ class PostgresSnapshotStore(SnapshotStore):
                 f"Saving snapshot for aggregate {aggregate.id}",
                 name="uno.events.snapshots",
             )
-
-            # Convert aggregate to dict
             if not hasattr(aggregate, "to_dict"):
-                return Failure(
-                    ValueError(
-                        f"Aggregate {aggregate.id} does not implement to_dict method"
-                    )
-                )
-
+                raise UnoError(f"Aggregate {aggregate.id} does not implement to_dict method")
             aggregate_dict = aggregate.to_dict()
-
-            # Get a session
             async with self.async_session_factory() as session:
                 await self._ensure_table_exists(session)
-
-                # Prepare the insert
                 current_time = datetime.now(datetime.UTC)
                 data = {
                     "aggregate_id": aggregate.id,
@@ -594,7 +580,6 @@ class PostgresSnapshotStore(SnapshotStore):
                 }
                 stmt = (
                     insert(self.snapshots_table).values(data)
-                    # If there's an existing snapshot, replace it
                     .on_conflict_do_update(
                         index_elements=["aggregate_id"],
                         set_={
@@ -604,18 +589,13 @@ class PostgresSnapshotStore(SnapshotStore):
                         },
                     )
                 )
-
-                # Execute
                 await session.execute(stmt)
                 await session.commit()
-
             self.logger.structured_log(
                 "DEBUG",
                 f"Saved snapshot for aggregate {aggregate.id}",
                 name="uno.events.snapshots",
             )
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -623,11 +603,9 @@ class PostgresSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to save postgres snapshot")
 
-    async def get_snapshot(
-        self, aggregate_id: str, aggregate_type: type[T]
-    ) -> Result[T | None, Exception]:
+    async def get_snapshot(self, aggregate_id: str, aggregate_type: type[T]) -> T | None:
         """
         Get a snapshot from PostgreSQL.
 
@@ -636,7 +614,10 @@ class PostgresSnapshotStore(SnapshotStore):
             aggregate_type: The type of the aggregate
 
         Returns:
-            Result with the snapshot if found, None if not found, or an error
+            The snapshot if found and type matches, or None if not found.
+
+        Raises:
+            UnoError: If retrieval or deserialization fails.
         """
         try:
             self.logger.structured_log(
@@ -644,52 +625,32 @@ class PostgresSnapshotStore(SnapshotStore):
                 f"Getting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
-            # Get a session
             async with self.async_session_factory() as session:
                 await self._ensure_table_exists(session)
-
-                # Query for the snapshot
                 query = (
                     select(self.snapshots_table)
                     .where(self.snapshots_table.c.aggregate_id == aggregate_id)
-                    .where(
-                        self.snapshots_table.c.aggregate_type == aggregate_type.__name__
-                    )
+                    .where(self.snapshots_table.c.aggregate_type == aggregate_type.__name__)
                 )
-
                 result = await session.execute(query)
                 row = result.fetchone()
-
                 if not row:
                     self.logger.structured_log(
                         "DEBUG",
                         f"No snapshot found for aggregate {aggregate_id}",
                         name="uno.events.snapshots",
                     )
-                    return Success(None)
-
-                # Get the data and restore the aggregate
+                    return None
                 aggregate_dict = row.data
-
-                # Check if the aggregate type has a from_dict method
                 if not hasattr(aggregate_type, "from_dict"):
-                    return Failure(
-                        ValueError(
-                            f"Aggregate type {aggregate_type.__name__} does not implement from_dict method"
-                        )
-                    )
-
-                # Restore aggregate
+                    raise UnoError(f"Aggregate type {aggregate_type.__name__} does not implement from_dict method")
                 aggregate = aggregate_type.from_dict(aggregate_dict)
-
                 self.logger.structured_log(
                     "DEBUG",
                     f"Retrieved snapshot for aggregate {aggregate_id}",
                     name="uno.events.snapshots",
                 )
-                return Success(aggregate)
-
+                return aggregate
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -697,17 +658,17 @@ class PostgresSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to get postgres snapshot")
 
-    async def delete_snapshot(self, aggregate_id: str) -> Result[None, Exception]:
+    async def delete_snapshot(self, aggregate_id: str) -> None:
         """
         Delete a snapshot from PostgreSQL.
 
         Args:
             aggregate_id: The ID of the aggregate
 
-        Returns:
-            Result with None on success, or an error
+        Raises:
+            UnoError: If deletion fails.
         """
         try:
             self.logger.structured_log(
@@ -715,27 +676,18 @@ class PostgresSnapshotStore(SnapshotStore):
                 f"Deleting snapshot for aggregate {aggregate_id}",
                 name="uno.events.snapshots",
             )
-
-            # Get a session
             async with self.async_session_factory() as session:
                 await self._ensure_table_exists(session)
-
-                # Delete the snapshot
                 stmt = self.snapshots_table.delete().where(
                     self.snapshots_table.c.aggregate_id == aggregate_id
                 )
-
                 await session.execute(stmt)
                 await session.commit()
-
                 self.logger.structured_log(
                     "DEBUG",
                     f"Deleted snapshot for aggregate {aggregate_id}",
                     name="uno.events.snapshots",
                 )
-
-            return Success(None)
-
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
@@ -743,4 +695,4 @@ class PostgresSnapshotStore(SnapshotStore):
                 name="uno.events.snapshots",
                 error=e,
             )
-            return Failure(e)
+            raise UnoError.wrap(e, message="Failed to delete postgres snapshot")
