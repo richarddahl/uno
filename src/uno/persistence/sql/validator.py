@@ -5,9 +5,9 @@ SQL statement validation.
 from __future__ import annotations
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field
-from uno.errors.result import Result, Success, Failure
 from uno.persistence.sql.interfaces import SQLValidatorProtocol
 from uno.persistence.sql.config import SQLConfig
+from uno.errors import UnoError
 
 
 class SQLValidator:
@@ -21,37 +21,37 @@ class SQLValidator:
         """
         self._config = config
 
-    async def validate_statement(self, statement: str) -> Result[None, str]:
+    async def validate_statement(self, statement: str) -> None:
         """Validate SQL statement.
 
         Args:
             statement: SQL statement to validate
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: If statement validation fails
         """
         try:
             if self._config.DB_VALIDATE_SYNTAX:
                 await self._validate_syntax(statement)
-            return Success(None)
+            return None
         except Exception as e:
-            return Failure(str(e))
+            raise UnoError("SQL statement validation failed") from e
 
-    async def validate_dependencies(self, statements: list[str]) -> Result[None, str]:
+    async def validate_dependencies(self, statements: list[str]) -> None:
         """Validate dependencies between statements.
 
         Args:
             statements: List of SQL statements to validate
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: If dependency validation fails
         """
         try:
             if self._config.DB_VALIDATE_DEPENDENCIES:
                 await self._validate_dependency_order(statements)
-            return Success(None)
+            return None
         except Exception as e:
-            return Failure(str(e))
+            raise UnoError("SQL statement validation failed") from e
 
     async def _validate_syntax(self, statement: str) -> None:
         """Validate SQL syntax.

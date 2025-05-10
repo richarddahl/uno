@@ -13,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 # Ensure the src directory is in the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -29,7 +29,7 @@ from uno.examples.todolist.application.queries import ListTodoItemsQuery
 from uno.examples.todolist.domain.models import TodoPriority
 
 
-async def run_demo(logger_service: LoggerService) -> None:
+async def run_demo(logger_service: LoggerProtocol) -> None:
     """Run the demo."""
     logger = logger_service.get_logger(__name__)
     logger.info("Initializing TodoList bounded context...")
@@ -90,7 +90,7 @@ async def run_demo(logger_service: LoggerService) -> None:
 
 
 def main() -> None:
-    logger_service = LoggerService()
+    logger_service = LoggerProtocol()
     asyncio.run(run_demo(logger_service))
 
 

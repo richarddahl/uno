@@ -3,10 +3,8 @@ SQL trigger emitter implementation.
 """
 
 from typing import Any
-
+from uno.errors import UnoError
 from uno.persistence.sql.interfaces import SQLEmitterProtocol
-from uno.errors.result import Result, Success, Failure
-from uno.errors.base import UnoError
 
 
 class CreateTriggerEmitter:
@@ -21,9 +19,12 @@ class CreateTriggerEmitter:
         self.event = event
         self.table = table
 
-    def emit(self) -> Result[str, UnoError]:
+    def emit(self) -> str:
         """
         Emit the SQL statement for creating a trigger.
+        
+        Raises:
+            UnoError: If there's an error creating the trigger emitter
         """
         try:
             sql = f"""
@@ -34,14 +35,12 @@ BEGIN
     {self.definition}
 END;
 """
-            return Success(sql)
+            return sql
         except Exception as e:
-            return Failure(
-                UnoError(
-                    f"Failed to create trigger emitter: {e}",
-                    "SQL_EMITTER_ERROR",
-                )
-            )
+            raise UnoError(
+                f"Failed to create trigger emitter: {e}",
+                "SQL_EMITTER_ERROR",
+            ) from e
 
 
 class DropTriggerEmitter:
@@ -53,17 +52,18 @@ class DropTriggerEmitter:
         self.name = name
         self.table = table
 
-    def emit(self) -> Result[str, UnoError]:
+    def emit(self) -> str:
         """
         Emit the SQL statement for dropping a trigger.
+        
+        Raises:
+            UnoError: If there's an error creating the drop trigger emitter
         """
         try:
             sql = f"DROP TRIGGER IF EXISTS {self.name} ON {self.table};"
-            return Success(sql)
+            return sql
         except Exception as e:
-            return Failure(
-                UnoError(
-                    f"Failed to create drop trigger emitter: {e}",
-                    "SQL_EMITTER_ERROR",
-                )
-            )
+            raise UnoError(
+                f"Failed to create drop trigger emitter: {e}",
+                "SQL_EMITTER_ERROR",
+            ) from e

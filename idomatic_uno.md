@@ -1,0 +1,28 @@
+# idiomatic uno
+
+- The framework is async first!
+- Use modern python type hints with primitives (dict, type, list etc...) not Dict, Type, List, etc...
+- Use X | Y not Union[X, Y]
+- Use X & Y not Intersection[X, Y]
+ -Use X -> Y not Callable[[X], Y]
+- Use X | None not Optional[X]
+- Use X | Y | Z not Union[X, Y, Z]
+- Use X | Y | Z | None not Optional[X | Y | Z]
+- Use pydantic 2 for data validation
+- Use modern implementations of library, with NO deprecation warnings triggered
+- Use python 3.13
+- Use black and ruff for formatting and linting
+- Use mypy for type checking
+- Tests are run with: hatch run test:testV
+- Test framework is pytest
+- Use hatch for dependency management
+- All arguments (except of course cls and self), are typed using python 3.13 style
+- All methods and functions type thier return type
+- Tests are written to the same clean-code standards as core code
+- MockObject or FakeObject but never, ever: TestObject
+- Prefer Protocol over ABC whenever possible
+- Protocols define interfaces, in pkg specific protocols.py modules, and use them for type hinting
+- Protocols are defined with the Protocol suffix
+- Concrete implementations are defined outside protocols.py and have no suffix
+- All imports are properly formatted and ordered
+- All public API symbols are listed in __init__.__all__ in proper isort ordering

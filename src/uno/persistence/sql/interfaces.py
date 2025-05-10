@@ -142,7 +142,6 @@ class SQLExecutionServiceProtocol(Protocol):
 
 
 from uno.errors import UnoError
-from uno.errors.result import Result
 from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
@@ -193,11 +192,21 @@ class TransactionManagerProtocol(Protocol):
 class SQLValidatorProtocol(Protocol):
     """Protocol for validating SQL statements."""
 
-    def validate_statement(self, statement: Any) -> Result[None, Exception]:
+    def validate_statement(self, statement: Any) -> None:
+        """
+        Validate a SQL statement.
+        Raises:
+            UnoError: if validation fails
+        """
         """Validate a SQL statement."""
         ...
 
-    def validate_dependencies(self, statements: list[Any]) -> Result[None, Exception]:
+    def validate_dependencies(self, statements: list[Any]) -> None:
+        """
+        Validate SQL statement dependencies.
+        Raises:
+            UnoError: if dependency validation fails
+        """
         """Validate statement dependencies."""
         ...
 
@@ -223,7 +232,12 @@ class SecurityManagerProtocol(Protocol):
         """Sanitize SQL statement to prevent injection."""
         ...
 
-    def validate_permissions(self, statement: Any) -> Result[None, Exception]:
+    def validate_permissions(self, statement: Any) -> None:
+        """
+        Validate SQL statement permissions.
+        Raises:
+            UnoError: if permission validation fails
+        """
         """Validate user permissions for statement."""
         ...
 
@@ -274,7 +288,12 @@ class MigrationManagerProtocol(Protocol):
         """Create a new migration."""
         ...
 
-    def apply_migrations(self) -> Result[None, Exception]:
+    def apply_migrations(self) -> None:
+        """
+        Apply database migrations.
+        Raises:
+            UnoError: if migration fails
+        """
         """Apply pending migrations."""
         ...
 
@@ -283,11 +302,21 @@ class MigrationManagerProtocol(Protocol):
 class ConfigManagerProtocol(Protocol):
     """Protocol for managing SQL configuration."""
 
-    def load_config(self, path: str) -> Result[None, Exception]:
+    def load_config(self, path: str) -> None:
+        """
+        Load configuration from the given path.
+        Raises:
+            UnoError: if loading fails
+        """
         """Load configuration from file."""
         ...
 
-    def validate_config(self) -> Result[None, Exception]:
+    def validate_config(self) -> None:
+        """
+        Validate loaded configuration.
+        Raises:
+            UnoError: if config is invalid
+        """
         """Validate configuration."""
         ...
 

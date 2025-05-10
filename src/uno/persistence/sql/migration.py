@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text, MetaData, Table, Column, String, Integer, DateTime
 from sqlalchemy.ext.asyncio import AsyncSession
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 class Migration(BaseModel):
@@ -34,7 +34,7 @@ class MigrationManager:
         db_migrations_table: str,
         db_migrations_dir: str,
         connection_manager: ConnectionManager,
-        logger: LoggerService,
+        logger: LoggerProtocol,
     ) -> None:
         """
         Initialize migration manager.

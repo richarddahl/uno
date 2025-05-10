@@ -10,10 +10,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
-from uno.errors.result import Result, Success, Failure
+from uno.errors import UnoError
+from uno.persistence.sql.errors import SQLErrorCode
 from uno.persistence.sql.interfaces import ConnectionManagerProtocol
 from uno.persistence.sql.config import SQLConfig
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 class ConnectionHealth(BaseModel):
@@ -33,7 +34,7 @@ class ConnectionManager:
     def __init__(
         self,
         config: SQLConfig,
-        logger: LoggerService,
+        logger: LoggerProtocol,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         health_check_interval: float = 30.0,
@@ -52,8 +53,8 @@ class ConnectionManager:
         self._max_retries = max_retries
         self._retry_delay = retry_delay
         self._health_check_interval = health_check_interval
-        self._engine:int | NoneAsyncEngine] = None
-        self._session_factory:int | Nonesessionmaker[AsyncSession]] = None
+        self._engine: AsyncEngine | None = None
+        self._session_factory: sessionmaker[AsyncSession] = None
         self._health_status = ConnectionHealth(
             is_healthy=False,
             last_check=datetime.now(),
@@ -62,7 +63,7 @@ class ConnectionManager:
             pool_size=0,
             available_connections=0,
         )
-        self._health_check_task:int | Noneasyncio.Task] = None
+        self._health_check_task: asyncio.Task | None = None
         self._initialize_pool()
 
     def _initialize_pool(self) -> None:
@@ -151,20 +152,31 @@ class ConnectionManager:
             )
             raise
 
-    async def get_connection(self) -> Result[AsyncSession, str]:
+    async def get_connection(self) -> AsyncSession:
         """Get a database connection with retry logic.
 
         Returns:
-            Result containing database session or error
+            AsyncSession: The database session
+
+        Raises:
+            UnoError: if connection cannot be obtained
         """
         for attempt in range(self._max_retries):
             try:
                 if not self._session_factory:
-                    return Failure("Connection pool not initialized")
+                    raise UnoError(
+                        message="Connection pool not initialized",
+                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason="Connection pool not initialized"
+                    )
                 if not self._health_status.is_healthy:
-                    return Failure("Connection pool is unhealthy")
+                    raise UnoError(
+                        message="Connection pool is unhealthy",
+                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason="Connection pool is unhealthy"
+                    )
                 session = self._session_factory()
-                return Success(session)
+                return session
             except Exception as e:
                 self._logger.structured_log(
                     "ERROR",
@@ -176,22 +188,22 @@ class ConnectionManager:
                 if attempt < self._max_retries - 1:
                     await asyncio.sleep(self._retry_delay)
                 else:
-                    return Failure(
-                        f"Failed to get connection after {self._max_retries} attempts: {str(e)}"
+                    raise UnoError(
+                        message=f"Failed to get connection after {self._max_retries} attempts",
+                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason=str(e)
                     )
-
-    async def release_connection(self, session: AsyncSession) -> Result[None, str]:
+    async def release_connection(self, session: AsyncSession) -> None:
         """Release a database connection.
 
         Args:
             session: Database session to release
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: if connection cannot be released
         """
         try:
             await session.close()
-            return Success(None)
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -199,13 +211,17 @@ class ConnectionManager:
                 name="uno.sql.connection",
                 error=e,
             )
-            return Failure(f"Failed to release connection: {str(e)}")
+            raise UnoError(
+                message="Failed to release connection",
+                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason=str(e)
+            )
 
-    async def close(self) -> Result[None, str]:
+    async def close(self) -> None:
         """Close all connections in the pool.
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: if connection pool cannot be closed
         """
         try:
             if self._health_check_task:
@@ -214,13 +230,8 @@ class ConnectionManager:
                     await self._health_check_task
                 except asyncio.CancelledError:
                     pass
-                self._health_check_task = None
-
             if self._engine:
                 await self._engine.dispose()
-                self._engine = None
-                self._session_factory = None
-            return Success(None)
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -228,15 +239,28 @@ class ConnectionManager:
                 name="uno.sql.connection",
                 error=e,
             )
-            return Failure(f"Failed to close connection pool: {str(e)}")
+            raise UnoError(
+                message="Failed to close connection pool",
+                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason=str(e)
+            )
 
     @property
-    def engine(self) ->int | NoneAsyncEngine]:
+    def engine(self) -> AsyncEngine:
         """Get the SQLAlchemy engine.
 
         Returns:
-            SQLAlchemy engine or None if not initialized
+            AsyncEngine: The SQLAlchemy engine
+
+        Raises:
+            UnoError: if engine is not initialized
         """
+        if not self._engine:
+            raise UnoError(
+                message="Engine not initialized",
+                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason="Engine not initialized"
+            )
         return self._engine
 
     @property

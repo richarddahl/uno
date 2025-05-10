@@ -13,7 +13,6 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import Table
 from pydantic_settings import BaseSettings
-from uno.config.base import ProdSettingsConfigDict
 from uno.persistence.sql.interfaces import ConfigManagerProtocol
 
 if TYPE_CHECKING:
@@ -65,7 +64,6 @@ class ConnectionConfig(BaseModel):
 
 from uno.persistence.sql.registry import SQLConfigRegistry
 from uno.errors import UnoError
-from uno.errors.result import Failure, Result, Success
 from uno.persistence.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
@@ -85,32 +83,32 @@ class SQLConfig(BaseSettings):
     """SQL configuration."""
 
     # Connection settings
-    DB_HOST: str = Field(default="localhost")
-    DB_PORT: int = Field(default=5432)
-    DB_NAME: str = Field(default="uno_db")
-    DB_USER: str = Field(default="uno_user")
-    DB_PASSWORD: str = Field(default="uno_password")
+    DB_HOST: str = Field(default="localhost", validation_alias="DB_HOST")
+    DB_PORT: int = Field(default=5432, validation_alias="DB_PORT")
+    DB_NAME: str = Field(default="uno_db", validation_alias="DB_NAME")
+    DB_USER: str = Field(default="uno_user", validation_alias="DB_USER")
+    DB_PASSWORD: str = Field(default="uno_password", validation_alias="DB_PASSWORD")
 
     # SQLAlchemy settings
-    DB_POOL_SIZE: int = Field(default=5)
-    DB_MAX_OVERFLOW: int = Field(default=10)
-    DB_POOL_TIMEOUT: float = Field(default=30.0)
-    DB_POOL_RECYCLE: int = Field(default=1800)
-    DB_ECHO: bool = Field(default=False)
-    DB_ECHO_POOL: bool = Field(default=False)
+    DB_POOL_SIZE: int = Field(default=5, validation_alias="DB_POOL_SIZE")
+    DB_MAX_OVERFLOW: int = Field(default=10, json_schema_extra={"env": "DB_MAX_OVERFLOW"})
+    DB_POOL_TIMEOUT: float = Field(default=30.0, json_schema_extra={"env": "DB_POOL_TIMEOUT"})
+    DB_POOL_RECYCLE: int = Field(default=1800, json_schema_extra={"env": "DB_POOL_RECYCLE"})
+    DB_ECHO: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO"})
+    DB_ECHO_POOL: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO_POOL"})
 
     # Transaction settings
-    DB_ISOLATION_LEVEL: str = Field(default="READ COMMITTED")
-    DB_READ_ONLY: bool = Field(default=False)
+    DB_ISOLATION_LEVEL: str = Field(default="READ COMMITTED", json_schema_extra={"env": "DB_ISOLATION_LEVEL"})
+    DB_READ_ONLY: bool = Field(default=False, json_schema_extra={"env": "DB_READ_ONLY"})
 
     # Validation settings
-    DB_VALIDATE_SYNTAX: bool = Field(default=True)
-    DB_VALIDATE_DEPENDENCIES: bool = Field(default=True)
-    DB_CHECK_PERMISSIONS: bool = Field(default=True)
+    DB_VALIDATE_SYNTAX: bool = Field(default=True, json_schema_extra={"env": "DB_VALIDATE_SYNTAX"})
+    DB_VALIDATE_DEPENDENCIES: bool = Field(default=True, json_schema_extra={"env": "DB_VALIDATE_DEPENDENCIES"})
+    DB_CHECK_PERMISSIONS: bool = Field(default=True, json_schema_extra={"env": "DB_CHECK_PERMISSIONS"})
 
     # Security settings
-    DB_CHECK_SQL_INJECTION: bool = Field(default=True)
-    DB_AUDIT_LOGGING: bool = Field(default=True)
+    DB_CHECK_SQL_INJECTION: bool = Field(default=True, json_schema_extra={"env": "DB_CHECK_SQL_INJECTION"})
+    DB_AUDIT_LOGGING: bool = Field(default=True, json_schema_extra={"env": "DB_AUDIT_LOGGING"})
 
     model_config = ConfigDict(env_prefix="DB_", extra="forbid")
 
@@ -123,10 +121,10 @@ class SQLConfig(BaseSettings):
     )
 
     # Testing settings
-    DB_TEST_DATABASE: str = Field(default="test_db", description="Test database name")
-    DB_TEST_USER: str = Field(default="test_user", description="Test database user")
+    DB_TEST_DATABASE: str = Field(default="test_db", description="Test database name", json_schema_extra={"env": "DB_TEST_DATABASE"})
+    DB_TEST_USER: str = Field(default="test_user", description="Test database user", json_schema_extra={"env": "DB_TEST_USER"})
     DB_TEST_PASSWORD: str = Field(
-        default="test_password", description="Test database password"
+        default="test_password", description="Test database password", json_schema_extra={"env": "DB_TEST_PASSWORD"}
     )
 
     # Documentation settings
@@ -155,10 +153,10 @@ class SQLConfig(BaseSettings):
     )
 
     # Logging settings
-    DB_LOG_SQL: bool = Field(default=True, description="Log SQL statements")
-    DB_LOG_ERRORS: bool = Field(default=True, description="Log SQL errors")
+    DB_LOG_SQL: bool = Field(default=True, description="Log SQL statements", json_schema_extra={"env": "DB_LOG_SQL"})
+    DB_LOG_ERRORS: bool = Field(default=True, description="Log SQL errors", json_schema_extra={"env": "DB_LOG_ERRORS"})
     DB_LOG_PERFORMANCE: bool = Field(
-        default=True, description="Log performance metrics"
+        default=True, description="Log performance metrics", json_schema_extra={"env": "DB_LOG_PERFORMANCE"}
     )
 
     def get_connection_url(self) -> str:
@@ -187,49 +185,71 @@ class ConfigManager:
 
     def __init__(self) -> None:
         """Initialize config manager."""
-        self._config:int | NoneSQLConfig] = None
+        self._config: SQLConfig | None = None
 
-    def load_config(self, config_path: str) -> Result[None, str]:
+    def load_config(self, config_path: str) -> None:
         """Load configuration from file.
 
         Args:
             config_path: Path to configuration file
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: if configuration loading fails
         """
         try:
             # TODO: Implement configuration loading
+            # When implemented, raise UnoError on failure with appropriate error code
             # This would typically load from a YAML or JSON file
-            return Success(None)
+            pass
         except Exception as e:
-            return Failure(str(e))
+            raise UnoError(
+                message=str(e),
+                error_code=SQLErrorCode.SQL_CONFIG_ERROR,
+                reason=str(e)
+            )
 
-    def validate_config(self) -> Result[None, str]:
-        """Validate configuration.
-
-        Returns:
-            Result indicating success or failure
-        """
-        try:
-            if not self._config:
-                return Failure("Configuration not loaded")
-            # TODO: Implement configuration validation
-            return Success(None)
-        except Exception as e:
-            return Failure(str(e))
-
-    def _parse_config_file(self, config_path: str) -> dict[str, Any]:
-        """Parse configuration file.
+    def validate_config(self, config: SQLConfig) -> None:
+        """Validate SQL configuration.
 
         Args:
-            config_path: Path to configuration file
+            config: SQL configuration to validate
+
+        Raises:
+            UnoError: if validation fails
+        """
+        try:
+            # TODO: Implement validation
+            pass
+        except Exception as e:
+            raise UnoError(
+                message=str(e),
+                error_code=SQLErrorCode.SQL_CONFIG_INVALID,
+                reason=str(e)
+            )
+
+    def get_config(self) -> SQLConfig:
+        """Get current configuration.
 
         Returns:
-            Configuration dictionary
+            SQLConfig: The current configuration
+
+        Raises:
+            UnoError: if configuration is not loaded
         """
-        # TODO: Implement configuration file parsing
-        return {}
+        try:
+            if self._config is None:
+                raise UnoError(
+                    message="Configuration not loaded",
+                    error_code=SQLErrorCode.SQL_CONFIG_ERROR,
+                    reason="Configuration not loaded"
+                )
+            return self._config
+        except Exception as e:
+            raise UnoError(
+                message=str(e),
+                error_code=SQLErrorCode.SQL_CONFIG_ERROR,
+                reason=str(e)
+            )
 
     def _validate_connection_config(self) -> None:
         """Validate connection configuration."""

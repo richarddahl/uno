@@ -25,7 +25,7 @@ from uno.persistence.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 from uno.persistence.sql.emitter import SQLEmitter
 from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 from typing import Any, Protocol, TypeVar
@@ -741,7 +741,7 @@ class VectorSearchEmitter(SQLEmitter):
             config: ConfigProtocol instance (DI required)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or LoggerService().get_logger(__name__)
+        logger = logger or LoggerProtocol().get_logger(__name__)
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)
@@ -1092,7 +1092,7 @@ class VectorBatchEmitter(SQLEmitter):
             config: ConfigProtocol instance (DI required)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or LoggerService().get_logger(__name__)
+        logger = logger or LoggerProtocol().get_logger(__name__)
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)

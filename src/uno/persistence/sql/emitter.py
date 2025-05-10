@@ -29,7 +29,7 @@ from uno.persistence.sql.interfaces import (
     ConnectionConfigProtocol,
     EngineFactoryProtocol,
 )
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 from uno.persistence.sql.observers import BaseObserver, SQLObserver
 from uno.persistence.sql.statement import SQLStatement, SQLStatementType
 from uno.persistence.sql.config import ConnectionConfig
@@ -104,7 +104,7 @@ class SQLEmitter(BaseModel):
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
 
-        logger = data.pop("logger", None) or LoggerService(config).get_logger()
+        logger = data.pop("logger", None) or LoggerProtocol(config).get_logger()
         super().__init__(logger=logger, config=config, **data)
 
     def generate_sql(self) -> list[SQLStatement]:

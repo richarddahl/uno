@@ -4,8 +4,6 @@
 Custom API error types for Uno example app, for idiomatic error handling and mapping to HTTP responses.
 """
 
-from uno.errors.result import Result, Success, Failure
-
 
 class ResourceNotFoundError(Exception):
     """Base class for all resource-not-found errors in the Uno API."""

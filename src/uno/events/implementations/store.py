@@ -9,7 +9,7 @@ and simple applications.
 """
 
 import copy
-from typing import Any, TypeVar, cast
+from typing import TypeVar
 
 from uno.events.base_event import DomainEvent
 from uno.events.protocols import EventStoreProtocol

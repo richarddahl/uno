@@ -3,26 +3,36 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+from typing import TYPE_CHECKING, Any, TypeVar
+
 from uno.events.base_event import DomainEvent
-from uno.events.interfaces import EventBusProtocol
-from uno.events.errors import EventPublishError, EventHandlerError
-from uno.events.config import EventsConfig
-from uno.logging.protocols import LoggerProtocol
+from uno.events.errors import (
+    EventErrorCode,
+    EventHandlerError,
+    EventPublishError,
+    UnoError as AppError,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from uno.events.config import EventsConfig
+    from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-class InMemoryEventBus(EventBusProtocol):
+class InMemoryEventBus:
     """
-    Simple in-memory event bus for Uno event sourcing (development/testing).
+    In-memory implementation of event bus.
 
-    Canonical Serialization Contract:
-        - All events published/logged MUST use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True)` for serialization, storage, and transport.
-        - This contract is enforced by logging the canonical dict form of each event.
+    Args:
+        logger: Logger instance for structured logging
+        config: Events configuration settings
 
     Error Handling:
-        - Uses structured exception-based error handling
+        - Uses structured exception-based error handling with AppError
         - Errors are logged using structured logging
 
     Type Parameters:
@@ -37,7 +47,7 @@ class InMemoryEventBus(EventBusProtocol):
             logger: Logger instance for structured logging
             config: Events configuration settings
         """
-        self._subscribers: dict[str, list[Any]] = {}
+        self._subscribers: dict[str, list[Callable[[E], Awaitable[None]]]] = {}
         self.logger = logger
         self.config = config
 
@@ -105,10 +115,14 @@ class InMemoryEventBus(EventBusProtocol):
                     if self.config.retry_attempts > 0:
                         await self._retry_handler(handler, event, metadata)
                     else:
-                        raise EventHandlerError(
-                            event_type=event.event_type,
-                            handler_name=str(handler),
-                            reason=str(exc),
+                        raise AppError(
+                            code=EventErrorCode.HANDLER_ERROR,
+                            message=f"Handler failed for event {event.event_type}",
+                            context={
+                                "event_type": event.event_type,
+                                "handler_name": str(handler),
+                                "error": str(exc),
+                            },
                         ) from exc
 
             self.logger.debug(
@@ -128,12 +142,16 @@ class InMemoryEventBus(EventBusProtocol):
                 exc_info=exc,
             )
 
-            if isinstance(exc, (EventPublishError, EventHandlerError)):
+            if isinstance(exc, EventPublishError | EventHandlerError):
                 raise
 
-            raise EventPublishError(
-                event_type=getattr(event, "event_type", type(event).__name__),
-                reason=str(exc),
+            raise AppError(
+                code=EventErrorCode.PUBLISH_ERROR,
+                message="Failed to publish event",
+                context={
+                    "event_type": getattr(event, "event_type", type(event).__name__),
+                    "error": str(exc),
+                },
             ) from exc
 
     async def _retry_handler(
@@ -206,9 +224,15 @@ class InMemoryEventBus(EventBusProtocol):
 
         if last_error:
             raise EventHandlerError(
-                event_type=getattr(event, "event_type", type(event).__name__),
+                event_type=event.event_type,
                 handler_name=str(handler),
-                reason=f"Failed after {retry_count} retry attempts: {last_error}",
+                reason="All retry attempts failed for event handler",
+                context={
+                    "event_type": getattr(event, "event_type", type(event).__name__),
+                    "handler_name": str(handler),
+                    "retry_count": retry_count,
+                    "error": str(last_error),
+                },
             ) from last_error
 
     async def publish_many(self, events: list[E]) -> None:

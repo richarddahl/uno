@@ -9,14 +9,22 @@ and simple applications.
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Generic, TypeVar
 
-from uno.events.protocols import CommandHandler
+from collections.abc import Awaitable, Callable
+from typing import Generic, TypeVar, TYPE_CHECKING
 
-from uno.logging.protocols import LoggerProtocol
+from uno.errors import UnoError
+
+if TYPE_CHECKING:
+    from uno.events.protocols import CommandHandler
+    from uno.logging.protocols import LoggerProtocol
 
 C = TypeVar("C")  # Command type
-T = TypeVar("T")  # Result type
+T = TypeVar("T")  # Return type
+
+# Type aliases for better readability
+CommandHandlerType = Callable[[C], Awaitable[T]]
+MiddlewareType = Callable[[CommandHandlerType[C, T]], CommandHandlerType[C, T]]
 
 
 class InMemoryCommandBus(Generic[C, T]):
@@ -32,15 +40,15 @@ class InMemoryCommandBus(Generic[C, T]):
             logger: Logger service for logging command execution
         """
         self.logger = logger
-        self._handlers: dict[type, CommandHandler] = {}
-        self._middleware: list[Callable] = []
+        self._handlers: dict[type, CommandHandler[C, T]] = {}
+        self._middleware: list[MiddlewareType[C, T]] = []
 
     def register_handler(self, command_type: type, handler: CommandHandler) -> None:
         """
         Register a handler for a specific command type.
 
         Args:
-            command_type: The type of command to register a handler for
+            command_type: The type of command to handle
             handler: The handler to register
         """
         self._handlers[command_type] = handler
@@ -62,7 +70,10 @@ class InMemoryCommandBus(Generic[C, T]):
             command: The command to dispatch
 
         Returns:
-            Result containing the handler result or failure
+            The handler result
+
+        Raises:
+            UnoError: If no handler is registered or if command execution fails
         """
         command_type = type(command)
         if command_type not in self._handlers:
@@ -70,8 +81,10 @@ class InMemoryCommandBus(Generic[C, T]):
                 f"No handler registered for command type {command_type.__name__}",
                 command_type=command_type.__name__,
             )
-            raise ValueError(
-                f"No handler registered for command type {command_type.__name__}"
+            raise UnoError(
+                f"No handler registered for command type {command_type.__name__}",
+                error_code="CMD-0001",
+                command_type=command_type.__name__
             )
 
         handler = self._handlers[command_type]
@@ -94,4 +107,9 @@ class InMemoryCommandBus(Generic[C, T]):
                 command_type=command_type.__name__,
                 error=str(e),
             )
-            raise
+            raise UnoError(
+                f"Failed to execute command {command_type.__name__}: {str(e)}",
+                error_code="CMD-0002",
+                command_type=command_type.__name__,
+                error=str(e)
+            ) from e

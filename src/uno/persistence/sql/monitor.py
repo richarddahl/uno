@@ -33,16 +33,18 @@ class PerformanceMetrics(BaseModel):
 class StatementMetrics(BaseModel):
     """SQL statement performance metrics."""
 
-    statement: str = Field(..., description="SQL statement")
-    executions: int = Field(default=0, description="Number of executions")
+    statement: str = Field(..., description="SQL statement", json_schema_extra={"env": "STATEMENT"})
+    executions: int = Field(default=0, description="Number of executions", json_schema_extra={"env": "EXECUTIONS"})
     total_duration: float = Field(
-        default=0.0, description="Total execution duration in seconds"
+        default=0.0, description="Total execution duration in seconds",
+        json_schema_extra={"env": "TOTAL_DURATION"}
     )
     avg_duration: float = Field(
-        default=0.0, description="Average execution duration in seconds"
+        default=0.0, description="Average execution duration in seconds",
+        json_schema_extra={"env": "AVG_DURATION"}
     )
-    last_execution: datetime = Field(..., description="Last execution timestamp")
-    error_count: int = Field(default=0, description="Number of execution errors")
+    last_execution: datetime = Field(..., description="Last execution timestamp", json_schema_extra={"env": "LAST_EXECUTION"})
+    error_count: int = Field(default=0, description="Number of execution errors", json_schema_extra={"env": "ERROR_COUNT"})
 
 
 class PerformanceMonitor:

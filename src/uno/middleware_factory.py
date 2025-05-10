@@ -5,7 +5,8 @@ This module provides factories for creating middleware instances with
 standardized logging configuration using the LoggerProtocolFactory pattern.
 """
 
-from uno.errors.result import Result
+from typing import Any
+
 from uno.events.middleware import (
     CircuitBreakerMiddleware,
     CircuitBreakerState,
@@ -92,7 +93,7 @@ class EventHandlerMiddlewareFactory:
         retry_options: RetryOptions | None = None,
         circuit_breaker_options: CircuitBreakerState | None = None,
         metrics_interval_seconds: float = 60.0,
-    ) -> list:
+    ) -> list[MetricsMiddleware | CircuitBreakerMiddleware | RetryMiddleware]:
         """
         Create a default stack of middleware in the recommended order.
 
@@ -133,15 +134,15 @@ def create_middleware_factory(
     return EventHandlerMiddlewareFactory(logger_factory=logger_factory)
 
 
-def register_with_result(
-    registry,  # Avoid circular import by using Any
+def register_middleware(
+    registry: Any,
     middleware_factory: EventHandlerMiddlewareFactory,
     retry_options: RetryOptions | None = None,
     circuit_breaker_options: CircuitBreakerState | None = None,
     metrics_interval_seconds: float = 60.0,
-) -> Result[None, Exception]:
+) -> None:
     """
-    Register middleware with a registry and return a Result.
+    Register middleware with a registry.
 
     Args:
         registry: Registry to register middleware with
@@ -150,8 +151,8 @@ def register_with_result(
         circuit_breaker_options: Optional circuit breaker options
         metrics_interval_seconds: Interval for metrics reporting
 
-    Returns:
-        Success with None on success, or Failure with an error
+    Raises:
+        Exception: If middleware registration fails
     """
     try:
         middleware_stack = middleware_factory.create_default_middleware_stack(
@@ -163,6 +164,5 @@ def register_with_result(
         for middleware in middleware_stack:
             registry.register_middleware(middleware)
 
-        return Result.success(None)
     except Exception as e:
-        return Result.failure(e)
+        raise e

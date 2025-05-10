@@ -9,6 +9,7 @@ and simple applications.
 """
 
 from __future__ import annotations
+
 from typing import Any, TypeVar
 
 from uno.events.base_event import DomainEvent
@@ -58,9 +59,9 @@ class InMemoryEventBus(EventBusProtocol):
             Canonical dict representation of the event
         """
         if hasattr(event, "model_dump"):
-            return dict(event.model_dump(
-                exclude_none=True, exclude_unset=True, by_alias=True
-            ))
+            return dict(
+                event.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
+            )
         elif hasattr(event, "to_dict"):
             return event.to_dict()
         return dict(event.__dict__)

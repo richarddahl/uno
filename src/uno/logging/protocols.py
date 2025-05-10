@@ -106,6 +106,16 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+    def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
+        """Log a structured message with level and context.
+
+        Args:
+            level: Log level
+            message: Log message
+            **kwargs: Additional context data
+        """
+        ...
+
     def critical(self, message: str, **kwargs: Any) -> None:
         """Log a critical message.
 

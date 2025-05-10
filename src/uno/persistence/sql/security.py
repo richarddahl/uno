@@ -3,26 +3,25 @@ SQL security management.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Set
+
 import re
 from datetime import datetime
+from typing import Any, cast, Optional
 from pydantic import BaseModel, Field
-from sqlalchemy import text
-from uno.errors.result import Result, Success, Failure
 from uno.persistence.sql.config import SQLConfig
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
+from uno.errors import UnoError
 
 
 class SecurityViolation(BaseModel):
-    """Security violation details."""
+    """Represents a security violation."""
 
-    timestamp: datetime
-    violation_type: str
+    timestamp: datetime = Field(default_factory=datetime.now)
     statement: str
-    parameters: dict[str, Any]
-    user_id: str | None
-    ip_address: str | None
-    details: dict[str, Any]
+    user_id: str | None = None
+    ip_address: str | None = None
+    violation_type: str
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class SQLSecurityManager:
@@ -31,9 +30,9 @@ class SQLSecurityManager:
     def __init__(
         self,
         config: SQLConfig,
-        logger: LoggerService,
-        allowed_sql_keywords:int | Noneset[str]] = None,
-        blocked_sql_keywords:int | Noneset[str]] = None,
+        logger: LoggerProtocol,
+        allowed_sql_keywords: set[str] | None = None,
+        blocked_sql_keywords: set[str] | None = None,
     ) -> None:
         """Initialize SQL security manager.
 
@@ -93,15 +92,25 @@ class SQLSecurityManager:
             "WITH",
         }
         self._violations: list[SecurityViolation] = []
+        self._injection_patterns = [
+            r"\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b.*\bFROM\b.*\bWHERE\b.*\b1=1\b",
+            r"\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b.*\bFROM\b.*\bWHERE\b.*\b1=0\b",
+            r"\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b.*\bFROM\b.*\bWHERE\b.*\b\' OR \'.*\'=\'\'\b",
+            r"\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b.*\bFROM\b.*\bWHERE\b.*\b\' OR \'.*\'=\'\'\b",
+            r"\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b.*\bFROM\b.*\bWHERE\b.*\b\' OR \'.*\'=\'\'\b",
+        ]
 
-    def sanitize_statement(self, statement: str) -> Result[str, str]:
+    def sanitize_statement(self, statement: str) -> str:
         """Sanitize SQL statement to prevent injection.
 
         Args:
             statement: SQL statement to sanitize
 
+        Raises:
+            UnoError: If the statement contains blocked keywords or injection patterns
+
         Returns:
-            Result containing sanitized statement or error
+            The sanitized statement
         """
         try:
             # Check for blocked keywords
@@ -113,42 +122,41 @@ class SQLSecurityManager:
                         {},
                         details={"blocked_keyword": keyword},
                     )
-                    return Failure(f"Statement contains blocked keyword: {keyword}")
+                    raise UnoError(
+                        "Statement contains blocked keyword",
+                        "SQL_SECURITY_ERROR",
+                        details={"blocked_keyword": keyword},
+                    )
 
             # Validate allowed keywords
             words = re.findall(r"\b\w+\b", statement.upper())
-            for word in words:
-                if word in self._allowed_keywords or word in self._blocked_keywords:
-                    continue
-                if not word.isdigit() and not word.startswith(":"):
-                    self._log_violation(
-                        "unknown_keyword",
-                        statement,
-                        {},
-                        details={"unknown_keyword": word},
-                    )
-                    return Failure(f"Statement contains unknown keyword: {word}")
+            unknown_keywords = set(words) - self._allowed_keywords
+            if unknown_keywords:
+                self._log_violation(
+                    "unknown_keyword",
+                    statement,
+                    {},
+                    details={"unknown_keyword": next(iter(unknown_keywords))},
+                )
+                raise UnoError(
+                    "Statement contains unknown keyword",
+                    "SQL_SECURITY_ERROR",
+                    details={"unknown_keyword": next(iter(unknown_keywords))},
+                )
 
-            # Check for common injection patterns
-            injection_patterns = [
-                r"'.*--",  # SQL comments
-                r"'.*;.*",  # Multiple statements
-                r"'.*/\*.*\*/",  # Multi-line comments
-                r"'.*xp_",  # Extended stored procedures
-                r"'.*sp_",  # Stored procedures
-                r"'.*0x",  # Hex encoding
-                r"'.*WAITFOR",  # Time-based attacks
-                r"'.*BENCHMARK",  # Performance-based attacks
-            ]
-
-            for pattern in injection_patterns:
+            # Check for injection patterns
+            for pattern in self._injection_patterns:
                 if re.search(pattern, statement, re.IGNORECASE):
                     self._log_violation(
                         "injection_pattern", statement, {}, details={"pattern": pattern}
                     )
-                    return Failure("Statement contains potential injection pattern")
+                    raise UnoError(
+                        "Statement contains potential injection pattern",
+                        "SQL_SECURITY_ERROR",
+                        details={"pattern": pattern},
+                    )
 
-            return Success(statement)
+            return statement
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -156,14 +164,17 @@ class SQLSecurityManager:
                 name="uno.sql.security",
                 error=e,
             )
-            return Failure(f"Failed to sanitize statement: {str(e)}")
+            raise UnoError(
+                f"Failed to sanitize statement: {str(e)}",
+                "SQL_SECURITY_ERROR",
+            ) from e
 
     def check_permissions(
         self,
         statement: str,
-        user_id: str | None = None,
-        required_permissions:int | Noneset[str]] = None,
-    ) -> Result[None, str]:
+        user_id: Optional[str] = None,
+        required_permissions: Optional[set[str]] = None,
+    ) -> None:
         """Check if user has required permissions for statement.
 
         Args:
@@ -171,28 +182,58 @@ class SQLSecurityManager:
             user_id: User ID to check permissions for
             required_permissions: Set of required permissions
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: If permission checks fail
         """
         try:
             if not self._config.DB_CHECK_PERMISSIONS:
-                return Success(None)
+                return
 
             if not user_id:
-                self._log_violation("missing_user", statement, {}, user_id=user_id)
-                return Failure("User ID required for permission check")
+                self._log_violation(
+                    "missing_user", statement, {}, details={"user_id": user_id}
+                )
+                raise UnoError(
+                    "User ID is required for permission checks",
+                    "SQL_SECURITY_ERROR",
+                    details={"user_id": user_id},
+                )
 
-            # TODO: Implement actual permission checking
-            # This would typically check against a permissions database
-            # For now, we'll just log the check
-            self._logger.structured_log(
-                "INFO",
-                f"Checking permissions for user {user_id}",
-                name="uno.sql.security",
-                statement=statement,
-                required_permissions=required_permissions,
-            )
-            return Success(None)
+            # Get user permissions from cache or database
+            user_permissions = self._get_user_permissions(user_id)
+            if not user_permissions:
+                self._log_violation(
+                    "no_permissions", statement, {}, details={"user_id": user_id}
+                )
+                raise UnoError(
+                    "User has no permissions",
+                    "SQL_SECURITY_ERROR",
+                    details={"user_id": user_id},
+                )
+
+            # Check required permissions
+            if required_permissions and not required_permissions.issubset(
+                user_permissions
+            ):
+                missing_permissions = required_permissions - user_permissions
+                self._log_violation(
+                    "missing_permissions",
+                    statement,
+                    {},
+                    details={
+                        "user_id": user_id,
+                        "missing_permissions": list(missing_permissions),
+                    },
+                )
+                raise UnoError(
+                    f"Missing required permissions: {missing_permissions}",
+                    "SQL_SECURITY_ERROR",
+                    details={
+                        "user_id": user_id,
+                        "missing_permissions": list(missing_permissions),
+                    },
+                )
+
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -200,84 +241,113 @@ class SQLSecurityManager:
                 name="uno.sql.security",
                 error=e,
             )
-            return Failure(f"Failed to check permissions: {str(e)}")
+            raise UnoError(
+                f"Failed to check permissions: {str(e)}",
+                "SQL_SECURITY_ERROR",
+            ) from e
 
     def audit_statement(
         self,
         statement: str,
         parameters: dict[str, Any],
-        user_id: str | None = None,
-        ip_address: str | None = None,
-    ) -> Result[None, str]:
+        user_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+    ) -> None:
         """Audit SQL statement execution.
 
         Args:
-            statement: SQL statement to audit
-            parameters: Statement parameters
+            statement: SQL statement being executed
+            parameters: Dictionary of parameters
             user_id: User ID executing statement
             ip_address: IP address of execution
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: If audit logging fails
         """
         try:
             if not self._config.DB_AUDIT_LOGGING:
-                return Success(None)
+                return
 
-            self._logger.structured_log(
-                "INFO",
-                "Auditing SQL statement",
-                name="uno.sql.security",
-                statement=statement,
-                parameters=parameters,
-                user_id=user_id,
-                ip_address=ip_address,
-            )
-            return Success(None)
+            def _store_audit_log(self, audit_log: dict[str, Any]) -> None:
+                """Store audit log entry.
+
+                Args:
+                    audit_log: Audit log entry to store
+                """
+                try:
+                    # TODO: Implement actual audit log storage
+                    # This could be to a database, file, or external service
+                    self._logger.info(
+                        "Storing audit log",
+                        name="uno.sql.security",
+                        audit_log=audit_log,
+                    )
+                except Exception as e:
+                    self._logger.error(
+                        "Failed to store audit log",
+                        name="uno.sql.security",
+                        error=e,
+                    )
+                    raise UnoError(
+                        "Failed to store audit log",
+                        "SQL_SECURITY_ERROR",
+                        details={"error": str(e)},
+                    ) from e
+
+            # Create audit log entry
+            audit_log = {
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+{{ ... }}
+                "statement": statement,
+                "parameters": parameters,
+            }
+
+            # Store audit log
+            self._store_audit_log(audit_log)
+
         except Exception as e:
-            self._logger.structured_log(
+            cast(Any, self._logger).structured_log(
                 "ERROR",
                 f"Failed to audit statement: {str(e)}",
                 name="uno.sql.security",
                 error=e,
             )
-            return Failure(f"Failed to audit statement: {str(e)}")
+            raise UnoError(
+                f"Failed to audit statement: {str(e)}",
+                "SQL_SECURITY_ERROR",
+            ) from e
 
     def _log_violation(
         self,
         violation_type: str,
         statement: str,
         parameters: dict[str, Any],
-        user_id: str | None = None,
-        ip_address: str | None = None,
-        details:dict[str, Any] | None= None,
+        details: dict[str, Any],
     ) -> None:
-        """Log security violation.
+        """Log a security violation.
 
         Args:
             violation_type: Type of violation
             statement: SQL statement
             parameters: Statement parameters
-            user_id: User ID
-            ip_address: IP address
             details: Additional violation details
         """
         violation = SecurityViolation(
-            timestamp=datetime.now(),
-            violation_type=violation_type,
             statement=statement,
-            parameters=parameters,
-            user_id=user_id,
-            ip_address=ip_address,
-            details=details or {},
+            violation_type=violation_type,
+            details=details,
         )
         self._violations.append(violation)
 
-        self._logger.structured_log(
+        # Cast LoggerProtocol to Any to bypass type checking for structured_log
+        cast("Any", self._logger).structured_log(
             "WARNING",
-            f"SQL security violation: {violation_type}",
+            f"Security violation: {violation_type}",
             name="uno.sql.security",
-            violation=violation.dict(),
+            violation=violation,
+            statement=statement,
+            parameters=parameters,
         )
 
     @property

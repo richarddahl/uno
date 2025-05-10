@@ -8,19 +8,22 @@ All domain/integration events should inherit from this class.
 
 from __future__ import annotations
 
-import decimal
-import enum
 import json
 import time
 import uuid
-from typing import Any, ClassVar, Self
+from decimal import Decimal
+from enum import Enum
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
-from pydantic import ConfigDict, Field
-
+from pydantic import Field, ConfigDict
 from uno.base_model import FrameworkBaseModel
 from uno.logging import get_logger
 
-logger = get_logger("uno.events")
+if TYPE_CHECKING:
+    from uno.services.hash_service_protocol import HashServiceProtocol
+
+
+logger = get_logger()
 
 # Global registry of event classes
 _EVENT_CLASSES: dict[str, type[DomainEvent]] = {}
@@ -88,7 +91,7 @@ class DomainEvent:
 
     _registered: ClassVar[bool] = False
 
-    def __init__(self) -> None:
+    def __init__(self):
         """
         Initialize a new domain event with a unique ID.
 
@@ -99,7 +102,7 @@ class DomainEvent:
         self.event_id = str(uuid.uuid4())
         self.event_hash = None  # Initialized later when needed
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs):
         """
         Automatically register event subclasses in the global registry.
 

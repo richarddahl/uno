@@ -3,54 +3,66 @@ SQL documentation generation.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
-from datetime import datetime
-from pathlib import Path
-from pydantic import BaseModel, Field
-from sqlalchemy import text, MetaData, inspect
+
+from collections.abc import Mapping, Sequence
+from datetime import datetime, UTC
+from typing import Any, TypeVar, TYPE_CHECKING
+
+from pydantic import BaseModel
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.errors.result import Result, Success, Failure
+from uno.errors import UnoError
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol, LogLevel
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from pathlib import Path
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from uno.persistence.sql.config import SQLConfig
+    from uno.persistence.sql.connection import ConnectionManager
+
+# Type variables for generic types
+T = TypeVar("T")
 
 
 class TableDocumentation(BaseModel):
     """Table documentation."""
 
     name: str
-    schema: str
+    db_schema: str
     description: str | None
     columns: list[dict[str, Any]]
     indexes: list[dict[str, Any]]
     foreign_keys: list[dict[str, Any]]
     created_at: datetime
-    updated_at:int | Nonedatetime]
+    updated_at: datetime | None = None
 
 
 class FunctionDocumentation(BaseModel):
     """Function documentation."""
 
     name: str
-    schema: str
+    db_schema: str
     description: str | None
     parameters: list[dict[str, Any]]
     return_type: str
     language: str
     created_at: datetime
-    updated_at:int | Nonedatetime]
+    updated_at: datetime | None = None
 
 
 class ViewDocumentation(BaseModel):
     """View documentation."""
 
     name: str
-    schema: str
+    db_schema: str
     description: str | None
     definition: str
     columns: list[dict[str, Any]]
     created_at: datetime
-    updated_at:int | Nonedatetime]
+    updated_at: datetime | None = None
 
 
 class TriggerDocumentation(BaseModel):
@@ -58,13 +70,13 @@ class TriggerDocumentation(BaseModel):
 
     name: str
     table: str
-    schema: str
+    db_schema: str
     description: str | None
     event: str
     timing: str
     function: str
     created_at: datetime
-    updated_at:int | Nonedatetime]
+    updated_at: datetime | None = None
 
 
 class SQLDocumentationGenerator:
@@ -74,7 +86,7 @@ class SQLDocumentationGenerator:
         self,
         config: SQLConfig,
         connection_manager: ConnectionManager,
-        logger: LoggerService,
+        logger: LoggerProtocol,
     ) -> None:
         """Initialize documentation generator.
 
@@ -87,237 +99,268 @@ class SQLDocumentationGenerator:
         self._connection_manager = connection_manager
         self._logger = logger
 
-    async def generate_schema_docs(self) -> Result[dict[str, Any], str]:
-        """Generate schema documentation.
+    async def generate_schema_docs(self) -> Mapping[str, Any]:
+        """Generate db_schema documentation.
 
         Returns:
-            Result containing schema documentation or error
+            Dictionary containing db_schema documentation
+
+        Raises:
+            Exception: If db_schema documentation generation fails
         """
-        try:
-            if not self._config.DB_DOCS_INCLUDE_SCHEMAS:
-                return Success({})
+        if not self._config.DB_DOCS_INCLUDE_SCHEMAS:
+            return {}
 
-            async with self._connection_manager.get_connection() as session:
-                result = await session.execute(
-                    text(
-                        "SELECT schema_name, description "
-                        "FROM information_schema.schemata "
-                        "WHERE schema_name NOT IN ('information_schema', 'pg_catalog')"
-                    )
+        async with self._connection_manager.get_connection() as session:
+            result = await session.execute(
+                text(
+                    "SELECT schema_name, description "
+                    "FROM information_schema.schemata "
+                    "WHERE schema_name NOT IN ('information_schema', 'pg_catalog')"
                 )
-                schemas = {row[0]: {"description": row[1]} for row in result.fetchall()}
-
-                self._logger.structured_log(
-                    "INFO",
-                    "Generated schema documentation",
-                    name="uno.sql.documentation",
-                    schema_count=len(schemas),
-                )
-                return Success(schemas)
-        except Exception as e:
-            self._logger.structured_log(
-                "ERROR",
-                f"Failed to generate schema documentation: {str(e)}",
-                name="uno.sql.documentation",
-                error=e,
             )
-            return Failure(f"Failed to generate schema documentation: {str(e)}")
+            schemas = {row[0]: {"description": row[1]} for row in result.fetchall()}
 
-    async def generate_table_docs(self) -> Result[list[TableDocumentation], str]:
+            self._logger.structured_log(
+                LogLevel.INFO,
+                "Generated db_schema documentation",
+                name="uno.sql.documentation",
+                schema_count=len(schemas),
+            )
+            return schemas
+
+    async def generate_table_docs(self) -> Sequence[TableDocumentation]:
         """Generate table documentation.
 
         Returns:
-            Result containing table documentation or error
+            List of table documentation objects
+
+        Raises:
+            Exception: If table documentation generation fails
         """
-        try:
-            if not self._config.DB_DOCS_INCLUDE_TABLES:
-                return Success([])
+        if not self._config.DB_DOCS_INCLUDE_TABLES:
+            return []
 
-            async with self._connection_manager.get_connection() as session:
-                inspector = inspect(self._connection_manager.engine)
-                tables = []
+        async with self._connection_manager.get_connection() as session:
+            inspector = inspect(self._connection_manager.engine)
+            tables: list[TableDocumentation] = []
 
-                for schema in await self._get_schemas(session):
-                    for table_name in await self._get_tables(session, schema):
-                        # Get table info
-                        columns = inspector.get_columns(table_name, schema=schema)
-                        indexes = inspector.get_indexes(table_name, schema=schema)
-                        foreign_keys = inspector.get_foreign_keys(
-                            table_name, schema=schema
+            for db_schema in await self._get_schemas(session):
+                for table_name in await self._get_tables(session, db_schema):
+                    # Get table info
+                    columns = (
+                        inspector.get_columns(table_name, db_schema=db_schema) or []
+                    )
+                    indexes = (
+                        inspector.get_indexes(table_name, db_schema=db_schema) or []
+                    )
+                    foreign_keys = (
+                        inspector.get_foreign_keys(table_name, db_schema=db_schema)
+                        or []
+                    )
+
+                    # Get table description
+                    result = await session.execute(
+                        text(
+                            "SELECT description "
+                            "FROM pg_description "
+                            "JOIN pg_class ON pg_description.objoid = pg_class.oid "
+                            "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
+                            "WHERE pg_class.relname = :table "
+                            "AND pg_namespace.nspname = :db_schema"
+                        ),
+                        {"table": table_name, "db_schema": db_schema},
+                    )
+                    description = result.scalar()
+
+                    tables.append(
+                        TableDocumentation(
+                            name=table_name,
+                            db_schema=db_schema,
+                            description=description,
+                            columns=columns,
+                            indexes=indexes,
+                            foreign_keys=foreign_keys,
+                            created_at=datetime.now(tz=UTC),
+                            updated_at=None,
                         )
+                    )
 
-                        # Get table description
-                        result = await session.execute(
-                            text(
-                                "SELECT description "
-                                "FROM pg_description "
-                                "JOIN pg_class ON pg_description.objoid = pg_class.oid "
-                                "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
-                                "WHERE pg_class.relname = :table "
-                                "AND pg_namespace.nspname = :schema"
-                            ),
-                            {"table": table_name, "schema": schema},
-                        )
-                        description = result.scalar()
-
-                        tables.append(
-                            TableDocumentation(
-                                name=table_name,
-                                schema=schema,
-                                description=description,
-                                columns=columns,
-                                indexes=indexes,
-                                foreign_keys=foreign_keys,
-                                created_at=datetime.now(),
-                                updated_at=None,
-                            )
-                        )
-
-                self._logger.structured_log(
-                    "INFO",
-                    "Generated table documentation",
-                    name="uno.sql.documentation",
-                    table_count=len(tables),
-                )
-                return Success(tables)
-        except Exception as e:
             self._logger.structured_log(
-                "ERROR",
-                f"Failed to generate table documentation: {str(e)}",
+                LogLevel.INFO,
+                "Generated table documentation",
                 name="uno.sql.documentation",
-                error=e,
+                table_count=len(tables),
             )
-            return Failure(f"Failed to generate table documentation: {str(e)}")
+            return tables
 
-    async def generate_function_docs(self) -> Result[list[FunctionDocumentation], str]:
+    async def generate_function_docs(self) -> Sequence[FunctionDocumentation]:
         """Generate function documentation.
 
         Returns:
-            Result containing function documentation or error
+            List of function documentation objects
+
+        Raises:
+            Exception: If function documentation generation fails
         """
-        try:
-            if not self._config.DB_DOCS_INCLUDE_FUNCTIONS:
-                return Success([])
+        if not self._config.DB_DOCS_INCLUDE_FUNCTIONS:
+            return []
 
-            async with self._connection_manager.get_connection() as session:
-                functions = []
+        async with self._connection_manager.get_connection() as session:
+            functions: list[FunctionDocumentation] = []
 
-                for schema in await self._get_schemas(session):
+            for db_schema in await self._get_schemas(session):
+                for function_name in await self._get_functions(session, db_schema):
+                    # Get function info
                     result = await session.execute(
                         text(
-                            "SELECT p.proname, pg_get_function_arguments(p.oid) as args, "
-                            "pg_get_function_result(p.oid) as result_type, "
-                            "p.prolang::regproc as language, d.description "
-                            "FROM pg_proc p "
-                            "JOIN pg_namespace n ON p.pronamespace = n.oid "
-                            "LEFT JOIN pg_description d ON p.oid = d.objoid "
-                            "WHERE n.nspname = :schema"
+                            "SELECT proname, nspname, prosrc, prolang, prorettype, proargtypes, proargnames, proargmodes "
+                            "FROM pg_proc "
+                            "JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid "
+                            "WHERE proname = :function AND nspname = :db_schema"
                         ),
-                        {"schema": schema},
+                        {"function": function_name, "db_schema": db_schema},
+                    )
+                    row = result.fetchone()
+                    if not row:
+                        continue
+
+                    # Get function description
+                    desc_result = await session.execute(
+                        text(
+                            "SELECT description "
+                            "FROM pg_description "
+                            "JOIN pg_proc ON pg_description.objoid = pg_proc.oid "
+                            "JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid "
+                            "WHERE proname = :function AND nspname = :db_schema"
+                        ),
+                        {"function": function_name, "db_schema": db_schema},
+                    )
+                    description = desc_result.scalar()
+
+                    # Parse argument types and names
+                    arg_types = [] if row[5] is None else row[5].split()
+                    arg_names = [] if row[6] is None else row[6].split()
+                    arg_modes = [] if row[7] is None else row[7].split()
+
+                    parameters = []
+                    for i in range(len(arg_types)):
+                        param = {
+                            "name": arg_names[i] if i < len(arg_names) else f"arg{i}",
+                            "type": arg_types[i],
+                            "mode": arg_modes[i] if i < len(arg_modes) else "in",
+                        }
+                        parameters.append(param)
+
+                    functions.append(
+                        FunctionDocumentation(
+                            name=row[0],
+                            db_schema=row[1],
+                            description=description,
+                            parameters=parameters,
+                            return_type=row[4],
+                            language=row[3],
+                            created_at=datetime.now(tz=UTC),
+                            updated_at=None,
+                        )
                     )
 
-                    for row in result.fetchall():
-                        functions.append(
-                            FunctionDocumentation(
-                                name=row[0],
-                                schema=schema,
-                                description=row[4],
-                                parameters=self._parse_function_args(row[1]),
-                                return_type=row[2],
-                                language=row[3],
-                                created_at=datetime.now(),
-                                updated_at=None,
-                            )
-                        )
-
-                self._logger.structured_log(
-                    "INFO",
-                    "Generated function documentation",
-                    name="uno.sql.documentation",
-                    function_count=len(functions),
-                )
-                return Success(functions)
-        except Exception as e:
             self._logger.structured_log(
-                "ERROR",
-                f"Failed to generate function documentation: {str(e)}",
+                LogLevel.INFO,
+                "Generated function documentation",
                 name="uno.sql.documentation",
-                error=e,
+                function_count=len(functions),
             )
-            return Failure(f"Failed to generate function documentation: {str(e)}")
+            return functions
 
-    async def generate_view_docs(self) -> Result[list[ViewDocumentation], str]:
+    async def generate_view_docs(self) -> Sequence[ViewDocumentation]:
         """Generate view documentation.
 
         Returns:
-            Result containing view documentation or error
+            List of view documentation objects
+
+        Raises:
+            Exception: If view documentation generation fails
         """
-        try:
-            if not self._config.DB_DOCS_INCLUDE_VIEWS:
-                return Success([])
+        if not self._config.DB_DOCS_INCLUDE_VIEWS:
+            return []
 
-            async with self._connection_manager.get_connection() as session:
-                views = []
+        async with self._connection_manager.get_connection() as session:
+            views: list[ViewDocumentation] = []
 
-                for schema in await self._get_schemas(session):
-                    result = await session.execute(
+            for db_schema in await self._get_schemas(session):
+                result = await session.execute(
+                    text(
+                        "SELECT viewname, definition "
+                        "FROM pg_views "
+                        "WHERE schemaname = :db_schema"
+                    ),
+                    {"db_schema": db_schema},
+                )
+                for row in result.fetchall():
+                    # Get view description
+                    desc_result = await session.execute(
                         text(
-                            "SELECT c.relname, pg_get_viewdef(c.oid) as definition, d.description "
-                            "FROM pg_class c "
-                            "JOIN pg_namespace n ON c.relnamespace = n.oid "
-                            "LEFT JOIN pg_description d ON c.oid = d.objoid "
-                            "WHERE n.nspname = :schema "
-                            "AND c.relkind = 'v'"
+                            "SELECT description "
+                            "FROM pg_description "
+                            "JOIN pg_class ON pg_description.objoid = pg_class.oid "
+                            "JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid "
+                            "WHERE pg_class.relname = :view "
+                            "AND pg_namespace.nspname = :db_schema"
                         ),
-                        {"schema": schema},
+                        {"view": row[0], "db_schema": db_schema},
+                    )
+                    description = desc_result.scalar()
+
+                    # Get view columns
+                    col_result = await session.execute(
+                        text(
+                            "SELECT column_name, data_type "
+                            "FROM information_schema.columns "
+                            "WHERE table_schema = :db_schema "
+                            "AND table_name = :view"
+                        ),
+                        {"view": row[0], "db_schema": db_schema},
+                    )
+                    columns = [
+                        {"name": col[0], "type": col[1]}
+                        for col in col_result.fetchall()
+                    ]
+
+                    views.append(
+                        ViewDocumentation(
+                            name=row[0],
+                            db_schema=db_schema,
+                            description=description,
+                            definition=row[1],
+                            columns=columns,
+                            created_at=datetime.now(tz=UTC),
+                            updated_at=None,
+                        )
                     )
 
-                    for row in result.fetchall():
-                        # Get view columns
-                        columns = await self._get_view_columns(session, schema, row[0])
-
-                        views.append(
-                            ViewDocumentation(
-                                name=row[0],
-                                schema=schema,
-                                description=row[2],
-                                definition=row[1],
-                                columns=columns,
-                                created_at=datetime.now(),
-                                updated_at=None,
-                            )
-                        )
-
-                self._logger.structured_log(
-                    "INFO",
-                    "Generated view documentation",
-                    name="uno.sql.documentation",
-                    view_count=len(views),
-                )
-                return Success(views)
-        except Exception as e:
             self._logger.structured_log(
-                "ERROR",
-                f"Failed to generate view documentation: {str(e)}",
+                LogLevel.INFO,
+                "Generated view documentation",
                 name="uno.sql.documentation",
-                error=e,
+                view_count=len(views),
             )
-            return Failure(f"Failed to generate view documentation: {str(e)}")
+            return views
 
-    async def generate_trigger_docs(self) -> Result[list[TriggerDocumentation], str]:
+    async def generate_trigger_docs(self) -> list[TriggerDocumentation]:
         """Generate trigger documentation.
 
         Returns:
-            Result containing trigger documentation or error
+            List of trigger documentation objects
         """
         try:
             if not self._config.DB_DOCS_INCLUDE_TRIGGERS:
-                return Success([])
+                return []
 
             async with self._connection_manager.get_connection() as session:
                 triggers = []
 
-                for schema in await self._get_schemas(session):
+                for db_schema in await self._get_schemas(session):
                     result = await session.execute(
                         text(
                             "SELECT t.tgname, c.relname as table_name, "
@@ -326,10 +369,10 @@ class SQLDocumentationGenerator:
                             "JOIN pg_class c ON t.tgrelid = c.oid "
                             "JOIN pg_namespace n ON c.relnamespace = n.oid "
                             "LEFT JOIN pg_description d ON t.oid = d.objoid "
-                            "WHERE n.nspname = :schema "
+                            "WHERE n.nspname = :db_schema "
                             "AND NOT t.tgisinternal"
                         ),
-                        {"schema": schema},
+                        {"db_schema": db_schema},
                     )
 
                     for row in result.fetchall():
@@ -340,12 +383,12 @@ class SQLDocumentationGenerator:
                             TriggerDocumentation(
                                 name=row[0],
                                 table=row[1],
-                                schema=schema,
+                                db_schema=db_schema,
                                 description=row[3],
                                 event=event,
                                 timing=timing,
                                 function=function,
-                                created_at=datetime.now(),
+                                created_at=datetime.now(tz=datetime.UTC),
                                 updated_at=None,
                             )
                         )
@@ -356,7 +399,7 @@ class SQLDocumentationGenerator:
                     name="uno.sql.documentation",
                     trigger_count=len(triggers),
                 )
-                return Success(triggers)
+                return triggers
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -364,16 +407,16 @@ class SQLDocumentationGenerator:
                 name="uno.sql.documentation",
                 error=e,
             )
-            return Failure(f"Failed to generate trigger documentation: {str(e)}")
+            raise UnoError(f"Failed to generate trigger documentation: {str(e)}")
 
-    async def generate_markdown(self, output_dir: Path) -> Result[None, str]:
+    async def generate_markdown(self, output_dir: Path) -> None:
         """Generate markdown documentation.
 
         Args:
             output_dir: Output directory for documentation
 
-        Returns:
-            Result indicating success or failure
+        Raises:
+            UnoError: If markdown generation fails
         """
         try:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -386,7 +429,7 @@ class SQLDocumentationGenerator:
             trigger_docs = await self.generate_trigger_docs()
 
             if not all(
-                isinstance(r, Success)
+                isinstance(r)
                 for r in [
                     schema_docs,
                     table_docs,
@@ -395,13 +438,13 @@ class SQLDocumentationGenerator:
                     trigger_docs,
                 ]
             ):
-                return Failure("Failed to generate some documentation")
+                raise UnoError("Failed to generate some documentation")
 
-            # Write schema documentation
+            # Write db_schema documentation
             with open(output_dir / "schemas.md", "w") as f:
                 f.write("# Database Schemas\n\n")
-                for schema, info in schema_docs.value.items():
-                    f.write(f"## {schema}\n\n")
+                for db_schema, info in schema_docs.value.items():
+                    f.write(f"## {db_schema}\n\n")
                     if info["description"]:
                         f.write(f"{info['description']}\n\n")
 
@@ -409,7 +452,7 @@ class SQLDocumentationGenerator:
             with open(output_dir / "tables.md", "w") as f:
                 f.write("# Database Tables\n\n")
                 for table in table_docs.value:
-                    f.write(f"## {table.schema}.{table.name}\n\n")
+                    f.write(f"## {table.db_schema}.{table.name}\n\n")
                     if table.description:
                         f.write(f"{table.description}\n\n")
 
@@ -443,7 +486,7 @@ class SQLDocumentationGenerator:
             with open(output_dir / "functions.md", "w") as f:
                 f.write("# Database Functions\n\n")
                 for func in function_docs.value:
-                    f.write(f"## {func.schema}.{func.name}\n\n")
+                    f.write(f"## {func.db_schema}.{func.name}\n\n")
                     if func.description:
                         f.write(f"{func.description}\n\n")
 
@@ -458,7 +501,7 @@ class SQLDocumentationGenerator:
             with open(output_dir / "views.md", "w") as f:
                 f.write("# Database Views\n\n")
                 for view in view_docs.value:
-                    f.write(f"## {view.schema}.{view.name}\n\n")
+                    f.write(f"## {view.db_schema}.{view.name}\n\n")
                     if view.description:
                         f.write(f"{view.description}\n\n")
 
@@ -479,7 +522,7 @@ class SQLDocumentationGenerator:
             with open(output_dir / "triggers.md", "w") as f:
                 f.write("# Database Triggers\n\n")
                 for trigger in trigger_docs.value:
-                    f.write(f"## {trigger.schema}.{trigger.name}\n\n")
+                    f.write(f"## {trigger.db_schema}.{trigger.name}\n\n")
                     if trigger.description:
                         f.write(f"{trigger.description}\n\n")
 
@@ -494,7 +537,7 @@ class SQLDocumentationGenerator:
                 name="uno.sql.documentation",
                 output_dir=str(output_dir),
             )
-            return Success(None)
+            return None
         except Exception as e:
             self._logger.structured_log(
                 "ERROR",
@@ -502,7 +545,7 @@ class SQLDocumentationGenerator:
                 name="uno.sql.documentation",
                 error=e,
             )
-            return Failure(f"Failed to generate markdown documentation: {str(e)}")
+            raise UnoError(f"Failed to generate markdown documentation: {str(e)}")
 
     async def _get_schemas(self, session: AsyncSession) -> list[str]:
         """Get list of schemas.
@@ -511,7 +554,7 @@ class SQLDocumentationGenerator:
             session: Database session
 
         Returns:
-            List of schema names
+            List of db_schema names
         """
         result = await session.execute(
             text(
@@ -522,12 +565,12 @@ class SQLDocumentationGenerator:
         )
         return [row[0] for row in result.fetchall()]
 
-    async def _get_tables(self, session: AsyncSession, schema: str) -> list[str]:
-        """Get list of tables in schema.
+    async def _get_tables(self, session: AsyncSession, db_schema: str) -> list[str]:
+        """Get list of tables in db_schema.
 
         Args:
             session: Database session
-            schema: Schema name
+            db_schema: Schema name
 
         Returns:
             List of table names
@@ -536,21 +579,21 @@ class SQLDocumentationGenerator:
             text(
                 "SELECT table_name "
                 "FROM information_schema.tables "
-                "WHERE table_schema = :schema "
+                "WHERE table_schema = :db_schema "
                 "AND table_type = 'BASE TABLE'"
             ),
-            {"schema": schema},
+            {"db_schema": db_schema},
         )
         return [row[0] for row in result.fetchall()]
 
     async def _get_view_columns(
-        self, session: AsyncSession, schema: str, view: str
+        self, session: AsyncSession, db_schema: str, view: str
     ) -> list[dict[str, Any]]:
         """Get view columns.
 
         Args:
             session: Database session
-            schema: Schema name
+            db_schema: Schema name
             view: View name
 
         Returns:
@@ -562,10 +605,10 @@ class SQLDocumentationGenerator:
                 "FROM information_schema.columns c "
                 "LEFT JOIN pg_description d ON d.objoid = c.table_name::regclass "
                 "AND d.objsubid = c.ordinal_position "
-                "WHERE table_schema = :schema "
+                "WHERE table_schema = :db_schema "
                 "AND table_name = :view"
             ),
-            {"schema": schema, "view": view},
+            {"db_schema": db_schema, "view": view},
         )
         return [
             {"name": row[0], "type": row[1], "description": row[2]}

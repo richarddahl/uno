@@ -38,7 +38,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 from uno.database.config import ConnectionConfig
 from uno.settings import uno_settings
 
@@ -562,7 +562,7 @@ def run_core_migrations(args_list: list) -> int:
         return 1
 
 
-def main(logger_service: LoggerService) -> None:
+def main(logger_service: LoggerProtocol) -> None:
     """Main entry point for the script."""
     logger = logger_service.get_logger(__name__)
     parser = argparse.ArgumentParser(description="Uno database migration tool")
