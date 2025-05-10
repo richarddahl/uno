@@ -12,11 +12,26 @@ import asyncio
 import asyncpg
 import json
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, TypeVar
+
+from uno.events.protocols import EventBusProtocol
+from uno.events.base_event import DomainEvent
+from uno.events.errors import EventPublishError
+
+E = TypeVar("E", bound=DomainEvent)
 
 
 class PostgresBus:
+    """Base class for PostgreSQL-backed message buses."""
+    
     def __init__(self, dsn: str, channel: str, table: str) -> None:
+        """Initialize PostgreSQL bus.
+        
+        Args:
+            dsn: Database connection string
+            channel: Postgres notification channel
+            table: Table to store messages
+        """
         self._dsn = dsn
         self._channel = channel
         self._table = table
@@ -24,32 +39,51 @@ class PostgresBus:
         self._conn: asyncpg.Connection | None = None
 
     async def connect(self) -> None:
+        """Connect to the PostgreSQL database and start listening for notifications."""
         self._conn = await asyncpg.connect(self._dsn)
         await self._conn.execute(f"LISTEN {self._channel}")
         asyncio.create_task(self._listen_loop())
 
     async def publish(self, payload: dict[str, Any]) -> None:
-        assert self._conn is not None
-        if hasattr(payload, "model_dump"):
-            data = json.dumps(
-                payload.model_dump(
-                    mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+        """Publish a message to the bus.
+        
+        Args:
+            payload: Message payload
+            
+        Raises:
+            Exception: If there's an error publishing the message
+        """
+        try:
+            assert self._conn is not None
+            if hasattr(payload, "model_dump"):
+                data = json.dumps(
+                    payload.model_dump(
+                        mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+                    )
                 )
+            else:
+                data = json.dumps(payload)
+                
+            await self._conn.execute(
+                f"""
+                INSERT INTO {self._table} (payload) VALUES ($1)
+            """,
+                data,
             )
-        else:
-            data = json.dumps(payload)
-        await self._conn.execute(
-            f"""
-            INSERT INTO {self._table} (payload) VALUES ($1)
-        """,
-            data,
-        )
-        await self._conn.execute(f"NOTIFY {self._channel}")
+            await self._conn.execute(f"NOTIFY {self._channel}")
+        except Exception as e:
+            raise Exception(f"Failed to publish message: {e}") from e
 
     def subscribe(self, handler: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
+        """Subscribe to messages on this bus.
+        
+        Args:
+            handler: Callback function to invoke when messages are received
+        """
         self._listeners.append(handler)
 
     async def _listen_loop(self) -> None:
+        """Listen for PostgreSQL notifications and process messages."""
         assert self._conn is not None
         while True:
             msg = await self._conn.connection.notifies.get()
@@ -67,11 +101,78 @@ class PostgresBus:
                 )
 
 
-class PostgresEventBus(PostgresBus):
+class PostgresEventBus(PostgresBus, EventBusProtocol):
+    """PostgreSQL-backed event bus implementation."""
+    
     def __init__(self, dsn: str) -> None:
+        """Initialize PostgreSQL event bus.
+        
+        Args:
+            dsn: Database connection string
+        """
         super().__init__(dsn, channel="uno_events", table="uno_events")
+    
+    async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> None:
+        """Publish an event to the bus.
+        
+        Args:
+            event: Domain event to publish
+            metadata: Optional metadata to include with the event
+            
+        Raises:
+            EventPublishError: If there's an error publishing the event
+        """
+        try:
+            payload = self._prepare_event_payload(event, metadata)
+            await super().publish(payload)
+        except Exception as e:
+            event_type = getattr(event, "event_type", type(event).__name__)
+            raise EventPublishError(event_type=event_type, reason=str(e)) from e
+    
+    async def publish_many(self, events: list[E]) -> None:
+        """Publish multiple events to the bus.
+        
+        Args:
+            events: List of domain events to publish
+            
+        Raises:
+            EventPublishError: If there's an error publishing any event
+        """
+        for event in events:
+            await self.publish(event)
+    
+    def _prepare_event_payload(self, event: E, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Prepare event payload for publishing.
+        
+        Args:
+            event: Domain event
+            metadata: Optional metadata
+            
+        Returns:
+            Dictionary representation of the event with metadata
+        """
+        if hasattr(event, "model_dump"):
+            payload = event.model_dump(
+                mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+            )
+        elif hasattr(event, "to_dict"):
+            payload = event.to_dict()
+        else:
+            payload = event.__dict__.copy()
+            
+        if metadata:
+            payload["metadata"] = metadata
+            
+        return payload
 
 
 class PostgresCommandBus(PostgresBus):
+    """PostgreSQL-backed command bus implementation."""
+    
     def __init__(self, dsn: str) -> None:
+        """Initialize PostgreSQL command bus.
+        
+        Args:
+            dsn: Database connection string
+        """
         super().__init__(dsn, channel="uno_commands", table="uno_commands")

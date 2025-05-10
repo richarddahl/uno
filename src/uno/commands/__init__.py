@@ -8,6 +8,7 @@ This package contains the core components for command handling in a CQRS/DDD arc
 """
 
 from .base_command import Command
+from .di import register_command_services
 from .errors import (
     CommandDispatchError,
     CommandError,
@@ -30,13 +31,20 @@ __all__ = [
     "CommandHandlerProtocol",
     # Core components
     "CommandBus",
+    # Dependency injection
+    "register_command_services",
     # Implementations
     "InMemoryCommandBus",
     "NewInMemoryCommandBus",
     "StructuralCommandBus",
     # Errors
-    "InMemoryCommandBus",
-    # Errors
+    "CommandDispatchError",
+    "CommandError",
+    "CommandErrorCode",
+    "CommandHandlerError",
+    "CommandNotFoundError",
+    "CommandValidationError",
+]
     "CommandDispatchError",
     "CommandError",
     "CommandErrorCode",

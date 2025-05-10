@@ -7,6 +7,7 @@ Event sourcing persistence package for the Uno framework.
 This package provides specialized persistence mechanisms for event-sourced systems.
 """
 
+from .implementations.memory import InMemoryEventBus, InMemoryEventStore
 from .implementations.postgres import (
     PostgresCommandBus,
     PostgresEventBus,
@@ -16,7 +17,12 @@ from .implementations.postgres import (
 from .protocols import EventStoreProtocol
 
 __all__ = [
+    # Protocols
     "EventStoreProtocol",
+    # In-memory implementations (aliases for backward compatibility)
+    "InMemoryEventBus",
+    "InMemoryEventStore",
+    # Postgres implementations
     "PostgresCommandBus",
     "PostgresEventBus",
     "PostgresEventStore",

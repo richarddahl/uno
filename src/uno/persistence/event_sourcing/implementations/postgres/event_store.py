@@ -6,29 +6,28 @@ PostgreSQL event store implementation.
 """
 
 from __future__ import annotations
-from typing import Any, Generic, TypeVar, TYPE_CHECKING
+from typing import Any, Generic, List, Optional, TypeVar
 from datetime import datetime, UTC
 from sqlalchemy import Table, Column, String, Integer, JSON, DateTime, MetaData, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from uno.events.protocols import EventStoreProtocol
 from uno.events.base_event import DomainEvent
-from uno.events.errors import UnoError
-
-if TYPE_CHECKING:
-    from uno.persistence.sql.config import SQLConfig
-    from uno.persistence.sql.connection import ConnectionManager
-    from uno.logging.protocols import LoggerProtocol
+from uno.persistence.sql.config import SQLConfig
+from uno.persistence.sql.connection import ConnectionManager
+from uno.logging.logger import LoggerService
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-class PostgresEventStore(Generic[E]):
+class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
     """PostgreSQL event store implementation."""
 
     def __init__(
         self,
-        config: "SQLConfig",
-        connection_manager: "ConnectionManager",
-        logger: "LoggerProtocol",
+        config: SQLConfig,
+        connection_manager: ConnectionManager,
+        logger: LoggerService,
     ) -> None:
         """Initialize PostgreSQL event store.
 
@@ -67,7 +66,7 @@ class PostgresEventStore(Generic[E]):
             self.logger.structured_log(
                 "ERROR",
                 f"Failed to create events table: {e}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
                 error=e,
             )
             raise
@@ -79,7 +78,7 @@ class PostgresEventStore(Generic[E]):
             event: The domain event to save
 
         Raises:
-            UnoError: If the event cannot be saved
+            Exception: If there's an error saving the event
         """
         try:
             async with self._connection_manager.get_connection() as session:
@@ -97,7 +96,7 @@ class PostgresEventStore(Generic[E]):
             self.logger.structured_log(
                 "INFO",
                 f"Saved event {event.event_type} for aggregate {event.aggregate_id}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
                 event_id=event.event_id,
                 aggregate_id=event.aggregate_id,
             )
@@ -105,13 +104,10 @@ class PostgresEventStore(Generic[E]):
             self.logger.structured_log(
                 "ERROR",
                 f"Failed to save event {event.event_type}: {e}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
                 error=e,
             )
-            raise UnoError(
-                f"Failed to save event {event.event_type}: {e}",
-                error_code="PG_EVENT_STORE_ERROR",
-            ) from e
+            raise
 
     async def get_events(
         self,
@@ -129,10 +125,10 @@ class PostgresEventStore(Generic[E]):
             since_version: Return only events since this version
 
         Returns:
-            List of events
+            List of events matching the criteria
 
         Raises:
-            UnoError: If retrieval fails
+            Exception: If there's an error retrieving events
         """
         try:
             async with self._connection_manager.get_connection() as session:
@@ -160,19 +156,17 @@ class PostgresEventStore(Generic[E]):
             self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events from store",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
                 f"Failed to retrieve events: {e}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
                 error=e,
             )
-            raise UnoError(
-                f"Failed to retrieve events: {e}", error_code="PG_EVENT_STORE_ERROR"
-            ) from e
+            raise
 
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
@@ -184,10 +178,10 @@ class PostgresEventStore(Generic[E]):
             event_types: Optional list of event types to filter by
 
         Returns:
-            List of events
+            List of events for the specified aggregate
 
         Raises:
-            UnoError: If retrieval fails
+            Exception: If there's an error retrieving events
         """
         try:
             async with self._connection_manager.get_connection() as session:
@@ -211,21 +205,33 @@ class PostgresEventStore(Generic[E]):
             self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events for aggregate {aggregate_id}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
             self.logger.structured_log(
                 "ERROR",
                 f"Error retrieving events for aggregate {aggregate_id}: {e}",
-                name="uno.events.pgstore",
+                name="uno.persistence.event_sourcing.postgres",
                 error=e,
             )
-            raise UnoError(
-                f"Error retrieving events for aggregate {aggregate_id}: {e}",
-                error_code="PG_EVENT_STORE_ERROR",
-            ) from e
-
+            raise
+            
     def _canonical_event_dict(self, event: E) -> dict[str, Any]:
-        """Convert event to canonical dictionary representation."""
-        return event.to_dict()
+        """Convert an event to a canonical dictionary format for storage.
+        
+        Args:
+            event: The event to convert
+            
+        Returns:
+            Dictionary representation of the event
+        """
+        if hasattr(event, "model_dump"):
+            return event.model_dump(
+                mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+            )
+        elif hasattr(event, "to_dict"):
+            return event.to_dict()
+        else:
+            # Fallback to __dict__ if no serialization method is available
+            return event.__dict__

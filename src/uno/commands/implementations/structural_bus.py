@@ -35,7 +35,7 @@ class StructuralCommandBus:
     rather than protocol inheritance.
     """
 
-    def __init__(self, logger: "LoggerProtocol") -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Initialize the command bus.
 

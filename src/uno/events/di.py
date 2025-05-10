@@ -5,7 +5,7 @@ This module provides extension methods to register event system services
 with the DI container.
 """
 
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 from uno.di.container import Container
 from uno.events.implementations.bus import InMemoryEventBus
@@ -15,9 +15,12 @@ from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.persistence.event_sourcing.implementations.postgres.event_store import (
     PostgresEventStore,
 )
+from uno.persistence.event_sourcing.implementations.postgres.bus import PostgresEventBus
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.protocols import LoggerProtocol
+
+if TYPE_CHECKING:
+    from uno.logging.protocols import LoggerProtocol
 
 
 async def register_event_services(container: Container) -> None:
@@ -58,12 +61,14 @@ async def _register_event_bus(container: Container, config: EventsConfig) -> Non
             ),
         )
     elif event_bus_type == "postgres":
-        # This would use postgres implementation when available
-        # For now, fall back to in-memory
+        # Use the PostgresEventBus implementation
         await container.register_singleton(
             EventBusProtocol,
-            lambda c: InMemoryEventBus(
-                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)), config=config
+            lambda c: PostgresEventBus(
+                dsn=config.db_connection_string,
+                channel="uno_events",
+                table="event_outbox",
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)),
             ),
         )
     else:
