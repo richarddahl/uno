@@ -8,15 +8,17 @@ This package provides specialized persistence mechanisms for event-sourced syste
 """
 
 from .implementations.postgres import (
-    PostgresEventStore,
-    PostgresEventBus,
     PostgresCommandBus,
+    PostgresEventBus,
+    PostgresEventStore,
     PostgresSagaStore,
 )
+from .protocols import EventStoreProtocol
 
 __all__ = [
-    "PostgresEventStore",
-    "PostgresEventBus",
+    "EventStoreProtocol",
     "PostgresCommandBus",
+    "PostgresEventBus",
+    "PostgresEventStore",
     "PostgresSagaStore",
 ]

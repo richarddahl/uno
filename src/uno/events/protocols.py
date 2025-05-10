@@ -4,18 +4,17 @@
 """
 Protocol definitions for the events package.
 
-This module contains the core protocols that define the interfaces for the event
-sourcing system components.
+This module contains the core protocols that define the interfaces for event
+handling components.
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
-E = TypeVar("E", bound="DomainEvent")
-C = TypeVar("C")  # Generic command type
-T = TypeVar("T")
+from uno.events.base_event import DomainEvent
+
+E = TypeVar("E", bound=DomainEvent)
 
 
 @runtime_checkable
@@ -40,44 +39,19 @@ class EventPublisherProtocol(Protocol):
     async def publish_many(self, events: list[E]) -> None: ...
 
 
-class EventHandler(ABC):
+@runtime_checkable
+class EventHandlerProtocol(Protocol):
     """
-    Base class for event handlers.
-    """
-
-    @abstractmethod
-    async def handle(self, context: Any) -> Any:
-        pass
-
-
-class EventHandlerMiddleware(ABC):
-    """
-    Base class for event handler middleware.
+    Protocol for event handlers.
     """
 
-    @abstractmethod
-    async def process(self, context: Any, next_middleware: Any) -> Any:
-        pass
+    async def handle(self, context: Any) -> Any: ...
 
 
 @runtime_checkable
-class EventStoreProtocol(Protocol, Generic[E]):
+class EventHandlerMiddlewareProtocol(Protocol):
     """
-    Protocol for event store implementations.
-    """
-
-    async def save_event(self, event: E) -> None: ...
-    async def get_events(self, *args: Any, **kwargs: Any) -> list[E]: ...
-    async def get_events_by_aggregate_id(
-        self, aggregate_id: str, event_types: list[str] | None = None
-    ) -> list[E]: ...
-
-
-class CommandHandler(Generic[C, T], ABC):
-    """
-    Base class for command handlers.
+    Protocol for event handler middleware.
     """
 
-    @abstractmethod
-    async def handle(self, command: C) -> T:
-        pass
+    async def process(self, context: Any, next_middleware: Any) -> Any: ...
