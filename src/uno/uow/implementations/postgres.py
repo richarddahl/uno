@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncTransaction
 
 from uno.uow.protocols import UnitOfWork
-from uno.events.protocols import EventStoreProtocol
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.uow.errors import UnitOfWorkCommitError, UnitOfWorkRollbackError
 from uno.logging import LoggerProtocol, get_logger
 

@@ -10,10 +10,13 @@ from typing import cast
 from uno.di.container import Container
 from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.config import EventsConfig
-from uno.events.protocols import EventBusProtocol, EventStoreProtocol
+from uno.events.protocols import EventBusProtocol
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.persistence.event_sourcing.implementations.postgres.event_store import (
     PostgresEventStore,
 )
+from uno.persistence.sql.config import SQLConfig
+from uno.persistence.sql.connection import ConnectionManager
 from uno.logging.protocols import LoggerProtocol
 
 
@@ -51,7 +54,7 @@ async def _register_event_bus(container: Container, config: EventsConfig) -> Non
         await container.register_singleton(
             EventBusProtocol,
             lambda c: InMemoryEventBus(
-                logger=cast(LoggerProtocol, c.resolve(LoggerProtocol))
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)), config=config
             ),
         )
     elif event_bus_type == "postgres":
@@ -60,7 +63,7 @@ async def _register_event_bus(container: Container, config: EventsConfig) -> Non
         await container.register_singleton(
             EventBusProtocol,
             lambda c: InMemoryEventBus(
-                logger=cast(LoggerProtocol, c.resolve(LoggerProtocol))
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)), config=config
             ),
         )
     else:
@@ -68,7 +71,7 @@ async def _register_event_bus(container: Container, config: EventsConfig) -> Non
         await container.register_singleton(
             EventBusProtocol,
             lambda c: InMemoryEventBus(
-                logger=cast(LoggerProtocol, c.resolve(LoggerProtocol))
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)), config=config
             ),
         )
 
@@ -93,8 +96,18 @@ async def _register_event_store(container: Container, config: EventsConfig) -> N
         await container.register_singleton(
             EventStoreProtocol,
             lambda c: PostgresEventStore(
-                connection_string=config.db_connection_string.get_secret_value(),
-                logger=cast(LoggerProtocol, c.resolve(LoggerProtocol)),
+                config=c.resolve(SQLConfig),
+                connection_manager=c.resolve(ConnectionManager),
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)),
+            ),
+        )
+    elif event_store_type == "memory":
+        from uno.events.implementations.store import InMemoryEventStore
+
+        await container.register_singleton(
+            EventStoreProtocol,
+            lambda c: InMemoryEventStore(
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)),
             ),
         )
     else:
@@ -102,14 +115,15 @@ async def _register_event_store(container: Container, config: EventsConfig) -> N
         # A proper in-memory implementation would be registered here
         logger = await container.resolve(LoggerProtocol)
         logger.warning(
-            f"Unsupported event store type: {event_store_type}, defaulting to PostgreSQL",
+            f"Unsupported event store type: {event_store_type}, falling back to InMemoryEventStore",
             event_store_type=event_store_type,
         )
 
+        from uno.events.implementations.store import InMemoryEventStore
+
         await container.register_singleton(
             EventStoreProtocol,
-            lambda c: PostgresEventStore(
-                connection_string=config.db_connection_string.get_secret_value(),
-                logger=cast(LoggerProtocol, c.resolve(LoggerProtocol)),
+            lambda c: InMemoryEventStore(
+                logger=cast("LoggerProtocol", c.resolve(LoggerProtocol)),
             ),
         )

@@ -9,8 +9,8 @@ Provides injectable, testable, and configurable access to event bus, publisher, 
 from uno.events.protocols import (
     EventBusProtocol,
     EventPublisherProtocol,
-    EventStoreProtocol,
 )
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.implementations.store import InMemoryEventStore
 from uno.logging import LoggerProtocol, get_logger

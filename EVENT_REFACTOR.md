@@ -69,27 +69,63 @@ The refactoring will be organized into the following phases:
 
 #### 3.1. Event Bus Implementations
 
-- [ ] Keep `InMemoryEventBus` in `events/implementations/bus.py` (for testing/dev)
-- [ ] Remove class inheritance from `EventBusProtocol`, use structural typing
-- [ ] Move SQL/Postgres implementations to `persistence/event_sourcing/implementations/postgres/`
-- [ ] Update imports and references throughout the codebase
+- [x] Keep `InMemoryEventBus` in `events/implementations/bus.py` (for testing/dev)
+- [x] Remove class inheritance from `EventBusProtocol`, use structural typing
+- [x] Move SQL/Postgres implementations to `persistence/event_sourcing/implementations/postgres/`
+- [x] Update imports and references throughout the codebase
 
 #### 3.2. Event Store Implementations
 
-- [ ] Keep `InMemoryEventStore` in `events/implementations/store.py` (for testing/dev)
-- [ ] Move SQL/Postgres implementations to `persistence/event_sourcing/implementations/postgres/`
-- [ ] Update imports and dependencies throughout the codebase
+- [x] Keep `InMemoryEventStore` in `events/implementations/store.py` (for testing/dev)
+- [x] Remove class inheritance from `EventStoreProtocol`, use structural typing
+- [x] Move SQL/Postgres implementations to `persistence/event_sourcing/implementations/postgres/`
+- [x] Update imports and dependencies throughout the codebase
+
+### Progress Notes on Implementation Migration
+
+- Successfully updated `InMemoryEventBus` and `InMemoryEventStore` to use structural typing (no inheritance)
+- Moved `EventStoreProtocol` to `persistence/event_sourcing/protocols.py` and updated all imports
+- Updated `PostgresEventStore` to use structural typing with `Generic[E]` instead of inheriting from `EventStoreProtocol`
+- Updated DI container registrations to use the new protocol locations and implementations
+- Added proper type handling in the DI module with `cast("LoggerProtocol", ...)`
+- Set up appropriate fallbacks for configuration options
 
 #### 3.3. Command Implementations
 
-- [ ] Move command implementations to `commands/implementations/`
-- [ ] Update imports and references throughout the codebase
+- [x] Move command implementations to `commands/implementations/`
+- [x] Update imports and references throughout the codebase
 
-#### 3.4. Middleware and Handlers
+### Progress Notes on Command Implementation Migration
 
-- [ ] Review event handler middleware implementations
-- [ ] Determine which are technology-specific and move to appropriate packages
-- [ ] Keep generic implementations in `events/handlers.py`
+- Created a new `StructuralCommandBus` in `commands/implementations/structural_bus.py` using structural typing
+- Created a backward-compatible `InMemoryCommandBus` in `commands/implementations/memory_bus.py`
+- Updated imports in the examples application to use the new implementation
+- Added the new implementations to the public API in the commands package
+- Ensured all implementations follow Uno's idioms of:
+  - Using structural typing instead of inheritance
+  - Proper error handling aligned with Uno's error patterns
+  - Type checking imports to avoid circular dependencies
+  - Clean separation of concerns
+- Preserved backward compatibility for existing code
+
+#### 3.4. Event Handler Implementation Migration
+
+- [x] Review event handler middleware implementations
+- [x] Remove DI container dependencies from handlers and related components
+- [x] Update event handler implementations to use Protocol-based structural typing
+- [x] Fix discovery mechanism to follow best practices and reduce complexity
+
+### Progress Notes on Event Handler Implementation Migration
+
+- Updated `EventHandlerRegistry` to remove DI container dependencies
+- Updated `EventHandlerDecorator` to remove container references
+- Implemented proper Protocol-based structural typing for all handler components
+- Refactored `AsyncEventHandlerAdapter` to use modern Python type annotations
+- Created a properly typed `NextMiddlewareCallable` Protocol for middleware
+- Refactored the handler discovery process for better maintainability
+- Addressed linting issues throughout the handler implementations
+- Implemented modern Python type annotations (`|` instead of `Union`, etc.)
+- Fixed import ordering in all handler implementation files
 
 ### 4. Package Structure Updates
 
@@ -204,10 +240,13 @@ src/uno/persistence/
 
 ### Phase 3: Implementation Migration
 
-- [ ] Move SQL/Postgres implementations to persistence
-- [ ] Update in-memory implementations to use structural typing
-- [ ] Add implementation aliases for backward compatibility
-- [ ] Update DI container bindings
+- [x] Move SQL/Postgres implementations to persistence
+- [x] Update in-memory implementations to use structural typing
+- [x] Update command implementations to use structural typing
+- [x] Update event handler implementations to use structural typing
+- [x] Add implementation aliases for backward compatibility
+- [x] Remove DI container dependencies from event handlers
+- [ ] Update remaining DI container bindings
 
 ### Phase 4: Testing and Verification
 

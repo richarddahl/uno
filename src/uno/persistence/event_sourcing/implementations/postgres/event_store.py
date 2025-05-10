@@ -6,28 +6,29 @@ PostgreSQL event store implementation.
 """
 
 from __future__ import annotations
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, TYPE_CHECKING
 from datetime import datetime, UTC
 from sqlalchemy import Table, Column, String, Integer, JSON, DateTime, MetaData, select
 
 from uno.events.base_event import DomainEvent
-from uno.events.protocols import EventStoreProtocol
 from uno.events.errors import UnoError
-from uno.persistence.sql.config import SQLConfig
-from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.protocols import LoggerProtocol
+
+if TYPE_CHECKING:
+    from uno.persistence.sql.config import SQLConfig
+    from uno.persistence.sql.connection import ConnectionManager
+    from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
+class PostgresEventStore(Generic[E]):
     """PostgreSQL event store implementation."""
 
     def __init__(
         self,
-        config: SQLConfig,
-        connection_manager: ConnectionManager,
-        logger: LoggerProtocol,
+        config: "SQLConfig",
+        connection_manager: "ConnectionManager",
+        logger: "LoggerProtocol",
     ) -> None:
         """Initialize PostgreSQL event store.
 
@@ -107,7 +108,10 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 name="uno.events.pgstore",
                 error=e,
             )
-            raise UnoError(f"Failed to save event {event.event_type}: {e}", error_code="PG_EVENT_STORE_ERROR") from e
+            raise UnoError(
+                f"Failed to save event {event.event_type}: {e}",
+                error_code="PG_EVENT_STORE_ERROR",
+            ) from e
 
     async def get_events(
         self,
@@ -166,7 +170,9 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 name="uno.events.pgstore",
                 error=e,
             )
-            raise UnoError(f"Failed to retrieve events: {e}", error_code="PG_EVENT_STORE_ERROR") from e
+            raise UnoError(
+                f"Failed to retrieve events: {e}", error_code="PG_EVENT_STORE_ERROR"
+            ) from e
 
     async def get_events_by_aggregate_id(
         self, aggregate_id: str, event_types: list[str] | None = None
@@ -215,7 +221,10 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 name="uno.events.pgstore",
                 error=e,
             )
-            raise UnoError(f"Error retrieving events for aggregate {aggregate_id}: {e}", error_code="PG_EVENT_STORE_ERROR") from e
+            raise UnoError(
+                f"Error retrieving events for aggregate {aggregate_id}: {e}",
+                error_code="PG_EVENT_STORE_ERROR",
+            ) from e
 
     def _canonical_event_dict(self, event: E) -> dict[str, Any]:
         """Convert event to canonical dictionary representation."""

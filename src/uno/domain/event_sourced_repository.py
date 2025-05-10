@@ -12,7 +12,7 @@ from uno.domain.config import DomainConfig
 from uno.domain.repository import Repository
 from uno.errors.base import UnoError
 from uno.events.deleted_event import DeletedEvent
-from uno.events.protocols import EventStoreProtocol
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.events.publisher import EventPublisherProtocol
 from uno.logging.protocols import LoggerProtocol
 

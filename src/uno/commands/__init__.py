@@ -18,6 +18,8 @@ from .errors import (
 )
 from .handler import CommandBus
 from .implementations.handler import InMemoryCommandBus
+from .implementations.memory_bus import InMemoryCommandBus as NewInMemoryCommandBus
+from .implementations.structural_bus import StructuralCommandBus
 from .protocols import CommandBusProtocol, CommandHandlerProtocol
 
 __all__ = [
@@ -29,6 +31,10 @@ __all__ = [
     # Core components
     "CommandBus",
     # Implementations
+    "InMemoryCommandBus",
+    "NewInMemoryCommandBus",
+    "StructuralCommandBus",
+    # Errors
     "InMemoryCommandBus",
     # Errors
     "CommandDispatchError",

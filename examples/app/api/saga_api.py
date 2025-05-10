@@ -11,7 +11,7 @@ from uno.persistence.event_sourcing.implementations.postgres.saga_store import (
     PostgresSagaStore,
 )
 from uno.events.implementations.bus import InMemoryEventBus
-from uno.events.implementations.command import InMemoryCommandBus
+from uno.commands.implementations.memory_bus import InMemoryCommandBus
 from uno.persistence.event_sourcing.implementations.postgres.bus import (
     PostgresEventBus,
     PostgresCommandBus,
