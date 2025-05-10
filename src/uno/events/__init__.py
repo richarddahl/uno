@@ -1,4 +1,3 @@
-# filepath: /Users/richarddahl/Code/uno/src/uno/events/__init__.py
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # SPDX-Package-Name: uno framework
@@ -25,7 +24,6 @@ from uno.events.restored_event import RestoredEvent
 # Configuration and helpers
 from uno.events.config import EventsConfig
 from uno.events.context import EventContext
-from uno.events.di import register_event_services
 from uno.events.priority import EventPriority
 from uno.events.factory import get_event_bus, get_event_publisher
 from uno.events.registry import register_event_handler, subscribe
@@ -50,7 +48,7 @@ from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.commands.protocols import CommandHandlerProtocol
 
 # Middleware imports remain the same
-from uno.events.implementations.handlers.middleware import (
+from uno.events.middleware import (
     CircuitBreakerMiddleware,
     CircuitBreakerState,
     EventMetrics,
@@ -91,7 +89,6 @@ __all__ = [
     "get_event_bus",
     "get_event_publisher",
     "register_event_handler",
-    "register_event_services",
     "subscribe",
     # In-memory implementations
     "InMemoryEventBus",

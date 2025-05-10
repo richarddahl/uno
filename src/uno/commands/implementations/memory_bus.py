@@ -11,7 +11,8 @@ that doesn't require explicit logger initialization for backward compatibility.
 from __future__ import annotations
 
 from uno.commands.implementations.structural_bus import StructuralCommandBus
-from uno.logging import LoggerProtocol, LoggingConfig
+from uno.logging import LoggerProtocol
+from uno.logging.logger import get_logger
 
 
 class InMemoryCommandBus(StructuralCommandBus):
@@ -33,6 +34,6 @@ class InMemoryCommandBus(StructuralCommandBus):
         """
         # Create a default logger if none is provided
         if logger is None:
-            logger = LoggerProtocol(LoggingConfig())
+            logger = get_logger(__name__)
 
         super().__init__(logger)

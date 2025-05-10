@@ -13,8 +13,8 @@ from .bus import PostgresEventBus, PostgresCommandBus
 from .saga_store import PostgresSagaStore
 
 __all__ = [
-    "PostgresEventStore",
-    "PostgresEventBus",
     "PostgresCommandBus",
+    "PostgresEventBus",
+    "PostgresEventStore",
     "PostgresSagaStore",
 ]

@@ -5,9 +5,54 @@ This module contains the core protocols that define the interface for the DI con
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 
-from uno.di.types import T, T_co
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+
+# Need to define ScopeProtocol first so ContainerProtocol can reference it
+@runtime_checkable
+class ScopeProtocol(Protocol):
+    """Protocol for a DI scope."""
+
+    @property
+    def id(self) -> str:
+        """Get the unique ID of this scope."""
+        ...
+        
+    @property
+    def parent(self) -> "ScopeProtocol | None":
+        """Get the parent scope, or None if this is a root scope."""
+        ...
+
+    async def resolve(self, interface: type[T]) -> T:
+        """Resolve a service within this scope."""
+        ...
+
+    def __getitem__(self, key: type[T]) -> T:
+        """Get a service by type."""
+        ...
+
+    def __setitem__(self, key: type[T], value: T) -> None:
+        """Set a service by type."""
+        ...
+
+    async def dispose(self) -> None:
+        """Dispose of the scope and its services."""
+        ...
+
+    def create_scope(self) -> "ScopeProtocol":
+        """Create a child scope."""
+        ...
+        
+    def get_service_keys(self) -> list[str]:
+        """Get the service keys available in this scope synchronously."""
+        ...
+        
+    async def get_service_keys_async(self) -> list[str]:
+        """Get the service keys available in this scope asynchronously."""
+        ...
 
 
 @runtime_checkable
@@ -17,11 +62,32 @@ class ContainerProtocol(Protocol):
     _registrations: dict[type[Any], Any]
     _singleton_scope: Any
 
+    @property
+    def current_scope(self) -> ScopeProtocol | None:
+        """Get the current active scope, or None if no scope is active."""
+        ...
+
     async def resolve(self, service_type: type[T]) -> T: ...
 
     async def _dispose_service(self, service: T) -> None: ...
 
     async def _create_service(self, interface: type[T], implementation: Any) -> T: ...
+    
+    def get_registration_keys(self) -> list[str]:
+        """Get all registered service keys synchronously."""
+        ...
+        
+    async def get_registration_keys_async(self) -> list[str]:
+        """Get all registered service keys asynchronously."""
+        ...
+
+    def get_scope_chain(self) -> list[ScopeProtocol]:
+        """Get the chain of scopes from current to root synchronously."""
+        ...
+        
+    async def get_scope_chain_async(self) -> list[ScopeProtocol]:
+        """Get the chain of scopes from current to root asynchronously."""
+        ...
 
 
 # Rename to include Protocol suffix for consistency
@@ -52,6 +118,14 @@ class ScopeProtocol(Protocol):
 
     def create_scope(self) -> "ScopeProtocol":
         """Create a child scope."""
+        ...
+        
+    def get_service_keys(self) -> list[str]:
+        """Get the service keys available in this scope synchronously."""
+        ...
+        
+    async def get_service_keys_async(self) -> list[str]:
+        """Get the service keys available in this scope asynchronously."""
         ...
 
 

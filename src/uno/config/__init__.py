@@ -26,6 +26,10 @@ from uno.config.secure import (
 T = TypeVar("T", bound=UnoSettings)
 
 
+import asyncio
+from typing import Awaitable, Callable
+
+
 def load_settings(settings_class: type[T], env: Environment | None = None) -> T:
     """Load settings from environment variables and .env files.
 
@@ -45,6 +49,18 @@ def load_settings(settings_class: type[T], env: Environment | None = None) -> T:
     return settings_class.from_env(env)
 
 
+async def load_settings_async(settings_class: type[T], env: Environment | None = None) -> T:
+    """
+    Async version of load_settings. Prepares for async config sources (e.g. remote secrets).
+    """
+    # For now, this is just a sync call wrapped for async compatibility.
+    # Replace with true async logic if/when needed.
+    return load_settings(settings_class, env)
+
+
+# Simple DI-friendly cache for get_config (per Uno integration principles)
+_config_cache: dict[type[UnoSettings], UnoSettings] = {}
+
 def get_config(settings_class: type[T]) -> T:
     """Get configuration for a component.
 
@@ -56,8 +72,12 @@ def get_config(settings_class: type[T]) -> T:
     Returns:
         Initialized settings instance
     """
-    # In a future implementation, this would include caching
-    return load_settings(settings_class)
+    # DI-friendly cache: instance-based, not global singleton
+    if settings_class in _config_cache:
+        return _config_cache[settings_class]  # type: ignore
+    config = load_settings(settings_class)
+    _config_cache[settings_class] = config
+    return config
 
 
 def setup_secure_config(master_key: str | bytes | None = None) -> None:

@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import time
 import uuid
+import decimal
+import enum
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Self
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
     from uno.services.hash_service_protocol import HashServiceProtocol
 
 
-logger = get_logger()
+logger = get_logger(__name__)
 
 # Global registry of event classes
 _EVENT_CLASSES: dict[str, type[DomainEvent]] = {}

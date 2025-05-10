@@ -134,3 +134,21 @@ class _Scope:
         """Set a service instance in this scope."""
         self._check_not_disposed()
         self._services[interface] = service
+        
+    def get_service_keys(self) -> list[str]:
+        """Get the service keys available in this scope synchronously.
+        
+        Returns:
+            A list of service type names available in this scope.
+        """
+        self._check_not_disposed()
+        return [t.__name__ for t in self._services]
+        
+    async def get_service_keys_async(self) -> list[str]:
+        """Get the service keys available in this scope asynchronously.
+        
+        Returns:
+            A list of service type names available in this scope.
+        """
+        self._check_not_disposed()
+        return [t.__name__ for t in self._services]

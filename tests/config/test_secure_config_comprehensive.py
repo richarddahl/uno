@@ -8,7 +8,7 @@ covering all handling modes, error scenarios, and integration points.
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 from pydantic_settings import BaseSettings
@@ -463,32 +463,31 @@ class TestDIIntegration:
         if "UNO_MASTER_KEY" in os.environ:
             del os.environ["UNO_MASTER_KEY"]
 
-    def test_register_secure_config(self) -> None:
+    @pytest.mark.asyncio
+    async def test_register_secure_config(self) -> None:
         """Test registering secure config with container."""
-        # Create mock container
-        container = MagicMock()
+        # Create async mock container
+        container = AsyncMock()
 
         # Register config
-        register_secure_config(container, BasicSecureConfig)
+        await register_secure_config(container, BasicSecureConfig)
 
         # Verify container.register was called
         assert container.register.call_count == TWO
 
-    def test_config_provider_factory(self) -> None:
+    @pytest.mark.asyncio
+    async def test_config_provider_factory(self) -> None:
         """Test config provider factory function."""
         # Mock container with logger
-        container = MagicMock()
+        container = AsyncMock()
         mock_logger = MagicMock()
         container.resolve.return_value = mock_logger
 
         # Register config
-        register_secure_config(container, BasicSecureConfig)
+        await register_secure_config(container, BasicSecureConfig)
 
-        # Get factory function (first call, first arg)
-        factory = container.register.call_args_list[0][1]["factory"]
-
-        # Call factory
-        provider = factory()
+        # Get provider instance from register call
+        provider = container.register.call_args_list[0][1]["instance"]
 
         # Verify provider is created
         assert isinstance(provider, ConfigProvider)

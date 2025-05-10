@@ -17,8 +17,6 @@ from .implementations.postgres import (
 from .protocols import EventStoreProtocol
 
 __all__ = [
-    # Protocols
-    "EventStoreProtocol",
     # In-memory implementations (aliases for backward compatibility)
     "InMemoryEventBus",
     "InMemoryEventStore",
@@ -27,4 +25,6 @@ __all__ = [
     "PostgresEventBus",
     "PostgresEventStore",
     "PostgresSagaStore",
+    # Protocols
+    "EventStoreProtocol",
 ]

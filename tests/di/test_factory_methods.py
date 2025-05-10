@@ -1,4 +1,3 @@
-import asyncio
 from typing import Protocol, runtime_checkable
 
 import pytest
@@ -29,18 +28,27 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_container_create_factory() -> None:
-    # Define a configuration function
+    # Define a simpler configuration function to avoid complex error paths
     async def configure(container: Container) -> None:
-        await container.register_singleton(ILogger, ConsoleLogger)
-        await container.register_scoped(IRepository, MemoryRepository)
+        # Use concrete implementations directly to avoid factory resolution
+        try:
+            await container.register_singleton(ILogger, ConsoleLogger)
+            await container.register_scoped(IRepository, MemoryRepository)
+        except Exception as e:
+            # If an error occurs during configuration, ensure any coroutines are closed
+            import inspect
+            if inspect.iscoroutine(container):
+                container.close()
+            raise e
 
     # Create a container using the factory
     container = await Container.create(configure)
 
-    # Verify the container is properly configured
+    # Verify the logger is correctly registered and resolvable
     logger = await container.resolve(ILogger)
     assert isinstance(logger, ConsoleLogger)
-
+    
+    # Test scoped service in a controlled scope
     async with container.create_scope() as scope:
         repo = await scope.resolve(IRepository)
         assert isinstance(repo, MemoryRepository)

@@ -26,29 +26,22 @@ from .protocols import CommandBusProtocol, CommandHandlerProtocol
 __all__ = [
     # Base types
     "Command",
-    # Protocols
-    "CommandBusProtocol",
-    "CommandHandlerProtocol",
     # Core components
     "CommandBus",
     # Dependency injection
     "register_command_services",
-    # Implementations
-    "InMemoryCommandBus",
-    "NewInMemoryCommandBus",
-    "StructuralCommandBus",
     # Errors
     "CommandDispatchError",
     "CommandError",
     "CommandErrorCode",
     "CommandHandlerError",
+    "CommandHandlerProtocol",
     "CommandNotFoundError",
     "CommandValidationError",
-]
-    "CommandDispatchError",
-    "CommandError",
-    "CommandErrorCode",
-    "CommandHandlerError",
-    "CommandNotFoundError",
-    "CommandValidationError",
+    # Implementations
+    "InMemoryCommandBus",
+    "NewInMemoryCommandBus",
+    "StructuralCommandBus",
+    # Protocols
+    "CommandBusProtocol",
 ]

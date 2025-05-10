@@ -188,9 +188,6 @@ src/uno/persistence/
   - The commands package `__init__.py` has been updated with both old and new implementations
 - [ ] Add proper `__all__` declarations following isort ordering
   - The commands package has an `__all__` declaration but it appears to be incomplete
-  - The events package new init file has exports but no explicit `__all__` declaration
-- [ ] Document breaking changes for migration
-  - Documentation of breaking changes is not yet visible in the codebase
 
 #### 5.2. Imports Audit
 

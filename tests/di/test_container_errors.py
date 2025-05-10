@@ -324,12 +324,14 @@ class TestDICircularDependencyError:
         # Since there's no repeat, the circular_dependency should be the whole chain
         assert error.context["circular_dependency"] == dependency_chain
 
-    def test_init_with_container(self):
+    async def test_init_with_container(self):
         """Test initialization with a container."""
         dependency_chain = ["ServiceA", "ServiceB", "ServiceA"]
         mock_container = MockContainer()
-        error = DICircularDependencyError(
-            dependency_chain=dependency_chain, container=mock_container
+        error = await DICircularDependencyError.async_init(
+            message="Circular dependency detected",
+            dependency_chain=dependency_chain,
+            container=mock_container
         )
 
         assert "container_registrations" in error.context

@@ -80,7 +80,7 @@ class ConfigProvider(Generic[T]):
         return value
 
 
-def register_secure_config(
+async def register_secure_config(
     container: Any,  # Actual type would be Container from DI module
     settings_class: type[T],
     lifetime: str = "singleton",
@@ -97,11 +97,16 @@ def register_secure_config(
     """
 
     # Factory function to create the config provider
-    def create_config_provider() -> ConfigProvider[T]:
+    async def create_config_provider() -> ConfigProvider[T]:
+        """Create a ConfigProvider instance.
+
+        Returns:
+            ConfigProvider instance
+        """
         # Get a logger from the container if available
         logger = None
         try:
-            logger = container.resolve(logging.Logger)
+            logger = await container.resolve(logging.Logger)
         except Exception:
             # Fall back to default logger
             logger = logging.getLogger("uno.config")
@@ -113,14 +118,15 @@ def register_secure_config(
         return ConfigProvider(settings, logger)
 
     # Register the provider with the container
-    container.register(
+    provider = await create_config_provider()
+    await container.register(
         ConfigProviderProtocol[T],
-        factory=create_config_provider,
+        instance=provider,
         lifetime=lifetime,
     )
 
     # Also register the concrete provider type for use cases that need the specific type
-    container.register(
+    await container.register(
         ConfigProvider[T],
         factory=create_config_provider,
         lifetime=lifetime,

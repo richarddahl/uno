@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 from uno.events.base_event import DomainEvent
-from uno.events.interfaces import EventBusProtocol
+from uno.events.protocols import EventBusProtocol
 from uno.events.priority import EventPriority
 from uno.logging.protocols import LoggerProtocol
 from uno.logging.logger import get_logger

@@ -8,4 +8,7 @@ In-memory implementations for the commands package.
 from .memory_bus import InMemoryCommandBus
 from .structural_bus import StructuralCommandBus
 
-__all__ = ["InMemoryCommandBus", "StructuralCommandBus"]
+__all__ = [
+    "InMemoryCommandBus",
+    "StructuralCommandBus",
+]

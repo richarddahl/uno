@@ -5,22 +5,21 @@ This module provides extension methods to register event system services
 with the DI container.
 """
 
-from typing import cast, TYPE_CHECKING
+from typing import cast
 
 from uno.di.container import Container
-from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.config import EventsConfig
+from uno.events.implementations.bus import InMemoryEventBus
+from uno.events.implementations.handlers.middleware import LoggingMiddleware, TimingMiddleware
+from uno.events.implementations.handlers.registry import EventHandlerRegistry
 from uno.events.protocols import EventBusProtocol
-from uno.persistence.event_sourcing.protocols import EventStoreProtocol
-from uno.persistence.event_sourcing.implementations.postgres.event_store import (
-    PostgresEventStore,
-)
+from uno.events.publisher import EventPublisher
+from uno.logging.protocols import LoggerProtocol
 from uno.persistence.event_sourcing.implementations.postgres.bus import PostgresEventBus
+from uno.persistence.event_sourcing.implementations.postgres.event_store import PostgresEventStore
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-
-if TYPE_CHECKING:
-    from uno.logging.protocols import LoggerProtocol
 
 
 async def register_event_services(container: Container) -> None:
@@ -39,6 +38,31 @@ async def register_event_services(container: Container) -> None:
 
     # Register event store based on configuration
     await _register_event_store(container, config)
+
+    # Register event handler registry
+    await container.register_singleton(
+        EventHandlerRegistry,
+        lambda c: EventHandlerRegistry(logger=c.resolve("LoggerProtocol")),
+    )
+
+    # Register middleware as singletons
+    await container.register_singleton(
+        LoggingMiddleware,
+        lambda c: LoggingMiddleware(logger=c.resolve("LoggerProtocol")),
+    )
+    await container.register_singleton(
+        TimingMiddleware,
+        lambda c: TimingMiddleware(logger=c.resolve("LoggerProtocol")),
+    )
+
+    # Register event publisher
+    await container.register_singleton(
+        EventPublisher,
+        lambda c: EventPublisher(
+            event_bus=c.resolve(EventBusProtocol),
+            logger=c.resolve("LoggerProtocol"),
+        ),
+    )
 
     # Additional event system service registrations would go here
 

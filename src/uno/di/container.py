@@ -97,13 +97,65 @@ class Container:
             ```
         """
         container = cls()
-        await configurator(container)
+        try:
+            await configurator(container)
+        except Exception as e:
+            # If an error occurs during configuration, ensure any coroutines are closed
+            import inspect
+            if inspect.iscoroutine(container):
+                container.close()
+            raise e
         return container
 
     def _check_not_disposed(self) -> None:
         """Check if the container is disposed and raise an error if it is."""
         if self._disposed:
             raise ScopeError("Container has been disposed")
+            
+    def get_registration_keys(self) -> list[str]:
+        """Get all registered service keys synchronously.
+        
+        Returns:
+            A list of service keys (type names) that are registered in this container.
+        """  
+        self._check_not_disposed()
+        return [t.__name__ for t in self._registrations]
+        
+    async def get_registration_keys_async(self) -> list[str]:
+        """Get all registered service keys asynchronously.
+        
+        Returns:
+            A list of service keys (type names) that are registered in this container.
+        """  
+        self._check_not_disposed()
+        return [t.__name__ for t in self._registrations]
+        
+    def get_scope_chain(self) -> list[_Scope]:
+        """Get the chain of scopes from current to root synchronously.
+        
+        Returns:
+            A list of scopes from the current scope to the root scope.
+        """
+        self._check_not_disposed()
+        if self._current_scope is None:
+            return [self._singleton_scope]
+            
+        chain = []
+        scope: _Scope | None = self._current_scope
+        while scope is not None:
+            chain.append(scope)
+            scope = scope.parent
+            
+        return chain
+        
+    async def get_scope_chain_async(self) -> list[_Scope]:
+        """Get the chain of scopes from current to root asynchronously.
+        
+        Returns:
+            A list of scopes from the current scope to the root scope.
+        """
+        self._check_not_disposed()
+        return self.get_scope_chain()
 
     @contextlib.asynccontextmanager
     async def create_scope(self) -> AsyncGenerator[_Scope]:
@@ -364,6 +416,10 @@ class Container:
                     instance = implementation()
 
             if not isinstance(instance, interface):
+                # Defensive: if instance is a coroutine, close it to avoid warning
+                import inspect
+                if inspect.iscoroutine(instance):
+                    instance.close()
                 raise TypeMismatchError(interface, type(instance))
 
             return instance

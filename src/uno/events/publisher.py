@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar, Generic
 
 from uno.events.base_event import DomainEvent
-from uno.events.interfaces import EventBusProtocol, EventPublisherProtocol
+from uno.events.protocols import EventBusProtocol, EventPublisherProtocol
 from uno.events.errors import UnoError
 
 

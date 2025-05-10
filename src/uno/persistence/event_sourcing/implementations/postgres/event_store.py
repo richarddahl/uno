@@ -11,11 +11,11 @@ from datetime import datetime, UTC
 from sqlalchemy import Table, Column, String, Integer, JSON, DateTime, MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from uno.events.protocols import EventStoreProtocol
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.events.base_event import DomainEvent
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 E = TypeVar("E", bound=DomainEvent)
 
@@ -27,7 +27,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
         self,
         config: SQLConfig,
         connection_manager: ConnectionManager,
-        logger: LoggerService,
+        logger: LoggerProtocol,
     ) -> None:
         """Initialize PostgreSQL event store.
 
