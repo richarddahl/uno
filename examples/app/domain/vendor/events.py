@@ -8,8 +8,7 @@ from pydantic import ConfigDict
 
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Success
+from uno.domain.errors import DomainValidationError
 from uno.events import DomainEvent
 
 
@@ -18,14 +17,15 @@ class VendorEmailUpdated(DomainEvent):
     Event: a vendor's email address is updated.
 
     Usage:
-        result = VendorEmailUpdated.create(
-            vendor_id="V100",
-            old_email=EmailAddress(value="old@example.com"),
-            new_email=EmailAddress(value="new@example.com"),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = VendorEmailUpdated.create(
+                vendor_id="V100",
+                old_email=EmailAddress(value="old@example.com"),
+                new_email=EmailAddress(value="new@example.com"),
+            )
+            # use event
+        except DomainValidationError as e:
+            # handle error
             ...
     """
 
@@ -42,50 +42,68 @@ class VendorEmailUpdated(DomainEvent):
         old_email: EmailAddress,
         new_email: EmailAddress,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new VendorEmailUpdated event with validation.
+        
+        Args:
+            vendor_id: The ID of the vendor
+            old_email: Previous email address
+            new_email: New email address
+            version: Event version
+            
+        Returns:
+            A new VendorEmailUpdated event
+            
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "vendor_id is required", details=get_error_context()
                 )
             if not isinstance(old_email, EmailAddress):
-                return Failure(
-                    DomainValidationError(
-                        "old_email must be an EmailAddress", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "old_email must be an EmailAddress", details=get_error_context()
                 )
             if not isinstance(new_email, EmailAddress):
-                return Failure(
-                    DomainValidationError(
-                        "new_email must be an EmailAddress", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "new_email must be an EmailAddress", details=get_error_context()
                 )
-            event = cls(
+            
+            return cls(
                 vendor_id=vendor_id,
                 old_email=old_email,
                 new_email=new_email,
                 version=version,
             )
-            return Success(event)
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create VendorEmailUpdated", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create VendorEmailUpdated", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast to a newer version of the event.
+        
+        Args:
+            target_version: The version to upcast to
+            
+        Returns:
+            The upcasted event
+            
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+            
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )
 
 
@@ -95,14 +113,14 @@ class VendorCreated(DomainEvent):
     Event: Vendor was created.
 
     Usage:
-        result = VendorCreated.create(
-            vendor_id="V100",
-            name="Acme Corp",
-            contact_email="info@acme.com",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = VendorCreated.create(
+                vendor_id="V100",
+                name="Acme Corp",
+                contact_email="info@acme.com",
+            )
+            # use event
+        except DomainValidationError as e:
             # handle error context
             ...
     """
@@ -120,50 +138,68 @@ class VendorCreated(DomainEvent):
         name: str,
         contact_email: str,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new VendorCreated event with validation.
+        
+        Args:
+            vendor_id: The ID of the vendor
+            name: The name of the vendor
+            contact_email: The contact email for the vendor
+            version: Event version
+            
+        Returns:
+            A new VendorCreated event
+            
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "vendor_id is required", details=get_error_context()
                 )
             if not name:
-                return Failure(
-                    DomainValidationError(
-                        "name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "name is required", details=get_error_context()
                 )
             if not contact_email:
-                return Failure(
-                    DomainValidationError(
-                        "contact_email is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "contact_email is required", details=get_error_context()
                 )
-            event = cls(
+                
+            return cls(
                 vendor_id=vendor_id,
                 name=name,
                 contact_email=contact_email,
                 version=version,
             )
-            return Success(event)
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create VendorCreated", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create VendorCreated", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast to a newer version of the event.
+        
+        Args:
+            target_version: The version to upcast to
+            
+        Returns:
+            The upcasted event
+            
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+            
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )
 
 
@@ -172,14 +208,14 @@ class VendorUpdated(DomainEvent):
     Event: Vendor was updated.
 
     Usage:
-        result = VendorUpdated.create(
-            vendor_id="V100",
-            name="Acme Corp",
-            contact_email="info@acme.com",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = VendorUpdated.create(
+                vendor_id="V100",
+                name="Acme Corp",
+                contact_email="info@acme.com",
+            )
+            # use event
+        except DomainValidationError as e:
             # handle error context
             ...
     """
@@ -197,48 +233,66 @@ class VendorUpdated(DomainEvent):
         name: str,
         contact_email: str,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new VendorUpdated event with validation.
+        
+        Args:
+            vendor_id: The ID of the vendor
+            name: The name of the vendor
+            contact_email: The contact email for the vendor
+            version: Event version
+            
+        Returns:
+            A new VendorUpdated event
+            
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "vendor_id is required", details=get_error_context()
                 )
             if not name:
-                return Failure(
-                    DomainValidationError(
-                        "name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "name is required", details=get_error_context()
                 )
             if not contact_email:
-                return Failure(
-                    DomainValidationError(
-                        "contact_email is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "contact_email is required", details=get_error_context()
                 )
-            event = cls(
+                
+            return cls(
                 vendor_id=vendor_id,
                 name=name,
                 contact_email=contact_email,
                 version=version,
             )
-            return Success(event)
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create VendorUpdated", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create VendorUpdated", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast to a newer version of the event.
+        
+        Args:
+            target_version: The version to upcast to
+            
+        Returns:
+            The upcasted event
+            
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+            
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )

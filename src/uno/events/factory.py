@@ -13,14 +13,14 @@ from uno.events.protocols import (
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.events.implementations.bus import InMemoryEventBus
 from uno.events.implementations.store import InMemoryEventStore
-from uno.logging import LoggerProtocol, get_logger
+from uno.logging.logger import LoggerProtocol
 
 # Module-level singletons (can be replaced/configured via DI)
 # Module-level singletons for event infrastructure (set via DI/testing setters)
 _event_bus: EventBusProtocol | None = None
 _event_publisher: EventPublisherProtocol | None = None
 _event_store: EventStoreProtocol | None = None
-_logger: LoggerProtocol = get_logger("uno.events.factory")
+_logger: LoggerProtocol | None = None  # Inject via DI or set externally
 
 
 def get_event_bus() -> EventBusProtocol:

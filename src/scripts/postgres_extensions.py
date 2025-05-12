@@ -68,12 +68,10 @@ def run_command(
         )
 
         if check and result.returncode != 0:
-            error_message = (
-                f"Command failed with exit code {result.returncode}:\n{command}"
-            )
+            message = f"Command failed with exit code {result.returncode}:\n{command}"
             if capture_output and result.stderr:
-                error_message += f"\nError output:\n{result.stderr}"
-            raise ExtensionManagerError(error_message)
+                message += f"\nError output:\n{result.stderr}"
+            raise ExtensionManagerError(message)
 
         return result
     except Exception as e:

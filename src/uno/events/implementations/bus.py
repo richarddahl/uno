@@ -46,9 +46,13 @@ class InMemoryEventBus:
             logger: Logger instance for structured logging
             config: Events configuration settings
         """
-        self._subscribers: dict[str, list[Any]] = {}
         self.logger = logger
         self.config = config
+        from uno.events.handlers import EventHandlerRegistry
+        from uno.di.container import Container
+
+        # Registry is now required for handler resolution
+        self.registry = EventHandlerRegistry(logger, getattr(config, "container", None))
 
     def _canonical_event_dict(self, event: E) -> dict[str, Any]:
         """
@@ -81,7 +85,7 @@ class InMemoryEventBus:
 
     async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> None:
         """
-        Publish a domain event to all subscribers.
+        Publish a domain event to all registered handlers (via DI-aware registry).
 
         Args:
             event: The domain event to publish
@@ -92,43 +96,51 @@ class InMemoryEventBus:
         """
         event_type = getattr(event, "event_type", type(event).__name__)
         try:
-            self.logger.info(
+            await self.logger.info(
                 "Publishing event",
                 event_type=event_type,
                 event=self._canonical_event_dict(event),
                 metadata=metadata or {},
             )
+            # Resolve handlers via DI-aware registry (async)
+            handlers = await self.registry.resolve_handlers_for_event(event_type)
+            if not handlers:
+                await self.logger.debug(
+                    "No handlers registered for event",
+                    event_type=event_type,
+                    event_id=getattr(event, "event_id", None),
+                )
+                return
+            from uno.events.handlers import MiddlewareChainBuilder
 
-            # Check if anyone is subscribed to this event type
-            if event_type in self._subscribers:
-                handlers = self._subscribers[event_type]
-                for handler in handlers:
-                    try:
-                        await handler(event)
-                    except Exception as e:
-                        self.logger.error(
-                            "Event handler error",
-                            event_type=event_type,
-                            handler=handler.__qualname__,
-                            error=str(e),
-                        )
-                        # Don't reraise, continue with other handlers
-                        if (
-                            hasattr(self.config, "continue_on_handler_error")
-                            and not self.config.continue_on_handler_error
-                        ):
-                            raise EventHandlerError(
-                                event_type=event_type,
-                                handler_name=handler.__qualname__,
-                                reason=str(e),
-                            ) from e
-        except Exception as e:
-            self.logger.error(
+            for handler in handlers:
+                try:
+                    chain = MiddlewareChainBuilder(handler, self.logger).build_chain(
+                        self.registry._middleware
+                    )
+                    await chain(event)
+                except Exception as exc:
+                    await self.logger.error(
+                        "Handler failed for event",
+                        event_id=getattr(event, "event_id", None),
+                        event_type=event_type,
+                        handler=type(handler).__name__,
+                        error=str(exc),
+                        message=str(exc),
+                        metadata=metadata,
+                        exc_info=True,  # Only True, not the exception object
+                    )
+                    raise
+        except Exception as exc:
+            # Ensure all context values are serializable (stringify exception for logging)
+            await self.logger.error(
                 "Failed to publish event",
                 event_type=event_type,
-                error=str(e),
+                error=str(exc),
+                message=str(exc),
             )
-            raise EventPublishError(event_type=event_type, reason=str(e)) from e
+            # Ensure the reason includes the original exception message
+            raise EventPublishError(event_type=event_type, reason=str(exc)) from exc
 
     async def publish_many(self, events: list[E]) -> None:
         """

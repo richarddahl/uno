@@ -4,15 +4,15 @@ EventBusProtocol and EventPublisherProtocol for Uno event sourcing.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from uno.events.base_event import DomainEvent
 from uno.events.errors import (
     EventErrorCode,
     EventHandlerError,
-    EventPublishError,
-    UnoError as AppError,
 )
+from uno.events.metrics import EventMetrics
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -39,17 +39,26 @@ class InMemoryEventBus:
         - E: DomainEvent (or subclass)
     """
 
-    def __init__(self, logger: LoggerProtocol, config: EventsConfig) -> None:
+    def __init__(
+        self,
+        logger: LoggerProtocol,
+        config: EventsConfig,
+        metrics_factory: Any | None = None,
+    ) -> None:
         """
         Initialize the in-memory event bus.
 
         Args:
             logger: Logger instance for structured logging
             config: Events configuration settings
+            metrics_factory: Optional metrics factory for collecting event metrics
         """
         self._subscribers: dict[str, list[Callable[[E], Awaitable[None]]]] = {}
         self.logger = logger
         self.config = config
+        self.metrics = (
+            EventMetrics(metrics_factory, logger) if metrics_factory else None
+        )
 
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
@@ -64,199 +73,220 @@ class InMemoryEventBus:
         return event.to_dict()
 
     async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> None:
-        """
-        Publish a single event to all subscribers.
+        """Publish an event to all registered handlers.
 
         Args:
             event: The event to publish
-            metadata: Optional metadata for the event
-
-        Raises:
-            EventPublishError: If publishing fails
-            EventHandlerError: If any handler fails
+            metadata: Optional metadata to include with the event
         """
-        metadata = metadata or {}
+        # Record metrics before publishing
+        if self.metrics:
+            await self.metrics.record_event_published(event)
+            await self.metrics.increment_active_events(event)
 
-        try:
-            # Log canonical dict for audit/debug
-            self.logger.debug(
-                "Publishing event",
-                event_data=self._canonical_event_dict(event),
-                event_type=getattr(event, "event_type", None),
-                event_id=getattr(event, "event_id", None),
-                metadata=metadata,
+        # Get the event type name
+        event_type = event.__class__.__name__
+
+        # Log the event
+        event_id = getattr(event, "event_id", None)
+        await self.logger.debug(
+            "Publishing event", event_type=event_type, event_id=event_id
+        )
+
+        # Get all handlers for this event type and its superclasses
+        handlers = self._subscribers.get(event.event_type, [])
+
+        if not handlers:
+            await self.logger.debug(
+                "No handlers found for event", event_type=event_type
             )
+            # Decrement active events since we're not processing any handlers
+            if self.metrics:
+                await self.metrics.decrement_active_events(event)
+            return
 
-            handlers = self._subscribers.get(event.event_type, [])
+        # Execute all handlers concurrently
+        tasks = [
+            self._execute_handler(handler, event, metadata or {})
+            for handler in handlers
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            if not handlers:
-                self.logger.debug(
-                    "No handlers registered for event",
-                    event_type=event.event_type,
-                    event_id=getattr(event, "event_id", None),
+        # Log any exceptions that occurred in handlers
+        for result in results:
+            if isinstance(result, Exception):
+                await self.logger.error(
+                    "Error in event handler",
+                    error=str(result),
+                    error_type=type(result).__name__,
+                    exc_info=result,
                 )
-                return
 
-            for handler in handlers:
-                try:
-                    await handler(event)
-                except Exception as exc:
-                    self.logger.error(
-                        "Handler failed for event",
-                        event_id=getattr(event, "event_id", None),
-                        event_type=getattr(event, "event_type", None),
-                        handler=str(handler),
-                        error=str(exc),
-                        metadata=metadata,
-                        exc_info=exc,
+        # Check for any errors in the results and raise the first one if present
+        for result in results:
+            if isinstance(result, Exception):
+                # Log the error if not already logged
+                if not any(
+                    isinstance(r, type(result)) for r in results if r is not result
+                ):
+                    await self.logger.error(
+                        "Error in event handler",
+                        error=str(result),
+                        error_type=type(result).__name__,
+                        exc_info=result,
                     )
+                raise result
 
-                    # Retry logic based on configuration
-                    if self.config.retry_attempts > 0:
-                        await self._retry_handler(handler, event, metadata)
-                    else:
-                        raise AppError(
-                            code=EventErrorCode.HANDLER_ERROR,
-                            message=f"Handler failed for event {event.event_type}",
-                            context={
-                                "event_type": event.event_type,
-                                "handler_name": str(handler),
-                                "error": str(exc),
-                            },
-                        ) from exc
-
-            self.logger.debug(
-                "Event published successfully",
-                event_type=event.event_type,
-                event_id=getattr(event, "event_id", None),
-                handler_count=len(handlers),
-            )
-
-        except Exception as exc:
-            self.logger.error(
-                "Failed to publish event",
-                event_id=getattr(event, "event_id", None),
-                event_type=getattr(event, "event_type", None),
-                error=str(exc),
-                metadata=metadata,
-                exc_info=exc,
-            )
-
-            if isinstance(exc, EventPublishError | EventHandlerError):
-                raise
-
-            raise AppError(
-                code=EventErrorCode.PUBLISH_ERROR,
-                message="Failed to publish event",
-                context={
-                    "event_type": getattr(event, "event_type", type(event).__name__),
-                    "error": str(exc),
-                },
-            ) from exc
-
-    async def _retry_handler(
-        self, handler: Any, event: E, metadata: dict[str, Any]
+    async def _execute_handler(
+        self,
+        handler: Callable[[E], Awaitable[None]],
+        event: E,
+        metadata: dict[str, Any],
     ) -> None:
         """
-        Retry a failed handler based on configuration settings.
+        Execute a single event handler with error handling and logging.
 
         Args:
-            handler: The event handler to retry
-            event: The event to handle
-            metadata: Event metadata
+            handler: The handler function to execute
+            event: The event to pass to the handler
+            metadata: Additional metadata for the event
 
         Raises:
-            EventHandlerError: If all retry attempts fail
+            EventHandlerError: If the handler fails after all retry attempts
         """
-        import asyncio
+        handler_name = handler.__name__
+        event_type = event.__class__.__name__
+        event_id = getattr(event, "event_id", None)
 
         retry_count = 0
         last_error = None
 
         while retry_count < self.config.retry_attempts:
-            retry_count += 1
-
-            # Wait before retrying
-            await asyncio.sleep(self.config.retry_delay_ms / 1000.0)
-
             try:
-                self.logger.info(
-                    "Retrying event handler",
-                    event_id=getattr(event, "event_id", None),
-                    event_type=getattr(event, "event_type", None),
-                    handler=str(handler),
-                    retry_count=retry_count,
-                    max_retries=self.config.retry_attempts,
+                await self.logger.debug(
+                    "Executing event handler",
+                    handler=handler_name,
+                    event_type=event_type,
+                    event_id=event_id,
                 )
 
-                await handler(event)
+                # Record handler start time for metrics
+                start_time = asyncio.get_event_loop().time()
 
-                self.logger.info(
-                    "Retry succeeded",
-                    event_id=getattr(event, "event_id", None),
-                    event_type=getattr(event, "event_type", None),
-                    handler=str(handler),
-                    retry_count=retry_count,
+                try:
+                    await handler(event)
+                    duration = asyncio.get_event_loop().time() - start_time
+
+                    # Record metrics after successful processing
+                    if self.metrics:
+                        await self.metrics.record_processing_time(event, duration)
+                        await self.metrics.record_event_processed(event)
+
+                    # Log successful processing
+                    await self.logger.debug(
+                        "Successfully processed event",
+                        event_type=event_type,
+                        event_id=event_id,
+                        handler=handler_name,
+                        duration_seconds=duration,
+                    )
+                    return  # Success - exit the retry loop
+
+                except Exception as e:
+                    duration = asyncio.get_event_loop().time() - start_time
+
+                    # Record error metrics
+                    if self.metrics:
+                        await self.metrics.record_event_error(event, e)
+
+                    # Log the error
+                    await self.logger.error(
+                        "Error processing event",
+                        event_type=event_type,
+                        event_id=event_id,
+                        handler=handler_name,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                    last_error = e
+                    retry_count += 1
+
+                    if retry_count < self.config.retry_attempts:
+                        await self.logger.warning(
+                            "Retrying event handler",
+                            handler=handler_name,
+                            event_type=event_type,
+                            event_id=event_id,
+                            retry_count=retry_count,
+                            max_retries=self.config.retry_attempts,
+                        )
+
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                await self.logger.error(
+                    "Unexpected error in event handler execution",
+                    handler=handler_name,
+                    event_type=event_type,
+                    event_id=event_id,
+                    error=str(e),
+                    exc_info=True,
                 )
 
-                return
-            except Exception as exc:
-                last_error = exc
-                self.logger.warning(
-                    "Retry failed",
-                    event_id=getattr(event, "event_id", None),
-                    event_type=getattr(event, "event_type", None),
-                    handler=str(handler),
-                    retry_count=retry_count,
-                    max_retries=self.config.retry_attempts,
-                    error=str(exc),
-                )
-
-        # All retries failed
-        self.logger.error(
-            "All retry attempts failed",
-            event_id=getattr(event, "event_id", None),
-            event_type=getattr(event, "event_type", None),
-            handler=str(handler),
-            retry_count=retry_count,
-            max_retries=self.config.retry_attempts,
+        # If we get here, all retries failed
+        message = (
+            f"Handler failed after {self.config.retry_attempts} "
+            f"retries for event {event_type}"
         )
+        raise EventHandlerError(
+            code=EventErrorCode.HANDLER_ERROR,
+            message=message,
+            event_type=event_type,
+            handler_name=handler_name,
+            reason=str(last_error) if last_error else "Unknown error",
+            context={
+                "retry_count": retry_count,
+                "last_error": str(last_error) if last_error else None,
+            },
+        ) from last_error
 
-        if last_error:
-            raise EventHandlerError(
-                event_type=event.event_type,
-                handler_name=str(handler),
-                reason="All retry attempts failed for event handler",
-                context={
-                    "event_type": getattr(event, "event_type", type(event).__name__),
-                    "handler_name": str(handler),
-                    "retry_count": retry_count,
-                    "error": str(last_error),
-                },
-            ) from last_error
-
-    async def publish_many(self, events: list[E]) -> None:
+    async def publish_many(
+        self, events: list[E], batch_size: int | None = None
+    ) -> None:
         """
-        Publish a list of events to all subscribers.
+        Publish a list of events to all subscribers, in batches and concurrently.
 
         Args:
             events: The events to publish
+            batch_size: Number of events to process concurrently in a batch
 
         Raises:
             EventPublishError: If publishing any event fails
         """
         if not events:
-            self.logger.debug("No events to publish")
+            await self.logger.debug("No events to publish")
             return
 
-        self.logger.info("Publishing multiple events", event_count=len(events))
+        batch_size = batch_size or getattr(self.config, "batch_size", 10)
+        await self.logger.info(
+            "Publishing multiple events", event_count=len(events), batch_size=batch_size
+        )
 
-        for event in events:
-            await self.publish(event)
+        for i in range(0, len(events), batch_size):
+            batch = events[i : i + batch_size]
+            tasks = [self.publish(event) for event in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    await self.logger.error(
+                        "Failed to publish event in batch", error=str(result)
+                    )
 
-        self.logger.debug("All events published successfully", event_count=len(events))
+        await self.logger.debug(
+            "All events published successfully", event_count=len(events)
+        )
 
-    def subscribe(self, event_type: str, handler: Any) -> None:
+    async def subscribe(self, event_type: str, handler: Any) -> None:
         """
         Subscribe a handler to a specific event type.
 
@@ -264,10 +294,14 @@ class InMemoryEventBus:
             event_type: The event type to subscribe to
             handler: The handler function/coroutine to invoke for this event type
         """
-        self.logger.debug(
+        await self.logger.debug(
             "Subscribing handler to event type",
             event_type=event_type,
-            handler=str(handler),
+            handler=(
+                handler.__qualname__
+                if hasattr(handler, "__qualname__")
+                else str(handler)
+            ),
         )
 
         self._subscribers.setdefault(event_type, []).append(handler)

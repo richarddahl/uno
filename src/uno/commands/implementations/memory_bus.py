@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from uno.commands.implementations.structural_bus import StructuralCommandBus
 from uno.logging import LoggerProtocol
-from uno.logging.logger import get_logger
+from uno.logging.logger import LoggerProtocol
 
 
 class InMemoryCommandBus(StructuralCommandBus):
@@ -34,6 +34,6 @@ class InMemoryCommandBus(StructuralCommandBus):
         """
         # Create a default logger if none is provided
         if logger is None:
-            logger = get_logger(__name__)
+            logger: LoggerProtocol | None = None  # Inject via DI or set externally
 
         super().__init__(logger)

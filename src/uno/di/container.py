@@ -9,7 +9,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from collections.abc import AsyncGenerator, Callable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 
 from uno.di.disposal import _DisposalManager
 from uno.di.errors import (
@@ -21,19 +29,177 @@ from uno.di.errors import (
 )
 from uno.di.registration import ServiceRegistration
 from uno.di.resolution import _Scope
-from uno.di.protocols import (
-    AsyncServiceFactoryProtocol,
-    ServiceFactoryProtocol,
-)
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable
-
 
 T = TypeVar("T")
 
+if TYPE_CHECKING:
+    from uno.di.protocols import (
+        AsyncServiceFactoryProtocol,
+        ServiceFactoryProtocol,
+        ContainerProtocol,
+        ScopeProtocol,
+    )
 
-class Container:
+
+@runtime_checkable
+class ContainerProtocol(Protocol):
+    """Protocol for dependency injection containers."""
+
+    async def register_singleton(
+        self,
+        interface: type[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
+        replace: bool = False,
+    ) -> None:
+        """Register a service with singleton lifetime.
+
+        Args:
+            interface: type[T]
+                The interface type that will be used to resolve the service.
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+                Either a class that implements the interface, a synchronous factory function,
+                or an asynchronous factory function that returns an instance of the implementation.
+            replace: bool
+                If True, replace any existing registration for this interface.
+                Default: False
+
+        Raises:
+            ScopeError: If the container has been disposed.
+            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
+            TypeMismatchError: If the implementation does not implement the interface.
+        """
+        ...
+
+    async def register_scoped(
+        self,
+        interface: type[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
+        replace: bool = False,
+    ) -> None:
+        """Register a service with scoped lifetime.
+
+        Args:
+            interface: type[T]
+                The interface type that will be used to resolve the service.
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+                Either a class that implements the interface, a synchronous factory function,
+                or an asynchronous factory function that returns an instance of the implementation.
+            replace: bool
+                If True, replace any existing registration for this interface.
+                Default: False
+
+        Raises:
+            ScopeError: If the container has been disposed.
+            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
+            TypeMismatchError: If the implementation does not implement the interface.
+        """
+        ...
+
+    async def register_transient(
+        self,
+        interface: type[T],
+        implementation: type[T]
+        | ServiceFactoryProtocol[T]
+        | AsyncServiceFactoryProtocol[T],
+        replace: bool = False,
+    ) -> None:
+        """Register a service with transient lifetime.
+
+        Args:
+            interface: type[T]
+                The interface type that will be used to resolve the service.
+            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+                Either a class that implements the interface, a synchronous factory function,
+                or an asynchronous factory function that returns an instance of the implementation.
+            replace: bool
+                If True, replace any existing registration for this interface.
+                Default: False
+
+        Raises:
+            ScopeError: If the container has been disposed.
+            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
+            TypeMismatchError: If the implementation does not implement the interface.
+        """
+        ...
+
+    def get_registration_keys(self) -> list[str]:
+        """Get all registered service keys synchronously.
+
+        Returns:
+            A list of service keys (type names) that are registered in this container.
+        """
+        ...
+
+    async def get_registration_keys_async(self) -> list[str]:
+        """Get all registered service keys asynchronously.
+
+        Returns:
+            A list of service keys (type names) that are registered in this container.
+        """
+        ...
+
+    def get_scope_chain(self) -> list[_Scope]:
+        """Get the chain of scopes from current to root synchronously.
+
+        Returns:
+            A list of scopes from the current scope to the root scope.
+        """
+        ...
+
+    async def get_scope_chain_async(self) -> list[_Scope]:
+        """Get the chain of scopes from current to root asynchronously.
+
+        Returns:
+            A list of scopes from the current scope to the root scope.
+        """
+        ...
+
+    @contextlib.asynccontextmanager
+    async def create_scope(self) -> AsyncGenerator[_Scope]:
+        """Create a new scope for scoped services.
+
+        This method returns an async context manager that yields a scope.
+        The scope will be automatically disposed when the context exits.
+
+        Example:
+            ```python
+            async with container.create_scope() as scope:
+                service = await scope.resolve(IService)
+            # Scope is automatically disposed here
+            ```
+        """
+        ...
+
+    async def wait_for_pending_tasks(self) -> None:
+        """Wait for all pending registration tasks to complete.
+
+        This method should be called before disposing the container to ensure
+        all asynchronous registration tasks have completed.
+
+        Raises:
+            Exception: If any of the pending tasks raised an exception.
+        """
+        ...
+
+    async def dispose(self) -> None:
+        """Dispose the container and all its services.
+
+        This method:
+        1. Waits for any pending registration tasks
+        2. Disposes all scopes
+        3. Disposes singleton services
+
+        After disposal, the container cannot be used and will raise ScopeError
+        when attempting to register or resolve services.
+        """
+        ...
+
+
+class Container(ContainerProtocol):
     """Dependency Injection container for managing service lifetimes.
 
     This container supports three service lifetimes:
@@ -102,6 +268,7 @@ class Container:
         except Exception as e:
             # If an error occurs during configuration, ensure any coroutines are closed
             import inspect
+
             if inspect.iscoroutine(container):
                 container.close()
             raise e
@@ -111,46 +278,46 @@ class Container:
         """Check if the container is disposed and raise an error if it is."""
         if self._disposed:
             raise ScopeError("Container has been disposed")
-            
+
     def get_registration_keys(self) -> list[str]:
         """Get all registered service keys synchronously.
-        
+
         Returns:
             A list of service keys (type names) that are registered in this container.
-        """  
+        """
         self._check_not_disposed()
         return [t.__name__ for t in self._registrations]
-        
+
     async def get_registration_keys_async(self) -> list[str]:
         """Get all registered service keys asynchronously.
-        
+
         Returns:
             A list of service keys (type names) that are registered in this container.
-        """  
+        """
         self._check_not_disposed()
         return [t.__name__ for t in self._registrations]
-        
+
     def get_scope_chain(self) -> list[_Scope]:
         """Get the chain of scopes from current to root synchronously.
-        
+
         Returns:
             A list of scopes from the current scope to the root scope.
         """
         self._check_not_disposed()
         if self._current_scope is None:
             return [self._singleton_scope]
-            
+
         chain = []
         scope: _Scope | None = self._current_scope
         while scope is not None:
             chain.append(scope)
             scope = scope.parent
-            
+
         return chain
-        
+
     async def get_scope_chain_async(self) -> list[_Scope]:
         """Get the chain of scopes from current to root asynchronously.
-        
+
         Returns:
             A list of scopes from the current scope to the root scope.
         """
@@ -159,10 +326,11 @@ class Container:
 
     @contextlib.asynccontextmanager
     async def create_scope(self) -> AsyncGenerator[_Scope]:
-        """Create a new scope for scoped services.
+        """Create a new scope for scoped services, and align logger scope with DI scope.
 
         This method returns an async context manager that yields a scope.
         The scope will be automatically disposed when the context exits.
+        If LoggerScope is registered, a logger scope is also entered/exited.
 
         Example:
             ```python
@@ -174,9 +342,23 @@ class Container:
         self._check_not_disposed()
         scope = self._singleton_scope.create_scope()
         self._scopes.append(scope)
+        logger_scope_cm = None
+        logger_scope = None
+        # Try to resolve LoggerScope if registered
+        try:
+            logger_scope = await self.resolve_optional('LoggerScope')
+        except Exception:
+            logger_scope = None
+        if logger_scope is not None and hasattr(logger_scope, 'scope'):
+            # Enter a logger scope with the same name as the DI scope
+            logger_scope_cm = logger_scope.scope(f"di_scope_{id(scope)}")
+            await logger_scope_cm.__aenter__()
         try:
             yield scope
         finally:
+            # Exit logger scope if it was entered
+            if logger_scope_cm is not None:
+                await logger_scope_cm.__aexit__(None, None, None)
             # Only dispose and remove if this is a root scope (parent is None or singleton_scope)
             if scope.parent is None or scope.parent is self._singleton_scope:
                 await scope.dispose()
@@ -418,6 +600,7 @@ class Container:
             if not isinstance(instance, interface):
                 # Defensive: if instance is a coroutine, close it to avoid warning
                 import inspect
+
                 if inspect.iscoroutine(instance):
                     instance.close()
                 raise TypeMismatchError(interface, type(instance))

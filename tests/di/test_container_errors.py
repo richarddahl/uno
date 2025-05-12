@@ -50,7 +50,7 @@ class TestContainerError:
         error = ContainerError("Test error", container=mock_container)
 
         assert "Test error" in str(error)
-        assert error.error_code == "DI_CONTAINER_ERROR"
+        assert error.code == "DI_CONTAINER_ERROR"
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
         assert "container_registrations" in error.context
@@ -161,11 +161,11 @@ class TestDIServiceCreationError:
         )
 
         assert "Error creating service 'TestService'" in str(error)
-        assert error.error_code == "DI_SERVICE_CREATION"
+        assert error.code == "DI_SERVICE_CREATION"
         assert error.context["service_type"] == "TestService"
         assert error.context["service_key"] == "TestService"
         assert error.context["original_error_type"] == "ValueError"
-        assert error.context["original_error_message"] == "Cannot create service"
+        assert error.context["original_message"] == "Cannot create service"
         assert error.__cause__ is original_error
 
     def test_init_with_custom_key(self):
@@ -243,7 +243,7 @@ class TestDIServiceNotFoundError:
         error = DIServiceNotFoundError(service_type=TestService)
 
         assert "Service not found: TestService" in str(error)
-        assert error.error_code == "DI_SERVICE_NOT_FOUND"
+        assert error.code == "DI_SERVICE_NOT_FOUND"
         assert error.context["service_type"] == "TestService"
         assert error.context["service_key"] == "TestService"
 
@@ -305,7 +305,7 @@ class TestDICircularDependencyError:
             "Circular dependency detected: ServiceA -> ServiceB -> ServiceC -> ServiceA"
             in str(error)
         )
-        assert error.error_code == "DI_CIRCULAR_DEPENDENCY"
+        assert error.code == "DI_CIRCULAR_DEPENDENCY"
         assert error.context["dependency_chain"] == dependency_chain
         assert error.context["circular_dependency"] == [
             "ServiceA",
@@ -331,7 +331,7 @@ class TestDICircularDependencyError:
         error = await DICircularDependencyError.async_init(
             message="Circular dependency detected",
             dependency_chain=dependency_chain,
-            container=mock_container
+            container=mock_container,
         )
 
         assert "container_registrations" in error.context

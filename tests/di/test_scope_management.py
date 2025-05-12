@@ -26,6 +26,7 @@ class MemoryRepository:
 
 @pytest.mark.asyncio
 async def test_scoped_services_isolated_between_scopes() -> None:
+    """Test that scoped services are isolated between different scopes."""
     container = Container()
     await container.register_scoped(IRepository, MemoryRepository)
 

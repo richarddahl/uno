@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, TypeVar, Generic
 
 from uno.events.base_event import DomainEvent
 from uno.events.protocols import EventBusProtocol, EventPublisherProtocol
-from uno.events.errors import UnoError
+from uno.events.errors import UnoError, EventHandlerError, EventPublishError
 
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         - This contract is enforced by logging the canonical dict form of each event.
 
     Error Handling:
-        - All public methods raise UnoError on error for error propagation.
+        - All public methods raise EventPublishError on error for error propagation.
         - Errors are logged using structured logging when possible.
     """
 
@@ -63,7 +63,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         """
         Publish a single event via the injected event bus.
         Raises:
-            UnoError: if publishing fails
+            EventPublishError: if publishing fails
         """
         try:
             if self.logger:
@@ -74,13 +74,18 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Exception during publish: {e!s}")
-            raise UnoError(f"Failed to publish event: {event!r}") from e
+            raise EventPublishError(
+                event_type=type(event).__name__,
+                reason=str(e),
+                event=event,
+                handler="EventPublisher.publish",
+            ) from e
 
     async def publish_many(self, events: list[E]) -> None:
         """
         Publish a list of events via the injected event bus.
         Raises:
-            UnoError: if publishing any event fails
+            EventPublishError: if publishing any event fails
         """
         try:
             if self.logger:
@@ -92,4 +97,9 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Exception during publish_many: {e!s}")
-            raise UnoError(f"Failed to publish events: {events!r}") from e
+            raise EventPublishError(
+                event_type=type(events[0]).__name__ if events else "Unknown",
+                reason=str(e),
+                events=events,
+                handler="EventPublisher.publish_many",
+            ) from e

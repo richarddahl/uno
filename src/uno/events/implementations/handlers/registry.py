@@ -34,7 +34,7 @@ class EventHandlerRegistry:
         self.logger = logger
         self._handlers: dict[str, list[Any]] = {}
 
-    def register_handler(self, event_type: str, handler: Any) -> None:
+    async def register_handler(self, event_type: str, handler: Any) -> None:
         """
         Register a handler for an event type.
 
@@ -52,7 +52,7 @@ class EventHandlerRegistry:
             handler_adapter = AsyncEventHandlerAdapter(handler, self.logger)
             self._handlers[event_type].append(handler_adapter)
 
-            self.logger.debug(
+            await self.logger.debug(
                 "Registered callable handler for event type",
                 event_type=event_type,
                 handler_type="AsyncEventHandlerAdapter",
@@ -62,7 +62,7 @@ class EventHandlerRegistry:
             self._handlers[event_type].append(handler)
 
             handler_name = handler.__class__.__name__
-            self.logger.debug(
+            await self.logger.debug(
                 "Registered handler for event type",
                 event_type=event_type,
                 handler_name=handler_name,
@@ -80,7 +80,7 @@ class EventHandlerRegistry:
         """
         return self._handlers.get(event_type, [])
 
-    def clear(self) -> None:
+    async def clear(self) -> None:
         """Clear all handlers in the registry."""
         self._handlers.clear()
-        self.logger.debug("Cleared all handlers")
+        await self.logger.debug("Cleared all handlers")

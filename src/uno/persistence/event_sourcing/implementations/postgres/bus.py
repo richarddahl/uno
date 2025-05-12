@@ -23,10 +23,10 @@ E = TypeVar("E", bound=DomainEvent)
 
 class PostgresBus:
     """Base class for PostgreSQL-backed message buses."""
-    
+
     def __init__(self, dsn: str, channel: str, table: str) -> None:
         """Initialize PostgreSQL bus.
-        
+
         Args:
             dsn: Database connection string
             channel: Postgres notification channel
@@ -46,10 +46,10 @@ class PostgresBus:
 
     async def publish(self, payload: dict[str, Any]) -> None:
         """Publish a message to the bus.
-        
+
         Args:
             payload: Message payload
-            
+
         Raises:
             Exception: If there's an error publishing the message
         """
@@ -58,12 +58,15 @@ class PostgresBus:
             if hasattr(payload, "model_dump"):
                 data = json.dumps(
                     payload.model_dump(
-                        mode="json", by_alias=True, exclude_unset=True, exclude_none=True
+                        mode="json",
+                        by_alias=True,
+                        exclude_unset=True,
+                        exclude_none=True,
                     )
                 )
             else:
                 data = json.dumps(payload)
-                
+
             await self._conn.execute(
                 f"""
                 INSERT INTO {self._table} (payload) VALUES ($1)
@@ -76,7 +79,7 @@ class PostgresBus:
 
     def subscribe(self, handler: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
         """Subscribe to messages on this bus.
-        
+
         Args:
             handler: Callback function to invoke when messages are received
         """
@@ -103,22 +106,22 @@ class PostgresBus:
 
 class PostgresEventBus(PostgresBus, EventBusProtocol):
     """PostgreSQL-backed event bus implementation."""
-    
+
     def __init__(self, dsn: str) -> None:
         """Initialize PostgreSQL event bus.
-        
+
         Args:
             dsn: Database connection string
         """
         super().__init__(dsn, channel="uno_events", table="uno_events")
-    
+
     async def publish(self, event: E, metadata: dict[str, Any] | None = None) -> None:
         """Publish an event to the bus.
-        
+
         Args:
             event: Domain event to publish
             metadata: Optional metadata to include with the event
-            
+
         Raises:
             EventPublishError: If there's an error publishing the event
         """
@@ -128,26 +131,38 @@ class PostgresEventBus(PostgresBus, EventBusProtocol):
         except Exception as e:
             event_type = getattr(event, "event_type", type(event).__name__)
             raise EventPublishError(event_type=event_type, reason=str(e)) from e
-    
-    async def publish_many(self, events: list[E]) -> None:
-        """Publish multiple events to the bus.
-        
+
+    async def publish_many(
+        self, events: list[E], batch_size: int | None = None
+    ) -> None:
+        """Publish multiple events to the bus in batches and concurrently.
+
         Args:
             events: List of domain events to publish
-            
+            batch_size: Number of events to process concurrently in a batch
         Raises:
             EventPublishError: If there's an error publishing any event
         """
-        for event in events:
-            await self.publish(event)
-    
-    def _prepare_event_payload(self, event: E, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        batch_size = batch_size or 10
+        for i in range(0, len(events), batch_size):
+            batch = events[i : i + batch_size]
+            tasks = [self.publish(event) for event in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    raise EventPublishError(
+                        event_type="batch", reason=str(result)
+                    ) from result
+
+    def _prepare_event_payload(
+        self, event: E, metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Prepare event payload for publishing.
-        
+
         Args:
             event: Domain event
             metadata: Optional metadata
-            
+
         Returns:
             Dictionary representation of the event with metadata
         """
@@ -159,19 +174,19 @@ class PostgresEventBus(PostgresBus, EventBusProtocol):
             payload = event.to_dict()
         else:
             payload = event.__dict__.copy()
-            
+
         if metadata:
             payload["metadata"] = metadata
-            
+
         return payload
 
 
 class PostgresCommandBus(PostgresBus):
     """PostgreSQL-backed command bus implementation."""
-    
+
     def __init__(self, dsn: str) -> None:
         """Initialize PostgreSQL command bus.
-        
+
         Args:
             dsn: Database connection string
         """

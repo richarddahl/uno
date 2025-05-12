@@ -4,11 +4,9 @@ Example OrderFulfillmentSaga for Uno: demonstrates stateful, multi-step orchestr
 
 from typing import Any
 
+from uno.errors import UnoError
 from uno.events.saga_store import SagaState
 from uno.events.sagas import Saga
-from uno.errors import Result, Success, Failure
-from uno.errors import UnoError
-from examples.app.sagas.saga_logging import get_saga_logger
 from uno.logging import LoggerProtocol
 
 
@@ -17,10 +15,10 @@ class OrderFulfillmentSaga(Saga):
     Orchestrates order fulfillment: reserve inventory, process payment, complete or compensate.
     """
 
-    def __init__(self, logger: LoggerProtocol | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Args:
-            logger: Optional DI-injected logger. If not provided, uses get_saga_logger().
+            logger: Logger instance (must be injected via DI).
         """
         super().__init__()
         self.steps = ["reserve_inventory", "process_payment", "complete_order"]
@@ -31,7 +29,7 @@ class OrderFulfillmentSaga(Saga):
             "compensated": False,
         }
         self._command_bus = None
-        self.logger = logger or get_saga_logger("order_fulfillment")
+        self.logger = logger
 
     def set_command_bus(self, command_bus) -> None:
         self._command_bus = command_bus
@@ -97,7 +95,7 @@ class OrderFulfillmentSaga(Saga):
                 await self.compensate()
                 raise UnoError(
                     message="Payment failed",
-                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
+                    code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="PaymentFailed",
@@ -112,7 +110,7 @@ class OrderFulfillmentSaga(Saga):
                 )
                 raise UnoError(
                     message="Inventory reservation failed",
-                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
+                    code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="InventoryReservationFailed",
@@ -156,7 +154,7 @@ class OrderFulfillmentSaga(Saga):
             saga_id=self.saga_id or "", status=self.status, data=self.data.copy()
         )
 
-    def load_state(self, state: SagaState) -> None:
+    def set_state(self, state: SagaState) -> None:
         self.saga_id = state.saga_id
         self.status = state.status
         self.data = state.data.copy()

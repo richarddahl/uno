@@ -135,7 +135,7 @@ async def _process_modules(
             module = importlib.import_module(full_name)
             
             # Process the current module for handlers
-            _find_handlers_in_module(module, logger, registry)
+            await _find_handlers_in_module(module, logger, registry)
             
             # Process subpackages recursively
             if is_pkg:
@@ -149,7 +149,7 @@ async def _process_modules(
             )
 
 
-def _find_handlers_in_module(
+async def _find_handlers_in_module(
     module: ModuleType, logger: "LoggerProtocol", registry: "EventHandlerRegistry"
 ) -> None:
     """
@@ -166,17 +166,17 @@ def _find_handlers_in_module(
 
             # Check for class-based handlers
             if inspect.isclass(item):
-                _process_class_handler(item, logger, registry)
+                await _process_class_handler(item, logger, registry)
             # Check for function/decorated handlers
             elif hasattr(item, "_is_event_handler") and item._is_event_handler:
-                _process_decorated_handler(item, logger, registry)
+                await _process_decorated_handler(item, logger, registry)
 
         except (AttributeError, TypeError):
             # Skip items that can't be accessed or aren't handlers
             pass
 
 
-def _process_class_handler(
+async def _process_class_handler(
     cls: type, logger: "LoggerProtocol", registry: "EventHandlerRegistry"
 ) -> None:
     """
@@ -203,24 +203,24 @@ def _process_class_handler(
                 event_type = instance.event_type
                 
             if event_type:
-                registry.register_handler(event_type, instance)
+                await registry.register_handler(event_type, instance)
                 cls._registered_with_discovery = True
                 
-                logger.debug(
+                await logger.debug(
                     "Registered handler class",
                     handler=cls.__name__,
                     event_type=event_type,
                 )
         except Exception as e:
             # Probably needs constructor arguments
-            logger.debug(
+            await logger.debug(
                 "Couldn't auto-instantiate handler class",
                 handler=cls.__name__,
                 error=str(e),
             )
 
 
-def _process_decorated_handler(
+async def _process_decorated_handler(
     handler: object, logger: "LoggerProtocol", registry: "EventHandlerRegistry"
 ) -> None:
     """
@@ -237,10 +237,10 @@ def _process_decorated_handler(
         
     event_type = getattr(handler, "_event_type", None)
     if event_type:
-        registry.register_handler(event_type, handler)
+        await registry.register_handler(event_type, handler)
         handler._registered_with_discovery = True
         
-        logger.debug(
+        await logger.debug(
             "Registered decorated handler",
             handler=handler.__name__,
             event_type=event_type,

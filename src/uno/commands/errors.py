@@ -27,20 +27,18 @@ class CommandError(UnoError):
     def __init__(
         self,
         message: str,
-        error_code: CommandErrorCode = CommandErrorCode.COMMAND_HANDLER_ERROR,
+        code: CommandErrorCode = CommandErrorCode.COMMAND_HANDLER_ERROR,
         **kwargs,
     ) -> None:
         super().__init__(message, **kwargs)
-        self.error_code = error_code
+        self.code = code
 
 
 class CommandHandlerError(CommandError):
     """Error raised when a command handler encounters a problem."""
 
     def __init__(self, message: str, **kwargs) -> None:
-        super().__init__(
-            message, error_code=CommandErrorCode.COMMAND_HANDLER_ERROR, **kwargs
-        )
+        super().__init__(message, code=CommandErrorCode.COMMAND_HANDLER_ERROR, **kwargs)
 
 
 class CommandNotFoundError(CommandError):
@@ -49,7 +47,7 @@ class CommandNotFoundError(CommandError):
     def __init__(self, command_type: str, **kwargs) -> None:
         super().__init__(
             f"No handler registered for command type {command_type}",
-            error_code=CommandErrorCode.COMMAND_NOT_FOUND,
+            code=CommandErrorCode.COMMAND_NOT_FOUND,
             **kwargs,
         )
 
@@ -59,7 +57,7 @@ class CommandValidationError(CommandError):
 
     def __init__(self, message: str, **kwargs) -> None:
         super().__init__(
-            message, error_code=CommandErrorCode.COMMAND_VALIDATION_ERROR, **kwargs
+            message, code=CommandErrorCode.COMMAND_VALIDATION_ERROR, **kwargs
         )
 
 
@@ -68,5 +66,5 @@ class CommandDispatchError(CommandError):
 
     def __init__(self, message: str, **kwargs) -> None:
         super().__init__(
-            message, error_code=CommandErrorCode.COMMAND_DISPATCH_ERROR, **kwargs
+            message, code=CommandErrorCode.COMMAND_DISPATCH_ERROR, **kwargs
         )

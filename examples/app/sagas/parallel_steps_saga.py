@@ -4,7 +4,7 @@ Example ParallelStepsSaga: demonstrates fork/join (parallel step) orchestration 
 
 from typing import Any
 
-from examples.app.sagas.saga_logging import get_saga_logger
+from uno.events.saga_store import SagaState
 from uno.events.sagas import Saga
 from uno.logging import LoggerProtocol
 
@@ -14,10 +14,10 @@ class ParallelStepsSaga(Saga):
     Orchestrates a process where multiple independent steps must complete before proceeding.
     """
 
-    def __init__(self, logger: LoggerProtocol | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Args:
-            logger: Optional DI-injected logger. If not provided, uses get_saga_logger().
+            logger: Logger instance (must be injected via DI).
         """
         super().__init__()
         self.data = {
@@ -26,7 +26,7 @@ class ParallelStepsSaga(Saga):
             "joined": False,
         }
         self.status = "waiting_parallel"
-        self.logger = logger or get_saga_logger("parallel_steps")
+        self.logger = logger
 
     async def handle_event(self, event: Any) -> None:
 
@@ -110,3 +110,7 @@ class ParallelStepsSaga(Saga):
 
     async def is_completed(self) -> bool:
         return self.status == "completed" and self.data["joined"]
+
+    def set_state(self, state: SagaState) -> None:
+        self.status = state.status
+        self.data = state.data.copy()

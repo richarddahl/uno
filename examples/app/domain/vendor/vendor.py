@@ -14,8 +14,7 @@ from examples.app.domain.vendor.events import VendorCreated, VendorUpdated
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.domain.aggregate import AggregateRoot
 from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Success
+from uno.domain.errors import DomainValidationError
 from uno.events import DomainEvent
 
 
@@ -35,90 +34,81 @@ class Vendor(AggregateRoot[str]):
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
     @classmethod
-    def create(
-        cls, vendor_id: str, name: str, contact_email: EmailAddress
-    ) -> Success[Self, Exception] | Failure[None, Exception]:
+    def create(cls, vendor_id: str, name: str, contact_email: EmailAddress) -> Self:
         """
         Create a new Vendor aggregate and record a VendorCreated event.
-        Returns Success(Vendor) or Failure(DomainValidationError) on validation error.
+
+        Args:
+            vendor_id: Unique identifier for the vendor
+            name: Name of the vendor
+            contact_email: Contact email for the vendor
+
+        Returns:
+            A new Vendor instance
+
+        Raises:
+            DomainValidationError: If validation fails
         """
         try:
             if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "vendor_id is required", details=get_error_context()
                 )
             if not name:
-                return Failure(
-                    DomainValidationError(
-                        "name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "name is required", details=get_error_context()
                 )
             if not contact_email:
-                return Failure(
-                    DomainValidationError(
-                        "contact_email is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "contact_email is required", details=get_error_context()
                 )
             vendor = cls(id=vendor_id, name=name, contact_email=contact_email)
             event_data = {
                 "vendor_id": vendor_id,
                 "name": name,
-                "contact_email": contact_email.value,
+                "contact_email": contact_email,
                 "version": 1,
             }
             event = VendorCreated.from_dict(event_data)
-            if isinstance(event, Failure):
-                return Failure(
-                    DomainValidationError(
-                        f"Failed to create vendor event: {event.error}",
-                        details=get_error_context(),
-                    )
-                )
-            vendor._record_event(event.value)
-            return Success(vendor)
+            vendor._record_event(event)
+            return vendor
         except Exception as e:
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+            if isinstance(e, DomainValidationError):
+                raise
+            raise DomainValidationError(str(e), details=get_error_context()) from e
 
-    def update(
-        self, name: str, contact_email: EmailAddress
-    ) -> Success[None, Exception] | Failure[None, Exception]:
+    def update(self, name: str, contact_email: EmailAddress) -> None:
         """
         Update the Vendor aggregate and record a VendorUpdated event.
-        Returns Success(None) or Failure(DomainValidationError) on validation error.
+
+        Args:
+            name: New name for the vendor
+            contact_email: New contact email for the vendor
+
+        Raises:
+            DomainValidationError: If validation fails
         """
         try:
             if not name:
-                return Failure(
-                    DomainValidationError(
-                        "name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "name is required", details=get_error_context()
                 )
             if not contact_email:
-                return Failure(
-                    DomainValidationError(
-                        "contact_email is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "contact_email is required", details=get_error_context()
                 )
             event_data = {
                 "vendor_id": self.id,
                 "name": name,
-                "contact_email": contact_email.value,
+                "contact_email": contact_email,
                 "version": 1,
             }
             event = VendorUpdated.from_dict(event_data)
-            if isinstance(event, Failure):
-                return Failure(
-                    DomainValidationError(
-                        f"Failed to create vendor event: {event.error}",
-                        details=get_error_context(),
-                    )
-                )
-            self._record_event(event.value)
-            return Success(None)
+            self._record_event(event)
         except Exception as e:
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+            if isinstance(e, DomainValidationError):
+                raise
+            raise DomainValidationError(str(e), details=get_error_context()) from e
 
     def _record_event(self, event: DomainEvent) -> None:
         """

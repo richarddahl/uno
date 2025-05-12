@@ -7,7 +7,7 @@ and handling errors in a consistent way.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type, TypeVar, cast
+from typing import Any, TypeVar
 
 from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
 
@@ -16,7 +16,7 @@ T = TypeVar("T", bound=UnoError)
 
 def create_error(
     message: str,
-    error_code: str | None = None,
+    code: str | None = None,
     category: ErrorCategory = ErrorCategory.INTERNAL,
     severity: ErrorSeverity = ErrorSeverity.ERROR,
     error_class: type[UnoError] = UnoError,
@@ -26,7 +26,7 @@ def create_error(
 
     Args:
         message: Human-readable error message
-        error_code: Unique identifier for this error type
+        code: Unique identifier for this error type
         category: General category for this error
         severity: How severe this error is
         error_class: Specific error class to instantiate
@@ -37,7 +37,7 @@ def create_error(
     """
     return error_class(
         message=message,
-        error_code=error_code,
+        code=code,
         category=category,
         severity=severity,
         **context,
@@ -47,7 +47,7 @@ def create_error(
 def wrap_exception(
     exception: Exception,
     message: str | None = None,
-    error_code: str = "WRAPPED_ERROR",
+    code: str = "WRAPPED_ERROR",
     category: ErrorCategory = ErrorCategory.INTERNAL,
     severity: ErrorSeverity = ErrorSeverity.ERROR,
     error_class: type[UnoError] = UnoError,
@@ -61,7 +61,7 @@ def wrap_exception(
     Args:
         exception: The exception to wrap
         message: Error message (defaults to str(exception) if None)
-        error_code: Error code for the wrapped exception
+        code: Error code for the wrapped exception
         category: Error category
         severity: Error severity
         error_class: Specific error class to instantiate
@@ -73,7 +73,7 @@ def wrap_exception(
     return error_class.wrap(
         exception=exception,
         message=message,
-        error_code=error_code,
+        code=code,
         category=category,
         severity=severity,
         **context,

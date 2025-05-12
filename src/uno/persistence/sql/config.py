@@ -91,24 +91,42 @@ class SQLConfig(BaseSettings):
 
     # SQLAlchemy settings
     DB_POOL_SIZE: int = Field(default=5, validation_alias="DB_POOL_SIZE")
-    DB_MAX_OVERFLOW: int = Field(default=10, json_schema_extra={"env": "DB_MAX_OVERFLOW"})
-    DB_POOL_TIMEOUT: float = Field(default=30.0, json_schema_extra={"env": "DB_POOL_TIMEOUT"})
-    DB_POOL_RECYCLE: int = Field(default=1800, json_schema_extra={"env": "DB_POOL_RECYCLE"})
+    DB_MAX_OVERFLOW: int = Field(
+        default=10, json_schema_extra={"env": "DB_MAX_OVERFLOW"}
+    )
+    DB_POOL_TIMEOUT: float = Field(
+        default=30.0, json_schema_extra={"env": "DB_POOL_TIMEOUT"}
+    )
+    DB_POOL_RECYCLE: int = Field(
+        default=1800, json_schema_extra={"env": "DB_POOL_RECYCLE"}
+    )
     DB_ECHO: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO"})
     DB_ECHO_POOL: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO_POOL"})
 
     # Transaction settings
-    DB_ISOLATION_LEVEL: str = Field(default="READ COMMITTED", json_schema_extra={"env": "DB_ISOLATION_LEVEL"})
+    DB_ISOLATION_LEVEL: str = Field(
+        default="READ COMMITTED", json_schema_extra={"env": "DB_ISOLATION_LEVEL"}
+    )
     DB_READ_ONLY: bool = Field(default=False, json_schema_extra={"env": "DB_READ_ONLY"})
 
     # Validation settings
-    DB_VALIDATE_SYNTAX: bool = Field(default=True, json_schema_extra={"env": "DB_VALIDATE_SYNTAX"})
-    DB_VALIDATE_DEPENDENCIES: bool = Field(default=True, json_schema_extra={"env": "DB_VALIDATE_DEPENDENCIES"})
-    DB_CHECK_PERMISSIONS: bool = Field(default=True, json_schema_extra={"env": "DB_CHECK_PERMISSIONS"})
+    DB_VALIDATE_SYNTAX: bool = Field(
+        default=True, json_schema_extra={"env": "DB_VALIDATE_SYNTAX"}
+    )
+    DB_VALIDATE_DEPENDENCIES: bool = Field(
+        default=True, json_schema_extra={"env": "DB_VALIDATE_DEPENDENCIES"}
+    )
+    DB_CHECK_PERMISSIONS: bool = Field(
+        default=True, json_schema_extra={"env": "DB_CHECK_PERMISSIONS"}
+    )
 
     # Security settings
-    DB_CHECK_SQL_INJECTION: bool = Field(default=True, json_schema_extra={"env": "DB_CHECK_SQL_INJECTION"})
-    DB_AUDIT_LOGGING: bool = Field(default=True, json_schema_extra={"env": "DB_AUDIT_LOGGING"})
+    DB_CHECK_SQL_INJECTION: bool = Field(
+        default=True, json_schema_extra={"env": "DB_CHECK_SQL_INJECTION"}
+    )
+    DB_AUDIT_LOGGING: bool = Field(
+        default=True, json_schema_extra={"env": "DB_AUDIT_LOGGING"}
+    )
 
     model_config = ConfigDict(env_prefix="DB_", extra="forbid")
 
@@ -121,10 +139,20 @@ class SQLConfig(BaseSettings):
     )
 
     # Testing settings
-    DB_TEST_DATABASE: str = Field(default="test_db", description="Test database name", json_schema_extra={"env": "DB_TEST_DATABASE"})
-    DB_TEST_USER: str = Field(default="test_user", description="Test database user", json_schema_extra={"env": "DB_TEST_USER"})
+    DB_TEST_DATABASE: str = Field(
+        default="test_db",
+        description="Test database name",
+        json_schema_extra={"env": "DB_TEST_DATABASE"},
+    )
+    DB_TEST_USER: str = Field(
+        default="test_user",
+        description="Test database user",
+        json_schema_extra={"env": "DB_TEST_USER"},
+    )
     DB_TEST_PASSWORD: str = Field(
-        default="test_password", description="Test database password", json_schema_extra={"env": "DB_TEST_PASSWORD"}
+        default="test_password",
+        description="Test database password",
+        json_schema_extra={"env": "DB_TEST_PASSWORD"},
     )
 
     # Documentation settings
@@ -153,10 +181,20 @@ class SQLConfig(BaseSettings):
     )
 
     # Logging settings
-    DB_LOG_SQL: bool = Field(default=True, description="Log SQL statements", json_schema_extra={"env": "DB_LOG_SQL"})
-    DB_LOG_ERRORS: bool = Field(default=True, description="Log SQL errors", json_schema_extra={"env": "DB_LOG_ERRORS"})
+    DB_LOG_SQL: bool = Field(
+        default=True,
+        description="Log SQL statements",
+        json_schema_extra={"env": "DB_LOG_SQL"},
+    )
+    DB_LOG_ERRORS: bool = Field(
+        default=True,
+        description="Log SQL errors",
+        json_schema_extra={"env": "DB_LOG_ERRORS"},
+    )
     DB_LOG_PERFORMANCE: bool = Field(
-        default=True, description="Log performance metrics", json_schema_extra={"env": "DB_LOG_PERFORMANCE"}
+        default=True,
+        description="Log performance metrics",
+        json_schema_extra={"env": "DB_LOG_PERFORMANCE"},
     )
 
     def get_connection_url(self) -> str:
@@ -203,9 +241,7 @@ class ConfigManager:
             pass
         except Exception as e:
             raise UnoError(
-                message=str(e),
-                error_code=SQLErrorCode.SQL_CONFIG_ERROR,
-                reason=str(e)
+                message=str(e), code=SQLErrorCode.SQL_CONFIG_ERROR, reason=str(e)
             )
 
     def validate_config(self, config: SQLConfig) -> None:
@@ -222,9 +258,7 @@ class ConfigManager:
             pass
         except Exception as e:
             raise UnoError(
-                message=str(e),
-                error_code=SQLErrorCode.SQL_CONFIG_INVALID,
-                reason=str(e)
+                message=str(e), code=SQLErrorCode.SQL_CONFIG_INVALID, reason=str(e)
             )
 
     def get_config(self) -> SQLConfig:
@@ -240,15 +274,13 @@ class ConfigManager:
             if self._config is None:
                 raise UnoError(
                     message="Configuration not loaded",
-                    error_code=SQLErrorCode.SQL_CONFIG_ERROR,
-                    reason="Configuration not loaded"
+                    code=SQLErrorCode.SQL_CONFIG_ERROR,
+                    reason="Configuration not loaded",
                 )
             return self._config
         except Exception as e:
             raise UnoError(
-                message=str(e),
-                error_code=SQLErrorCode.SQL_CONFIG_ERROR,
-                reason=str(e)
+                message=str(e), code=SQLErrorCode.SQL_CONFIG_ERROR, reason=str(e)
             )
 
     def _validate_connection_config(self) -> None:

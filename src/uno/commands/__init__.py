@@ -35,7 +35,6 @@ __all__ = [
     "CommandError",
     "CommandErrorCode",
     "CommandHandlerError",
-    "CommandHandlerProtocol",
     "CommandNotFoundError",
     "CommandValidationError",
     # Implementations
@@ -44,4 +43,5 @@ __all__ = [
     "StructuralCommandBus",
     # Protocols
     "CommandBusProtocol",
+    "CommandHandlerProtocol",
 ]

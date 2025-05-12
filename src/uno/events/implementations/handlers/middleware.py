@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 
 class NextMiddlewareCallable(Protocol):
-    """Protocol for the next middleware in the chain."""
+    """Protocol for the next middleware in the chain, supporting metadata propagation."""
 
-    async def __call__(self, event: "DomainEvent") -> None: ...
+    async def __call__(self, event: "DomainEvent", metadata: dict[str, object] | None = None) -> None: ...
 
 
 class LoggingMiddleware:
@@ -43,6 +43,7 @@ class LoggingMiddleware:
         self,
         event: "DomainEvent",
         next_middleware: NextMiddlewareCallable,
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """
         Log event handling and pass to next middleware.
@@ -50,15 +51,18 @@ class LoggingMiddleware:
         Args:
             event: The domain event to process
             next_middleware: The next middleware to call
+            metadata: Optional event metadata (including correlation_id)
 
         Raises:
             Exception: If an error occurs during processing
         """
+        correlation_id = metadata.get("correlation_id") if metadata else None
         self.logger.debug(
             "Processing event",
             event_type=event.event_type,
             event_id=getattr(event, "event_id", None),
             aggregate_id=getattr(event, "aggregate_id", None),
+            correlation_id=correlation_id,
         )
 
         try:
@@ -69,6 +73,7 @@ class LoggingMiddleware:
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
             )
         except Exception as e:
             self.logger.error(
@@ -76,6 +81,7 @@ class LoggingMiddleware:
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
                 error=str(e),
                 exc_info=e,
             )
@@ -102,6 +108,7 @@ class TimingMiddleware:
         self,
         event: "DomainEvent",
         next_middleware: NextMiddlewareCallable,
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """
         Time event handling and pass to next middleware.
@@ -109,10 +116,12 @@ class TimingMiddleware:
         Args:
             event: The domain event to process
             next_middleware: The next middleware to call
+            metadata: Optional event metadata (including correlation_id)
 
         Raises:
             Exception: If an error occurs during processing
         """
+        correlation_id = metadata.get("correlation_id") if metadata else None
         start_time = time.time()
 
         try:
@@ -126,6 +135,7 @@ class TimingMiddleware:
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
                 elapsed_ms=f"{elapsed_ms:.2f}",
             )
         except Exception as e:
@@ -137,6 +147,7 @@ class TimingMiddleware:
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
                 elapsed_ms=f"{elapsed_ms:.2f}",
                 error=str(e),
             )

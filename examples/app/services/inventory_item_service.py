@@ -5,7 +5,8 @@ Service layer for InventoryItem workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
 
-from uno.domain.errors import DomainValidationError, EntityNotFoundError
+from uno.domain.errors import DomainValidationError
+from examples.app.api.errors import InventoryItemNotFoundError
 from uno.logging.protocols import LoggerProtocol
 from uno.domain.config import DomainConfig
 
@@ -145,7 +146,7 @@ class InventoryItemService:
             The updated InventoryItem
 
         Raises:
-            EntityNotFoundError: If the item doesn't exist
+            InventoryItemNotFoundError: If the item doesn't exist
             DomainValidationError: If validation fails
         """
         # Get the item
@@ -158,7 +159,7 @@ class InventoryItemService:
                 service="InventoryItemService.rename_inventory_item",
             )
 
-            raise EntityNotFoundError(
+            raise InventoryItemNotFoundError(
                 entity_type="InventoryItem",
                 entity_id=aggregate_id,
                 service="InventoryItemService.rename_inventory_item",
@@ -234,7 +235,7 @@ class InventoryItemService:
             The updated InventoryItem
 
         Raises:
-            EntityNotFoundError: If the item doesn't exist
+            InventoryItemNotFoundError: If the item doesn't exist
             DomainValidationError: If validation fails
         """
         # Get the item
@@ -247,7 +248,7 @@ class InventoryItemService:
                 service="InventoryItemService.adjust_inventory_measurement",
             )
 
-            raise EntityNotFoundError(
+            raise InventoryItemNotFoundError(
                 entity_type="InventoryItem",
                 entity_id=aggregate_id,
                 service="InventoryItemService.adjust_inventory_measurement",

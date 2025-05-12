@@ -91,21 +91,23 @@ class SQLEmitter(BaseModel):
 
         return values
 
-    def __init__(self, **data: Any) -> None:
-        """Initialize the SQLEmitter with configuration and logger.
+    def __init__(self, *, logger: LoggerProtocol, config: ConfigProtocol, **data: Any) -> None:
+        """Initialize the SQLEmitter with configuration and logger (DI required).
 
         Args:
-            **data: Keyword arguments containing configuration and logger
+            logger: Logger instance (must be provided via DI)
+            config: Configuration object (must implement ConfigProtocol)
+            **data: Additional keyword arguments
 
         Raises:
-            ValueError: If required configuration is missing
+            ValueError: If required configuration or logger is missing
         """
-        config = data.pop("config", None)
+        if logger is None:
+            raise ValueError("LoggerProtocol instance must be provided via DI.")
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
-
-        logger = data.pop("logger", None) or LoggerProtocol(config).get_logger()
         super().__init__(logger=logger, config=config, **data)
+
 
     def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements.

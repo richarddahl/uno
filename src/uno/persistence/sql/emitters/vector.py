@@ -723,25 +723,27 @@ class VectorSearchEmitter(SQLEmitter):
 
     def __init__(
         self,
+        *,
         table_name: str,
         column_name: str = "embedding",
         schema: str | None = None,
-        logger: Any = None,
-        config: ConfigProtocol | None = None,
+        logger: LoggerProtocol,
+        config: ConfigProtocol,
         **kwargs,
-    ):
+    ) -> None:
         """
-        Initialize vector search emitter.
+        Initialize vector search emitter (DI required).
 
         Args:
             table_name: The database table name containing embeddings
             column_name: The column name containing embeddings (default: "embedding")
             schema: Optional database schema name (defaults to config-provided value)
-            logger: Logger instance (DI or fallback)
-            config: ConfigProtocol instance (DI required)
+            logger: Logger instance (must be provided via DI)
+            config: ConfigProtocol instance (must be provided via DI)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or LoggerProtocol().get_logger(__name__)
+        if logger is None:
+            raise ValueError("LoggerProtocol instance must be provided via DI.")
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)
@@ -1074,25 +1076,27 @@ class VectorBatchEmitter(SQLEmitter):
 
     def __init__(
         self,
+        *,
         entity_type: str,
         content_fields: list[str],
         schema: str | None = None,
-        logger: Any = None,
-        config: ConfigProtocol | None = None,
+        logger: LoggerProtocol,
+        config: ConfigProtocol,
         **kwargs,
-    ):
+    ) -> None:
         """
-        Initialize vector batch emitter.
+        Initialize vector batch emitter (DI required).
 
         Args:
             entity_type: Type of entities to process
             content_fields: Fields containing content to embed
             schema: Optional database schema name (defaults to config-provided value)
-            logger: Logger instance (DI or fallback)
-            config: ConfigProtocol instance (DI required)
+            logger: Logger instance (must be provided via DI)
+            config: ConfigProtocol instance (must be provided via DI)
             **kwargs: Additional arguments to pass to SQLEmitter
         """
-        logger = logger or LoggerProtocol().get_logger(__name__)
+        if logger is None:
+            raise ValueError("LoggerProtocol instance must be provided via DI.")
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **kwargs)

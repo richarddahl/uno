@@ -15,9 +15,10 @@ from types import ModuleType
 from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
 from uno.di.container import Container
-from uno.events.base_event import DomainEvent
+from uno.domain.protocols import DomainEventProtocol
 from uno.events.config import EventsConfig
 from uno.events.context import EventHandlerContext
+from uno.events.correlation import EventCorrelationContext
 from uno.events.errors import EventHandlerError
 from uno.logging.protocols import LoggerProtocol
 
@@ -28,7 +29,7 @@ T = TypeVar("T")
 class EventHandler(Protocol):
     """Protocol for event handlers."""
 
-    async def handle(self, event: DomainEvent) -> None:
+    async def handle(self, event: DomainEventProtocol) -> None:
         """
         Handle the event.
 
@@ -47,8 +48,8 @@ class EventHandlerMiddleware(ABC):
     @abstractmethod
     async def process(
         self,
-        event: DomainEvent,
-        next_middleware: Callable[[DomainEvent], None],
+        event: DomainEventProtocol,
+        next_middleware: Callable[[DomainEventProtocol], None],
     ) -> None:
         """
         Process the event and pass it to the next middleware.
@@ -76,58 +77,57 @@ class EventHandlerRegistry:
         """
         self.logger = logger
         self.container = container
-        self._handlers: dict[str, list[EventHandler]] = {}
+        # Store handler types or factories, not instances
+        self._handlers: dict[
+            str, list[type[EventHandler] | Callable[..., EventHandler]]
+        ] = {}
         self._middleware: list[EventHandlerMiddleware] = []
         self._middleware_by_event_type: dict[str, list[EventHandlerMiddleware]] = {}
 
-    def register_handler(
-        self, event_type: str, handler: EventHandler | Callable
+    async def register_handler(
+        self, event_type: str, handler: type[EventHandler] | Callable[..., EventHandler]
     ) -> None:
         """
-        Register a handler for an event type.
+        Register a handler TYPE or FACTORY for an event type.
 
         Args:
             event_type: The event type to handle
-            handler: The handler to register (can be an EventHandler or a callable)
+            handler: The handler TYPE or FACTORY to register
+
+        Note:
+            This method is now async.
         """
         if event_type not in self._handlers:
             self._handlers[event_type] = []
-
-        # Create an async adapter if the handler isn't already an EventHandler
-        if not isinstance(handler, EventHandler):
-            # Create an adapter that handles both sync and async callables
-            handler_adapter = AsyncEventHandlerAdapter(handler, self.logger)
-            self._handlers[event_type].append(handler_adapter)
-
-            self.logger.debug(
-                "Registered callable handler for event type",
-                event_type=event_type,
-                handler_type="AsyncEventHandlerAdapter",
+        # Deprecate instance registration
+        if not (isinstance(handler, type) or callable(handler)):
+            raise TypeError(
+                "register_handler expects a handler TYPE or FACTORY, not an instance. Use MyHandler, not MyHandler()."
             )
-        else:
-            # Handler is already an EventHandler instance
-            self._handlers[event_type].append(handler)
+        self._handlers[event_type].append(handler)
+        await self.logger.debug(
+            "Registered handler type/factory for event type",
+            event_type=event_type,
+            handler_repr=repr(handler),
+        )
 
-            self.logger.debug(
-                "Registered handler for event type",
-                event_type=event_type,
-                handler_name=handler.__class__.__name__,
-            )
-
-    def register_middleware(self, middleware: EventHandlerMiddleware) -> None:
+    async def register_middleware(self, middleware: EventHandlerMiddleware) -> None:
         """
         Register middleware.
 
         Args:
             middleware: The middleware to register
+
+        Note:
+            This method is now async.
         """
         self._middleware.append(middleware)
 
-        self.logger.debug(
+        await self.logger.debug(
             "Registered middleware", middleware_name=middleware.__class__.__name__
         )
 
-    def register_middleware_for_event_type(
+    async def register_middleware_for_event_type(
         self, event_type: str, middleware: EventHandlerMiddleware
     ) -> None:
         """
@@ -136,19 +136,22 @@ class EventHandlerRegistry:
         Args:
             event_type: The event type to register middleware for
             middleware: The middleware to register
+
+        Note:
+            This method is now async.
         """
         if event_type not in self._middleware_by_event_type:
             self._middleware_by_event_type[event_type] = []
 
         self._middleware_by_event_type[event_type].append(middleware)
 
-        self.logger.debug(
+        await self.logger.debug(
             "Registered middleware for event type",
             event_type=event_type,
             middleware_name=middleware.__class__.__name__,
         )
 
-    def register_middleware_from_factory(
+    async def register_middleware_from_factory(
         self, factory: Any, event_types: list[str] | None = None
     ) -> None:
         """
@@ -167,33 +170,49 @@ class EventHandlerRegistry:
                 # Register middleware for specific event types
                 for event_type in event_types:
                     for middleware in middleware_stack:
-                        self.register_middleware_for_event_type(event_type, middleware)
+                        await self.register_middleware_for_event_type(
+                            event_type, middleware
+                        )
             else:
                 # Register middleware globally
                 for middleware in middleware_stack:
-                    self.register_middleware(middleware)
+                    await self.register_middleware(middleware)
 
-            self.logger.info(
+            await self.logger.info(
                 "Registered middleware from factory",
                 component_count=len(middleware_stack),
             )
         else:
-            self.logger.warning(
+            await self.logger.warning(
                 "Factory does not have create_default_middleware_stack method",
                 factory_name=factory.__class__.__name__,
             )
 
     def get_handlers(self, event_type: str) -> list[EventHandler]:
         """
-        Get all handlers for an event type.
-
-        Args:
-            event_type: The event type to get handlers for
-
-        Returns:
-            List of handlers for the event type
+        Deprecated: Use resolve_handlers_for_event instead.
         """
-        return self._handlers.get(event_type, [])
+        raise NotImplementedError(
+            "Use resolve_handlers_for_event(event_type) to resolve handlers via DI."
+        )
+
+    async def resolve_handlers_for_event(self, event_type: str) -> list[EventHandler]:
+        """
+        Resolve all handlers for an event type using the DI container.
+        Returns a list of instantiated handlers.
+        """
+        if not self.container:
+            raise ValueError("No DI container available for handler resolution.")
+        handler_types = self._handlers.get(event_type, [])
+        resolved = []
+        for handler_type in handler_types:
+            # If it's a class, resolve via DI (await async resolution)
+            if isinstance(handler_type, type):
+                resolved.append(await self.container.resolve(handler_type))
+            else:
+                # If it's a factory/callable, call it (could be a function or lambda)
+                resolved.append(handler_type())
+        return resolved
 
     def get_middleware(self) -> list[EventHandlerMiddleware]:
         """
@@ -238,13 +257,13 @@ class EventHandlerRegistry:
 
         return chain.copy()
 
-    def clear(self) -> None:
+    async def clear(self) -> None:
         """Clear all handlers and middleware."""
         self._handlers.clear()
         self._middleware.clear()
         self._middleware_by_event_type.clear()
 
-        self.logger.debug("Cleared all handlers and middleware")
+        await self.logger.debug("Cleared all handlers and middleware")
 
     async def resolve_handler_dependencies(self, handler: Any) -> None:
         """
@@ -269,14 +288,14 @@ class EventHandlerRegistry:
                     # Set the dependency on the handler
                     setattr(handler, dep_name, dependency)
 
-                    self.logger.debug(
+                    await self.logger.debug(
                         "Resolved dependency for handler",
                         handler=handler.__class__.__name__,
                         dependency=dep_name,
                         dependency_type=dep_type.__name__,
                     )
                 except Exception as e:
-                    self.logger.error(
+                    await self.logger.error(
                         "Failed to resolve dependency for handler",
                         handler=handler.__class__.__name__,
                         dependency=dep_name,
@@ -302,7 +321,7 @@ class MiddlewareChainBuilder:
 
     def build_chain(
         self, middleware: list[EventHandlerMiddleware]
-    ) -> Callable[[DomainEvent], None]:
+    ) -> Callable[[DomainEventProtocol, dict[str, object] | None], None]:
         """
         Build a middleware chain for the handler.
 
@@ -314,10 +333,12 @@ class MiddlewareChainBuilder:
         """
         # If no middleware, just return the handler directly
         if not middleware:
-            return self._create_handler_executor(self.handler)
+            async def handler_executor(event: DomainEventProtocol, metadata: dict[str, object] | None = None) -> None:
+                await self._execute_handler(self.handler, event)
+            return handler_executor
 
         # The innermost function in the chain calls the handler
-        async def final_middleware_fn(event: DomainEvent) -> None:
+        async def final_middleware_fn(event: DomainEventProtocol, metadata: dict[str, object] | None = None) -> None:
             await self._execute_handler(self.handler, event)
 
         # Build the chain from innermost to outermost
@@ -326,15 +347,20 @@ class MiddlewareChainBuilder:
         # Apply middleware in reverse order since the execution
         # order is outermost -> innermost
         for m in reversed(middleware):
-            middleware_fn = self._create_middleware_executor(m, middleware_fn)
+            prev_middleware_fn = middleware_fn
+            async def next_middleware(event: DomainEventProtocol, metadata: dict[str, object] | None = None, m=m, next_fn=prev_middleware_fn):
+                await m.process(event, next_fn, metadata)
+            middleware_fn = next_middleware
 
         return middleware_fn
+
+    # TODO: Add/expand tests for MiddlewareChainBuilder metadata propagation.
 
     def _create_middleware_executor(
         self,
         middleware: EventHandlerMiddleware,
-        next_middleware: Callable[[DomainEvent], None],
-    ) -> Callable[[DomainEvent], None]:
+        next_middleware: Callable[[DomainEventProtocol], None],
+    ) -> Callable[[DomainEventProtocol], None]:
         """
         Create a function that executes a middleware component.
 
@@ -346,14 +372,14 @@ class MiddlewareChainBuilder:
             Function that processes an event through this middleware
         """
 
-        async def execute_middleware(event: DomainEvent) -> None:
+        async def execute_middleware(event: DomainEventProtocol) -> None:
             await middleware.process(event, next_middleware)
 
         return execute_middleware
 
     def _create_handler_executor(
         self, handler: EventHandler
-    ) -> Callable[[DomainEvent], None]:
+    ) -> Callable[[DomainEventProtocol], None]:
         """
         Create a function that executes a handler.
 
@@ -364,12 +390,14 @@ class MiddlewareChainBuilder:
             Function that processes an event through this handler
         """
 
-        async def execute_handler(event: DomainEvent) -> None:
+        async def execute_handler(event: DomainEventProtocol) -> None:
             await self._execute_handler(handler, event)
 
         return execute_handler
 
-    async def _execute_handler(self, handler: EventHandler, event: DomainEvent) -> None:
+    async def _execute_handler(
+        self, handler: EventHandler, event: DomainEventProtocol
+    ) -> None:
         """
         Execute a handler and handle exceptions.
 
@@ -381,16 +409,20 @@ class MiddlewareChainBuilder:
             EventHandlerError: If the handler fails
         """
         try:
-            await handler.handle(event)
+            if hasattr(handler, "__aenter__") and hasattr(handler, "__aexit__"):
+                async with handler:
+                    await handler.handle(event)
+            else:
+                await handler.handle(event)
         except Exception as e:
             handler_name = getattr(handler, "__class__", type(handler)).__name__
-            self.logger.error(
+            await self.logger.error(
                 "Handler execution failed",
                 handler=handler_name,
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 error=str(e),
-                exc_info=e,
+                exc_info=True,  # Only True, not the exception object
             )
 
             if isinstance(e, EventHandlerError):
@@ -490,8 +522,9 @@ class EventBus:
         self.config = config
         self.registry = registry or EventHandlerRegistry(logger)
 
+
     async def publish(
-        self, event: DomainEvent, metadata: dict[str, Any] | None = None
+        self, event: DomainEventProtocol, metadata: dict[str, Any] | None = None
     ) -> None:
         """
         Publish an event to all registered handlers.
@@ -505,15 +538,24 @@ class EventBus:
         """
         event_type = event.event_type
 
-        # Add some default metadata if none provided
-        metadata = metadata or {}
+        # Correlation context propagation
+        if metadata is None:
+            metadata = {}
         metadata.setdefault("published_at", time.time())
+        # Ensure correlation context is present
+        correlation_ctx = EventCorrelationContext.from_metadata(metadata)
+        if correlation_ctx is None:
+            correlation_ctx = EventCorrelationContext.new()
+            metadata = correlation_ctx.inject(metadata)
+        else:
+            # Always inject to ensure all context fields are present
+            metadata = correlation_ctx.inject(metadata)
 
         # Get handlers for this event type from the registry
         handlers = self.registry.get_handlers(event_type)
 
         if not handlers:
-            self.logger.debug(
+            await self.logger.debug(
                 "No handlers registered for event",
                 event_type=event_type,
                 event_id=getattr(event, "event_id", None),
@@ -525,7 +567,7 @@ class EventBus:
         handler_count = len(handlers)
         success_count = 0
 
-        self.logger.debug(
+        await self.logger.debug(
             "Publishing event to handlers",
             event_type=event_type,
             event_id=getattr(event, "event_id", None),
@@ -544,7 +586,7 @@ class EventBus:
                 # Build and execute the middleware chain
                 chain_builder = MiddlewareChainBuilder(handler, self.logger)
                 chain = chain_builder.build_chain(middleware_chain)
-                await chain(event)
+                await chain(event, metadata)
 
                 end_time = time.time()
                 elapsed_ms = (end_time - start_time) * 1000
@@ -552,18 +594,22 @@ class EventBus:
                 handler_name = handler.__class__.__name__
                 success_count += 1
 
-                self.logger.debug(
+                await self.logger.debug(
                     "Handler successfully processed event",
                     handler=handler_name,
                     event_id=getattr(event, "event_id", None),
                     event_type=event_type,
                     elapsed_ms=elapsed_ms,
+                    correlation_id=metadata.get("correlation_id"),
+                    trace_id=metadata.get("trace_id"),
+                    span_id=metadata.get("span_id"),
+                    parent_span_id=metadata.get("parent_span_id"),
                 )
 
             except Exception as e:
                 handler_name = getattr(handler, "__class__", type(handler)).__name__
 
-                self.logger.error(
+                await self.logger.error(
                     "Handler failed to process event",
                     handler=handler_name,
                     event_id=getattr(event, "event_id", None),
@@ -586,7 +632,7 @@ class EventBus:
                     # Re-raise if it's already an EventHandlerError
                     raise
 
-        self.logger.info(
+        await self.logger.info(
             "Published event to handlers",
             event_type=event_type,
             event_id=getattr(event, "event_id", None),
@@ -595,7 +641,10 @@ class EventBus:
         )
 
     async def _retry_handler(
-        self, handler: EventHandler, event: DomainEvent, metadata: dict[str, Any]
+        self,
+        handler: EventHandler,
+        event: DomainEventProtocol,
+        metadata: dict[str, Any],
     ) -> None:
         """
         Retry a failed handler based on configuration settings.
@@ -621,7 +670,7 @@ class EventBus:
             await asyncio.sleep(self.config.retry_delay_ms / 1000.0)
 
             try:
-                self.logger.info(
+                await self.logger.info(
                     "Retrying event handler",
                     event_id=getattr(event, "event_id", None),
                     event_type=getattr(event, "event_type", None),
@@ -632,7 +681,7 @@ class EventBus:
 
                 await handler.handle(event)
 
-                self.logger.info(
+                await self.logger.info(
                     "Retry succeeded",
                     event_id=getattr(event, "event_id", None),
                     event_type=getattr(event, "event_type", None),
@@ -643,7 +692,7 @@ class EventBus:
                 return
             except Exception as exc:
                 last_error = exc
-                self.logger.warning(
+                await self.logger.warning(
                     "Retry failed",
                     event_id=getattr(event, "event_id", None),
                     event_type=event.event_type,
@@ -654,7 +703,7 @@ class EventBus:
                 )
 
         # All retries failed
-        self.logger.error(
+        await self.logger.error(
             "All retry attempts failed",
             event_id=getattr(event, "event_id", None),
             event_type=event.event_type,
@@ -674,7 +723,7 @@ class EventBus:
             ) from last_error
 
     async def publish_many(
-        self, events: list[DomainEvent], metadata: dict[str, Any] | None = None
+        self, events: list[DomainEventProtocol], metadata: dict[str, Any] | None = None
     ) -> None:
         """
         Publish multiple events to all registered handlers.
@@ -687,129 +736,140 @@ class EventBus:
             EventHandlerError: If any handler fails
         """
         if not events:
-            self.logger.debug("No events to publish")
+            await self.logger.debug("No events to publish")
             return
 
-        self.logger.info("Publishing multiple events", event_count=len(events))
+        await self.logger.info("Publishing multiple events", event_count=len(events))
 
         for event in events:
             await self.publish(event, metadata)
 
-        self.logger.debug("All events published successfully", event_count=len(events))
+        await self.logger.debug(
+            "All events published successfully", event_count=len(events)
+        )
 
 
 class LoggingMiddleware(EventHandlerMiddleware):
-    """Middleware for logging event handling."""
+    """Middleware for logging event handling with correlation context."""
 
     def __init__(self, logger: LoggerProtocol):
-        """
-        Initialize the middleware.
-
-        Args:
-            logger: Logger for structured logging
-        """
         self.logger = logger
 
     async def process(
         self,
-        event: DomainEvent,
-        next_middleware: Callable[[DomainEvent], None],
+        event: DomainEventProtocol,
+        next_middleware: Callable[[DomainEventProtocol], None],
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """
-        Log event handling and pass to next middleware.
-
-        Args:
-            event: The domain event to process
-            next_middleware: The next middleware to call
-
-        Raises:
-            EventHandlerError: If the handler fails
+        Log event handling and pass to next middleware, including correlation context.
         """
-        self.logger.debug(
+        correlation_id = metadata.get("correlation_id") if metadata else None
+        trace_id = metadata.get("trace_id") if metadata else None
+        span_id = metadata.get("span_id") if metadata else None
+        parent_span_id = metadata.get("parent_span_id") if metadata else None
+
+        await self.logger.debug(
             "Processing event",
             event_type=event.event_type,
             event_id=getattr(event, "event_id", None),
             aggregate_id=getattr(event, "aggregate_id", None),
+            correlation_id=correlation_id,
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_span_id=parent_span_id,
         )
 
         try:
-            await next_middleware(event)
+            await next_middleware(event, metadata)
 
-            self.logger.debug(
+            await self.logger.debug(
                 "Event handled successfully",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id,
             )
         except Exception as e:
-            self.logger.error(
+            await self.logger.error(
                 "Error handling event",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
+                correlation_id=correlation_id,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id,
                 error=str(e),
                 exc_info=e,
             )
             raise
 
+# TODO: Add/expand tests for correlation context propagation in LoggingMiddleware.
+
 
 class TimingMiddleware(EventHandlerMiddleware):
-    """Middleware for timing event handling."""
+    """Middleware for timing event handling with correlation context."""
 
     def __init__(self, logger: LoggerProtocol):
-        """
-        Initialize the middleware.
-
-        Args:
-            logger: Logger for structured logging
-        """
         self.logger = logger
 
     async def process(
         self,
-        event: DomainEvent,
-        next_middleware: Callable[[DomainEvent], None],
+        event: DomainEventProtocol,
+        next_middleware: Callable[[DomainEventProtocol], None],
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """
-        Time event handling and pass to next middleware.
-
-        Args:
-            event: The domain event to process
-            next_middleware: The next middleware to call
-
-        Raises:
-            EventHandlerError: If the handler fails
+        Time event handling and pass to next middleware, including correlation context.
         """
         import time
+        correlation_id = metadata.get("correlation_id") if metadata else None
+        trace_id = metadata.get("trace_id") if metadata else None
+        span_id = metadata.get("span_id") if metadata else None
+        parent_span_id = metadata.get("parent_span_id") if metadata else None
 
         start_time = time.time()
 
         try:
-            await next_middleware(event)
+            await next_middleware(event, metadata)
 
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.debug(
+            await self.logger.debug(
                 "Event handled",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
                 elapsed_ms=f"{elapsed_ms:.2f}",
+                correlation_id=correlation_id,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id,
             )
         except Exception as e:
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.error(
+            await self.logger.error(
                 "Error handling event",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
                 aggregate_id=getattr(event, "aggregate_id", None),
                 elapsed_ms=f"{elapsed_ms:.2f}",
+                correlation_id=correlation_id,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_span_id=parent_span_id,
                 error=str(e),
             )
             raise
+
+# TODO: Add/expand tests for correlation context propagation in TimingMiddleware.
 
 
 # Automatic event handler discovery
@@ -851,7 +911,7 @@ async def discover_handlers(
         try:
             package_module = importlib.import_module(package)
         except ImportError as e:
-            logger.error(
+            await logger.error(
                 "Error importing package", package=package, error=str(e), exc_info=e
             )
             return registry
@@ -861,7 +921,7 @@ async def discover_handlers(
     # Get the package directory
     package_path = getattr(package_module, "__path__", None)
     if not package_path:
-        logger.error(
+        await logger.error(
             "Package has no __path__ attribute", package=package_module.__name__
         )
         return registry
@@ -872,7 +932,7 @@ async def discover_handlers(
     )
 
     # Recursively import all modules in the package
-    def import_recursive(pkg: ModuleType) -> None:
+    async def import_recursive(pkg: ModuleType) -> None:
         pkg_path = getattr(pkg, "__path__", None)
         if not pkg_path:
             return
@@ -908,20 +968,20 @@ async def discover_handlers(
                                         event_type = handler_instance.event_type
 
                                     if event_type:
-                                        registry.register_handler(
+                                        await registry.register_handler(
                                             event_type, handler_instance
                                         )
                                         setattr(
                                             item, "_registered_with_discovery", True
                                         )
-                                        logger.debug(
+                                        await logger.debug(
                                             "Registered handler class",
                                             handler=item.__name__,
                                             event_type=event_type,
                                         )
                                 except Exception as e:
                                     # Couldn't instantiate, probably needs constructor arguments
-                                    logger.debug(
+                                    await logger.debug(
                                         "Couldn't auto-instantiate handler class",
                                         handler=item.__name__,
                                         error=str(e),
@@ -934,9 +994,9 @@ async def discover_handlers(
                             if not getattr(item, "_registered_with_discovery", False):
                                 event_type = getattr(item, "_event_type", None)
                                 if event_type:
-                                    registry.register_handler(event_type, item)
+                                    await registry.register_handler(event_type, item)
                                     setattr(item, "_registered_with_discovery", True)
-                                    logger.debug(
+                                    await logger.debug(
                                         "Registered decorated handler",
                                         handler=item.__name__,
                                         event_type=event_type,
@@ -947,19 +1007,21 @@ async def discover_handlers(
                         pass
 
                 if is_pkg:
-                    import_recursive(module)
+                    await import_recursive(module)
 
             except ImportError as e:
-                logger.error("Error importing module", module=full_name, error=str(e))
+                await logger.error(
+                    "Error importing module", module=full_name, error=str(e)
+                )
 
     # Start the recursive import process
-    import_recursive(package_module)
+    await import_recursive(package_module)
 
     # Calculate number of new handlers discovered
     final_handler_count = sum(len(handlers) for handlers in registry._handlers.values())
     new_handlers = final_handler_count - initial_handler_count
 
-    logger.info(
+    await logger.info(
         "Discovered event handlers",
         new_handlers=new_handlers,
         total_handlers=final_handler_count,

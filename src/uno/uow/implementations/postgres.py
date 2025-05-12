@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, AsyncTransaction
 from uno.uow.protocols import UnitOfWork
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.uow.errors import UnitOfWorkCommitError, UnitOfWorkRollbackError
-from uno.logging import LoggerProtocol, get_logger
+from uno.logging.logger import LoggerProtocol
 
 
 class PostgresUnitOfWork(UnitOfWork):
@@ -49,7 +49,7 @@ class PostgresUnitOfWork(UnitOfWork):
         if logger_factory:
             self.logger = logger_factory("uow_postgres")
         else:
-            self.logger = get_logger("uno.uow.postgres")
+            self.logger: LoggerProtocol | None = None  # Inject via DI or set externally
 
     async def commit(self) -> None:
         """
@@ -125,7 +125,7 @@ class PostgresUnitOfWork(UnitOfWork):
                     if logger_factory:
                         logger = logger_factory("uow_postgres")
                     else:
-                        logger = get_logger("uno.uow.postgres")
+                        logger: LoggerProtocol | None = None  # Inject via DI or set externally
 
                     logger.structured_log(
                         "ERROR",

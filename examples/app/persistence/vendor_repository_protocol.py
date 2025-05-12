@@ -6,19 +6,21 @@ Defines the interface for all Vendor repository implementations.
 """
 
 from typing import Protocol, runtime_checkable
-from uno.errors.result import Success, Failure
+
 from examples.app.domain.vendor import Vendor
-from examples.app.api.errors import VendorNotFoundError
 
 
 @runtime_checkable
 class VendorRepository(Protocol):
     def save(self, vendor: Vendor) -> None: ...
-    def get(
-        self, vendor_id: str
-    ) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
+    def get(self, vendor_id: str) -> Vendor:
         """
-        Retrieve a vendor by id. Returns Success[Vendor, None] if found, Failure[None, VendorNotFoundError] if not found.
+        Retrieve a Vendor aggregate by replaying its event stream.
+
+        Args:
+            vendor_id: The unique ID of the Vendor.
+        Returns:
+            Vendor: The reconstructed Vendor, or raises VendorNotFoundError if not found.
         """
         ...
 

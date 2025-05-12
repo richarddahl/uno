@@ -7,11 +7,26 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, Literal
 
 from uno.di.types import T
+from uno.di.protocols import ContainerProtocol
+from uno.logging.scope import LoggerScope, LoggerScopeProtocol
+from uno.logging.factory import LoggerFactory, LoggerFactoryProtocol
 
 if TYPE_CHECKING:
     from uno.di.types import (
         AsyncServiceFactoryProtocol,
         ServiceFactoryProtocol,
+    )
+
+def register_logging_services(container: ContainerProtocol) -> None:
+    container.register(
+        interface=LoggerScopeProtocol,
+        implementation=LoggerScope,
+        lifetime="scoped",
+    )
+    container.register(
+        interface=LoggerFactoryProtocol,
+        implementation=LoggerFactory,
+        lifetime="singleton",
     )
 
 

@@ -298,7 +298,7 @@ class SQLSecurityManager:
             audit_log = {
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
-{{ ... }}
+                "ip_address": ip_address,
                 "statement": statement,
                 "parameters": parameters,
             }

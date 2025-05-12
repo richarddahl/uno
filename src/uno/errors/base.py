@@ -9,14 +9,11 @@ This module provides the foundation for structured error handling with
 error codes, contextual information, and error categories.
 """
 
-from __future__ import annotations
-
-import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum, auto
-from typing import Any, TypeVar
-
-T = TypeVar("T", bound="UnoError")
+import inspect
+import os
+from typing import Any
 
 
 class ErrorCategory(Enum):
@@ -43,61 +40,104 @@ class ErrorSeverity(Enum):
 
 
 class UnoError(Exception):
-    """Base class for all framework errors with structured context.
-
-    This class extends Python's built-in Exception class with additional
-    context information, error categorization, and severity levels.
     """
+    Base error class for Uno errors.
+    Should only be subclassed for package-specific errors, not instantiated directly.
+    """
+    def __new__(cls, *args, **kwargs):
+        if cls is UnoError:
+            raise TypeError("Do not instantiate UnoError directly; subclass it for specific errors.")
+        return super().__new__(cls)
 
     def __init__(
         self,
+        code: str,
         message: str,
-        error_code: str | None = None,
-        category: ErrorCategory = ErrorCategory.INTERNAL,
-        severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
-    ):
+        category: ErrorCategory,
+        severity: ErrorSeverity,
+        context: dict[str, Any] | None = None,
+    ) -> None:
         """Initialize a new UnoError.
 
         Args:
+            code: Unique identifier for this error type
             message: Human-readable error message
-            error_code: Unique identifier for this error type
-            category: General category for this error
-            severity: How severe this error is
-            **context: Additional contextual information about the error
+            category: Category the error belongs to
+            severity: Severity level of the error
+            context: Additional contextual information
         """
-        super().__init__(message)
+        self.code = code
         self.message = message
-        self.error_code = error_code or "UNKNOWN"
         self.category = category
         self.severity = severity
-        self.context: dict[str, Any] = dict(context) if context else {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.context = context or {}
+        self.timestamp = datetime.now(UTC)
 
-        # Capture stack trace for debugging
-        self.stacktrace = "".join(traceback.format_exception(*traceback.sys.exc_info()))
-
-    def add_context(self, key: str, value: Any) -> UnoError:
-        """Add additional context to the error.
+    def with_context(self, context: dict[str, Any]) -> "UnoError":
+        """
+        Create a new error instance of the same subclass with the given context merged.
 
         Args:
-            key: Context information identifier
-            value: Context information value
+            context: Context data to add to existing context
 
         Returns:
-            Self, for method chaining
+            New error instance (same type as self) with updated context
         """
-        self.context[key] = value
-        return self  # For method chaining
+        return type(self)(
+            self.code,
+            self.message,
+            self.category,
+            self.severity,
+            {**self.context, **context},
+        )
+
+    @classmethod
+    def wrap(
+        cls,
+        exception: Exception,
+        code: str,
+        message: str,
+        category: ErrorCategory,
+        severity: ErrorSeverity,
+        context: dict[str, Any] | None = None,
+    ) -> "UnoError":
+        """
+        Wrap an exception with a UnoError, always including the exception type in context.
+
+        Args:
+            exception: The exception to wrap
+            code: Unique identifier for this error type
+            message: Human-readable error message
+            category: Category the error belongs to
+            severity: Severity level of the error
+            context: Additional contextual information
+
+        Returns:
+            New UnoError instance wrapping the exception
+        """
+        merged_context = dict(context) if context else {}
+        if "original_exception" not in merged_context:
+            merged_context["original_exception"] = type(exception).__name__
+        err = cls(code, message, category, severity, merged_context)
+        err.__cause__ = exception
+        return err
+
+    def __str__(self) -> str:
+        """Get string representation of the error.
+
+        Returns:
+            String in format 'code: message'
+        """
+        return f"{self.code}: {self.message}"
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert error to a dictionary for serialization.
+        """Return a dictionary representation of the error.
 
         Returns:
-            Dictionary representation of the error
+            Dictionary with all error properties
         """
         return {
-            "error_code": self.error_code,
+            "code": self.code,
             "message": self.message,
             "category": self.category.name,
             "severity": self.severity.name,
@@ -105,39 +145,52 @@ class UnoError(Exception):
             "timestamp": self.timestamp.isoformat(),
         }
 
-    @classmethod
-    def wrap(
-        cls: type[T],
-        exception: Exception,
-        message: str | None = None,
-        error_code: str | None = None,
-        category: ErrorCategory = ErrorCategory.INTERNAL,
-        severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
-    ) -> T:
-        """Wrap an existing exception in a UnoError.
 
-        Args:
-            exception: The exception to wrap
-            message: Optional message override (defaults to str(exception))
-            error_code: Error code for the wrapped exception
-            category: Error category
-            severity: Error severity
-            **context: Additional context information
+def get_error_context() -> dict[str, Any]:
+    """
+    Get context information about where an error occurred.
 
-        Returns:
-            A new UnoError instance with the exception as its cause
-        """
-        if message is None:
-            message = str(exception)
+    Returns contextual information about the calling frame including:
+    - file_name: The name of the file
+    - line_number: The line number where the error occurred
+    - function_name: The name of the function where the error occurred
+    - timestamp: The UTC timestamp when the error occurred
 
-        error = cls(
-            message=message,
-            error_code=error_code or "WRAPPED_ERROR",
-            category=category,
-            severity=severity,
-            original_exception=type(exception).__name__,
-            **context,
-        )
-        error.__cause__ = exception
-        return error
+    Returns:
+        dict[str, Any]: A dictionary with error context information
+    """
+    # Get the frame 1 level up (caller of this function)
+    current_frame = inspect.currentframe()
+    if current_frame is None:
+        # If we can't get a frame (rare but possible), return minimal context
+        return {
+            "file_name": "unknown",
+            "line_number": 0,
+            "function_name": "unknown",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    caller_frame = current_frame.f_back
+    if caller_frame is None:
+        # This would be very unusual, but let's handle it anyway
+        return {
+            "file_name": "unknown",
+            "line_number": 0,
+            "function_name": "unknown",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    frame_info = inspect.getframeinfo(caller_frame)
+
+    # Extract relevant information
+    file_name = os.path.basename(frame_info.filename)
+    line_number = frame_info.lineno
+    function_name = frame_info.function
+
+    # Create and return the context dictionary
+    return {
+        "file_name": file_name,
+        "line_number": line_number,
+        "function_name": function_name,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }

@@ -24,10 +24,11 @@ class SagaState:
     Base class for saga/process manager state.
     """
 
-    def __init__(self, saga_id: str, status: str, data: dict[str, Any]):
+    def __init__(self, saga_id: str, status: str, data: dict[str, Any], saga_type: str | None = None):
         self.saga_id = saga_id
         self.status = status  # e.g., 'pending', 'waiting', 'completed', 'failed'
         self.data = data
+        self.saga_type = saga_type
 
 
 @runtime_checkable
@@ -82,6 +83,17 @@ class SagaProtocol(Protocol, Generic[E_contra, C_co]):
 
     saga_id: str
     saga_state: SagaState
+
+    @abstractmethod
+    def set_state(self, state: SagaState) -> None:
+        """
+        Set the entire saga state from a SagaState instance.
+        This is the canonical method for restoring saga state in Uno.
+
+        Args:
+            state: The SagaState to restore.
+        """
+        ...
 
     @abstractmethod
     async def handle_event(self, event: E_contra) -> None:

@@ -12,17 +12,7 @@ import os
 from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Type,
-    TypeVar,
-    cast,
-)
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -34,26 +24,26 @@ from pydantic_core import PydanticCustomError
 from uno.errors import ErrorCategory, UnoError, create_error
 
 
+from uno.errors import ErrorSeverity
+
 class SecureValueError(UnoError):
     """Base class for secure value related errors."""
 
-    def __init__(
-        self, message: str, error_code: str | None = None, **context: Any
-    ) -> None:
+    def __init__(self, message: str, code: str | None = None, severity: ErrorSeverity = ErrorSeverity.ERROR, **context: Any) -> None:
         """Initialize a secure value error.
 
         Args:
             message: Human-readable error message
-            error_code: Error code without prefix
+            code: Error code without prefix
+            severity: ErrorSeverity for the error (default: ERROR)
             **context: Additional context information
         """
         super().__init__(
+            code=(f"CONFIG_SECURE_{code}" if code else "CONFIG_SECURE_ERROR"),
             message=message,
-            error_code=(
-                f"CONFIG_SECURE_{error_code}" if error_code else "CONFIG_SECURE_ERROR"
-            ),
             category=ErrorCategory.CONFIG,
-            **context,
+            severity=severity,
+            context=context or {},
         )
 
 
@@ -120,7 +110,7 @@ class SecureValue(Generic[T]):
             if not env_key:
                 raise SecureValueError(
                     "No master encryption key provided and UNO_MASTER_KEY not set",
-                    error_code="NO_MASTER_KEY",
+                    code="NO_MASTER_KEY",
                 )
             master_key = env_key
 
@@ -150,7 +140,7 @@ class SecureValue(Generic[T]):
         if not self._encryption_key:
             raise SecureValueError(
                 "Encryption not set up, call SecureValue.setup_encryption() first",
-                error_code="ENCRYPTION_NOT_SETUP",
+                code="ENCRYPTION_NOT_SETUP",
             )
 
         # For each value, we derive a unique key using the master key and this value's salt
@@ -231,7 +221,7 @@ class SecureValue(Generic[T]):
         if self._handling_strategy == SecureValueHandling.SEALED:
             raise SecureValueError(
                 "Cannot access sealed value directly",
-                error_code="SEALED_VALUE_ACCESS",
+                code="SEALED_VALUE_ACCESS",
             )
 
         if self._handling_strategy == SecureValueHandling.ENCRYPT:
@@ -272,7 +262,9 @@ def SecureField(
     Returns:
         Field with secure value handling
     """
-    field_info = Field(default, json_schema_extra=kwargs.pop('json_schema_extra', {}), **kwargs)
+    field_info = Field(
+        default, json_schema_extra=kwargs.pop("json_schema_extra", {}), **kwargs
+    )
     field_info.json_schema_extra = field_info.json_schema_extra or {}
     field_info.json_schema_extra["secure"] = True
     field_info.json_schema_extra["handling"] = handling.value

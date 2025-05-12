@@ -6,7 +6,6 @@ Defines the interface for all InventoryItem repository implementations.
 """
 
 from typing import Protocol, runtime_checkable
-from uno.errors.result import Success, Failure
 from examples.app.domain.inventory import InventoryItem
 from examples.app.api.errors import InventoryItemNotFoundError
 
@@ -15,12 +14,12 @@ from examples.app.api.errors import InventoryItemNotFoundError
 class InventoryItemRepository(Protocol):
     def save(
         self, item: InventoryItem
-    ) -> Success[None, None] | Failure[None, Exception]: ...
+    ) -> None: ...
     def get(
         self, aggregate_id: str
-    ) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
+    ) -> InventoryItem:
         """
-        Retrieve an inventory item by id. Returns Success[InventoryItem, None] if found, Failure[None, InventoryItemNotFoundError] if not found.
+        Retrieve an inventory item by id. Raises InventoryItemNotFoundError if not found.
         """
         ...
 

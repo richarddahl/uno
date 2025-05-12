@@ -7,8 +7,8 @@ with the DI container.
 
 from uno.di.container import Container
 from uno.domain.config import DomainConfig
-from uno.domain.repository import Repository
 from uno.domain.event_sourced_repository import EventSourcedRepository
+from uno.domain.protocols import RepositoryProtocol
 from uno.logging.protocols import LoggerProtocol
 
 
@@ -25,6 +25,6 @@ async def register_domain_services(container: Container) -> None:
 
     # Register repositories based on configuration
     # In the future, this could be made more dynamic based on config values
-    await container.register_scoped(Repository, EventSourcedRepository)
+    await container.register_scoped(RepositoryProtocol, EventSourcedRepository)
 
     # Additional domain service registrations would go here

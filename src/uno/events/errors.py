@@ -23,6 +23,9 @@ __all__ = [
     "EventSerializationError",
     "EventDeserializationError",
     "EventReplayError",
+    "EventVersioningError",
+    "EventProcessingError",
+    "EventCancellationError",
 ]
 
 # -----------------------------------------------------------------------------
@@ -52,13 +55,13 @@ class EventErrorCode:
 class EventError(UnoError):
     """Base class for all event-related errors."""
 
-    error_code = None
+    code = None
 
 
 class EventStoreError(EventError):
     """Base class for event store errors."""
 
-    error_code = EventErrorCode.STORE_ERROR
+    code = EventErrorCode.STORE_ERROR
 
 
 class EventNotFoundError(EventStoreError):
@@ -84,7 +87,7 @@ class EventPublishError(UnoError):
     def __init__(self, event_type: str, reason: str, **context: Any):
         super().__init__(
             message=f"Failed to publish event '{event_type}': {reason}",
-            error_code=EventErrorCode.PUBLISH_ERROR,
+            code=EventErrorCode.PUBLISH_ERROR,
             event_type=event_type,
             reason=reason,
             **context,
@@ -97,7 +100,7 @@ class EventSubscribeError(UnoError):
     def __init__(self, event_type: str, reason: str, **context: Any):
         super().__init__(
             message=f"Failed to subscribe to event '{event_type}': {reason}",
-            error_code=EventErrorCode.SUBSCRIBE_ERROR,
+            code=EventErrorCode.SUBSCRIBE_ERROR,
             event_type=event_type,
             reason=reason,
             **context,
@@ -110,7 +113,7 @@ class EventHandlerError(UnoError):
     def __init__(self, event_type: str, handler_name: str, reason: str, **context: Any):
         super().__init__(
             message=f"Handler '{handler_name}' failed for event '{event_type}': {reason}",
-            error_code=EventErrorCode.HANDLER_ERROR,
+            code=EventErrorCode.HANDLER_ERROR,
             event_type=event_type,
             handler_name=handler_name,
             reason=reason,
@@ -124,7 +127,7 @@ class EventSerializationError(UnoError):
     def __init__(self, event_type: str, reason: str, **context: Any):
         super().__init__(
             message=f"Failed to serialize event '{event_type}': {reason}",
-            error_code=EventErrorCode.SERIALIZATION_ERROR,
+            code=EventErrorCode.SERIALIZATION_ERROR,
             event_type=event_type,
             reason=reason,
             **context,
@@ -137,7 +140,7 @@ class EventDeserializationError(UnoError):
     def __init__(self, event_type: str, reason: str, **context: Any):
         super().__init__(
             message=f"Failed to deserialize event '{event_type}': {reason}",
-            error_code=EventErrorCode.DESERIALIZATION_ERROR,
+            code=EventErrorCode.DESERIALIZATION_ERROR,
             event_type=event_type,
             reason=reason,
             **context,
@@ -157,7 +160,7 @@ class EventUpcastError(UnoError):
     ):
         super().__init__(
             message=f"Failed to upcast event '{event_type}' from v{from_version} to v{to_version}: {reason}",
-            error_code=EventErrorCode.UPCAST_ERROR,
+            code=EventErrorCode.UPCAST_ERROR,
             event_type=event_type,
             from_version=from_version,
             to_version=to_version,
@@ -179,7 +182,7 @@ class EventDowncastError(UnoError):
     ):
         super().__init__(
             message=f"Failed to downcast event '{event_type}' from v{from_version} to v{to_version}: {reason}",
-            error_code=EventErrorCode.DOWNCAST_ERROR,
+            code=EventErrorCode.DOWNCAST_ERROR,
             event_type=event_type,
             from_version=from_version,
             to_version=to_version,
@@ -194,8 +197,133 @@ class EventReplayError(UnoError):
     def __init__(self, event_type: str, reason: str, **context: Any):
         super().__init__(
             message=f"Failed to replay event '{event_type}': {reason}",
-            error_code=EventErrorCode.REPLAY_ERROR,
+            code=EventErrorCode.REPLAY_ERROR,
             event_type=event_type,
             reason=reason,
+            **context,
+        )
+
+
+class EventVersioningError(UnoError):
+    """Raised when there's an issue with event versioning."""
+
+    def __init__(
+        self,
+        event_type: str,
+        from_version: int,
+        to_version: int,
+        operation: str,
+        reason: str,
+        message: str | None = None,
+        **context: Any,
+    ):
+        message = (
+            message
+            or f"Failed to {operation} event '{event_type}' from v{from_version} to v{to_version}: {reason}"
+        )
+
+        super().__init__(
+            message=message,
+            code="EVENT-VERSION-ERROR",
+            event_type=event_type,
+            from_version=from_version,
+            to_version=to_version,
+            operation=operation,
+            reason=reason,
+            **context,
+        )
+
+
+class EventProcessingError(EventError):
+    """
+    Error when processing an event fails.
+
+    This error is raised when processing an event with handlers fails.
+    """
+
+    def __init__(self, event: Any, reason: str) -> None:
+        """
+        Initialize the error.
+
+        Args:
+            event: The event that failed to process
+            reason: The reason for the failure
+        """
+        self.event = event
+        self.reason = reason
+        message = f"Event processing failed for {getattr(event, 'event_type', type(event).__name__)}: {reason}"
+        super().__init__(
+            code=EventErrorCode.HANDLER_ERROR,
+            message=message,
+            details={
+                "event_type": getattr(event, "event_type", type(event).__name__),
+                "event_id": getattr(event, "event_id", None),
+                "reason": reason,
+            },
+        )
+
+
+class EventCancellationError(EventError):
+    """
+    Error when event processing is cancelled.
+
+    This error is raised when event processing is cancelled explicitly
+    before normal completion.
+    """
+
+    def __init__(self, event: Any) -> None:
+        """
+        Initialize the error.
+
+        Args:
+            event: The event whose processing was cancelled
+        """
+        self.event = event
+        message = f"Event processing cancelled for {getattr(event, 'event_type', type(event).__name__)}"
+        super().__init__(
+            code=EventErrorCode.HANDLER_ERROR,
+            message=message,
+            details={
+                "event_type": getattr(event, "event_type", type(event).__name__),
+                "event_id": getattr(event, "event_id", None),
+            },
+        )
+
+
+class CommandDispatchError(UnoError):
+    """Raised when command dispatch fails."""
+
+    def __init__(self, command_type: str, reason: str, command: Any, **context: Any):
+        super().__init__(
+            message=f"Failed to dispatch command '{command_type}': {reason}",
+            code="COMMAND-DISPATCH-ERROR",
+            command_type=command_type,
+            reason=reason,
+            command=command,
+            **context,
+        )
+
+
+class SnapshotStoreError(UnoError):
+    """Raised when snapshot storage/retrieval/deletion fails."""
+
+    def __init__(
+        self,
+        operation: str,
+        aggregate_id: str | None = None,
+        original_exception: Exception | None = None,
+        message: str | None = None,
+        **context: Any,
+    ):
+        base_message = (
+            message
+            or f"Snapshot operation '{operation}' failed for aggregate {aggregate_id or '<unknown>'}"
+        )
+        super().__init__(
+            message=base_message,
+            code="SNAPSHOT-STORE-ERROR",
+            operation=operation,
+            aggregate_id=aggregate_id,
+            original_exception=repr(original_exception) if original_exception else None,
             **context,
         )

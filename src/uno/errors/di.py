@@ -15,27 +15,19 @@ from __future__ import annotations
 import inspect
 import threading
 import traceback
-import sys
 from contextlib import contextmanager
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Set,
-    Type,
     TypeVar,
-    cast,
     runtime_checkable,
 )
 
-# Local imports
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
-from uno.errors.component_errors import DIError
+from uno.di.errors import DIError
 
+# Local imports
+from uno.errors.base import ErrorCategory, ErrorSeverity
 
 # =============================================================================
 # Type definitions
@@ -108,7 +100,7 @@ class ContainerError(DIError):
         message: str,
         container: ContainerProtocol | None = None,
         capture_container_state: bool = True,
-        error_code: str | None = None,
+        code: str | None = None,
         category: ErrorCategory = ErrorCategory.DI,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,
@@ -119,7 +111,7 @@ class ContainerError(DIError):
             message: The error message
             container: The DI container to capture state from
             capture_container_state: Whether to capture container state
-            error_code: The error code
+            code: The error code
             category: The error category
             severity: The error severity
             **context: Additional context to include
@@ -127,7 +119,7 @@ class ContainerError(DIError):
         # Initialize the base class
         super().__init__(
             message=message,
-            error_code=error_code or "DI_CONTAINER_ERROR",
+            code=code or "DI_CONTAINER_ERROR",
             category=category,
             severity=severity,
             **context,
@@ -210,7 +202,7 @@ class DIServiceNotFoundError(ContainerError):
         service_type: type[T],
         container: ContainerProtocol | None = None,
         service_key: str | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the service not found error.
@@ -219,7 +211,7 @@ class DIServiceNotFoundError(ContainerError):
             service_type: The type of service that was requested
             container: The DI container to capture state from
             service_key: The service key that was requested, if different from the type name
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Get the service type name
@@ -247,7 +239,7 @@ class DIServiceNotFoundError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "DI_SERVICE_NOT_FOUND",
+            code=code or "DI_SERVICE_NOT_FOUND",
             category=ErrorCategory.DI,
             severity=ErrorSeverity.ERROR,
             **context,
@@ -265,7 +257,7 @@ class DICircularDependencyError(ContainerError):
         self,
         dependency_chain: list[str],
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the circular dependency error.
@@ -273,7 +265,7 @@ class DICircularDependencyError(ContainerError):
         Args:
             dependency_chain: The chain of dependencies that formed the circle
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Create the error message
@@ -295,7 +287,7 @@ class DICircularDependencyError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "DI_CIRCULAR_DEPENDENCY",
+            code=code or "DI_CIRCULAR_DEPENDENCY",
             category=ErrorCategory.DI,
             severity=ErrorSeverity.ERROR,
             **context,
@@ -316,7 +308,7 @@ class DIServiceCreationError(ContainerError):
         container: ContainerProtocol | None = None,
         service_key: str | None = None,
         dependency_chain: list[str] | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the service creation error.
@@ -327,7 +319,7 @@ class DIServiceCreationError(ContainerError):
             container: The DI container to capture state from
             service_key: The service key that was requested, if different from the type name
             dependency_chain: The chain of dependencies being resolved
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Get the service type name
@@ -341,7 +333,7 @@ class DIServiceCreationError(ContainerError):
         context["service_type"] = type_name
         context["service_key"] = service_key
         context["original_error_type"] = type(original_error).__name__
-        context["original_error_message"] = str(original_error)
+        context["original_message"] = str(original_error)
 
         # Add dependency chain if available
         if dependency_chain:
@@ -364,7 +356,7 @@ class DIServiceCreationError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "DI_SERVICE_CREATION_ERROR",
+            code=code or "DI_SERVICE_CREATION_ERROR",
             category=ErrorCategory.DI,
             severity=ErrorSeverity.ERROR,
             **context,
@@ -385,7 +377,7 @@ class ContainerDisposedError(ContainerError):
         self,
         operation: str,
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the container disposed error.
@@ -393,7 +385,7 @@ class ContainerDisposedError(ContainerError):
         Args:
             operation: The operation that was attempted
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Create the error message
@@ -406,7 +398,7 @@ class ContainerDisposedError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "DI_CONTAINER_DISPOSED",
+            code=code or "DI_CONTAINER_DISPOSED",
             category=ErrorCategory.DI,
             severity=ErrorSeverity.ERROR,
             **context,
@@ -425,7 +417,7 @@ class DIScopeDisposedError(ContainerError):
         operation: str,
         scope_id: str,
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the scope disposed error.
@@ -434,7 +426,7 @@ class DIScopeDisposedError(ContainerError):
             operation: The operation that was attempted
             scope_id: The ID of the disposed scope
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Create the error message
@@ -448,7 +440,7 @@ class DIScopeDisposedError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "DI_SCOPE_DISPOSED",
+            code=code or "DI_SCOPE_DISPOSED",
             category=ErrorCategory.DI,
             severity=ErrorSeverity.ERROR,
             **context,

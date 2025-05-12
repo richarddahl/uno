@@ -68,7 +68,7 @@ class TestEnvironment:
 
         error = excinfo.value
         assert "Invalid environment: invalid" in str(error)
-        assert error.error_code == "CONFIG_INVALID_ENVIRONMENT"
+        assert error.code == "CONFIG_INVALID_ENVIRONMENT"
         assert error.context["provided_value"] == "invalid"
 
     def test_get_current(self, monkeypatch: pytest.MonkeyPatch) -> None:

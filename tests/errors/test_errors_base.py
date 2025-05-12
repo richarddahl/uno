@@ -21,17 +21,27 @@ from uno.errors import (
     wrap_exception,
 )
 
+class DummyError(UnoError):
+    """A concrete error subclass for testing UnoError behavior."""
+    pass
+
+
 
 class TestUnoErrorBase:
     """Tests for the base UnoError class."""
 
     def test_basic_error_creation(self) -> None:
         """Test creating a basic error with minimal arguments."""
-        error = UnoError("Something went wrong")
+        error = DummyError(
+            code="BASIC_ERROR",
+            message="Something went wrong",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+        )
 
-        assert str(error) == "Something went wrong"
+        assert str(error) == "BASIC_ERROR: Something went wrong"
         assert error.message == "Something went wrong"
-        assert error.error_code == "UNKNOWN"
+        assert error.code == "BASIC_ERROR"
         assert error.category == ErrorCategory.INTERNAL
         assert error.severity == ErrorSeverity.ERROR
         assert isinstance(error.context, dict)
@@ -39,50 +49,60 @@ class TestUnoErrorBase:
 
     def test_error_with_context(self) -> None:
         """Test creating an error with context information."""
-        error = UnoError(
+        error = DummyError(
+            code="VALIDATION_ERROR",
             message="Invalid user input",
-            error_code="VALIDATION_ERROR",
             category=ErrorCategory.VALIDATION,
             severity=ErrorSeverity.WARNING,
-            field_name="email",
-            input_value="invalid@example",
+            context={"field_name": "email", "input_value": "invalid@example"},
         )
 
         assert error.message == "Invalid user input"
-        assert error.error_code == "VALIDATION_ERROR"
+        assert error.code == "VALIDATION_ERROR"
         assert error.category == ErrorCategory.VALIDATION
         assert error.severity == ErrorSeverity.WARNING
         assert error.context["field_name"] == "email"
         assert error.context["input_value"] == "invalid@example"
 
-    def test_add_context(self) -> None:
-        """Test adding context to an existing error."""
-        error = UnoError("Connection failed")
-        error.add_context("host", "db.example.com")
-        error.add_context("port", 5432)
+    def test_with_context(self) -> None:
+        """Test enriching a UnoError with additional context using with_context (canonical pattern)."""
+        error = DummyError(
+            code="CONNECTION_FAILED",
+            message="Connection failed",
+            category=ErrorCategory.INTERNAL,
+            severity=ErrorSeverity.ERROR,
+        )
+        error2 = error.with_context({"host": "db.example.com"})
+        error3 = error2.with_context({"port": 5432})
 
-        assert error.context["host"] == "db.example.com"
-        assert error.context["port"] == 5432
+        assert "host" not in error.context
+        assert "port" not in error.context
+        assert error2.context["host"] == "db.example.com"
+        assert "port" not in error2.context
+        assert error3.context["host"] == "db.example.com"
+        assert error3.context["port"] == 5432
 
-        # Test method chaining
-        error.add_context("retry_count", 3).add_context("timeout", 30)
-        assert error.context["retry_count"] == 3
-        assert error.context["timeout"] == 30
+        # Test chaining with_context
+        error4 = error3.with_context({"retry_count": 3}).with_context({"timeout": 30})
+        assert error4.context["host"] == "db.example.com"
+        assert error4.context["port"] == 5432
+        assert error4.context["retry_count"] == 3
+        assert error4.context["timeout"] == 30
 
     def test_to_dict(self) -> None:
         """Test converting an error to a dictionary."""
-        error = UnoError(
+        error = DummyError(
+            code="NOT_FOUND",
             message="Resource not found",
-            error_code="NOT_FOUND",
             category=ErrorCategory.API,
-            resource_id="12345",
-            resource_type="User",
+            severity=ErrorSeverity.ERROR,
+            context={"resource_id": "12345", "resource_type": "User"},
         )
 
         error_dict = error.to_dict()
 
         assert error_dict["message"] == "Resource not found"
-        assert error_dict["error_code"] == "NOT_FOUND"
+        assert error_dict["code"] == "NOT_FOUND"
         assert error_dict["category"] == "API"
         assert error_dict["severity"] == "ERROR"
         assert error_dict["context"]["resource_id"] == "12345"
@@ -90,19 +110,20 @@ class TestUnoErrorBase:
         assert "timestamp" in error_dict
 
     def test_wrap(self) -> None:
-        """Test wrapping an exception in a UnoError."""
+        """Test wrapping an exception in a UnoError (using DummyError subclass)."""
         original_exception = None
         try:
             raise ValueError("Invalid value")
         except ValueError as e:
             original_exception = e
-            error = UnoError.wrap(
-                e, error_code="WRAPPED_VALUE_ERROR", category=ErrorCategory.VALIDATION
+            error = DummyError.wrap(
+                e, message="Invalid value", code="WRAPPED_VALUE_ERROR", category=ErrorCategory.VALIDATION, severity=ErrorSeverity.ERROR
             )
 
         assert error.message == "Invalid value"
-        assert error.error_code == "WRAPPED_VALUE_ERROR"
+        assert error.code == "WRAPPED_VALUE_ERROR"
         assert error.category == ErrorCategory.VALIDATION
+        assert error.severity == ErrorSeverity.ERROR
         assert error.context["original_exception"] == "ValueError"
         assert error.__cause__ is original_exception
 
@@ -111,25 +132,25 @@ class TestErrorHelpers:
     """Tests for error helper functions."""
 
     def test_create_error(self) -> None:
-        """Test creating an error with the create_error function."""
+        """Test creating an error with the create_error function (using DummyError subclass)."""
         error = create_error(
             message="Database query failed",
-            error_code="DB_QUERY_FAILED",
+            code="DB_QUERY_FAILED",
             category=ErrorCategory.DB,
             severity=ErrorSeverity.CRITICAL,
-            query="SELECT * FROM users",
-            error_detail="Connection timeout",
+            error_class=DummyError,
+            context={"query": "SELECT * FROM users", "error_detail": "Connection timeout"},
         )
 
         assert error.message == "Database query failed"
-        assert error.error_code == "DB_QUERY_FAILED"
+        assert error.code == "DB_QUERY_FAILED"
         assert error.category == ErrorCategory.DB
         assert error.severity == ErrorSeverity.CRITICAL
         assert error.context["query"] == "SELECT * FROM users"
         assert error.context["error_detail"] == "Connection timeout"
 
     def test_wrap_exception(self) -> None:
-        """Test wrapping an exception with the wrap_exception function."""
+        """Test wrapping an exception with the wrap_exception function (using DummyError subclass)."""
         original_exception = None
         try:
             # Create a test exception
@@ -139,14 +160,15 @@ class TestErrorHelpers:
             error = wrap_exception(
                 exception=e,
                 message="Failed to retrieve configuration",
-                error_code="CONFIG_KEY_ERROR",
+                code="CONFIG_KEY_ERROR",
                 category=ErrorCategory.CONFIG,
                 severity=ErrorSeverity.WARNING,
-                key_name="database_url",
+                error_class=DummyError,
+                context={"key_name": "database_url"},
             )
 
         assert error.message == "Failed to retrieve configuration"
-        assert error.error_code == "CONFIG_KEY_ERROR"
+        assert error.code == "CONFIG_KEY_ERROR"
         assert error.category == ErrorCategory.CONFIG
         assert error.severity == ErrorSeverity.WARNING
         assert error.context["key_name"] == "database_url"
@@ -186,7 +208,7 @@ class TestDIErrors:
         error = ServiceNotRegisteredError(IService)
 
         assert error.message == "Service IService is not registered"
-        assert error.error_code == "DI_SERVICE_NOT_REGISTERED"
+        assert error.code == "DI_SERVICE_NOT_REGISTERED"
         assert error.category == ErrorCategory.DI
         assert error.context["interface_name"] == "IService"
 
@@ -203,7 +225,7 @@ class TestDIErrors:
         error = TypeMismatchError(ILogger, ConsoleWriter)
 
         assert "Expected ILogger, got ConsoleWriter" in error.message
-        assert error.error_code == "DI_TYPE_MISMATCH"
+        assert error.code == "DI_TYPE_MISMATCH"
         assert error.category == ErrorCategory.DI
         assert error.context["expected_type"] == "ILogger"
         assert error.context["actual_type"] == "ConsoleWriter"
@@ -220,15 +242,15 @@ class TestDIErrors:
         assert (
             "Cannot resolve scoped service IRepository outside a scope" in error.message
         )
-        assert error.error_code == "DI_OUTSIDE_SCOPE"
+        assert error.code == "DI_OUTSIDE_SCOPE"
         assert error.context["interface_name"] == "IRepository"
 
         # Test container_disposed factory
         error = ScopeError.container_disposed()
         assert "Container has been disposed" in error.message
-        assert error.error_code == "DI_CONTAINER_DISPOSED"
+        assert error.code == "DI_CONTAINER_DISPOSED"
 
         # Test scope_disposed factory
         error = ScopeError.scope_disposed()
         assert "Scope has been disposed" in error.message
-        assert error.error_code == "DI_SCOPE_DISPOSED"
+        assert error.code == "DI_SCOPE_DISPOSED"

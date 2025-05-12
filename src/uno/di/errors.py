@@ -32,61 +32,11 @@ ERROR_CODE_PREFIX: Final[str] = "DI"
 
 
 # =============================================================================
-# Container and Scope Protocols
-# =============================================================================
+from typing import TYPE_CHECKING
 
 T = TypeVar("T")
 TContainer = TypeVar("TContainer", bound="ContainerProtocol")
 TScope = TypeVar("TScope", bound="ScopeProtocol")
-
-
-@runtime_checkable
-class ScopeProtocol(Protocol):
-    """Protocol defining the minimal interface for a DI scope."""
-
-    @property
-    def id(self) -> str:
-        """Get the unique identifier for this scope."""
-        ...
-
-    @property
-    def parent(self) -> ScopeProtocol | None:
-        """Get the parent scope, or None if this is a root scope."""
-        ...
-
-    def get_service_keys(self) -> list[str]:
-        """Get the service keys available in this scope synchronously."""
-        ...
-        
-    async def get_service_keys_async(self) -> list[str]:
-        """Get the service keys available in this scope asynchronously."""
-        ...
-
-
-@runtime_checkable
-class ContainerProtocol(Protocol):
-    """Protocol defining the minimal interface for a DI container."""
-
-    @property
-    def current_scope(self) -> ScopeProtocol | None:
-        """Get the current active scope, or None if no scope is active."""
-        ...
-
-    def get_registration_keys(self) -> list[str]:
-        """Get all registered service keys synchronously."""
-        ...
-        
-    async def get_registration_keys_async(self) -> list[str]:
-        """Get all registered service keys asynchronously."""
-        ...
-
-    def get_scope_chain(self) -> list[ScopeProtocol]:
-        """Get the chain of scopes from current to root synchronously."""
-        ...
-        
-    async def get_scope_chain_async(self) -> list[ScopeProtocol]:
-        """Get the chain of scopes from current to root asynchronously."""
-        ...
 
 
 class DIError(UnoError):
@@ -95,7 +45,7 @@ class DIError(UnoError):
     def __init__(
         self,
         message: str,
-        error_code: str | None = None,
+        code: str | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,
     ) -> None:
@@ -103,20 +53,18 @@ class DIError(UnoError):
 
         Args:
             message: Human-readable error message
-            error_code: Error code without prefix (will be prefixed with DI_)
+            code: Error code without prefix (will be prefixed with DI_)
             severity: How severe this error is
             **context: Additional context information
         """
         super().__init__(
-            message=message,
-            error_code=(
-                f"{ERROR_CODE_PREFIX}_{error_code}"
-                if error_code
-                else f"{ERROR_CODE_PREFIX}_ERROR"
+            code=(
+                f"{ERROR_CODE_PREFIX}_{code}" if code else f"{ERROR_CODE_PREFIX}_ERROR"
             ),
+            message=message,
             category=ErrorCategory.DI,
             severity=severity,
-            **context,
+            context=context or {},
         )
 
 
@@ -140,7 +88,7 @@ class ContainerError(DIError):
         message: str,
         container: ContainerProtocol | None = None,
         capture_container_state: bool = True,
-        error_code: str | None = None,
+        code: str | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,
     ):
@@ -153,7 +101,7 @@ class ContainerError(DIError):
             message: The error message
             container: The DI container to capture state from
             capture_container_state: Whether to capture container state
-            error_code: The error code
+            code: The error code
             severity: The error severity
             **context: Additional context to include
         """
@@ -164,24 +112,24 @@ class ContainerError(DIError):
 
         # Initialize the base class
         super().__init__(
+            code=code or "CONTAINER_ERROR",
             message=message,
-            error_code=error_code or "CONTAINER_ERROR",
             severity=severity,
-            **context,
+            context=context or {},
         )
 
         # Capture container state if requested and a container is available
         # In synchronous context, use the sync version to avoid unawaited coroutines
         if capture_container_state and container is not None:
             self._capture_container_state_sync(container)
-            
+
     @classmethod
     async def async_init(
         cls,
         message: str,
         container: ContainerProtocol | None = None,
         capture_container_state: bool = True,
-        error_code: str | None = None,
+        code: str | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         **context: Any,
     ) -> ContainerError:
@@ -194,10 +142,10 @@ class ContainerError(DIError):
             message: The error message
             container: The DI container to capture state from
             capture_container_state: Whether to capture container state
-            error_code: The error code
+            code: The error code
             severity: The error severity
             **context: Additional context to include
-            
+
         Returns:
             A ContainerError instance with async-captured state
         """
@@ -206,20 +154,20 @@ class ContainerError(DIError):
             message=message,
             container=container,
             capture_container_state=False,  # Don't capture yet, we'll do it below
-            error_code=error_code or "CONTAINER_ERROR",
+            code=code or "CONTAINER_ERROR",
             severity=severity,
             **context,
         )
-        
+
         # Get the container from the thread-local storage if not provided
         thread_id = threading.get_ident()
         if container is None and thread_id in cls._current_container:
             container = cls._current_container[thread_id]
-        
+
         # Capture container state asynchronously if requested
         if capture_container_state and container is not None:
             await instance._capture_container_state(container)
-            
+
         return instance
 
     async def _capture_container_state(self, container: ContainerProtocol) -> None:
@@ -232,31 +180,29 @@ class ContainerError(DIError):
             # Add container registrations
             if hasattr(container, "get_registration_keys_async"):
                 self.add_context(
-                    "container_registrations", 
-                    await container.get_registration_keys_async()
+                    "container_registrations",
+                    await container.get_registration_keys_async(),
                 )
             else:
                 # Fallback to synchronous method if async not available
                 self.add_context(
-                    "container_registrations", 
-                    container.get_registration_keys()
+                    "container_registrations", container.get_registration_keys()
                 )
 
             # Add current scope information if available
             current_scope = container.current_scope
             if current_scope:
                 self.add_context("current_scope_id", current_scope.id)
-                
+
                 # Get scope services
                 if hasattr(current_scope, "get_service_keys_async"):
                     self.add_context(
-                        "current_scope_services", 
-                        await current_scope.get_service_keys_async()
+                        "current_scope_services",
+                        await current_scope.get_service_keys_async(),
                     )
                 else:
                     self.add_context(
-                        "current_scope_services", 
-                        current_scope.get_service_keys()
+                        "current_scope_services", current_scope.get_service_keys()
                     )
 
                 # Add scope chain
@@ -264,19 +210,19 @@ class ContainerError(DIError):
                     scope_chain = await container.get_scope_chain_async()
                 else:
                     scope_chain = container.get_scope_chain()
-                    
+
                 if scope_chain:
                     scope_ids = [scope.id for scope in scope_chain]
                     self.add_context("scope_chain", scope_ids)
-                    
+
         except Exception as e:
             # If capturing container state fails, add that as context
             self.add_context("container_state_capture_error", str(e))
             logging.exception("Error capturing container state")
-            
+
     def _capture_container_state_sync(self, container: ContainerProtocol) -> None:
         """Capture the state of the container synchronously.
-        
+
         This method is a fallback for contexts where async operations cannot be used.
         It captures only the minimal safe information that doesn't risk unawaited coroutines.
 
@@ -286,7 +232,10 @@ class ContainerError(DIError):
         try:
             # First check if this is a MagicMock with error side effects (for test_container_state_capture_error_handling)
             from unittest.mock import MagicMock
-            if isinstance(container, MagicMock) and hasattr(container, "get_registration_keys"):
+
+            if isinstance(container, MagicMock) and hasattr(
+                container, "get_registration_keys"
+            ):
                 try:
                     # This will trigger the side_effect if one is set
                     container.get_registration_keys()
@@ -294,7 +243,7 @@ class ContainerError(DIError):
                     # This is exactly what test_container_state_capture_error_handling is testing
                     self.add_context("container_state_capture_error", str(mock_error))
                     return
-            
+
             # Try to capture registration keys from the container
             registration_keys = []
             try:
@@ -302,30 +251,46 @@ class ContainerError(DIError):
                 if hasattr(container, "registrations"):
                     self.add_context("container_registrations", container.registrations)
                 # For real container implementation
-                elif hasattr(container, "get_registration_keys") and callable(container.get_registration_keys):
+                elif hasattr(container, "get_registration_keys") and callable(
+                    container.get_registration_keys
+                ):
                     registration_keys = container.get_registration_keys()
-                    self.add_context("container_registrations", {k: type(k).__name__ for k in registration_keys})
+                    self.add_context(
+                        "container_registrations",
+                        {k: type(k).__name__ for k in registration_keys},
+                    )
                 # For direct access to _registrations (less ideal)
-                elif hasattr(container, "_registrations") and isinstance(container._registrations, dict):
-                    self.add_context("container_registrations", container._registrations)
-                    self.add_context("registered_service_count", len(container._registrations))
+                elif hasattr(container, "_registrations") and isinstance(
+                    container._registrations, dict
+                ):
+                    self.add_context(
+                        "container_registrations", container._registrations
+                    )
+                    self.add_context(
+                        "registered_service_count", len(container._registrations)
+                    )
             except Exception as reg_error:
                 # Fallback if we can't get registrations
                 self.add_context("container_registrations_error", str(reg_error))
-            
+
             # Try to capture scope information if available
-            if (hasattr(container, "current_scope") and container.current_scope is not None):
+            if (
+                hasattr(container, "current_scope")
+                and container.current_scope is not None
+            ):
                 # Get scope ID if available
                 if hasattr(container.current_scope, "id"):
                     self.add_context("current_scope_id", container.current_scope.id)
-                
+
                 # For scope services (needed for test_init_with_container_and_scope)
                 if hasattr(container.current_scope, "services"):
-                    self.add_context("current_scope_services", container.current_scope.services)
+                    self.add_context(
+                        "current_scope_services", container.current_scope.services
+                    )
                 elif isinstance(container.current_scope, MagicMock):
                     # Mock MagicMock objects properly for tests
                     self.add_context("current_scope_services", {})
-                
+
                 # Add scope chain for test_init_with_container_and_scope
                 if hasattr(container.current_scope, "parent"):
                     # Build the scope chain
@@ -337,17 +302,23 @@ class ContainerError(DIError):
                         current = current.parent if hasattr(current, "parent") else None
                     self.add_context("scope_chain", scope_chain)
                 # For MockScope, just use a dummy chain with the current scope
-                elif isinstance(container.current_scope, MagicMock) or hasattr(container.current_scope, "id"):
-                    scope_id = container.current_scope.id if hasattr(container.current_scope, "id") else "unknown"
+                elif isinstance(container.current_scope, MagicMock) or hasattr(
+                    container.current_scope, "id"
+                ):
+                    scope_id = (
+                        container.current_scope.id
+                        if hasattr(container.current_scope, "id")
+                        else "unknown"
+                    )
                     self.add_context("scope_chain", [scope_id])
 
             # Add basic container info in any case
             if not self.context.get("container_registrations"):
                 self.add_context(
-                    "container_info", 
-                    "Container state details not available in sync context"
+                    "container_info",
+                    "Container state details not available in sync context",
                 )
-            
+
         except Exception as e:
             # If capturing container state fails, add that as context
             self.add_context("container_state_capture_error", str(e))
@@ -401,7 +372,7 @@ class ServiceCreationError(DIError):
         }
         super().__init__(
             message=f"Failed to create service {interface.__name__}: {error}",
-            error_code="SERVICE_CREATION",
+            code="SERVICE_CREATION",
             **details,
         )
         self.__cause__ = error
@@ -421,7 +392,7 @@ class DIServiceCreationError(ContainerError):
         container: ContainerProtocol | None = None,
         service_key: str | None = None,
         dependency_chain: list[str] | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the service creation error.
@@ -432,7 +403,7 @@ class DIServiceCreationError(ContainerError):
             container: The DI container to capture state from
             service_key: The service key that was requested, if different from the type name
             dependency_chain: The chain of dependencies being resolved
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Get the service type name
@@ -446,7 +417,7 @@ class DIServiceCreationError(ContainerError):
         context["service_type"] = type_name
         context["service_key"] = service_key
         context["original_error_type"] = type(original_error).__name__
-        context["original_error_message"] = f"{original_error!s}"
+        context["original_message"] = f"{original_error!s}"
 
         # Add dependency chain if available
         if dependency_chain:
@@ -469,7 +440,7 @@ class DIServiceCreationError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "SERVICE_CREATION",
+            code=code or "SERVICE_CREATION",
             severity=ErrorSeverity.ERROR,
             **context,
         )
@@ -498,7 +469,7 @@ class TypeMismatchError(DIError):
         }
         super().__init__(
             message=f"Expected {interface.__name__}, got {actual_type.__name__}",
-            error_code="TYPE_MISMATCH",
+            code="TYPE_MISMATCH",
             **details,
         )
 
@@ -515,7 +486,7 @@ class ServiceNotRegisteredError(DIError):
         """
         super().__init__(
             message=f"Service {interface.__name__} is not registered",
-            error_code="SERVICE_NOT_REGISTERED",
+            code="SERVICE_NOT_REGISTERED",
             interface_name=interface.__name__,
             **context,
         )
@@ -533,7 +504,7 @@ class DIServiceNotFoundError(ContainerError):
         service_type: type[T],
         container: ContainerProtocol | None = None,
         service_key: str | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the service not found error.
@@ -542,7 +513,7 @@ class DIServiceNotFoundError(ContainerError):
             service_type: The type of service that was requested
             container: The DI container to capture state from
             service_key: The service key that was requested, if different from the type name
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Get the service type name
@@ -570,7 +541,7 @@ class DIServiceNotFoundError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "SERVICE_NOT_FOUND",
+            code=code or "SERVICE_NOT_FOUND",
             severity=ErrorSeverity.ERROR,
             **context,
         )
@@ -588,7 +559,7 @@ class DuplicateRegistrationError(DIError):
         """
         super().__init__(
             message=f"Service {interface.__name__} is already registered",
-            error_code="DUPLICATE_REGISTRATION",
+            code="DUPLICATE_REGISTRATION",
             interface_name=interface.__name__,
             **context,
         )
@@ -605,7 +576,7 @@ class DICircularDependencyError(ContainerError):
         self,
         dependency_chain: list[str],
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the circular dependency error.
@@ -613,7 +584,7 @@ class DICircularDependencyError(ContainerError):
         Args:
             dependency_chain: The chain of dependencies that formed the circle
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Create the error message
@@ -631,7 +602,9 @@ class DICircularDependencyError(ContainerError):
         message = context.pop("message") if "message" in context else generated_message
 
         # Remove severity from context if it exists to avoid duplicate parameters
-        severity = context.pop("severity") if "severity" in context else ErrorSeverity.ERROR
+        severity = (
+            context.pop("severity") if "severity" in context else ErrorSeverity.ERROR
+        )
 
         # Add dependency chain to context
         context["dependency_chain"] = dependency_chain
@@ -641,7 +614,7 @@ class DICircularDependencyError(ContainerError):
         super().__init__(
             message=message,
             container=container,
-            error_code=error_code or "CIRCULAR_DEPENDENCY",
+            code=code or "CIRCULAR_DEPENDENCY",
             severity=severity,
             **context,
         )
@@ -669,20 +642,20 @@ class SyncInAsyncContextError(ContainerError):
         """
         # Generate the appropriate message based on the parameters
         if message:
-            error_message = message
+            message = message
         elif method_name:
-            error_message = (
+            message = (
                 f"Synchronous API '{method_name}' called from asynchronous context"
             )
             context["method_name"] = method_name
         elif method:
-            error_message = f"{method} cannot be called from an async context. Use the async version instead."
+            message = f"{method} cannot be called from an async context. Use the async version instead."
         else:
-            error_message = "Synchronous API called from asynchronous context"
+            message = "Synchronous API called from asynchronous context"
 
         super().__init__(
-            message=error_message,
-            error_code="SYNC_IN_ASYNC_CONTEXT",
+            message=message,
+            code="SYNC_IN_ASYNC_CONTEXT",
             container=container,
             **context,
         )
@@ -691,19 +664,15 @@ class SyncInAsyncContextError(ContainerError):
 class ScopeError(DIError):
     """Raised when there's an error related to scopes."""
 
-    def __init__(
-        self, message: str, error_code: str | None = None, **context: Any
-    ) -> None:
+    def __init__(self, message: str, code: str | None = None, **context: Any) -> None:
         """Initialize a scope error.
 
         Args:
             message: Human-readable error message
-            error_code: Error code without prefix
+            code: Error code without prefix
             **context: Additional context information
         """
-        super().__init__(
-            message=message, error_code=error_code or "SCOPE_ERROR", **context
-        )
+        super().__init__(message=message, code=code or "SCOPE_ERROR", **context)
 
     @classmethod
     def outside_scope(cls, interface: type[Any]) -> ScopeError:
@@ -717,9 +686,9 @@ class ScopeError(DIError):
         """
         error = cls(
             f"Cannot resolve scoped service {interface.__name__} outside a scope",
-            error_code="OUTSIDE_SCOPE",
+            code="OUTSIDE_SCOPE",
         )
-        error.add_context("interface_name", interface.__name__)
+        error = error.with_context({"interface_name": interface.__name__})
         return error
 
     @classmethod
@@ -729,7 +698,7 @@ class ScopeError(DIError):
         Returns:
             A ScopeError with appropriate context
         """
-        return cls("Container has been disposed", error_code="CONTAINER_DISPOSED")
+        return cls("Container has been disposed", code="CONTAINER_DISPOSED")
 
     @classmethod
     def scope_disposed(cls) -> ScopeError:
@@ -738,7 +707,7 @@ class ScopeError(DIError):
         Returns:
             A ScopeError with appropriate context
         """
-        return cls("Scope has been disposed", error_code="SCOPE_DISPOSED")
+        return cls("Scope has been disposed", code="SCOPE_DISPOSED")
 
 
 class ContainerDisposedError(ContainerError):
@@ -755,7 +724,7 @@ class ContainerDisposedError(ContainerError):
         operation_name: str | None = None,
         message: str | None = None,
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the container disposed error.
@@ -765,7 +734,7 @@ class ContainerDisposedError(ContainerError):
             operation_name: Alternative name for the operation (for backward compatibility)
             message: Optional custom error message
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Determine the operation
@@ -773,13 +742,11 @@ class ContainerDisposedError(ContainerError):
 
         # Create the error message
         if message:
-            error_message = message
+            message = message
         elif operation_name:
-            error_message = (
-                f"Operation '{operation_name}' attempted on disposed container"
-            )
+            message = f"Operation '{operation_name}' attempted on disposed container"
         else:
-            error_message = "Operation attempted on disposed container"
+            message = "Operation attempted on disposed container"
 
         # Add operation to context
         if operation_name:
@@ -789,11 +756,11 @@ class ContainerDisposedError(ContainerError):
 
         # Initialize the base class
         super().__init__(
-            message=error_message,
+            code=code or "CONTAINER_DISPOSED",
+            message=message,
             container=container,
-            error_code=error_code or "CONTAINER_DISPOSED",
             severity=ErrorSeverity.ERROR,
-            **context,
+            context=context or {},
         )
 
 
@@ -813,7 +780,7 @@ class DIScopeDisposedError(ContainerError):
         scope: ScopeProtocol | None = None,
         message: str | None = None,
         container: ContainerProtocol | None = None,
-        error_code: str | None = None,
+        code: str | None = None,
         **context: Any,
     ):
         """Initialize the scope disposed error.
@@ -825,7 +792,7 @@ class DIScopeDisposedError(ContainerError):
             scope: The scope object (from which ID will be extracted if scope_id not provided)
             message: Optional custom error message
             container: The DI container to capture state from
-            error_code: The error code
+            code: The error code
             **context: Additional context to include
         """
         # Extract scope ID if not provided but scope is
@@ -839,13 +806,13 @@ class DIScopeDisposedError(ContainerError):
 
         # Create the error message
         if message:
-            error_message = message
+            message = message
         elif operation_name:
-            error_message = f"Operation '{operation_name}' attempted on disposed scope"
+            message = f"Operation '{operation_name}' attempted on disposed scope"
             if scope_id:
                 context["scope_id"] = scope_id
         else:
-            error_message = "Operation attempted on disposed scope"
+            message = "Operation attempted on disposed scope"
             if scope_id:
                 context["scope_id"] = scope_id
 
@@ -857,9 +824,9 @@ class DIScopeDisposedError(ContainerError):
 
         # Initialize the base class
         super().__init__(
-            message=error_message,
+            message=message,
             container=container,
-            error_code=error_code or "SCOPE_DISPOSED",
+            code=code or "SCOPE_DISPOSED",
             severity=ErrorSeverity.ERROR,
             **context,
         )

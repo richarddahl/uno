@@ -4,16 +4,22 @@ AggregateRoot base class for Uno's DDD/event sourcing model.
 
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import TypeVar, TYPE_CHECKING
 
 from pydantic import ConfigDict, PrivateAttr
 
+if TYPE_CHECKING:
+    from uno.domain.protocols import (
+        AggregateRootProtocol,
+        DomainEventProtocol,
+        EventPublisherProtocol,
+    )
+    from uno.logging.protocols import LoggerProtocol
+
 from uno.domain.entity import Entity
-from uno.errors import AggregateNotDeletedError, DomainValidationError
-from uno.events.base_event import DomainEvent
+from uno.domain.errors import AggregateNotDeletedError, DomainValidationError
 from uno.events.deleted_event import DeletedEvent
 from uno.events.restored_event import RestoredEvent
-from uno.logging import get_logger
 
 T_ID = TypeVar("T_ID")
 
@@ -37,8 +43,8 @@ class AggregateRoot(Entity[T_ID]):
             ...
     """
 
-    _logger = get_logger(__name__)
-    _events: list[DomainEvent] = PrivateAttr(default_factory=list)
+    _logger: LoggerProtocol | None = None  # Inject via DI or set externally
+    _events: list[DomainEventProtocol] = PrivateAttr(default_factory=list)
     version: int = 0
     _is_deleted: bool = PrivateAttr(default=False)
 
@@ -49,7 +55,7 @@ class AggregateRoot(Entity[T_ID]):
         """
         return self._is_deleted
 
-    def get_uncommitted_events(self) -> list[DomainEvent]:
+    def get_uncommitted_events(self) -> list[DomainEventProtocol]:
         """
         Returns a copy of the list of uncommitted domain events since last persistence.
         """
@@ -72,14 +78,15 @@ class AggregateRoot(Entity[T_ID]):
             # Custom validation logic here
             pass
         except Exception as exc:
-            self._logger.error(f"Validation failed for aggregate {self.id}: {exc}")
-            raise DomainValidationError(f"Validation failed: {exc}")
+            if self._logger:
+                self._logger.error(
+                    f"Invariant check failed for aggregate {self}: {exc}"
+                )
+            raise DomainValidationError(f"Validation failed: {exc}") from exc
 
-    def add_event(self, event: DomainEvent) -> None:
+    def add_event(self, event: DomainEventProtocol) -> None:
         """
-        Adds an event to the aggregate. Prevents restoring if not deleted.
-        Raises:
-            AggregateNotDeletedError: If restoring when not deleted.
+        Adds an event to the aggregate and marks it as uncommitted.
         """
         if isinstance(event, RestoredEvent) and not self.is_deleted:
             self._logger.error(f"Cannot restore aggregate {self.id}: not deleted.")
@@ -94,7 +101,7 @@ class AggregateRoot(Entity[T_ID]):
     def clear_events(self) -> None:
         self._events.clear()
 
-    def apply_event(self, event: DomainEvent) -> None:
+    def apply_event(self, event: DomainEventProtocol) -> None:
         handler_name = f"apply_{event.event_type}"
         if hasattr(self, handler_name):
             getattr(self, handler_name)(event)
@@ -111,7 +118,7 @@ class AggregateRoot(Entity[T_ID]):
         self._is_deleted = False
 
     @classmethod
-    def from_events(cls, events: list[DomainEvent]) -> AggregateRoot:
+    def from_events(cls, events: list[DomainEventProtocol]) -> AggregateRootProtocol:
         """
         Rehydrates an aggregate from a list of events.
         Returns:
@@ -130,7 +137,7 @@ class AggregateRoot(Entity[T_ID]):
         except Exception as exc:
             raise Exception(
                 f"Error rehydrating aggregate {cls.__name__} from events: {exc}"
-            )
+            ) from exc
 
     def assert_not_deleted(self) -> None:
         """
@@ -143,5 +150,28 @@ class AggregateRoot(Entity[T_ID]):
             raise AggregateNotDeletedError(
                 f"Aggregate {self.id} is deleted and cannot be mutated."
             )
+
+    async def publish_events(self, publisher: EventPublisherProtocol) -> None:
+        """
+        Publishes all uncommitted events using the provided publisher.
+
+        Args:
+            publisher: The event publisher to use for publishing events.
+
+        Raises:
+            Exception: If publishing fails for any event.
+        """
+        for event in self.get_uncommitted_events():
+            try:
+                await publisher.publish(event)
+                self._logger.info(
+                    f"Published event {event.event_type} for aggregate {self.id}."
+                )
+            except Exception as exc:
+                self._logger.error(f"Failed to publish event {event.event_type}: {exc}")
+                raise
+
+        # Clear events after successful publishing
+        self.clear_events()
 
     model_config = ConfigDict(frozen=False, extra="forbid")

@@ -35,7 +35,7 @@ def import_from_path(
                 error=exc,
                 module_name=module_name,
                 file_path=file_path,
-                error_message=exc!s,
+                message=str(exc),
             )
         raise
 

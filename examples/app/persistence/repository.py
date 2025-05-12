@@ -5,15 +5,17 @@ In-memory event-sourced repository for InventoryItem (example vertical slice).
 Replace with a real event store for production/demo persistence.
 """
 
-from typing import Any, Dict
+
+from typing import Any
+
 from examples.app.domain.inventory import (
     InventoryItem,
+    InventoryItemAdjusted,
     InventoryItemCreated,
     InventoryItemRenamed,
-    InventoryItemAdjusted,
 )
 from examples.app.api.errors import InventoryItemNotFoundError
-from uno.errors import Success, Failure
+
 from uno.logging import LoggerProtocol
 
 
@@ -26,15 +28,8 @@ class InMemoryInventoryItemRepository:
         self._logger.debug("InMemoryInventoryItemRepository initialized.")
 
     def save(
-        self, item: InventoryItem | Success | Failure
-    ) -> Success[None, None] | Failure[None, Exception]:
-        # Unwrap Result if needed
-        if hasattr(item, "unwrap"):
-            try:
-                item = item.unwrap()
-            except Exception as e:
-                self._logger.error(f"Failed to unwrap Result in save: {e}")
-                return Failure(e)
+        self, item: InventoryItem
+    ) -> None:
         self._logger.info(f"Saving inventory item: {item.id}")
         # For demo: append all events (in real ES, track new events only)
         self._events.setdefault(item.id, []).extend(item._domain_events)
@@ -42,35 +37,29 @@ class InMemoryInventoryItemRepository:
         self._logger.debug(
             f"Inventory item {item.id} saved with {len(item._domain_events)} events."
         )
-        return Success(None)
 
     def get(
         self, aggregate_id: str
-    ) -> Success[InventoryItem, None] | Failure[None, InventoryItemNotFoundError]:
+    ) -> InventoryItem:
         events = self._events.get(aggregate_id)
         if not events:
             self._logger.warning(f"InventoryItem not found: {aggregate_id}")
-            return Failure(InventoryItemNotFoundError(aggregate_id))
+            raise InventoryItemNotFoundError(aggregate_id)
         item = None
         for event in events:
             if isinstance(event, InventoryItemCreated):
-                result = InventoryItem.create(
+                item = InventoryItem(
                     event.aggregate_id, event.name, event.measurement
                 )
-                if isinstance(result, Success):
-                    item = result.value
-                else:
-                    # Optionally log or handle the failure
-                    continue
             elif isinstance(event, InventoryItemRenamed) and item:
                 item.name = event.new_name
             elif isinstance(event, InventoryItemAdjusted) and item:
                 item.measurement += event.adjustment
         self._logger.debug(f"Fetched inventory item: {aggregate_id}")
         if item is not None:
-            return Success(item)
+            return item
         else:
-            return Failure(InventoryItemNotFoundError(aggregate_id))
+            raise InventoryItemNotFoundError(aggregate_id)
 
     def all_ids(self) -> list[str]:
         ids = list(self._events.keys())

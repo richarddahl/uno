@@ -12,14 +12,13 @@ specific to the SQL functionality.
 from typing import Any
 
 
-
 class UnoError(BaseException):
     """Base class for all Uno framework errors."""
 
-    def __init__(self, message: str, error_code: str, **context: Any) -> None:
+    def __init__(self, message: str, code: str, **context: Any) -> None:
         """Initialize a Uno error."""
         super().__init__(message)
-        self.error_code = error_code
+        self.code = code
         self.context = context
 
 
@@ -74,7 +73,7 @@ class SQLStatementError(UnoError):
         message = message or f"SQL statement error: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_STATEMENT_INVALID,
+            code=SQLErrorCode.SQL_STATEMENT_INVALID,
             reason=reason,
             **ctx,
         )
@@ -97,7 +96,7 @@ class SQLExecutionError(UnoError):
         message = message or f"SQL execution failed: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_STATEMENT_EXECUTION_FAILED,
+            code=SQLErrorCode.SQL_STATEMENT_EXECUTION_FAILED,
             reason=reason,
             **ctx,
         )
@@ -120,7 +119,7 @@ class SQLSyntaxError(UnoError):
         message = message or f"SQL syntax error: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_STATEMENT_SYNTAX_ERROR,
+            code=SQLErrorCode.SQL_STATEMENT_SYNTAX_ERROR,
             reason=reason,
             **ctx,
         )
@@ -144,7 +143,7 @@ class SQLEmitterError(UnoError):
         message = message or f"SQL emitter error: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_EMITTER_ERROR,
+            code=SQLErrorCode.SQL_EMITTER_ERROR,
             reason=reason,
             **ctx,
         )
@@ -170,7 +169,7 @@ class SQLEmitterInvalidConfigError(UnoError):
         message = message or f"Invalid SQL emitter configuration: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_EMITTER_INVALID_CONFIG,
+            code=SQLErrorCode.SQL_EMITTER_INVALID_CONFIG,
             reason=reason,
             **ctx,
         )
@@ -184,7 +183,7 @@ class SQLRegistryClassNotFoundError(UnoError):
         message = message or f"SQL registry class '{class_name}' not found"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_REGISTRY_CLASS_NOT_FOUND,
+            code=SQLErrorCode.SQL_REGISTRY_CLASS_NOT_FOUND,
             class_name=class_name,
             **context,
         )
@@ -197,7 +196,7 @@ class SQLRegistryClassAlreadyExistsError(UnoError):
         message = message or f"SQL registry class '{class_name}' already exists"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_REGISTRY_CLASS_ALREADY_EXISTS,
+            code=SQLErrorCode.SQL_REGISTRY_CLASS_ALREADY_EXISTS,
             class_name=class_name,
             **context,
         )
@@ -221,7 +220,7 @@ class SQLConfigError(UnoError):
         message = message or f"SQL configuration error: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_CONFIG_ERROR,
+            code=SQLErrorCode.SQL_CONFIG_ERROR,
             reason=reason,
             **ctx,
         )
@@ -244,9 +243,7 @@ class SQLConfigInvalidError(UnoError):
         message = message or f"Invalid SQL configuration: {reason}"
         super().__init__(
             message=message,
-            error_code=SQLErrorCode.SQL_CONFIG_INVALID,
+            code=SQLErrorCode.SQL_CONFIG_INVALID,
             reason=reason,
             **ctx,
         )
-
-

@@ -5,8 +5,8 @@ Service layer for Vendor workflows in Uno.
 Implements orchestration, error context propagation, and DI-ready business logic.
 """
 
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Result, Success
+from uno.domain.errors import DomainValidationError
+from uno.errors.base import get_error_context
 from uno.logging import LoggerProtocol
 from ..domain.vendor import Vendor
 from ..persistence.vendor_repository_protocol import VendorRepository
@@ -24,12 +24,24 @@ class VendorService:
 
     def create_vendor(
         self, vendor_id: str, name: str, contact_email: str
-    ) -> Result[Vendor, Exception]:
+    ) -> Vendor:
         """
-        Create a new Vendor. Returns Success(Vendor) or Failure(DomainValidationError) with error context.
+        Create a new Vendor.
+        
+        Args:
+            vendor_id: The ID for the new vendor
+            name: The vendor name
+            contact_email: The vendor contact email
+            
+        Returns:
+            The created Vendor
+            
+        Raises:
+            DomainValidationError: If validation fails
         """
+        # Check if vendor already exists
         result = self.repo.get(vendor_id)
-        if not isinstance(result, Failure):
+        if result is not None:
             self.logger.warning(
                 "Vendor already exists",
                 extra={
@@ -38,19 +50,17 @@ class VendorService:
                     "service": "VendorService.create_vendor",
                 },
             )
-            return Failure(
-                DomainValidationError(
-                    f"Vendor already exists: {vendor_id}",
-                    details={
-                        "vendor_id": vendor_id,
-                        "service": "VendorService.create_vendor",
-                    },
-                )
+            raise DomainValidationError(
+                f"Vendor already exists: {vendor_id}",
+                details={
+                    "vendor_id": vendor_id,
+                    "service": "VendorService.create_vendor",
+                }
             )
+            
         # Validate email
         try:
             from examples.app.domain.vendor.value_objects import EmailAddress
-
             email_vo = EmailAddress(value=contact_email)
         except Exception as e:
             self.logger.warning(
@@ -62,50 +72,23 @@ class VendorService:
                     "service": "VendorService.create_vendor",
                 },
             )
-            return Failure(
-                DomainValidationError(
-                    "Invalid email address",
-                    details={
-                        "email": contact_email,
-                        "error": str(e),
-                        "service": "VendorService.create_vendor",
-                    },
-                )
-            )
-        vendor_result = Vendor.create(
+            raise DomainValidationError(
+                "Invalid email address",
+                details={
+                    "email": contact_email,
+                    "error": str(e),
+                    "service": "VendorService.create_vendor",
+                }
+            ) from e
+            
+        # Create the vendor
+        vendor = Vendor.create(
             vendor_id=vendor_id, name=name, contact_email=email_vo
         )
-        if isinstance(vendor_result, Failure):
-            self.logger.warning(
-                "Failed to create vendor",
-                extra={
-                    "event": "vendor_create_failed",
-                    "vendor_id": vendor_id,
-                    "error": str(vendor_result.error),
-                    "service": "VendorService.create_vendor",
-                },
-            )
-            err = vendor_result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
-                    "vendor_id": vendor_id,
-                    "service": "VendorService.create_vendor",
-                }
-            return Failure(err)
-        vendor = vendor_result.unwrap()
-        save_result = self.repo.save(vendor)
-        if isinstance(save_result, Failure):
-            self.logger.error(
-                {
-                    "event": "vendor_save_failed",
-                    "vendor_id": vendor_id,
-                    "error": str(save_result.error),
-                    "service": "VendorService.create_vendor",
-                }
-            )
-            err = save_result.error
-            return Failure(err)
+        
+        # Save the vendor
+        self.repo.save(vendor)
+        
         self.logger.info(
             {
                 "event": "vendor_created",
@@ -113,16 +96,28 @@ class VendorService:
                 "service": "VendorService.create_vendor",
             }
         )
-        return Success(vendor)
+        return vendor
 
     def update_vendor(
         self, vendor_id: str, name: str, contact_email: str
-    ) -> Result[Vendor, Exception]:
+    ) -> Vendor:
         """
-        Update a Vendor. Returns Success(Vendor) or Failure(DomainValidationError) with error context.
+        Update a Vendor.
+        
+        Args:
+            vendor_id: The ID of the vendor to update
+            name: The new vendor name
+            contact_email: The new vendor contact email
+            
+        Returns:
+            The updated Vendor
+            
+        Raises:
+            DomainValidationError: If validation fails
         """
+        # Get the vendor
         result = self.repo.get(vendor_id)
-        if isinstance(result, Failure):
+        if result is None:
             self.logger.warning(
                 "Vendor not found during update",
                 extra={
@@ -131,21 +126,19 @@ class VendorService:
                     "service": "VendorService.update_vendor",
                 },
             )
-            err = result.error
-            if isinstance(err, DomainValidationError):
-                err.details = {
-                    **err.details,
+            raise DomainValidationError(
+                f"Vendor not found: {vendor_id}",
+                details={
                     "vendor_id": vendor_id,
                     "service": "VendorService.update_vendor",
                 }
-            return Failure(err)
+            )
 
-        vendor = result.value
+        vendor = result
 
         # Validate email
         try:
             from examples.app.domain.vendor.value_objects import EmailAddress
-
             email_vo = EmailAddress(value=contact_email)
         except Exception as e:
             self.logger.warning(
@@ -157,44 +150,22 @@ class VendorService:
                     "service": "VendorService.update_vendor",
                 },
             )
-            return Failure(
-                DomainValidationError(
-                    "Invalid email address",
-                    details={
-                        "email": contact_email,
-                        "error": str(e),
-                        "vendor_id": vendor_id,
-                        "service": "VendorService.update_vendor",
-                    },
-                )
-            )
-        # Update vendor with new values
-        update_result = vendor.update(name, email_vo)
-        if isinstance(update_result, Failure):
-            self.logger.warning(
-                "Vendor update failed",
-                extra={
-                    "event": "vendor_update_failed",
+            raise DomainValidationError(
+                "Invalid email address",
+                details={
+                    "email": contact_email,
+                    "error": str(e),
                     "vendor_id": vendor_id,
-                    "error": str(update_result.error),
                     "service": "VendorService.update_vendor",
-                },
-            )
-            return update_result
+                }
+            ) from e
+            
+        # Update vendor with new values
+        vendor.update(name, email_vo)
 
         # Persist updated vendor
-        repo_result = self.repo.update(vendor)
-        if isinstance(repo_result, Failure):
-            self.logger.error(
-                "Vendor repository update failed",
-                extra={
-                    "event": "vendor_repo_update_failed",
-                    "vendor_id": vendor_id,
-                    "error": str(repo_result.error),
-                    "service": "VendorService.update_vendor",
-                },
-            )
-            return Failure(repo_result.error)
+        self.repo.update(vendor)
+        
         self.logger.info(
             "Vendor updated successfully",
             extra={
@@ -203,4 +174,4 @@ class VendorService:
                 "service": "VendorService.update_vendor",
             },
         )
-        return repo_result
+        return vendor

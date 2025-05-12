@@ -16,28 +16,7 @@ from pydantic import model_serializer, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from uno.config.secure import SecureValue, SecureValueHandling
-from uno.errors import ErrorCategory, UnoError
-
-
-class ConfigError(UnoError):
-    """Base class for configuration-related errors."""
-
-    def __init__(
-        self, message: str, error_code: str | None = None, **context: Any
-    ) -> None:
-        """Initialize a configuration error.
-
-        Args:
-            message: Human-readable error message
-            error_code: Error code without prefix
-            **context: Additional context information
-        """
-        super().__init__(
-            message=message,
-            error_code=f"CONFIG_{error_code}" if error_code else "CONFIG_ERROR",
-            category=ErrorCategory.CONFIG,
-            **context,
-        )
+from uno.config.errors import ConfigError
 
 
 class Environment(str, Enum):
@@ -74,7 +53,7 @@ class Environment(str, Enum):
         else:
             raise ConfigError(
                 f"Invalid environment: {value}",
-                error_code="INVALID_ENVIRONMENT",
+                code="INVALID_ENVIRONMENT",
                 provided_value=value,
             )
 

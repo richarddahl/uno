@@ -4,7 +4,7 @@ Inventory events for the inventory bounded context.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self, Type, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeVar
 
 from pydantic import (
     ConfigDict,
@@ -16,11 +16,10 @@ from pydantic import (
 
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.inventory.value_objects import Count, Grade, Mass, Volume
-from uno.errors import Failure, Result, Success
-from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
+from uno.errors import UnoError
+from uno.errors.codes import ErrorCode
+from uno.errors.factories import event_error
 from uno.events import DomainEvent
-from uno.events.base_event import EventUpcasterRegistry
 
 if TYPE_CHECKING:
     from examples.app.domain.vendor.value_objects import EmailAddress
@@ -31,14 +30,14 @@ class GradeAssignedToLot(DomainEvent):
     Event: a Grade is assigned to an inventory lot.
 
     Usage:
-        result = GradeAssignedToLot.create(
-            lot_id="L100",
-            grade=Grade(value="A"),
-            assigned_by=EmailAddress(value="user@example.com"),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = GradeAssignedToLot.create(
+                lot_id="L100",
+                grade=Grade(value="A"),
+                assigned_by=EmailAddress(value="user@example.com"),
+            )
+        except UnoError as e:
+            # Handle error
             ...
     """
 
@@ -55,35 +54,60 @@ class GradeAssignedToLot(DomainEvent):
         grade: Grade,
         assigned_by: EmailAddress,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """Create a new GradeAssignedToLot event.
+
+        Args:
+            lot_id: The ID of the lot being graded
+            grade: The grade being assigned
+            assigned_by: Email address of the user assigning the grade
+            version: Event version (defaults to 1)
+
+        Returns:
+            A new GradeAssignedToLot event
+
+        Raises:
+            UnoError: If validation fails
+        """
         try:
             if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details=get_error_context()
-                    )
+                raise event_error(
+                    "lot_id is required",
+                    code=ErrorCode.INVALID_INPUT,
                 )
-            event = cls(
-                lot_id=lot_id, grade=grade, assigned_by=assigned_by, version=version
-            )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create GradeAssignedToLot", details={"error": exc!s}
-                )
-            )
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
+            return cls(
+                lot_id=lot_id,
+                grade=grade,
+                assigned_by=assigned_by,
+                version=version,
             )
+        except UnoError:
+            raise
+        except Exception as e:
+            raise event_error(
+                f"Failed to create GradeAssignedToLot event: {e}",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from e
+
+    def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+
+        Args:
+            target_version: The target version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            UnoError: If upcasting is not supported
+        """
+        if target_version == self.version:
+            return self
+
+        raise event_error(
+            f"Upcasting from version {self.version} to {target_version} is not implemented",
+            code=ErrorCode.NOT_IMPLEMENTED,
         )
 
 
@@ -92,14 +116,14 @@ class MassMeasured(DomainEvent):
     Event: a mass measurement is recorded for an item.
 
     Usage:
-        result = MassMeasured.create(
-            aggregate_id="I100",
-            mass=Mass(value=10.0, unit="kg"),
-            measured_by=EmailAddress(value="user@example.com"),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = MassMeasured.create(
+                aggregate_id="I100",
+                mass=Mass(value=10.0, unit="kg"),
+                measured_by=EmailAddress(value="user@example.com"),
+            )
+        except UnoError as e:
+            # Handle error
             ...
     """
 
@@ -116,38 +140,60 @@ class MassMeasured(DomainEvent):
         mass: Mass,
         measured_by: EmailAddress,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """Create a new MassMeasured event.
+
+        Args:
+            aggregate_id: The ID of the aggregate being measured
+            mass: The mass measurement
+            measured_by: Email address of the user recording the measurement
+            version: Event version (defaults to 1)
+
+        Returns:
+            A new MassMeasured event
+
+        Raises:
+            UnoError: If validation fails
+        """
         try:
             if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required", details=get_error_context()
-                    )
+                raise event_error(
+                    "aggregate_id is required",
+                    code=ErrorCode.INVALID_INPUT,
                 )
-            event = cls(
+
+            return cls(
                 aggregate_id=aggregate_id,
                 mass=mass,
                 measured_by=measured_by,
                 version=version,
             )
-            return Success(event)
-        except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create MassMeasured", details={"error": exc!s}
-                )
-            )
+        except UnoError:
+            raise
+        except Exception as e:
+            raise event_error(
+                f"Failed to create MassMeasured event: {e}",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from e
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+
+        Args:
+            target_version: The target version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            UnoError: If upcasting is not supported
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+
+        raise event_error(
+            f"Upcasting from version {self.version} to {target_version} is not implemented",
+            code=ErrorCode.NOT_IMPLEMENTED,
         )
 
 
@@ -180,13 +226,13 @@ class VolumeMeasured(DomainEvent):
         volume: Volume,
         measured_by: EmailAddress,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
         try:
             if not vessel_id:
-                return Failure(
-                    DomainValidationError(
-                        "vessel_id is required", details=get_error_context()
-                    )
+                raise event_error(
+                    "vessel_id is required",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={},
                 )
             event = cls(
                 vessel_id=vessel_id,
@@ -194,25 +240,12 @@ class VolumeMeasured(DomainEvent):
                 measured_by=measured_by,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create VolumeMeasured", details={"error": exc!s}
-                )
-            )
-
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
+            raise event_error(
+                f"Failed to create VolumeMeasured: {exc}",
+                details={"error": str(exc)},
+            ) from exc
 
 
 # --- Events ---
@@ -221,15 +254,14 @@ class InventoryItemCreated(DomainEvent):
     Event: InventoryItem was created.
 
     Usage:
-        result = InventoryItemCreated.create(
-            aggregate_id="A100",
-            name="Widget",
-            measurement=Measurement.from_count(Count.from_each(5)),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
+        try:
+            event = InventoryItemCreated.create(
+                aggregate_id="A100",
+                name="Widget",
+                measurement=Measurement.from_count(Count.from_each(5)),
+            )
+        except UnoError as e:
+            # Handle error
             ...
     """
 
@@ -237,6 +269,7 @@ class InventoryItemCreated(DomainEvent):
     name: str
     measurement: Measurement
     version: int = 1
+    model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
@@ -245,61 +278,61 @@ class InventoryItemCreated(DomainEvent):
         name: str,
         measurement: int | float | Measurement | Count,
         version: int = 1,
-    ) -> (
-        Success[InventoryItemCreated, Exception]
-        | Failure[InventoryItemCreated, Exception]
-    ):
-        import logging
+    ) -> Self:
+        """Create a new InventoryItemCreated event.
 
-        from uno.errors.base import get_error_context
-        from uno.errors.errors import DomainValidationError
+        Args:
+            aggregate_id: The ID of the inventory item
+            name: The name of the inventory item
+            measurement: The measurement (can be Measurement, Count, int, or float)
+            version: Event version (defaults to 1)
 
-        logger = logging.getLogger(__name__)
+        Returns:
+            A new InventoryItemCreated event
+
+        Raises:
+            UnoError: If validation fails
+        """
         try:
             if not aggregate_id or not isinstance(aggregate_id, str):
-                logger.error(
-                    "[InventoryItemCreated.create] Invalid aggregate_id: %r",
-                    aggregate_id,
+                raise event_error(
+                    "aggregate_id is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"aggregate_id": aggregate_id},
                 )
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required and must be a string",
-                        details={"aggregate_id": aggregate_id, **get_error_context()},
-                    )
-                )
+
             if not name or not isinstance(name, str):
-                logger.error("[InventoryItemCreated.create] Invalid name: %r", name)
-                return Failure(
-                    DomainValidationError(
-                        "name is required and must be a string",
-                        details={"name": name, **get_error_context()},
-                    )
+                raise event_error(
+                    "name is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"name": name},
                 )
+
             # Accept Measurement, Count, int, float
             if isinstance(measurement, Measurement):
                 m = measurement
-            elif isinstance(measurement, (Count, float, int)):
+            elif isinstance(measurement, Count | int | float):
                 m = Measurement.from_count(measurement)
-            event = cls(
+            else:
+                raise event_error(
+                    "measurement must be a Measurement, Count, int, or float",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"measurement_type": type(measurement).__name__},
+                )
+
+            return cls(
                 aggregate_id=aggregate_id,
                 name=name,
                 measurement=m,
                 version=version,
             )
-            logger.info(
-                "[InventoryItemCreated.create] Event created - aggregate_id=%s name=%s measurement=%r",
-                aggregate_id,
-                name,
-                measurement,
-            )
-            return Success(event)
+        except UnoError:
+            raise
         except Exception as e:
             from pydantic import ValidationError
 
-            logger.error("[InventoryItemCreated.create] Unexpected error: %s", str(e))
-            # Propagate measurement field errors with correct context
             if isinstance(e, ValidationError):
-                # Map pydantic 'value' field errors to 'measurement' for domain context
+                # Map pydantic validation errors to domain errors
                 details = {}
                 for err in e.errors():
                     if err.get("loc"):
@@ -308,34 +341,37 @@ class InventoryItemCreated(DomainEvent):
                             details["measurement"] = err["msg"]
                         else:
                             details[key] = err["msg"]
-                if not details:
-                    details["measurement"] = str(e)
-                return Failure(
-                    DomainValidationError(
-                        f"Failed to create inventory item: {e!s}",
-                        details={**details, **get_error_context()},
-                    )
-                )
-            return Failure(
-                DomainValidationError(
-                    f"Failed to create inventory item: {e!s}",
-                    details=get_error_context(),
-                )
-            )
 
-    def upcast(
-        self, target_version: int
-    ) -> (
-        Success[InventoryItemCreated, Exception]
-        | Failure[InventoryItemCreated, Exception]
-    ):
+                details_str = ", ".join(f"{k}: {v}" for k, v in details.items())
+                raise event_error(
+                    f"Invalid measurement: {details_str or str(e)}",
+                    code=ErrorCode.INVALID_INPUT,
+                    details=details,
+                ) from e
+
+            raise event_error(
+                f"Failed to create inventory item: {e}",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from e
+
+    def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+
+        Args:
+            target_version: The target version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            UnoError: If upcasting is not supported
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+
+        raise event_error(
+            f"Upcasting from version {self.version} to {target_version} is not implemented",
+            code=ErrorCode.NOT_IMPLEMENTED,
         )
 
 
@@ -344,14 +380,13 @@ class InventoryItemAdjusted(DomainEvent):
     Event: InventoryItem was adjusted (e.g., count or measurement changed).
 
     Usage:
-        result = InventoryItemAdjusted.create(
-            aggregate_id="A100",
-            adjustment=5.0,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
+        try:
+            event = InventoryItemAdjusted.create(
+                aggregate_id="A100",
+                adjustment=5.0,
+            )
+        except UnoError as e:
+            # Handle error
             ...
     """
 
@@ -366,78 +401,51 @@ class InventoryItemAdjusted(DomainEvent):
         aggregate_id: str,
         adjustment: int | float,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        import logging
+    ) -> Self:
+        """Create a new InventoryItemAdjusted event.
 
-        from uno.errors.base import get_error_context
-        from uno.errors.errors import DomainValidationError
+        Args:
+            aggregate_id: The ID of the inventory item being adjusted
+            adjustment: The adjustment amount (positive or negative)
+            version: Event version (defaults to 1)
 
-        logger = logging.getLogger(__name__)
+        Returns:
+            A new InventoryItemAdjusted event
+
+        Raises:
+            UnoError: If validation fails
+        """
         try:
-            if not aggregate_id or not isinstance(aggregate_id, str):
-                logger.error(
-                    "[InventoryItemAdjusted.create] Invalid aggregate_id: %r",
-                    aggregate_id,
+            if not aggregate_id:
+                raise event_error(
+                    "aggregate_id is required",
+                    code=ErrorCode.INVALID_INPUT,
                 )
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required and must be a string",
-                        details={"aggregate_id": aggregate_id, **get_error_context()},
-                    )
+
+            if adjustment == 0:
+                raise event_error(
+                    "adjustment cannot be zero",
+                    code=ErrorCode.INVALID_INPUT,
                 )
-            event = cls(
+
+            return cls(
                 aggregate_id=aggregate_id,
-                adjustment=float(adjustment),
+                adjustment=adjustment,
                 version=version,
             )
-            logger.info(
-                "[InventoryItemAdjusted.create] Event created - aggregate_id=%s adjustment=%s",
-                aggregate_id,
-                adjustment,
-            )
-            return Success(event)
-        except Exception as e:
-            logger.error("[InventoryItemAdjusted.create] Unexpected error: %s", str(e))
-            return Failure(
-                DomainValidationError(
-                    str(e),
-                    details={"adjustment": adjustment, **get_error_context()},
-                )
-            )
+        except UnoError:
+            raise
+        except Exception as exc:
+            raise event_error(
+                f"Failed to create inventory item adjustment: {exc}",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
-        )
+    # ... (rest of the code remains the same)
 
 
 class InventoryItemRenamed(DomainEvent):
-    """
-    Event: InventoryItem was renamed.
-
-    Usage:
-        result = InventoryItemRenamed.create(
-            aggregate_id="A100",
-            new_name="Widget 2.0",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
-            ...
-    """
-
-    aggregate_id: str
-    new_name: str
-    measurement: Measurement
-    version: int = 1
+    # ... (rest of the code remains the same)
 
     @classmethod
     def create(
@@ -446,66 +454,68 @@ class InventoryItemRenamed(DomainEvent):
         new_name: str,
         measurement: Measurement,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        import logging
+    ) -> Self:
+        """Create a new InventoryItemRenamed event.
 
-        from uno.errors.base import get_error_context
-        from uno.errors.errors import DomainValidationError
+        Args:
+            aggregate_id: The ID of the inventory item being renamed
+            new_name: The new name for the inventory item
+            measurement: The current measurement of the inventory item
+            version: Event version (defaults to 1)
 
-        logger = logging.getLogger(__name__)
+        Returns:
+            A new InventoryItemRenamed event
+
+        Raises:
+            UnoError: If validation fails
+        """
         try:
             if not aggregate_id or not isinstance(aggregate_id, str):
-                logger.error(
-                    "[InventoryItemRenamed.create] Invalid aggregate_id: %r",
-                    aggregate_id,
+                raise event_error(
+                    "aggregate_id is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"aggregate_id": aggregate_id},
                 )
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required and must be a string",
-                        details={"aggregate_id": aggregate_id, **get_error_context()},
-                    )
-                )
+
             if not new_name or not isinstance(new_name, str):
-                logger.error(
-                    "[InventoryItemRenamed.create] Invalid new_name: %r", new_name
+                raise event_error(
+                    "new_name is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
                 )
-                return Failure(
-                    DomainValidationError(
-                        "new_name is required and must be a string",
-                        details={"new_name": new_name, **get_error_context()},
-                    )
-                )
-            event = cls(
+
+            return cls(
                 aggregate_id=aggregate_id,
                 new_name=new_name,
                 measurement=measurement,
                 version=version,
             )
-            logger.info(
-                "[InventoryItemRenamed.create] Event created - aggregate_id=%s new_name=%s",
-                aggregate_id,
-                new_name,
-            )
-            return Success(event)
+        except UnoError:
+            raise
         except Exception as e:
-            logger.error("[InventoryItemRenamed.create] Unexpected error: %s", str(e))
-            return Failure(
-                DomainValidationError(
-                    str(e),
-                    details={"new_name": new_name, **get_error_context()},
-                )
-            )
+            raise event_error(
+                f"Failed to rename inventory item: {e}",
+                code=ErrorCode.INTERNAL_ERROR,
+                details={"new_name": new_name},
+            ) from e
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+
+        Args:
+            target_version: The target version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            UnoError: If upcasting is not supported
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+
+        raise event_error(
+            f"Upcasting from version {self.version} to {target_version} is not implemented",
+            code=ErrorCode.NOT_IMPLEMENTED,
         )
 
     def _record_event(self, event: DomainEvent) -> None:
@@ -525,15 +535,17 @@ class InventoryItemRenamed(DomainEvent):
             current_value = self.measurement.value.value
             new_value = current_value + event.adjustment
             if new_value < 0:
-                raise DomainValidationError(
+                raise event_error(
                     "resulting measurement cannot be negative",
-                    details=get_error_context(),
+                    code=ErrorCode.INVALID_INPUT,
+                    details={},
                 )
             new_count = Count(value=new_value, unit=self.measurement.value.unit)
             self.measurement = Measurement.from_count(new_count)
         else:
-            raise DomainValidationError(
-                f"Unhandled event: {event}", details=get_error_context()
+            raise event_error(
+                f"Unhandled event: {event}",
+                details={},
             )
 
     @model_validator(mode="after")
@@ -554,29 +566,22 @@ class InventoryItemRenamed(DomainEvent):
 
 
 # --- Events ---
-
-
-T = TypeVar("T", bound="InventoryLotCreated")
-
-
 class InventoryLotCreated(DomainEvent):
     """
     Event: InventoryLot was created.
 
-
     Usage:
-        result = InventoryLotCreated.create(
-            lot_id="123",
-            aggregate_id="A100",
-            measurement=Measurement.from_count(Count.from_each(10)),
-            vendor_id="VEND01",
-            purchase_price=100.0,
-            sale_price=None,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
-            # handle error context
+        try:
+            event = InventoryLotCreated.create(
+                lot_id="123",
+                aggregate_id="A100",
+                measurement=Measurement.from_count(Count.from_each(10)),
+                vendor_id="VEND01",
+                purchase_price=100.0,
+                sale_price=None,
+            )
+        except UnoError as e:
+            # Handle error
             ...
     """
 
@@ -590,16 +595,24 @@ class InventoryLotCreated(DomainEvent):
 
     model_config = ConfigDict(frozen=True)
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+
+        Args:
+            target_version: The target version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            UnoError: If upcasting is not supported
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+
+        raise event_error(
+            f"Upcasting from version {self.version} to {target_version} is not implemented",
+            code=ErrorCode.NOT_IMPLEMENTED,
         )
 
     @field_serializer("measurement")
@@ -630,7 +643,7 @@ class InventoryLotCreated(DomainEvent):
         purchase_price: float | None = None,
         sale_price: float | None = None,
         version: int = 1,
-    ) -> Result[T, DomainValidationError]:
+    ) -> Self:
         """
         Create a new InventoryLotCreated event.
 
@@ -644,21 +657,25 @@ class InventoryLotCreated(DomainEvent):
             version: Event version
 
         Returns:
-            Result containing the event or a validation error
+            A new InventoryLotCreated event
+
+        Raises:
+            UnoError: If validation fails
         """
         try:
             if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details={"lot_id": lot_id}
-                    )
+                raise event_error(
+                    "lot_id is required",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"lot_id": lot_id},
                 )
+
             if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required",
-                        details={"aggregate_id": aggregate_id},
-                    )
+                raise event_error(
+                    "aggregate_id is required",
+                    code=ErrorCode.INVALID_INPUT,
+                    message="aggregate_id is required",
+                    details={"aggregate_id": aggregate_id},
                 )
 
             # Handle measurement validation directly
@@ -667,12 +684,13 @@ class InventoryLotCreated(DomainEvent):
             elif isinstance(measurement, Count | int | float):
                 m = Measurement.from_count(measurement)
             else:
-                return Failure(
-                    DomainValidationError(
-                        "measurement must be a Measurement, Count, or int/float",
-                        details={"measurement": measurement},
-                    )
+                raise event_error(
+                    "Invalid argument provided",
+                    code=ErrorCode.INVALID_INPUT,
+                    message="measurement must be a Measurement, Count, or int/float",
+                    details={"measurement_type": type(measurement).__name__},
                 )
+
             # Use model_construct to bypass additional validation that could cause recursion
             event = cls.model_construct(
                 lot_id=lot_id,
@@ -683,14 +701,21 @@ class InventoryLotCreated(DomainEvent):
                 sale_price=sale_price,
                 version=version,
             )
-            return Success(event)
+            return event
+
+        except UnoError:
+            raise
+
         except Exception as e:
-            return Failure(
-                DomainValidationError(
-                    f"Failed to create InventoryLotCreated: {e!s}",
-                    details={"error": str(e)},
-                )
-            )
+            raise event_error(
+                "Internal error encountered",
+                code=ErrorCode.INTERNAL_ERROR,
+                message=f"Failed to create inventory lot: {e}",
+                details={
+                    "lot_id": lot_id,
+                    "aggregate_id": aggregate_id,
+                },
+            ) from e
 
     @field_validator("measurement")
     @classmethod
@@ -766,13 +791,11 @@ class InventoryLotAdjusted(DomainEvent):
     reason: str | None = None
     version: int = 1
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
+            return self
+        raise event_error(
+            UnoError(
                 "Upcasting not implemented",
                 details={"from": self.version, "to": target_version},
             )
@@ -785,27 +808,21 @@ class InventoryLotAdjusted(DomainEvent):
         adjustment: int,
         reason: str | None = None,
         version: int = 1,
-    ) -> Result[T, DomainValidationError] | Failure[T, Exception]:
+    ) -> Self:
         try:
             if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details={"lot_id": lot_id}
-                    )
-                )
+                raise event_error("lot_id is required", details={"lot_id": lot_id})
             event = cls(
                 lot_id=lot_id,
                 adjustment=adjustment,
                 reason=reason,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotAdjusted", details={"error": exc!s}
-                )
-            )
+            raise event_error(
+                "Failed to create InventoryLotAdjusted", details={"error": str(exc)}
+            ) from exc
 
 
 class InventoryLotsCombined(DomainEvent):
@@ -843,13 +860,11 @@ class InventoryLotsCombined(DomainEvent):
     blended_vendor_ids: list[str]
     version: int = 1
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
+            return self
+        raise event_error(
+            UnoError(
                 "Upcasting not implemented",
                 details={"from": self.version, "to": target_version},
             )
@@ -875,29 +890,25 @@ class InventoryLotsCombined(DomainEvent):
         blended_grade: Grade | None,
         blended_vendor_ids: list[str],
         version: int = 1,
-    ) -> Result[T, DomainValidationError] | Failure[T, Exception]:
+    ) -> Self:
         try:
-            if not source_lot_ids or not new_lot_id or not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "source_lot_ids, new_lot_id, and aggregate_id are required",
-                        details={
-                            "source_lot_ids": source_lot_ids,
-                            "new_lot_id": new_lot_id,
-                            "aggregate_id": aggregate_id,
-                        },
-                    )
+            if not (source_lot_ids and new_lot_id and aggregate_id):
+                raise event_error(
+                    "source_lot_ids, new_lot_id, and aggregate_id are required",
+                    details={
+                        "source_lot_ids": source_lot_ids,
+                        "new_lot_id": new_lot_id,
+                        "aggregate_id": aggregate_id,
+                    },
                 )
             if isinstance(combined_measurement, Measurement):
                 m = combined_measurement
-            elif isinstance(combined_measurement, (Count, float, int)):
+            elif isinstance(combined_measurement, Count | float | int):
                 m = Measurement.from_count(combined_measurement)
             else:
-                return Failure(
-                    DomainValidationError(
-                        "combined_measurement must be a Measurement, Count, int, or float",
-                        details={"combined_measurement": combined_measurement},
-                    )
+                raise event_error(
+                    "combined_measurement must be a Measurement, Count, int, or float",
+                    details={"combined_measurement": combined_measurement},
                 )
             event = cls(
                 source_lot_ids=source_lot_ids,
@@ -910,14 +921,12 @@ class InventoryLotsCombined(DomainEvent):
                 blended_vendor_ids=blended_vendor_ids,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotsCombined",
-                    details={"error": exc!s},
-                )
-            )
+            raise event_error(
+                "Failed to create InventoryLotsCombined",
+                details={"error": str(exc)},
+            ) from exc
 
     @classmethod
     def model_validate(cls, data):
@@ -929,7 +938,7 @@ class InventoryLotsCombined(DomainEvent):
             if not isinstance(m, Measurement):
                 if isinstance(m, dict):
                     data["combined_measurement"] = Measurement.model_validate(m)
-                elif isinstance(m, (Count, int, float)):
+                elif isinstance(m, Count | int | float):
                     data["combined_measurement"] = Measurement.from_count(m)
             return super().model_validate(data)
         return super().model_validate(data)
@@ -982,40 +991,32 @@ class InventoryLotSplit(DomainEvent):
         split_quantities: list[int | float | Count | Measurement],
         reason: str | None = None,
         version: int = 1,
-    ) -> Result[T, DomainValidationError] | Failure[T, Exception]:
+    ) -> Self:
         try:
             if not source_lot_id or not new_lot_ids or not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "source_lot_id, new_lot_ids, and aggregate_id are required",
-                        details={
-                            "source_lot_id": source_lot_id,
-                            "new_lot_ids": new_lot_ids,
-                            "aggregate_id": aggregate_id,
-                        },
-                    )
+                raise event_error(
+                    "source_lot_id, new_lot_ids, and aggregate_id are required",
+                    details={
+                        "source_lot_id": source_lot_id,
+                        "new_lot_ids": new_lot_ids,
+                        "aggregate_id": aggregate_id,
+                    },
                 )
             if not isinstance(split_quantities, list):
-                return Failure(
-                    DomainValidationError(
-                        "split_quantities must be a list",
-                        details={"split_quantities": split_quantities},
-                    )
+                raise event_error(
+                    "split_quantities must be a list",
+                    details={"split_quantities": split_quantities},
                 )
             qty_objs = []
             for q in split_quantities:
                 if isinstance(q, Measurement):
                     qty_objs.append(q)
-                elif isinstance(q, Count):
-                    qty_objs.append(Measurement.from_count(q))
-                elif isinstance(q, int | float):
+                elif isinstance(q, Count | int | float):
                     qty_objs.append(Measurement.from_count(q))
                 else:
-                    return Failure(
-                        DomainValidationError(
-                            "Each split_measurement must be a Measurement, Count, int, or float",
-                            details={"split_measurement": q},
-                        )
+                    raise event_error(
+                        "Each split_measurement must be a Measurement, Count, int, or float",
+                        details={"split_measurement": q},
                     )
             event = cls(
                 source_lot_id=source_lot_id,
@@ -1025,72 +1026,20 @@ class InventoryLotSplit(DomainEvent):
                 reason=reason,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            # Always include split_quantities in details for relevant errors
-            details = {"error": exc!s}
-            if "split_quantities" not in details:
-                details["split_quantities"] = (
-                    split_quantities if "split_quantities" in locals() else None
-                )
-            return Failure(
-                DomainValidationError(
-                    "Failed to create InventoryLotSplit", details=details
-                )
+            details = {"error": str(exc)}
+            details["split_quantities"] = (
+                split_quantities if "split_quantities" in locals() else None
             )
+            raise event_error(
+                "Failed to create InventoryLotSplit", details=details
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from uno.events.base_event import EventUpcasterRegistry
-
+    def upcast(self, target_version: int) -> Self:
         if target_version == self.version:
-            return Success(self)
-        if target_version > self.version:
-            # Use upcaster registry to migrate
-            data = self.to_dict()
-            try:
-                upcasted = EventUpcasterRegistry.apply(
-                    type(self), data, self.version, target_version
-                )
-                return type(self).from_dict(upcasted)
-            except Exception as exc:
-                return Failure(
-                    DomainValidationError(
-                        f"Upcasting failed: {exc}",
-                        details={
-                            "from": self.version,
-                            "to": target_version,
-                            "error": exc!s,
-                        },
-                    )
-                )
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": getattr(self, "version", 1), "to": target_version},
-            )
+            return self
+        raise event_error(
+            "Upcasting not implemented",
+            details={"from": getattr(self, "version", 1), "to": target_version},
         )
-
-
-# --- Upcaster registration for InventoryLotSplit (v1 → v2) ---
-from uno.events.base_event import EventUpcasterRegistry
-
-
-def _upcast_inventory_lot_split_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
-    # v2 adds the 'reason' field (default None)
-    def _upcast_inventory_lot_split_v1_to_v2(
-        data: dict[str, object],
-    ) -> dict[str, object]:
-        data = dict(data)
-        if data.get("version", 1) == 1:
-            data["reason"] = None
-            data["version"] = 2
-        return data
-
-
-EventUpcasterRegistry.register_upcaster(
-    event_type=InventoryLotSplit,
-    from_version=1,
-    upcaster_fn=_upcast_inventory_lot_split_v1_to_v2,
-)

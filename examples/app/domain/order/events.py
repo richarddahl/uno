@@ -1,8 +1,9 @@
+# filepath: /Users/richarddahl/Code/uno/examples/app/domain/order/events.py
 """
 Order context domain events.
 """
 
-from typing import ClassVar, Literal, Self
+from typing import Literal, Self
 
 from pydantic import ConfigDict
 
@@ -10,8 +11,7 @@ from examples.app.domain.inventory.value_objects import Count, Money
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Success
+from uno.domain.errors import DomainValidationError
 from uno.events import DomainEvent
 
 
@@ -21,14 +21,15 @@ class PaymentReceived(DomainEvent):
     Event: a payment is received for an order.
 
     Usage:
-        result = PaymentReceived.create(
-            order_id="O100",
-            amount=Money(amount=100.0, currency="USD"),
-            received_from=EmailAddress(value="user@example.com"),
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = PaymentReceived.create(
+                order_id="O100",
+                amount=Money(amount=100.0, currency="USD"),
+                received_from=EmailAddress(value="user@example.com"),
+            )
+            # use event
+        except DomainValidationError as e:
+            # handle error
             ...
     """
 
@@ -45,26 +46,34 @@ class PaymentReceived(DomainEvent):
         amount: Money,
         received_from: EmailAddress,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new PaymentReceived event with validation.
+
+        Args:
+            order_id: The ID of the order
+            amount: The payment amount (Money value object)
+            received_from: The email address of the payer
+            version: The event version
+
+        Returns:
+            A new PaymentReceived event
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not order_id:
-                return Failure(
-                    DomainValidationError(
-                        "order_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "order_id is required", details=get_error_context()
                 )
             if not isinstance(amount, Money):
-                return Failure(
-                    DomainValidationError(
-                        "amount must be a Money instance", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "amount must be a Money instance", details=get_error_context()
                 )
             if not isinstance(received_from, EmailAddress):
-                return Failure(
-                    DomainValidationError(
-                        "received_from must be an EmailAddress",
-                        details=get_error_context(),
-                    )
+                raise DomainValidationError(
+                    "received_from must be an EmailAddress", details=get_error_context()
                 )
             event = cls(
                 order_id=order_id,
@@ -72,24 +81,32 @@ class PaymentReceived(DomainEvent):
                 received_from=received_from,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create PaymentReceived", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create PaymentReceived", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast event to target version. Stub for future event versioning.
+
+        Args:
+            target_version: The version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )
 
 
@@ -99,18 +116,18 @@ class OrderCreated(DomainEvent):
     Event: Order was created.
 
     Usage:
-        result = OrderCreated.create(
-            order_id="O100",
-            aggregate_id="A100",
-            lot_id="L100",
-            vendor_id="V100",
-            measurement=Measurement(10),
-            price=Money(25.0),
-            order_type="purchase",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = OrderCreated.create(
+                order_id="O100",
+                aggregate_id="A100",
+                lot_id="L100",
+                vendor_id="V100",
+                measurement=Measurement(10),
+                price=Money(25.0),
+                order_type="purchase",
+            )
+            # use event
+        except DomainValidationError as e:
             # handle error context
             ...
     """
@@ -136,33 +153,42 @@ class OrderCreated(DomainEvent):
         price: Money,
         order_type: Literal["purchase", "sale"],
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
-        from examples.app.domain.measurement import Count, Measurement
+    ) -> Self:
+        """
+        Create a new OrderCreated event with validation.
 
+        Args:
+            order_id: The ID of the order
+            aggregate_id: The aggregate ID
+            lot_id: The ID of the inventory lot
+            vendor_id: The ID of the vendor
+            measurement: The measurement (quantity)
+            price: The price
+            order_type: Type of order (purchase or sale)
+            version: The event version
+
+        Returns:
+            A new OrderCreated event
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not order_id:
-                return Failure(
-                    DomainValidationError(
-                        "order_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "order_id is required", details=get_error_context()
                 )
             if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "aggregate_id is required", details=get_error_context()
                 )
             if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "lot_id is required", details=get_error_context()
                 )
             if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "vendor_id is required", details=get_error_context()
                 )
             if isinstance(measurement, Measurement):
                 m = measurement
@@ -171,18 +197,14 @@ class OrderCreated(DomainEvent):
             elif isinstance(measurement, int | float):
                 m = Measurement.from_each(measurement)
             else:
-                return Failure(
-                    DomainValidationError(
-                        "measurement must be a Measurement, Count, int, or float",
-                        details={"measurement": measurement},
-                    )
+                raise DomainValidationError(
+                    "measurement must be a Measurement, Count, int, or float",
+                    details={"measurement": measurement},
                 )
             if order_type not in ("purchase", "sale"):
-                return Failure(
-                    DomainValidationError(
-                        "order_type must be 'purchase' or 'sale'",
-                        details=get_error_context(),
-                    )
+                raise DomainValidationError(
+                    "order_type must be 'purchase' or 'sale'",
+                    details=get_error_context(),
                 )
             event = cls(
                 order_id=order_id,
@@ -194,27 +216,32 @@ class OrderCreated(DomainEvent):
                 order_type=order_type,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create OrderCreated", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create OrderCreated", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
         """
         Upcast event to target version. Stub for future event versioning.
+
+        Args:
+            target_version: The version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
         """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )
 
 
@@ -223,13 +250,13 @@ class OrderFulfilled(DomainEvent):
     Event: Order was fulfilled.
 
     Usage:
-        result = OrderFulfilled.create(
-            order_id="O100",
-            fulfilled_measurement=10,
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = OrderFulfilled.create(
+                order_id="O100",
+                fulfilled_measurement=10,
+            )
+            # use event
+        except DomainValidationError as e:
             # handle error context
             ...
     """
@@ -245,44 +272,62 @@ class OrderFulfilled(DomainEvent):
         order_id: str,
         fulfilled_measurement: int,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new OrderFulfilled event with validation.
+
+        Args:
+            order_id: The ID of the order
+            fulfilled_measurement: The measurement that was fulfilled
+            version: The event version
+
+        Returns:
+            A new OrderFulfilled event
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not order_id:
-                return Failure(
-                    DomainValidationError(
-                        "order_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "order_id is required", details=get_error_context()
                 )
             if fulfilled_measurement < 0:
-                return Failure(
-                    DomainValidationError(
-                        "fulfilled_measurement must be non-negative",
-                        details=get_error_context(),
-                    )
+                raise DomainValidationError(
+                    "fulfilled_measurement must be non-negative",
+                    details=get_error_context(),
                 )
             event = cls(
                 order_id=order_id,
                 fulfilled_measurement=fulfilled_measurement,
                 version=version,
             )
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create OrderFulfilled", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create OrderFulfilled", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast event to target version. Stub for future event versioning.
+
+        Args:
+            target_version: The version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )
 
 
@@ -291,13 +336,13 @@ class OrderCancelled(DomainEvent):
     Event: Order was cancelled.
 
     Usage:
-        result = OrderCancelled.create(
-            order_id="O100",
-            reason="Customer request",
-        )
-        if isinstance(result, Success):
-            event = result.value
-        else:
+        try:
+            event = OrderCancelled.create(
+                order_id="O100",
+                reason="Customer request",
+            )
+            # use event
+        except DomainValidationError as e:
             # handle error context
             ...
     """
@@ -313,31 +358,51 @@ class OrderCancelled(DomainEvent):
         order_id: str,
         reason: str | None = None,
         version: int = 1,
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    ) -> Self:
+        """
+        Create a new OrderCancelled event with validation.
+
+        Args:
+            order_id: The ID of the order
+            reason: The reason for cancellation (optional)
+            version: The event version
+
+        Returns:
+            A new OrderCancelled event
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not order_id:
-                return Failure(
-                    DomainValidationError(
-                        "order_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "order_id is required", details=get_error_context()
                 )
             event = cls(order_id=order_id, reason=reason, version=version)
-            return Success(event)
+            return event
         except Exception as exc:
-            return Failure(
-                DomainValidationError(
-                    "Failed to create OrderCancelled", details={"error": exc!s}
-                )
-            )
+            if isinstance(exc, DomainValidationError):
+                raise
+            raise DomainValidationError(
+                "Failed to create OrderCancelled", details={"error": str(exc)}
+            ) from exc
 
-    def upcast(
-        self, target_version: int
-    ) -> Success[Self, Exception] | Failure[Self, Exception]:
+    def upcast(self, target_version: int) -> Self:
+        """
+        Upcast event to target version. Stub for future event versioning.
+
+        Args:
+            target_version: The version to upcast to
+
+        Returns:
+            The upcasted event
+
+        Raises:
+            DomainValidationError: If upcasting is not implemented for the target version
+        """
         if target_version == self.version:
-            return Success(self)
-        return Failure(
-            DomainValidationError(
-                "Upcasting not implemented",
-                details={"from": self.version, "to": target_version},
-            )
+            return self
+        raise DomainValidationError(
+            "Upcasting not implemented",
+            details={"from": self.version, "to": target_version},
         )

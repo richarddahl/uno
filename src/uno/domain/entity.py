@@ -4,11 +4,14 @@ Entity base class for Uno's DDD model.
 
 from __future__ import annotations
 from typing import Any, Generic, TypeVar, Self
-from uno.base_model import FrameworkBaseModel
-from pydantic import Field, ConfigDict, model_validator
 import time
-from uno.errors import DomainValidationError
-from uno.logging import get_logger
+
+from pydantic import Field, ConfigDict, model_validator
+
+from uno.base_model import FrameworkBaseModel
+from uno.domain.errors import DomainValidationError
+from uno.domain.protocols import EntityProtocol
+from uno.logging.protocols import LoggerProtocol
 
 T_ID = TypeVar("T_ID")
 
@@ -49,7 +52,19 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    _logger = get_logger(__name__)
+    _logger: LoggerProtocol | None = None  # Inject via DI or set externally
+
+    def equals(self, other: object) -> bool:
+        """
+        Compare this entity with another for identity equality.
+
+        Args:
+            other: The object to compare with
+
+        Returns:
+            True if the objects have the same identity, False otherwise
+        """
+        return self.__eq__(other)
 
     def __eq__(self, other: Any) -> bool:
         """
@@ -83,7 +98,8 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
         try:
             return cls.model_validate(data)
         except Exception as exc:
-            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
+            if cls._logger:
+                cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
             raise DomainValidationError(f"Validation failed for {cls.__name__}: {exc}")
 
     @model_validator(mode="after")
@@ -96,5 +112,8 @@ class Entity(FrameworkBaseModel, Generic[T_ID]):
             # Custom invariant checks here
             return self
         except Exception as exc:
-            self._logger.error(f"Invariant check failed for entity {self.id}: {exc}")
+            if self._logger:
+                self._logger.error(
+                    f"Invariant check failed for entity {self.id}: {exc}"
+                )
             raise DomainValidationError(f"Invariant check failed: {exc}")

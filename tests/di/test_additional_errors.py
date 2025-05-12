@@ -52,7 +52,7 @@ class TestContainerDisposedError:
         error = ContainerDisposedError(container=container)
 
         assert "Operation attempted on disposed container" in str(error)
-        assert error.error_code == "DI_CONTAINER_DISPOSED"
+        assert error.code == "DI_CONTAINER_DISPOSED"
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
 
@@ -90,7 +90,7 @@ class TestDIScopeDisposedError:
         error = DIScopeDisposedError(scope=scope)
 
         assert "Operation attempted on disposed scope" in str(error)
-        assert error.error_code == "DI_SCOPE_DISPOSED"
+        assert error.code == "DI_SCOPE_DISPOSED"
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
         assert error.context["scope_id"] == "test_scope"
@@ -136,7 +136,7 @@ class TestSyncInAsyncContextError:
         error = SyncInAsyncContextError()
 
         assert "Synchronous API called from asynchronous context" in str(error)
-        assert error.error_code == "DI_SYNC_IN_ASYNC_CONTEXT"
+        assert error.code == "DI_SYNC_IN_ASYNC_CONTEXT"
         assert error.category == ErrorCategory.DI
         assert error.severity == ErrorSeverity.ERROR
 

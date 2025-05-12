@@ -11,111 +11,39 @@ error messages, error codes, and context enrichment.
 """
 
 from __future__ import annotations
-from typing import Any, Optional, Dict, Type, TypeVar, cast
+
+from typing import Any, Dict, Optional, Type, TypeVar, cast
 
 from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
-from uno.errors.component_errors import (
-    APIError,
-    APIResourceNotFoundError,
-    APIValidationError,
+from uno.events.errors import EventError, EventPublishError, EventHandlerError
+from uno.errors.base import UnoError
+from uno.config.errors import (
     ConfigError,
-    ConfigMissingKeyError,
     ConfigFileNotFoundError,
-    DBError,
-    DBConnectionError,
-    DBQueryError,
-    DIError,
-    DIServiceNotRegisteredError,
-    DICircularDependencyError,
-    EventError,
-    EventPublishError,
-    EventHandlerError,
-    SecurityError,
-    AuthenticationError,
-    AuthorizationError,
+    ConfigMissingKeyError,
+)
+from uno.persistence.errors import DBError, DBConnectionError, DBQueryError
+from uno.di.errors import DIError, DICircularDependencyError
+from uno.security.errors import AuthenticationError, AuthorizationError, SecurityError
+from uno.validation.errors import (
     ValidationError,
     SchemaValidationError,
     InputValidationError,
 )
+from uno.domain.errors import *
+from uno.application.errors import *
 
 
-# =============================================================================
-# API Error Factories
-# =============================================================================
-
-
-def api_error(message: str, error_code: str | None = None, **context: Any) -> APIError:
-    """Create a generic API error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        An APIError instance
-    """
-    return APIError(message=message, error_code=error_code, **context)
-
-
-def api_resource_not_found(
-    resource_type: str, resource_id: Any, message: str | None = None, **context: Any
-) -> APIResourceNotFoundError:
-    """Create an API resource not found error.
-
-    Args:
-        resource_type: Type of resource that was not found
-        resource_id: ID of the resource
-        message: Optional custom message
-        **context: Additional context information
-
-    Returns:
-        An APIResourceNotFoundError instance
-    """
-    return APIResourceNotFoundError(
-        resource_type=resource_type, resource_id=resource_id, message=message, **context
+def config_error(message: str, code: str | None = None, **context: Any) -> ConfigError:
+    """Create a generic configuration error."""
+    from uno.errors.base import ErrorCategory, ErrorSeverity
+    return ConfigError(
+        code=code or "E1000",
+        message=message,
+        category=ErrorCategory.CONFIG,
+        severity=ErrorSeverity.ERROR,
+        context=context or {},
     )
-
-
-def api_validation_error(
-    message: str,
-    field: str | None = None,
-    value: Any | None = None,
-    **context: Any,
-) -> APIValidationError:
-    """Create an API validation error.
-
-    Args:
-        message: Validation error message
-        field: Name of the field that failed validation
-        value: Value that failed validation
-        **context: Additional context information
-
-    Returns:
-        An APIValidationError instance
-    """
-    return APIValidationError(message=message, field=field, value=value, **context)
-
-
-# =============================================================================
-# Configuration Error Factories
-# =============================================================================
-
-
-def config_error(
-    message: str, error_code: str | None = None, **context: Any
-) -> ConfigError:
-    """Create a generic configuration error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        A ConfigError instance
-    """
-    return ConfigError(message=message, error_code=error_code, **context)
 
 
 def config_missing_key(
@@ -150,23 +78,16 @@ def config_file_not_found(
     return ConfigFileNotFoundError(file_path=file_path, message=message, **context)
 
 
-# =============================================================================
-# Database Error Factories
-# =============================================================================
-
-
-def db_error(message: str, error_code: str | None = None, **context: Any) -> DBError:
-    """Create a generic database error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        A DBError instance
-    """
-    return DBError(message=message, error_code=error_code, **context)
+def db_error(message: str, code: str | None = None, **context: Any) -> DBError:
+    """Create a generic database error."""
+    from uno.errors.base import ErrorCategory, ErrorSeverity
+    return DBError(
+        code=code or "E1200",
+        message=message,
+        category=ErrorCategory.DB,
+        severity=ErrorSeverity.ERROR,
+        context=context or {},
+    )
 
 
 def db_connection_error(
@@ -209,23 +130,16 @@ def db_query_error(
     return DBQueryError(message=message, query=query, params=params, **context)
 
 
-# =============================================================================
-# Dependency Injection Error Factories
-# =============================================================================
-
-
-def di_error(message: str, error_code: str | None = None, **context: Any) -> DIError:
-    """Create a generic dependency injection error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        A DIError instance
-    """
-    return DIError(message=message, error_code=error_code, **context)
+def di_error(message: str, code: str | None = None, **context: Any) -> DIError:
+    """Create a generic dependency injection error."""
+    from uno.errors.base import ErrorCategory, ErrorSeverity
+    return DIError(
+        code=code or "E1100",
+        message=message,
+        category=ErrorCategory.DI,
+        severity=ErrorSeverity.ERROR,
+        context=context or {},
+    )
 
 
 def di_service_not_registered(
@@ -264,25 +178,16 @@ def di_circular_dependency(
     )
 
 
-# =============================================================================
-# Event Error Factories
-# =============================================================================
-
-
-def event_error(
-    message: str, error_code: str | None = None, **context: Any
-) -> EventError:
-    """Create a generic event error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        An EventError instance
-    """
-    return EventError(message=message, error_code=error_code, **context)
+def event_error(message: str, code: str | None = None, **context: Any) -> EventError:
+    """Create a generic event error."""
+    from uno.errors.base import ErrorCategory, ErrorSeverity
+    return EventError(
+        code=code or "E0000",
+        message=message,
+        category=ErrorCategory.EVENT,
+        severity=ErrorSeverity.ERROR,
+        context=context or {},
+    )
 
 
 def event_publish_error(
@@ -338,19 +243,17 @@ def event_handler_error(
 
 
 def security_error(
-    message: str, error_code: str | None = None, **context: Any
+    message: str, code: str | None = None, **context: Any
 ) -> SecurityError:
-    """Create a generic security error.
-
-    Args:
-        message: Human-readable error message
-        error_code: Error code without prefix
-        **context: Additional context information
-
-    Returns:
-        A SecurityError instance
-    """
-    return SecurityError(message=message, error_code=error_code, **context)
+    """Create a generic security error."""
+    from uno.errors.base import ErrorCategory, ErrorSeverity
+    return SecurityError(
+        code=code or "E3000",
+        message=message,
+        category=ErrorCategory.SECURITY,
+        severity=ErrorSeverity.ERROR,
+        context=context or {},
+    )
 
 
 def authentication_error(
@@ -401,19 +304,19 @@ def authorization_error(
 
 
 def validation_error(
-    message: str, error_code: str | None = None, **context: Any
+    message: str, code: str | None = None, **context: Any
 ) -> ValidationError:
     """Create a generic validation error.
 
     Args:
         message: Human-readable error message
-        error_code: Error code without prefix
+        code: Error code without prefix
         **context: Additional context information
 
     Returns:
         A ValidationError instance
     """
-    return ValidationError(message=message, error_code=error_code, **context)
+    return ValidationError(message=message, code=code, **context)
 
 
 def schema_validation_error(

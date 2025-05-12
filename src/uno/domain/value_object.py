@@ -6,10 +6,12 @@ from __future__ import annotations
 
 from typing import Any, Self
 
+from pydantic import ConfigDict, model_validator
+
 from uno.base_model import FrameworkBaseModel
-from uno.errors import DomainValidationError
-from uno.logging import get_logger
-from pydantic import Field, ConfigDict, model_validator
+from uno.domain.errors import DomainValidationError
+from uno.domain.protocols import ValueObjectProtocol
+from uno.logging.protocols import LoggerProtocol
 
 
 class ValueObject(FrameworkBaseModel):
@@ -38,7 +40,7 @@ class ValueObject(FrameworkBaseModel):
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
-    _logger = get_logger(__name__)
+    _logger: LoggerProtocol | None = None  # Inject via DI or set externally
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -58,8 +60,21 @@ class ValueObject(FrameworkBaseModel):
         try:
             return cls.model_validate(data)
         except Exception as exc:
-            cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
+            if cls._logger:
+                cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
             raise DomainValidationError(f"Validation failed for {cls.__name__}: {exc}")
+
+    def equals(self, other: object) -> bool:
+        """
+        Compare this value object with another for equality.
+
+        Args:
+            other: The object to compare with
+
+        Returns:
+            True if the objects are equal, False otherwise
+        """
+        return self.__eq__(other)
 
     def __eq__(self, other: Any) -> bool:
         """

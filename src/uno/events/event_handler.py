@@ -45,7 +45,8 @@ class EventHandlerMiddleware(ABC):
     async def process(
         self,
         event: DomainEvent,
-        next_middleware: Callable[[DomainEvent], None],
+        next_middleware: Callable[[DomainEvent, dict[str, object] | None], None],
+        metadata: dict[str, object] | None = None,
     ) -> None:
         """
         Process the event and pass it to the next middleware.
@@ -53,6 +54,7 @@ class EventHandlerMiddleware(ABC):
         Args:
             event: The domain event to process
             next_middleware: The next middleware to call
+            metadata: Optional event metadata (including correlation_id)
 
         Raises:
             EventHandlerError: If an error occurs during processing
@@ -188,11 +190,12 @@ class EventHandlerRegistry:
         event_specific_middleware = self.get_middleware_for_event_type(event_type)
         return global_middleware + event_specific_middleware
 
-    def clear(self) -> None:
+    async def clear(self) -> None:
         """Clear all handlers and middleware."""
         self._handlers.clear()
         self._middleware.clear()
         self._middleware_by_event_type.clear()
+        await self.logger.debug("Cleared all handlers and middleware")
 
     def resolve_handler_dependencies(self, handler: Any) -> None:
         """

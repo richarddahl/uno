@@ -44,7 +44,7 @@ class ExceptionMapping:
     severity: ErrorSeverity = ErrorSeverity.ERROR
     context_extractor: Callable[[Exception], dict[str, Any]] | None = None
     message_formatter: Callable[[Exception], str] | None = None
-    error_code_extractor: Callable[[Exception], str | None] | None = None
+    code_extractor: Callable[[Exception], str | None] | None = None
 
 
 # Default message formatter that extracts useful details from the exception
@@ -99,7 +99,7 @@ def default_context_extractor(exception: Exception) -> dict[str, Any]:
 def wrap_exception(
     exception: Exception,
     message: str | None = None,
-    error_code: str | None = None,
+    code: str | None = None,
     category: ErrorCategory | None = None,
     severity: ErrorSeverity | None = None,
     error_class: type[UnoError] | None = None,
@@ -112,7 +112,7 @@ def wrap_exception(
     Args:
         exception: The exception to wrap
         message: Optional message override
-        error_code: Error code for the wrapped exception
+        code: Error code for the wrapped exception
         category: Error category
         severity: Error severity
         error_class: Specific error class to instantiate
@@ -130,10 +130,8 @@ def wrap_exception(
     target_error_class = error_class or (
         mapping.target_error_type if mapping else UnoError
     )
-    error_category = category or (
-        mapping.category if mapping else ErrorCategory.INTERNAL
-    )
-    error_severity = severity or (mapping.severity if mapping else ErrorSeverity.ERROR)
+    category = category or (mapping.category if mapping else ErrorCategory.INTERNAL)
+    severity = severity or (mapping.severity if mapping else ErrorSeverity.ERROR)
 
     # Extract context if requested
     extracted_context = {}
@@ -152,9 +150,9 @@ def wrap_exception(
             message = default_message_formatter(exception)
 
     # Determine the error code
-    final_error_code = error_code
-    if final_error_code is None and mapping and mapping.error_code_extractor:
-        final_error_code = mapping.error_code_extractor(exception)
+    final_code = code
+    if final_code is None and mapping and mapping.code_extractor:
+        final_code = mapping.code_extractor(exception)
 
     # Combine contexts
     combined_context = {**extracted_context, **context}
@@ -169,9 +167,9 @@ def wrap_exception(
     # Create the error
     error = target_error_class(
         message=message,
-        error_code=final_error_code,
-        category=error_category,
-        severity=error_severity,
+        code=final_code,
+        category=category,
+        severity=severity,
         **combined_context,
     )
 
@@ -289,7 +287,7 @@ def _get_sqlalchemy_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_sqlalchemy_context,
                 message_formatter=lambda exc: f"Database operational error: {exc!s}",
-                error_code_extractor=lambda _: "DB_OPERATIONAL_ERROR",
+                code_extractor=lambda _: "DB_OPERATIONAL_ERROR",
             ),
             ExceptionMapping(
                 exception_type=sa_exc.IntegrityError,
@@ -298,7 +296,7 @@ def _get_sqlalchemy_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_sqlalchemy_context,
                 message_formatter=lambda exc: f"Database integrity error: {exc!s}",
-                error_code_extractor=lambda _: "DB_INTEGRITY_ERROR",
+                code_extractor=lambda _: "DB_INTEGRITY_ERROR",
             ),
             ExceptionMapping(
                 exception_type=sa_exc.ProgrammingError,
@@ -307,7 +305,7 @@ def _get_sqlalchemy_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_sqlalchemy_context,
                 message_formatter=lambda exc: f"Database programming error: {exc!s}",
-                error_code_extractor=lambda _: "DB_PROGRAMMING_ERROR",
+                code_extractor=lambda _: "DB_PROGRAMMING_ERROR",
             ),
             ExceptionMapping(
                 exception_type=sa_exc.SQLAlchemyError,
@@ -316,7 +314,7 @@ def _get_sqlalchemy_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_sqlalchemy_context,
                 message_formatter=lambda exc: f"Database error: {exc!s}",
-                error_code_extractor=lambda _: "DB_ERROR",
+                code_extractor=lambda _: "DB_ERROR",
             ),
         ]
     except ImportError:
@@ -362,7 +360,7 @@ def _get_pydantic_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_pydantic_context,
                 message_formatter=lambda exc: f"Validation error: {exc!s}",
-                error_code_extractor=lambda _: "VALIDATION_ERROR",
+                code_extractor=lambda _: "VALIDATION_ERROR",
             ),
         ]
     except ImportError:
@@ -410,7 +408,7 @@ def _get_requests_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_requests_context,
                 message_formatter=lambda exc: f"API connection error: {exc!s}",
-                error_code_extractor=lambda _: "API_CONNECTION_ERROR",
+                code_extractor=lambda _: "API_CONNECTION_ERROR",
             ),
             ExceptionMapping(
                 exception_type=req_exc.Timeout,
@@ -419,7 +417,7 @@ def _get_requests_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_requests_context,
                 message_formatter=lambda exc: f"API timeout error: {exc!s}",
-                error_code_extractor=lambda _: "API_TIMEOUT_ERROR",
+                code_extractor=lambda _: "API_TIMEOUT_ERROR",
             ),
             ExceptionMapping(
                 exception_type=req_exc.HTTPError,
@@ -428,7 +426,7 @@ def _get_requests_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_requests_context,
                 message_formatter=lambda exc: f"API HTTP error: {exc!s}",
-                error_code_extractor=lambda _: "API_HTTP_ERROR",
+                code_extractor=lambda _: "API_HTTP_ERROR",
             ),
             ExceptionMapping(
                 exception_type=req_exc.RequestException,
@@ -437,7 +435,7 @@ def _get_requests_mappings() -> list[ExceptionMapping]:
                 severity=ErrorSeverity.ERROR,
                 context_extractor=extract_requests_context,
                 message_formatter=lambda exc: f"API request error: {exc!s}",
-                error_code_extractor=lambda _: "API_REQUEST_ERROR",
+                code_extractor=lambda _: "API_REQUEST_ERROR",
             ),
         ]
     except ImportError:
@@ -459,7 +457,7 @@ def _get_asyncio_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda _: "Operation timed out",
-            error_code_extractor=lambda _: "ASYNCIO_TIMEOUT",
+            code_extractor=lambda _: "ASYNCIO_TIMEOUT",
         ),
         ExceptionMapping(
             exception_type=asyncio.CancelledError,
@@ -467,7 +465,7 @@ def _get_asyncio_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.WARNING,
             message_formatter=lambda _: "Operation was cancelled",
-            error_code_extractor=lambda _: "ASYNCIO_CANCELLED",
+            code_extractor=lambda _: "ASYNCIO_CANCELLED",
         ),
     ]
 
@@ -486,7 +484,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"File not found: {exc!s}",
-            error_code_extractor=lambda _: "FILE_NOT_FOUND",
+            code_extractor=lambda _: "FILE_NOT_FOUND",
         ),
         ExceptionMapping(
             exception_type=PermissionError,
@@ -494,7 +492,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.SECURITY,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Permission denied: {exc!s}",
-            error_code_extractor=lambda _: "PERMISSION_DENIED",
+            code_extractor=lambda _: "PERMISSION_DENIED",
         ),
         # JSON operations
         ExceptionMapping(
@@ -504,7 +502,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             severity=ErrorSeverity.ERROR,
             context_extractor=lambda exc: f"error_details: {exc!s}",
             message_formatter=lambda exc: f"Value error: {exc!s}",
-            error_code_extractor=lambda _: "VALUE_ERROR",
+            code_extractor=lambda _: "VALUE_ERROR",
         ),
         # Network operations
         ExceptionMapping(
@@ -513,7 +511,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.API,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Connection error: {exc!s}",
-            error_code_extractor=lambda _: "CONNECTION_ERROR",
+            code_extractor=lambda _: "CONNECTION_ERROR",
         ),
         ExceptionMapping(
             exception_type=TimeoutError,
@@ -521,7 +519,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.API,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Timeout error: {exc!s}",
-            error_code_extractor=lambda _: "TIMEOUT_ERROR",
+            code_extractor=lambda _: "TIMEOUT_ERROR",
         ),
         # Other common exceptions
         ExceptionMapping(
@@ -530,7 +528,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Key error: {exc!s}",
-            error_code_extractor=lambda _: "KEY_ERROR",
+            code_extractor=lambda _: "KEY_ERROR",
         ),
         ExceptionMapping(
             exception_type=TypeError,
@@ -538,7 +536,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.VALIDATION,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Type error: {exc!s}",
-            error_code_extractor=lambda _: "TYPE_ERROR",
+            code_extractor=lambda _: "TYPE_ERROR",
         ),
         ExceptionMapping(
             exception_type=AttributeError,
@@ -546,7 +544,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Attribute error: {exc!s}",
-            error_code_extractor=lambda _: "ATTRIBUTE_ERROR",
+            code_extractor=lambda _: "ATTRIBUTE_ERROR",
         ),
         ExceptionMapping(
             exception_type=IndexError,
@@ -554,7 +552,7 @@ def _get_stdlib_mappings() -> list[ExceptionMapping]:
             category=ErrorCategory.INTERNAL,
             severity=ErrorSeverity.ERROR,
             message_formatter=lambda exc: f"Index error: {exc!s}",
-            error_code_extractor=lambda _: "INDEX_ERROR",
+            code_extractor=lambda _: "INDEX_ERROR",
         ),
     ]
 
@@ -782,10 +780,8 @@ def with_error_context(**context: Any) -> Callable[[Callable], Callable]:
             try:
                 return func(*args, **kwargs)
             except UnoError as e:
-                # Add context to the error
-                for key, value in context.items():
-                    e.add_context(key, value)
-                raise
+                # Canonical Uno error enrichment: raise a new error instance with merged context
+                raise e.with_context(context)
             except Exception as e:
                 # Wrap other exceptions with context
                 raise wrap_exception(e, **context)

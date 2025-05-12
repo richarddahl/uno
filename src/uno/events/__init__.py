@@ -13,7 +13,10 @@ from uno.events.protocols import (
     EventBusProtocol,
     EventPublisherProtocol,
     EventHandlerProtocol,
-    EventHandlerMiddlewareProtocol,
+    EventMiddlewareProtocol,
+    EventRegistryProtocol,
+    EventProcessorProtocol,
+    EventDiscoveryProtocol,
 )
 
 # Base event types
@@ -36,12 +39,14 @@ from uno.events.implementations.store import InMemoryEventStore
 from uno.events.handlers import (
     EventHandlerContext,
     EventHandlerDecorator,
-    EventHandlerRegistry,
     LoggingMiddleware,
     TimingMiddleware,
     discover_handlers,
     handles,
 )
+
+# New processor
+from uno.events.processor import EventProcessor
 
 # Import for backwards compatibility - will be removed in future
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
@@ -68,6 +73,8 @@ from uno.events.errors import (
     EventDeserializationError,
     EventUpcastError,
     EventDowncastError,
+    EventProcessingError,
+    EventCancellationError,
 )
 
 __all__ = [
@@ -75,7 +82,10 @@ __all__ = [
     "EventBusProtocol",
     "EventPublisherProtocol",
     "EventHandlerProtocol",
-    "EventHandlerMiddlewareProtocol",
+    "EventMiddlewareProtocol",
+    "EventRegistryProtocol",
+    "EventProcessorProtocol",
+    "EventDiscoveryProtocol",
     "EventStoreProtocol",  # Maintained for backward compatibility
     "CommandHandlerProtocol",  # Maintained for backward compatibility
     # Base event types
@@ -96,7 +106,6 @@ __all__ = [
     # Handler utilities
     "EventHandlerContext",
     "EventHandlerDecorator",
-    "EventHandlerRegistry",
     "LoggingMiddleware",
     "TimingMiddleware",
     "discover_handlers",
@@ -118,4 +127,8 @@ __all__ = [
     "EventDeserializationError",
     "EventUpcastError",
     "EventDowncastError",
+    "EventProcessingError",
+    "EventCancellationError",
+    # Processor
+    "EventProcessor",
 ]

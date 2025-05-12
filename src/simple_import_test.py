@@ -15,7 +15,8 @@ def test_imports():
 
     # Test uno.events imports
     try:
-        from uno.events.protocols import EventBusProtocol, EventStoreProtocol
+        from uno.events.protocols import EventBusProtocol
+from uno.persistence.event_sourcing.protocols import EventStoreProtocol
         from uno.events.implementations.bus import InMemoryEventBus
         from uno.events.implementations.store import InMemoryEventStore
 

@@ -19,7 +19,8 @@ from uno.logging import LoggerProtocol, LogLevel, get_logger
 class TestLoggingMigration:
     """Test suite for logging system migration."""
 
-    def test_get_logger_basic_functionality(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_logger_basic_functionality(self) -> None:
         """Test that get_logger provides a functional logger."""
         # Create a logger using the new get_logger function
         logger = get_logger("test_migration")
@@ -28,39 +29,41 @@ class TestLoggingMigration:
         assert isinstance(logger, LoggerProtocol)
 
         # Test basic logging methods (these should not raise exceptions)
-        logger.debug("Debug message")
-        logger.info("Info message")
-        logger.warning("Warning message")
-        logger.error("Error message")
-        logger.critical("Critical message")
+        await logger.debug("Debug message")
+        await logger.info("Info message")
+        await logger.warning("Warning message")
+        await logger.error("Error message")
+        await logger.critical("Critical message")
 
-    def test_logger_level_setting(self) -> None:
+    @pytest.mark.asyncio
+    async def test_logger_level_setting(self) -> None:
         """Test setting log levels on the logger."""
         logger = get_logger("test_levels")
 
         # Test setting different levels
         logger.set_level(LogLevel.DEBUG)
-        logger.debug("Should be visible at DEBUG level")
+        await logger.debug("Should be visible at DEBUG level")
 
         logger.set_level(LogLevel.ERROR)
-        logger.debug("Should not be visible at ERROR level")
-        logger.error("Should be visible at ERROR level")
+        await logger.debug("Should not be visible at ERROR level")
+        await logger.error("Should be visible at ERROR level")
 
-    def test_logger_context_binding(self) -> None:
+    @pytest.mark.asyncio
+    async def test_logger_context_binding(self) -> None:
         """Test the context binding functionality."""
         logger = get_logger("test_context")
 
         # Test context manager
         with logger.context(request_id="123", user="test_user"):
-            logger.info("Log with context")
+            await logger.info("Log with context")
 
         # Test creating bound logger
         bound_logger = logger.bind(component="auth", subsystem="login")
-        bound_logger.info("Log from bound logger")
+        await bound_logger.info("Log from bound logger")
 
         # Test correlation ID
         traced_logger = logger.with_correlation_id("correlation-123")
-        traced_logger.info("Log with correlation ID")
+        await traced_logger.info("Log with correlation ID")
 
     @pytest.mark.asyncio
     async def test_async_context(self) -> None:
@@ -68,9 +71,9 @@ class TestLoggingMigration:
         logger = get_logger("test_async")
 
         async def async_function() -> None:
-            logger.info("Log from async function")
+            await logger.info("Log from async function")
             await asyncio.sleep(0.01)
-            logger.info("Log after await")
+            await logger.info("Log after await")
 
         # This should not raise any exceptions
         await async_function()

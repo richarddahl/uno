@@ -166,14 +166,14 @@ class ConnectionManager:
                 if not self._session_factory:
                     raise UnoError(
                         message="Connection pool not initialized",
-                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                        reason="Connection pool not initialized"
+                        code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason="Connection pool not initialized",
                     )
                 if not self._health_status.is_healthy:
                     raise UnoError(
                         message="Connection pool is unhealthy",
-                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                        reason="Connection pool is unhealthy"
+                        code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason="Connection pool is unhealthy",
                     )
                 session = self._session_factory()
                 return session
@@ -190,9 +190,10 @@ class ConnectionManager:
                 else:
                     raise UnoError(
                         message=f"Failed to get connection after {self._max_retries} attempts",
-                        error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                        reason=str(e)
+                        code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                        reason=str(e),
                     )
+
     async def release_connection(self, session: AsyncSession) -> None:
         """Release a database connection.
 
@@ -213,8 +214,8 @@ class ConnectionManager:
             )
             raise UnoError(
                 message="Failed to release connection",
-                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                reason=str(e)
+                code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason=str(e),
             )
 
     async def close(self) -> None:
@@ -241,8 +242,8 @@ class ConnectionManager:
             )
             raise UnoError(
                 message="Failed to close connection pool",
-                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                reason=str(e)
+                code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason=str(e),
             )
 
     @property
@@ -258,8 +259,8 @@ class ConnectionManager:
         if not self._engine:
             raise UnoError(
                 message="Engine not initialized",
-                error_code=SQLErrorCode.SQL_CONNECTION_ERROR,
-                reason="Engine not initialized"
+                code=SQLErrorCode.SQL_CONNECTION_ERROR,
+                reason="Engine not initialized",
             )
         return self._engine
 

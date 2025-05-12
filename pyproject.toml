@@ -25,11 +25,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
+  "asyncio>=3.4.3",
   "alembic>=1.13.1",
   "aiosqlite>=0.21.0",
   "babel>=2.14.0",
   "fastapi[standard]>=0.109.0",
-  # Removing inject as we're implementing our own DI system
   "jinja2>=3.1.3",
   "PyJWT>=2.8.0",
   "psycopg[binary]>=3.1.18",
@@ -43,16 +43,17 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0.25",
   "aiohttp>=3.9.1",
   "croniter>=2.0.1",
-  # Additional modern dependencies
-  "structlog>=24.1.0",    # Structured logging
-  "rich>=13.6.0",         # Rich terminal output
-  "httpx>=0.25.2",        # Modern HTTP client
-  "redis>=5.0.1",         # Redis client for caching
-  "msgspec>=0.18.4",      # Fast serialization
-  "tenacity>=8.2.3",      # Retrying library
-  "cachetools>=5.3.2",    # Caching utilities
-  "graphviz",             # Graph visualization
-  "cryptography>=40.0.1", # Cryptography library
+  "structlog>=24.1.0",
+  "rich>=13.6.0",
+  "httpx>=0.25.2",
+  "prometheus_client>=0.20.0",
+  "redis>=5.0.1",
+  "msgspec>=0.18.4",
+  "strenum>=0.4.15",
+  "tenacity>=8.2.3",
+  "cachetools>=5.3.2",
+  "graphviz>=0.20.1",
+  "cryptography>=40.0.1",
 ]
 
 [project.urls]
@@ -120,17 +121,16 @@ vector-demo-setup = ["ENV=dev", "docker-setup", "vector-demo setup"]
 # Testing Environment
 [tool.hatch.envs.test]
 dependencies = [
-  "coverage[toml]",
-  "pytest",
+  "pytest>=8.0.0",
   "pytest-asyncio>=0.21.1",
   "pytest-benchmark>=4.0.0",
-  "asyncio",
-  "httpx",
-  "requests",
-  "factory_boy",
-  "pytest-mock",
-  "hypothesis",
-  "bandit",
+  "coverage[toml]>=7.4.0",
+  "httpx>=0.25.2",
+  "requests>=2.31.0",
+  "factory_boy>=3.3.0",
+  "pytest-mock>=3.12.0",
+  "hypothesis>=6.98.0",
+  "bandit>=1.7.7",
 ]
 
 [tool.coverage.run]
@@ -188,13 +188,13 @@ pythonpath = ["."]
 # Documentation Environement
 [tool.hatch.envs.docs]
 dependencies = [
-  "mkdocs",
-  "mkdocs-material",
+  "mkdocs>=1.5.3",
+  "mkdocs-material>=9.5.3",
   "mkdocstrings>=0.15.0",
-  "mkdocs-autorefs",
-  "mkdocs-material-extensions",
-  "mkdocstrings-python",
-  "mkdocs-git-revision-date-localized-plugin",
+  "mkdocs-autorefs>=0.4.1",
+  "mkdocs-material-extensions>=1.1.1",
+  "mkdocstrings-python>=1.7.3",
+  "mkdocs-git-revision-date-localized-plugin>=1.2.0",
 ]
 
 [tool.hatch.envs.docs.scripts]
@@ -203,7 +203,10 @@ serve = "mkdocs serve --dev-addr localhost:8001"
 
 # Lint Environment
 [tool.hatch.envs.lint]
-dependencies = ["ruff", "mypy>=1.8.0"]
+dependencies = [
+  "ruff>=0.2.1",
+  "mypy>=1.8.0",
+]
 
 [tool.hatch.envs.lint.scripts]
 lint = "ruff check src/uno tests"
@@ -212,7 +215,7 @@ all = ["lint", "typecheck"]
 
 # Types Environment
 [tool.hatch.envs.types]
-extra-dependencies = ["mypy>=1.8.0", "ruff"]
+extra-dependencies = ["mypy>=1.8.0", "ruff>=0.2.1"]
 
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/uno tests}"
@@ -220,25 +223,22 @@ lint = "ruff check {args:src/uno tests}"
 format = "ruff format {args:src/uno tests}"
 all = ["check", "lint", "format"]
 
-# MyPy Configuration - merged from mypy.ini
+# MyPy Configuration
 [tool.mypy]
-# Core settings
 python_version = "3.13"
-# Use the official SQLAlchemy mypy plugin for modern SQLAlchemy type checking
 plugins = ["sqlalchemy.ext.mypy.plugin"]
 namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
 exclude = "(?x)(migrations|migrations/versions)"
 
-# Warning settings
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
 warn_no_return = true
 warn_unused_configs = true
-# Strictness settings
+
 disallow_any_generics = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -247,42 +247,59 @@ disallow_untyped_decorators = true
 no_implicit_optional = true
 strict_optional = true
 
-# Module-specific overrides
 [[tool.mypy.overrides]]
 module = "pytest"
 ignore_missing_imports = true
 
-# Ruff lint config migrated to new structure as of 2025-04-24
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "tests.integration.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+
+# Ruff configuration
 [tool.ruff]
 line-length = 88
+
 [tool.ruff.lint]
 select = [
-  "E",   # pycodestyle errors
-  "F",   # pyflakes
-  "I",   # isort
-  "N",   # naming
-  "UP",  # pyupgrade (modernize syntax)
-  "B",   # flake8-bugbear
-  "C4",  # flake8-comprehensions
-  "SIM", # flake8-simplify
-  "TCH", # typecheck
-  "RUF", # Ruff-specific rules
-  "ERA", # eradicate
-  "PL",  # pylint
-  "S",   # security (bandit)
-  "DTZ", # datetime-related checks
-  "PT",  # pytest-specific checks
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "TCH", # typecheck
+    "RUF", # Ruff-specific rules
+    "ERA", # eradicate
+    "PL",  # pylint
+    "S",   # bandit
+    "DTZ", # flake8-datetimez
+    "PT"   # flake8-pytest-style
 ]
 ignore = [
-  "E501", # Line too long (handled by formatter)
-]
-exclude = [
-  ".git",
-  ".ruff_cache",
-  ".mypy_cache",
-  ".pytest_cache",
-  "__pycache__",
-  "migrations",
+    "E501",  # Line too long
+    "E203",  # Whitespace before ':'
+    "N806",  # Lowercase variable names in functions
+    "N815",  # MixedCase variable in class scope
+    "N816",  # MixedCase variable in global scope
+    "N999",  # Non-lowercase variable in function
+    "PLR2004",  # Magic number used in comparison
+    "PLR0913",  # Too many arguments
+    "PLR0912",  # Too many branches
+    "PLR0915",  # Too many statements
+    "S101",  # Use of assert detected
+    "S106",  # Possible hardcoded password
+    "S113",  # Probable use of requests with no timeout
+    "S301",  # Use of pickle
+    "S311",  # Standard pseudo-random generators
+    "S603",  # Subprocess call with shell=True
+    "S607"   # Starting a process with a partial executable path
 ]
 
 [tool.ruff.lint.isort]
@@ -292,11 +309,8 @@ force-single-line = false
 known-third-party = ["fastapi", "pydantic", "sqlalchemy"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = [
-  "S101", # Use of assert
-]
+"tests/**/*.py" = ["S101"]
 
-# Optional formatter config if you're using Ruff as a formatter
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -305,32 +319,22 @@ line-ending = "auto"
 
 # PyPy Configuration
 [tool.pypy]
-# Specify PyPy interpreter paths
-python_version = "3.13" # PyPy version to target
+python_version = "3.13"
+jit = true
+jit_threshold = 1000
+jit_trace_limit = 6000
+gc_nursery_size = "4M"
+gc_min_threshold = 700
+gc_increment_step = 3
+gc_heap_size = "1G"
+debug = false
+debug_print_bytecode = false
+optimize = 2
+shared_memory = true
+portable = false
+cpyext = true
 
-# JIT settings
-jit = true             # Enable JIT (Just-In-Time) compilation
-jit_threshold = 1000   # Execute a loop this many times before compiling it
-jit_trace_limit = 6000 # Maximum length of a trace
-
-# Memory settings
-gc_nursery_size = "4M" # Size of the young object nursery
-gc_min_threshold = 700 # Minimum threshold size for the garbage collector
-gc_increment_step = 3  # Increment step for the garbage collector
-gc_heap_size = "1G"    # Maximum heap size
-
-# Debug options
-debug = false                # Enable PyPy debugging options
-debug_print_bytecode = false # Print bytecode instructions during execution
-
-# Performance tuning
-optimize = 2         # Optimization level (0-2)
-shared_memory = true # Whether to use shared memory for JIT code
-portable = false     # Generate portable JIT code (less optimized)
-
-cpyext = true # Enable CPython C API compatibility layer
-# Benchmarking configuration
 [tool.pypy.benchmark]
-compare_with_cpython = true # Compare performance with CPython
-iterations = 10             # Number of benchmark iterations
-warmup = 3                  # Number of warmup iterations
+compare_with_cpython = true
+iterations = 10
+warmup = 3
