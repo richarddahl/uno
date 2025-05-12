@@ -65,11 +65,20 @@ loaded = await repo.get_by_id(user.id)
 - **Snapshots**: (Planned) For large aggregates, implement periodic snapshots.
 - **Versioning**: Event/aggregate version support for concurrency.
 - **Error Handling**: Monad-based errors, structured logging.
+- **[Event Upcasting](./events_upcasting.md)**: Strategies for event schema evolution.
+- **[Async Guidelines](./async_guidelines.md)**: Best practices for async event handling.
 
 ## Migration Guide
 
 - Remove all legacy event code.
 - Refactor aggregates to use only `add_event` and `apply_*`.
 - Use DI for all event stores, buses, and loggers.
+- See the detailed [Migration Guide](./migration_guide.md) for step-by-step instructions.
+
+## Reference
+
+- **[Event Handler Discovery](./EVENT_HANDLER_DISCOVERY.md)**: Automatic event handler registration.
+- **[Event Files Inventory](../../EVENT_FILES.md)**: Detailed inventory of all event system files.
+- **[Event Symbols Inventory](../../EVENT_SYMBOLS.md)**: Complete catalog of event system symbols.
 
 See the main [README.md](./README.md) for a quickstart and high-level overview.

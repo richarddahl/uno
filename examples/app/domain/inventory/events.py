@@ -21,8 +21,7 @@ from uno.errors.codes import ErrorCode
 from uno.errors.factories import event_error
 from uno.events import DomainEvent
 
-if TYPE_CHECKING:
-    from examples.app.domain.vendor.value_objects import EmailAddress
+from examples.app.domain.vendor.value_objects import EmailAddress
 
 
 class GradeAssignedToLot(DomainEvent):
@@ -50,6 +49,7 @@ class GradeAssignedToLot(DomainEvent):
     @classmethod
     def create(
         cls,
+        aggregate_id: str,
         lot_id: str,
         grade: Grade,
         assigned_by: EmailAddress,
@@ -77,6 +77,7 @@ class GradeAssignedToLot(DomainEvent):
                 )
 
             return cls(
+                aggregate_id=aggregate_id,
                 lot_id=lot_id,
                 grade=grade,
                 assigned_by=assigned_by,

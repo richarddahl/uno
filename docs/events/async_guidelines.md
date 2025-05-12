@@ -45,3 +45,78 @@ When integrating with external code that may provide sync handlers:
 - Always use the Result monad for both sync and async methods
 - Async methods return `Awaitable[Result[T, Exception]]`
 - Sync methods return `Result[T, Exception]`
+
+## Concurrency Patterns
+
+### Batched Processing
+
+For high-throughput scenarios, use the batched processing pattern:
+
+```python
+async def process_events(events: list[DomainEvent], batch_size: int = 10) -> None:
+    """Process events in batches for better concurrency control."""
+    for i in range(0, len(events), batch_size):
+        batch = events[i : i + batch_size]
+        tasks = [process_event(event) for event in batch]
+        # Process batch concurrently
+        await asyncio.gather(*tasks, return_exceptions=True)
+```
+
+### Task Management
+
+When creating tasks that will run in the background:
+
+```python
+async def start_background_processing() -> None:
+    """Start background event processing."""
+    # Store the task so it can be cancelled later if needed
+    task = asyncio.create_task(process_events_continuously())
+    # Optionally add error handling
+    task.add_done_callback(handle_task_completion)
+    return task
+```
+
+### Handling Exceptions in Gathered Tasks
+
+When using `asyncio.gather()` with event handlers:
+
+```python
+async def publish_events(events: list[DomainEvent]) -> None:
+    """Publish multiple events with proper exception handling."""
+    tasks = [self.publish(event) for event in events]
+    # Gather with return_exceptions=True to handle errors after all tasks complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Process any exceptions after all tasks have completed
+    for result in results:
+        if isinstance(result, Exception):
+            # Log or handle the exception
+            await self.logger.error("Error in event handler", error=str(result))
+```
+
+## Performance Considerations
+
+### Use Concurrent Processing Wisely
+
+- Use `asyncio.gather()` for independent operations that can run concurrently
+- Use batched processing to control resource usage in high-volume scenarios
+- Consider implementing backpressure mechanisms for event processing pipelines
+
+### Avoid Blocking Operations
+
+- Never use `time.sleep()` in async code; use `await asyncio.sleep()` instead
+- Avoid synchronous I/O operations like file reads/writes in event handlers
+- Use asynchronous database drivers and client libraries
+
+### Database Connection Management
+
+- Use connection pooling for database operations
+- Release connections back to the pool as soon as possible
+- Consider using a per-request or per-context connection pattern
+
+## Testing Async Event Handlers
+
+- Use `asyncio.run()` for simple test cases
+- Use pytest's `pytest-asyncio` plugin for more complex testing
+- Mock async dependencies with libraries like `asyncmock`
+- Test concurrency behavior using controlled scenarios with multiple events

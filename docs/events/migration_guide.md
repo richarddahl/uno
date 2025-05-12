@@ -2,9 +2,14 @@
 
 This document provides guidance for migrating from the previous event package structure to the new, refactored structure.
 
-## Breaking Changes
+## Breaking Changes (Latest)
 
-1. **Package Structure Changes**
+1. **Deprecated Modules**
+   - `uno.events.bus` - Use `uno.events.implementations.bus` or `uno.persistence.event_sourcing.implementations.memory.bus` instead
+   - `uno.events.implementations.command` - Use `uno.commands.implementations.memory_bus` instead
+   - Several other modules are being considered for deprecation (see below)
+
+2. **Package Structure Changes**
    - Technology-specific implementations have been moved to appropriate packages
    - Protocols have been moved to their respective packages
    - All implementations now use structural typing rather than inheritance
@@ -45,6 +50,66 @@ class MyHandler:
     def __init__(self, event_bus: EventBusProtocol | None = None):
         self.event_bus = event_bus
 ```
+
+## Migration Guide for Deprecated Modules
+
+### Event Bus Migration
+
+**From:**
+```python
+from uno.events.bus import InMemoryEventBus
+
+bus = InMemoryEventBus(logger, config)
+```
+
+**To:**
+```python
+# Option 1: Direct from implementations package
+from uno.events.implementations.bus import InMemoryEventBus
+
+# Option 2: From persistence package (recommended)
+from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
+
+bus = InMemoryEventBus(logger, config)
+```
+
+### Command Implementation Migration
+
+**From:**
+```python
+from uno.events.implementations.command import InMemoryCommandBus
+
+command_bus = InMemoryCommandBus(logger)
+```
+
+**To:**
+```python
+from uno.commands.implementations.memory_bus import InMemoryCommandBus
+
+command_bus = InMemoryCommandBus(logger)
+```
+
+### Event Store Migration
+
+**From:**
+```python
+from uno.events.implementations.store import InMemoryEventStore
+
+store = InMemoryEventStore(logger)
+```
+
+**To:**
+```python
+from uno.persistence.event_sourcing.implementations.memory.event_store import InMemoryEventStore
+
+store = InMemoryEventStore(logger)
+```
+
+## Deprecation Timeline
+
+* **May 2025**: Deprecation warnings added to legacy modules
+* **December 2025**: Legacy modules scheduled for removal in the next major version
+* **Q2 2026**: Complete removal of deprecated modules
 
 ## Dependency Injection Changes
 
@@ -98,6 +163,77 @@ Aliases are also provided in the persistence package for in-memory implementatio
 from uno.events.implementations.bus import InMemoryEventBus
 from uno.persistence.event_sourcing.implementations.memory import InMemoryEventBus
 ```
+
+## Async-First Event Processing
+
+The event system has been refactored to be async-first, with improved concurrency and error handling.
+
+### Batched Event Publishing
+
+The event bus now supports batched publishing for high-throughput scenarios:
+
+```python
+# Before
+for event in events:
+    await event_bus.publish(event)
+
+# After - more efficient
+await event_bus.publish_many(events, batch_size=10)
+```
+
+This implementation uses `asyncio.gather` to process events concurrently within each batch, significantly improving throughput while maintaining control over resource usage.
+
+### Correlation ID Handling
+
+Events now automatically generate correlation IDs if not provided:
+
+```python
+# Events will have correlation IDs automatically generated
+event = OrderCreated(
+    aggregate_id="order-123",
+    # No need to manually set correlation_id
+)
+
+# You can still provide explicit correlation IDs when needed
+event = OrderCreated(
+    aggregate_id="order-123",
+    metadata=EventMetadata(correlation_id="corr-123")
+)
+```
+
+### Improved Error Handling
+
+The event system now uses structured exception handling with detailed error information:
+
+```python
+try:
+    await event_bus.publish(event)
+except EventPublishError as e:
+    # Access structured error information
+    print(f"Error code: {e.code}")
+    print(f"Error message: {e.message}")
+    print(f"Event type: {e.event_type}")
+    print(f"Context: {e.context}")
+```
+
+## Event Protocol Compliance
+
+All domain events now implement the `DomainEventProtocol` for improved type safety and interoperability:
+
+```python
+# Check protocol compliance
+from uno.domain.protocols import DomainEventProtocol
+
+# Runtime protocol checking
+assert isinstance(my_event, DomainEventProtocol)
+
+# Or use type hints
+def process_event(event: DomainEventProtocol) -> None:
+    # Process any event that conforms to the protocol
+    print(f"Processing event {event.event_type} for {event.aggregate_id}")
+```
+
+For more information on event replay and upcasting patterns, see [Event Upcasting Guide](./events_upcasting.md).
 
 ## Testing Strategy
 
