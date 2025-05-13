@@ -11,7 +11,7 @@ from uno.persistence.sql.interfaces import SQLLoggerProtocol
 class LogConfig(BaseModel):
     """SQL logging configuration."""
 
-    log_level: str = Field(default="INFO", description="Logging level", json_schema_extra={"env": "LOG_LEVEL"})
+    log_level: str = Field(default=LogLevel.INFO, description="Logging level", json_schema_extra={"env": "LOG_LEVEL"})
     log_file: str | None = Field(default=None, description="Log file path", json_schema_extra={"env": "LOG_FILE"})
     log_format: str = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

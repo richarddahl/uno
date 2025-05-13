@@ -81,7 +81,7 @@ class ConnectionManager:
                 return
             except Exception as e:
                 self._logger.structured_log(
-                    "ERROR",
+                    LogLevel.ERROR,
                     f"Failed to initialize connection pool (attempt {attempt + 1}/{self._max_retries}): {str(e)}",
                     name="uno.sql.connection",
                     error=e,
@@ -104,7 +104,7 @@ class ConnectionManager:
                     await asyncio.sleep(self._health_check_interval)
                 except Exception as e:
                     self._logger.structured_log(
-                        "ERROR",
+                        LogLevel.ERROR,
                         f"Health check failed: {str(e)}",
                         name="uno.sql.connection",
                         error=e,
@@ -133,7 +133,7 @@ class ConnectionManager:
                 )
 
                 self._logger.structured_log(
-                    "DEBUG",
+                    LogLevel.DEBUG,
                     "Connection health check passed",
                     name="uno.sql.connection",
                     latency_ms=self._health_status.latency_ms,
@@ -144,7 +144,7 @@ class ConnectionManager:
             self._health_status.error_count += 1
             self._health_status.is_healthy = False
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Connection health check failed: {str(e)}",
                 name="uno.sql.connection",
                 error=e,
@@ -179,7 +179,7 @@ class ConnectionManager:
                 return session
             except Exception as e:
                 self._logger.structured_log(
-                    "ERROR",
+                    LogLevel.ERROR,
                     f"Failed to get connection (attempt {attempt + 1}/{self._max_retries}): {str(e)}",
                     name="uno.sql.connection",
                     error=e,
@@ -207,7 +207,7 @@ class ConnectionManager:
             await session.close()
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to release connection: {str(e)}",
                 name="uno.sql.connection",
                 error=e,
@@ -235,7 +235,7 @@ class ConnectionManager:
                 await self._engine.dispose()
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to close connection pool: {str(e)}",
                 name="uno.sql.connection",
                 error=e,

@@ -394,7 +394,7 @@ class SQLDocumentationGenerator:
                         )
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     "Generated trigger documentation",
                     name="uno.sql.documentation",
                     trigger_count=len(triggers),
@@ -402,7 +402,7 @@ class SQLDocumentationGenerator:
                 return triggers
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to generate trigger documentation: {str(e)}",
                 name="uno.sql.documentation",
                 error=e,
@@ -532,7 +532,7 @@ class SQLDocumentationGenerator:
                     f.write(f"### Function\n\n{trigger.function}\n\n")
 
             self._logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 "Generated markdown documentation",
                 name="uno.sql.documentation",
                 output_dir=str(output_dir),
@@ -540,7 +540,7 @@ class SQLDocumentationGenerator:
             return None
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to generate markdown documentation: {str(e)}",
                 name="uno.sql.documentation",
                 error=e,

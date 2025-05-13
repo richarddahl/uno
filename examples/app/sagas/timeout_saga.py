@@ -33,7 +33,7 @@ class TimeoutSaga(Saga):
     async def handle_event(self, event: Any) -> None:
         try:
             await self.logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 f"Saga event received",
                 saga_type="TimeoutSaga",
                 event_type=event.get("type"),
@@ -44,7 +44,7 @@ class TimeoutSaga(Saga):
                 self.data["step_completed"] = True
                 self.status = "completed"
                 await self.logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Step completed",
                     status=self.status,
                 )
@@ -55,7 +55,7 @@ class TimeoutSaga(Saga):
                     self.data["retries"] += 1
                     self.status = "waiting_step"
                     await self.logger.structured_log(
-                        "INFO",
+                        LogLevel.INFO,
                         f"Timeout triggered - retrying (attempt {self.data['retries']})",
                         status=self.status,
                     )
@@ -64,7 +64,7 @@ class TimeoutSaga(Saga):
                 else:
                     self.status = "failed"
                     await self.logger.structured_log(
-                        "ERROR",
+                        LogLevel.ERROR,
                         f"Timeout triggered - max retries ({self.data['max_retries']}) exceeded",
                         status=self.status,
                     )
@@ -73,7 +73,7 @@ class TimeoutSaga(Saga):
             # Add more event types as needed
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Saga event handling failed",
                 error=str(e),
                 status=self.status,

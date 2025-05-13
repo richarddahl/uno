@@ -8,6 +8,7 @@ using the Uno configuration system for environment-driven settings.
 from __future__ import annotations
 
 from typing import Optional
+from uno.logging.protocols import LogLevel
 
 
 # Simplified LoggingSettings class
@@ -16,7 +17,7 @@ class LoggingSettings:
 
     def __init__(
         self,
-        level: str = "INFO",
+        level: str = LogLevel.INFO,
         json_format: bool = False,
         include_timestamp: bool = True,
         include_level: bool = True,

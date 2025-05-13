@@ -159,7 +159,7 @@ class SQLSecurityManager:
             return statement
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to sanitize statement: {str(e)}",
                 name="uno.sql.security",
                 error=e,
@@ -236,7 +236,7 @@ class SQLSecurityManager:
 
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to check permissions: {str(e)}",
                 name="uno.sql.security",
                 error=e,
@@ -308,7 +308,7 @@ class SQLSecurityManager:
 
         except Exception as e:
             cast(Any, self._logger).structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to audit statement: {str(e)}",
                 name="uno.sql.security",
                 error=e,
@@ -342,7 +342,7 @@ class SQLSecurityManager:
 
         # Cast LoggerProtocol to Any to bypass type checking for structured_log
         cast("Any", self._logger).structured_log(
-            "WARNING",
+            LogLevel.WARNING,
             f"Security violation: {violation_type}",
             name="uno.sql.security",
             violation=violation,

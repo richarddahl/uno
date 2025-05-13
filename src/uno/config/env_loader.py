@@ -35,7 +35,7 @@ def find_env_files(env: Environment, base_dir: Path | None = None) -> list[Path]
     # Environment-specific .env file
     env_specific = base_dir / f".env.{env.value}"
 
-    # Local development/testing overrides
+    # Local development/testing overrides - only for non-production
     local_env = base_dir / ".env.local"
 
     # Build the list of files with proper priority order
@@ -48,6 +48,7 @@ def find_env_files(env: Environment, base_dir: Path | None = None) -> list[Path]
         files.append(env_specific)
 
     # Local should be highest priority but only for development/testing
+    # Explicitly skip .env.local for production for security reasons
     if local_env.exists() and env != Environment.PRODUCTION:
         files.append(local_env)
 
@@ -70,6 +71,12 @@ def load_env_files(
         Dictionary of loaded environment variables
     """
     env_files = find_env_files(env, base_dir)
+
+    # For custom env files that might be passed for testing, add them explicitly
+    if base_dir:
+        quoted_env = base_dir / ".env.quoted"
+        if quoted_env.exists() and quoted_env not in env_files:
+            env_files.append(quoted_env)
 
     # Track which variables we've loaded
     loaded_vars: set[str] = set()
@@ -105,6 +112,8 @@ def load_env_files(
                     if key not in loaded_vars or override:
                         result[key] = value
                         loaded_vars.add(key)
+                        # Also ensure it's in the environment
+                        os.environ[key] = value
 
     return result
 

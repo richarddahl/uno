@@ -37,7 +37,7 @@ class OrderFulfillmentSaga(Saga):
     async def handle_event(self, event: Any) -> None:
         try:
             await self.logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 f"Saga event received",
                 saga_id=self.saga_id,
                 saga_type="OrderFulfillmentSaga",
@@ -50,7 +50,7 @@ class OrderFulfillmentSaga(Saga):
                 self.saga_id = event["order_id"]
                 self.status = "waiting_inventory"
                 await self.logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Order placed",
                     status=self.status,
                 )
@@ -64,7 +64,7 @@ class OrderFulfillmentSaga(Saga):
                 self.data["inventory_reserved"] = True
                 self.status = "waiting_payment"
                 await self.logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Inventory reserved",
                     status=self.status,
                 )
@@ -78,7 +78,7 @@ class OrderFulfillmentSaga(Saga):
                 self.data["payment_processed"] = True
                 self.status = "completed"
                 await self.logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Payment processed",
                     status=self.status,
                 )
@@ -87,7 +87,7 @@ class OrderFulfillmentSaga(Saga):
             elif event["type"] == "PaymentFailed":
                 self.status = "compensating"
                 await self.logger.structured_log(
-                    "ERROR",
+                    LogLevel.ERROR,
                     f"Payment failed: starting compensation",
                     saga_id=self.saga_id,
                     status=self.status,
@@ -104,7 +104,7 @@ class OrderFulfillmentSaga(Saga):
             elif event["type"] == "InventoryReservationFailed":
                 self.status = "failed"
                 await self.logger.structured_log(
-                    "ERROR",
+                    LogLevel.ERROR,
                     f"Inventory reservation failed",
                     status=self.status,
                 )
@@ -121,7 +121,7 @@ class OrderFulfillmentSaga(Saga):
 
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Error handling event: {e}",
                 saga_id=self.saga_id,
                 saga_type="OrderFulfillmentSaga",
@@ -131,7 +131,7 @@ class OrderFulfillmentSaga(Saga):
 
     async def compensate(self) -> None:
         await self.logger.structured_log(
-            "INFO",
+            LogLevel.INFO,
             f"Compensating: releasing inventory",
             saga_id=self.saga_id,
             status=self.status,
@@ -139,7 +139,7 @@ class OrderFulfillmentSaga(Saga):
         self.data["compensated"] = True
         self.status = "compensated"
         await self.logger.structured_log(
-            "INFO",
+            LogLevel.INFO,
             f"Compensation complete",
             saga_id=self.saga_id,
             status=self.status,

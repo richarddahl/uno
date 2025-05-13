@@ -29,7 +29,7 @@ def import_from_path(
     except Exception as exc:
         if logger and hasattr(logger, "structured_log"):
             logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to import module '{module_name}' from '{file_path}'",
                 name="uno.utils.import_from_path",
                 error=exc,

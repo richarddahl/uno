@@ -295,7 +295,7 @@ class UnoLogger(LoggerProtocol):
     def __init__(
         self,
         name: str,
-        level: str = "INFO",
+        level: str = LogLevel.INFO,
         settings: LoggingSettings | None = None,
         _handler: callable[..., Any] | None = None,
     ) -> None:

@@ -70,7 +70,7 @@ class MigrationManager:
                 await session.run_sync(metadata.create_all)
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to create migrations table: {str(e)}",
                 name="uno.sql.migration",
                 error=e,
@@ -127,7 +127,7 @@ class MigrationManager:
                 self._migrations.append(migration)
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Created migration {migration.version}: {migration.name}",
                     name="uno.sql.migration",
                     migration=migration.dict(),
@@ -135,7 +135,7 @@ class MigrationManager:
                 return migration
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to create migration: {str(e)}",
                 name="uno.sql.migration",
                 error=e,
@@ -188,14 +188,14 @@ class MigrationManager:
                         migration.applied_at = datetime.now()
 
                         self._logger.structured_log(
-                            "INFO",
+                            LogLevel.INFO,
                             f"Applied migration {migration.version}: {migration.name}",
                             name="uno.sql.migration",
                             migration=migration.dict(),
                         )
                     except Exception as e:
                         self._logger.structured_log(
-                            "ERROR",
+                            LogLevel.ERROR,
                             f"Failed to apply migration {migration.version}: {str(e)}",
                             name="uno.sql.migration",
                             error=e,
@@ -208,7 +208,7 @@ class MigrationManager:
                 await session.commit()
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to apply migrations: {str(e)}",
                 name="uno.sql.migration",
                 error=e,
@@ -246,7 +246,7 @@ class MigrationManager:
                     migration.applied_at = None
 
                     self._logger.structured_log(
-                        "INFO",
+                        LogLevel.INFO,
                         f"Rolled back migration {migration.version}: {migration.name}",
                         name="uno.sql.migration",
                         migration=migration.dict(),
@@ -254,7 +254,7 @@ class MigrationManager:
                     await session.commit()
                 except Exception as e:
                     self._logger.structured_log(
-                        "ERROR",
+                        LogLevel.ERROR,
                         f"Failed to rollback migration {version}: {str(e)}",
                         name="uno.sql.migration",
                         error=e,
@@ -263,7 +263,7 @@ class MigrationManager:
                     raise Exception(f"Failed to rollback migration: {str(e)}")
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to rollback migration: {str(e)}",
                 name="uno.sql.migration",
                 error=e,
@@ -293,7 +293,7 @@ class MigrationManager:
                 return self._migrations
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to get migration status: {str(e)}",
                 name="uno.sql.migration",
                 error=e,

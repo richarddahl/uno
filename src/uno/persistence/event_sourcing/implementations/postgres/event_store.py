@@ -64,7 +64,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 await conn.run_sync(self._metadata.create_all)
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to create events table: {e}",
                 name="uno.persistence.event_sourcing.postgres",
                 error=e,
@@ -94,7 +94,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 await session.commit()
 
             await self.logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 f"Saved event {event.event_type} for aggregate {event.aggregate_id}",
                 name="uno.persistence.event_sourcing.postgres",
                 event_id=event.event_id,
@@ -102,7 +102,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
             )
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to save event {event.event_type}: {e}",
                 name="uno.persistence.event_sourcing.postgres",
                 error=e,
@@ -154,14 +154,14 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                     events.append(upcasted)
 
             await self.logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 f"Retrieved {len(events)} events from store",
                 name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to retrieve events: {e}",
                 name="uno.persistence.event_sourcing.postgres",
                 error=e,
@@ -203,14 +203,14 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                     events.append(upcasted)
 
             await self.logger.structured_log(
-                "INFO",
+                LogLevel.INFO,
                 f"Retrieved {len(events)} events for aggregate {aggregate_id}",
                 name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
             await self.logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Error retrieving events for aggregate {aggregate_id}: {e}",
                 name="uno.persistence.event_sourcing.postgres",
                 error=e,

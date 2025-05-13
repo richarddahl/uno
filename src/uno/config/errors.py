@@ -28,7 +28,8 @@ class ConfigError(UnoError):
         message: str,
         code: str | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize a configuration error.
 
@@ -36,14 +37,19 @@ class ConfigError(UnoError):
             message: Human-readable error message
             code: Error code without prefix (will be prefixed automatically)
             severity: How severe this error is
-            **context: Additional context information
+            context: Additional context information
+            **kwargs: Additional context keys (will be merged with context)
         """
+        # Combine explicit context dict with any additional kwargs
+        full_context = context or {}
+        full_context.update(kwargs)
+
         super().__init__(
             message=message,
             code=f"CONFIG_{code}" if code else "CONFIG_ERROR",
             category=ErrorCategory.CONFIG,
             severity=severity,
-            **context,
+            context=full_context,
         )
 
 
@@ -58,17 +64,19 @@ class ConfigValidationError(ConfigError):
         code: str | None = "VALIDATION_ERROR",
         **context: Any,
     ) -> None:
-        ctx = context.copy()
+        ctx = {}
         if config_key:
             ctx["config_key"] = config_key
         if config_value is not None:
             ctx["config_value"] = str(config_value)
+        # Add any additional context
+        ctx.update(context)
 
         super().__init__(
             message=message,
             code=code,
             severity=ErrorSeverity.ERROR,
-            **ctx,
+            context=ctx,
         )
 
 
@@ -84,12 +92,14 @@ class ConfigFileNotFoundError(ConfigError):
     ) -> None:
         message = message or f"Configuration file not found: {file_path}"
 
+        ctx = {"file_path": file_path}
+        ctx.update(context)
+
         super().__init__(
             message=message,
             code=code,
             severity=ErrorSeverity.ERROR,
-            file_path=file_path,
-            **context,
+            context=ctx,
         )
 
 
@@ -104,9 +114,14 @@ class ConfigParseError(ConfigError):
         code: str | None = "PARSE_ERROR",
         **context: Any,
     ) -> None:
-        ctx = context.copy()
+        ctx = {
+            "file_path": file_path,
+            "reason": reason,
+        }
         if line_number is not None:
             ctx["line_number"] = line_number
+        # Add any additional context
+        ctx.update(context)
 
         message = f"Failed to parse configuration file {file_path}: {reason}"
         if line_number is not None:
@@ -116,9 +131,7 @@ class ConfigParseError(ConfigError):
             message=message,
             code=code,
             severity=ErrorSeverity.ERROR,
-            file_path=file_path,
-            reason=reason,
-            **ctx,
+            context=ctx,
         )
 
 
@@ -134,12 +147,14 @@ class ConfigMissingKeyError(ConfigError):
     ) -> None:
         message = message or f"Required configuration key missing: {key}"
 
+        ctx = {"key": key}
+        ctx.update(context)
+
         super().__init__(
             message=message,
             code=code,
             severity=ErrorSeverity.ERROR,
-            key=key,
-            **context,
+            context=ctx,
         )
 
 
@@ -153,13 +168,41 @@ class ConfigEnvironmentError(ConfigError):
         code: str | None = "ENVIRONMENT_ERROR",
         **context: Any,
     ) -> None:
-        ctx = context.copy()
+        ctx = {}
         if environment:
             ctx["environment"] = environment
+        # Add any additional context
+        ctx.update(context)
 
         super().__init__(
             message=message,
             code=code,
             severity=ErrorSeverity.ERROR,
-            **ctx,
+            context=ctx,
+        )
+
+
+class SecureValueError(ConfigError):
+    """Base class for secure value related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str | None = None,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        **context: Any,
+    ) -> None:
+        """Initialize a secure value error.
+
+        Args:
+            message: Human-readable error message
+            code: Error code without prefix
+            severity: ErrorSeverity for the error (default: ERROR)
+            **context: Additional context information
+        """
+        super().__init__(
+            message=message,
+            code=f"SECURE_{code}" if code else "SECURE_ERROR",
+            severity=severity,
+            context=context,
         )

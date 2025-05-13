@@ -13,10 +13,9 @@ from collections.abc import AsyncGenerator, Callable
 from typing import (
     TYPE_CHECKING,
     Any,
+    Awaitable,
     Literal,
-    Protocol,
     TypeVar,
-    runtime_checkable,
 )
 
 from uno.di.disposal import _DisposalManager
@@ -27,176 +26,16 @@ from uno.di.errors import (
     ServiceNotRegisteredError,
     TypeMismatchError,
 )
+from uno.di.protocols import (
+    AsyncServiceFactoryProtocol,
+    ContainerProtocol,
+    ServiceFactoryProtocol,
+    ScopeProtocol,
+)
 from uno.di.registration import ServiceRegistration
 from uno.di.resolution import _Scope
 
 T = TypeVar("T")
-
-if TYPE_CHECKING:
-    from uno.di.protocols import (
-        AsyncServiceFactoryProtocol,
-        ServiceFactoryProtocol,
-        ContainerProtocol,
-        ScopeProtocol,
-    )
-
-
-@runtime_checkable
-class ContainerProtocol(Protocol):
-    """Protocol for dependency injection containers."""
-
-    async def register_singleton(
-        self,
-        interface: type[T],
-        implementation: (
-            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-        ),
-        replace: bool = False,
-    ) -> None:
-        """Register a service with singleton lifetime.
-
-        Args:
-            interface: type[T]
-                The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-                Either a class that implements the interface, a synchronous factory function,
-                or an asynchronous factory function that returns an instance of the implementation.
-            replace: bool
-                If True, replace any existing registration for this interface.
-                Default: False
-
-        Raises:
-            ScopeError: If the container has been disposed.
-            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
-            TypeMismatchError: If the implementation does not implement the interface.
-        """
-        ...
-
-    async def register_scoped(
-        self,
-        interface: type[T],
-        implementation: (
-            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-        ),
-        replace: bool = False,
-    ) -> None:
-        """Register a service with scoped lifetime.
-
-        Args:
-            interface: type[T]
-                The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-                Either a class that implements the interface, a synchronous factory function,
-                or an asynchronous factory function that returns an instance of the implementation.
-            replace: bool
-                If True, replace any existing registration for this interface.
-                Default: False
-
-        Raises:
-            ScopeError: If the container has been disposed.
-            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
-            TypeMismatchError: If the implementation does not implement the interface.
-        """
-        ...
-
-    async def register_transient(
-        self,
-        interface: type[T],
-        implementation: (
-            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-        ),
-        replace: bool = False,
-    ) -> None:
-        """Register a service with transient lifetime.
-
-        Args:
-            interface: type[T]
-                The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-                Either a class that implements the interface, a synchronous factory function,
-                or an asynchronous factory function that returns an instance of the implementation.
-            replace: bool
-                If True, replace any existing registration for this interface.
-                Default: False
-
-        Raises:
-            ScopeError: If the container has been disposed.
-            DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
-            TypeMismatchError: If the implementation does not implement the interface.
-        """
-        ...
-
-    def get_registration_keys(self) -> list[str]:
-        """Get all registered service keys synchronously.
-
-        Returns:
-            A list of service keys (type names) that are registered in this container.
-        """
-        ...
-
-    async def get_registration_keys_async(self) -> list[str]:
-        """Get all registered service keys asynchronously.
-
-        Returns:
-            A list of service keys (type names) that are registered in this container.
-        """
-        ...
-
-    def get_scope_chain(self) -> list[_Scope]:
-        """Get the chain of scopes from current to root synchronously.
-
-        Returns:
-            A list of scopes from the current scope to the root scope.
-        """
-        ...
-
-    async def get_scope_chain_async(self) -> list[_Scope]:
-        """Get the chain of scopes from current to root asynchronously.
-
-        Returns:
-            A list of scopes from the current scope to the root scope.
-        """
-        ...
-
-    @contextlib.asynccontextmanager
-    async def create_scope(self) -> AsyncGenerator[_Scope]:
-        """Create a new scope for scoped services.
-
-        This method returns an async context manager that yields a scope.
-        The scope will be automatically disposed when the context exits.
-
-        Example:
-            ```python
-            async with container.create_scope() as scope:
-                service = await scope.resolve(IService)
-            # Scope is automatically disposed here
-            ```
-        """
-        ...
-
-    async def wait_for_pending_tasks(self) -> None:
-        """Wait for all pending registration tasks to complete.
-
-        This method should be called before disposing the container to ensure
-        all asynchronous registration tasks have completed.
-
-        Raises:
-            Exception: If any of the pending tasks raised an exception.
-        """
-        ...
-
-    async def dispose(self) -> None:
-        """Dispose the container and all its services.
-
-        This method:
-        1. Waits for any pending registration tasks
-        2. Disposes all scopes
-        3. Disposes singleton services
-
-        After disposal, the container cannot be used and will raise ScopeError
-        when attempting to register or resolve services.
-        """
-        ...
 
 
 class Container:

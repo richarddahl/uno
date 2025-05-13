@@ -4,7 +4,10 @@ Protocol definitions for the uno DI system.
 This module contains the core protocols that define the interface for the DI container and its components.
 """
 
-from collections.abc import Awaitable, Callable
+from __future__ import annotations
+
+import contextlib
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 
 T = TypeVar("T")
@@ -50,30 +53,55 @@ class ScopeProtocol(Protocol):
         """Get the service keys available in this scope synchronously."""
         ...
 
-    async def get_service_keys(self) -> list[str]:
+    async def get_service_keys_async(self) -> list[str]:
         """Get the service keys available in this scope asynchronously."""
         ...
 
 
+# ServiceFactoryProtocol definitions
+ServiceFactoryProtocol = Callable[["ContainerProtocol"], T]
+AsyncServiceFactoryProtocol = Callable[["ContainerProtocol"], Awaitable[T]]
+Lifetime = Literal["singleton", "scoped", "transient"]
+
+
 @runtime_checkable
 class ContainerProtocol(Protocol):
-    """Protocol for DI container."""
+    """Protocol for dependency injection containers."""
 
-    _registrations: dict[type[Any], Any]
-    _singleton_scope: Any
-
-    @property
-    def current_scope(self) -> ScopeProtocol | None:
-        """Get the current active scope, or None if no scope is active."""
+    async def register_singleton(
+        self,
+        interface: type[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
+        replace: bool = False,
+    ) -> None:
+        """Register a service with singleton lifetime."""
         ...
 
-    async def resolve(self, service_type: type[T]) -> T: ...
+    async def register_scoped(
+        self,
+        interface: type[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
+        replace: bool = False,
+    ) -> None:
+        """Register a service with scoped lifetime."""
+        ...
 
-    async def _dispose_service(self, service: T) -> None: ...
+    async def register_transient(
+        self,
+        interface: type[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
+        replace: bool = False,
+    ) -> None:
+        """Register a service with transient lifetime."""
+        ...
 
-    async def _create_service(self, interface: type[T], implementation: Any) -> T: ...
-
-    async def get_registration_keys(self) -> list[str]:
+    def get_registration_keys(self) -> list[str]:
         """Get all registered service keys synchronously."""
         ...
 
@@ -81,7 +109,7 @@ class ContainerProtocol(Protocol):
         """Get all registered service keys asynchronously."""
         ...
 
-    async def get_scope_chain(self) -> list[ScopeProtocol]:
+    def get_scope_chain(self) -> list[ScopeProtocol]:
         """Get the chain of scopes from current to root synchronously."""
         ...
 
@@ -89,39 +117,21 @@ class ContainerProtocol(Protocol):
         """Get the chain of scopes from current to root asynchronously."""
         ...
 
-
-# Rename to include Protocol suffix for consistency
-ServiceFactoryProtocol = Callable[[ContainerProtocol], T]
-AsyncServiceFactoryProtocol = Callable[[ContainerProtocol], Awaitable[T]]
-Lifetime = Literal["singleton", "scoped", "transient"]
-
-
-@runtime_checkable
-class ScopeProtocol(Protocol):
-    """Protocol for a DI scope."""
-
-    async def resolve(self, interface: type[T]) -> T:
-        """Resolve a service within this scope."""
+    @contextlib.asynccontextmanager  # type: ignore
+    async def create_scope(self) -> AsyncGenerator[ScopeProtocol, None]:
+        """Create a new scope for scoped services."""
         ...
 
-    def __getitem__(self, key: type[T]) -> T:
-        """Get a service by type."""
-        ...
-
-    def __setitem__(self, key: type[T], value: T) -> None:
-        """Set a service by type."""
+    async def wait_for_pending_tasks(self) -> None:
+        """Wait for all pending registration tasks to complete."""
         ...
 
     async def dispose(self) -> None:
-        """Dispose of the scope and its services."""
+        """Dispose the container and all its services."""
         ...
 
-    async def create_scope(self) -> "ScopeProtocol":
-        """Create a child scope."""
-        ...
-
-    async def get_service_keys(self) -> list[str]:
-        """Get the service keys available in this scope asynchronously."""
+    async def resolve(self, interface: type[T]) -> T:
+        """Resolve a service by type."""
         ...
 
 

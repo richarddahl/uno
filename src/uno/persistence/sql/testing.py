@@ -86,7 +86,7 @@ class SQLTestHelper:
                 )
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Created mock database {db_name}",
                     name="uno.sql.testing",
                     database=db_name,
@@ -94,7 +94,7 @@ class SQLTestHelper:
                 return db_name
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to create mock database: {str(e)}",
                 name="uno.sql.testing",
                 error=e,
@@ -127,14 +127,14 @@ class SQLTestHelper:
                 del self._mock_databases[name]
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Cleaned up mock database {name}",
                     name="uno.sql.testing",
                     database=name,
                 )
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to clean up mock database {name}: {str(e)}",
                 name="uno.sql.testing",
                 error=e,
@@ -178,7 +178,7 @@ class SQLTestHelper:
                     self._mock_databases[db_name].tables.append(table_def["name"])
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Created mock tables in {db_name}",
                     name="uno.sql.testing",
                     database=db_name,
@@ -186,7 +186,7 @@ class SQLTestHelper:
                 )
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to create mock tables in {db_name}: {str(e)}",
                 name="uno.sql.testing",
                 error=e,
@@ -213,14 +213,14 @@ class SQLTestHelper:
                 self._mock_databases[db_name].tables.clear()
 
                 self._logger.structured_log(
-                    "INFO",
+                    LogLevel.INFO,
                     f"Cleaned up mock tables in {db_name}",
                     name="uno.sql.testing",
                     database=db_name,
                 )
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to clean up mock tables in {db_name}: {str(e)}",
                 name="uno.sql.testing",
                 error=e,
@@ -239,7 +239,7 @@ class SQLTestHelper:
             await session.rollback()
         except Exception as e:
             self._logger.structured_log(
-                "ERROR",
+                LogLevel.ERROR,
                 f"Failed to rollback transaction: {str(e)}",
                 name="uno.sql.testing",
                 error=e,

@@ -8,8 +8,9 @@
 - Use X | None not Optional[X]
 - Use X | Y | Z not Union[X, Y, Z]
 - Use X | Y | Z | None not Optional[X | Y | Z]
-- Use pydantic 2 for data validation
-- Use modern implementations of library, with NO deprecation warnings triggered
+- Use pydantic 2 and its built-in validators or @model_validator or @field_validator for data validation
+- Use pydantic 2 and its built-in serializers or @model_serializer or @field_serializer for data serialization
+- Use modern implementations of library, with NO deprecation warnings
 - Use python 3.13
 - Use black and ruff for formatting and linting
 - Use mypy for type checking
@@ -26,3 +27,8 @@
 - Concrete implementations are defined outside protocols.py and have no suffix
 - All imports are properly formatted and ordered
 - All public API symbols are listed in __init__.__all__ in proper isort ordering
+- All error codes are defined in ErrorCode enum
+- All error categories are defined in ErrorCategory enum
+- All error severity are defined in ErrorSeverity enum
+- UnoError is NEVER instantiated directly
+- Subclass UnoError for specific error types defined in each packages errrors.py module
