@@ -9,10 +9,10 @@ from typing import Any
 import asyncpg
 import json
 
-from uno.sagas.protocols import SagaStoreProtocol, SagaState
+from uno.sagas.protocols import SagaState
 
 
-class PostgresSagaStore(SagaStoreProtocol):
+class PostgresSagaStore:
     """PostgreSQL implementation of the saga store."""
 
     def __init__(self, dsn: str) -> None:

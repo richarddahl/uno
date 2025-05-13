@@ -6,13 +6,7 @@ import pytest
 
 from uno.metrics.collector import AsyncMetricCollector, AsyncMetricReporter
 from uno.metrics.implementations.memory import InMemoryMetricStore
-from uno.metrics.protocols import (
-    CounterProtocol,
-    GaugeProtocol,
-    MetricProtocol,
-    TimerContext,
-    TimerProtocol,
-)
+from uno.metrics.protocols import TimerContextProtocol
 from uno.metrics.registry import MetricRegistry
 
 
@@ -41,11 +35,11 @@ async def test_metric_registry(registry: MetricRegistry) -> None:
     """Test metric registry functionality."""
 
     # Test registration
-    class TestMetric(MetricProtocol):
+    class FakeMetric:
         async def get_value(self) -> Any:
             return 42
 
-    metric = TestMetric()
+    metric = FakeMetric()
     registry.register("test", metric)
     assert "test" in registry
     assert registry.get("test") == metric
@@ -115,7 +109,7 @@ async def test_async_metric_reporter(
 async def test_counter_protocol() -> None:
     """Test counter protocol implementation."""
 
-    class TestCounter(CounterProtocol):
+    class FakeCounter:
         def __init__(self) -> None:
             self._count = 0
 
@@ -128,7 +122,7 @@ async def test_counter_protocol() -> None:
         async def get_value(self) -> Any:
             return self._count
 
-    counter = TestCounter()
+    counter = FakeCounter()
     await counter.inc()
     await counter.inc(2.0)
     await counter.dec()
@@ -139,7 +133,7 @@ async def test_counter_protocol() -> None:
 async def test_gauge_protocol() -> None:
     """Test gauge protocol implementation."""
 
-    class TestGauge(GaugeProtocol):
+    class FakeGauge:
         def __init__(self) -> None:
             self._value = 0.0
 
@@ -155,7 +149,7 @@ async def test_gauge_protocol() -> None:
         async def get_value(self) -> Any:
             return self._value
 
-    gauge = TestGauge()
+    gauge = FakeGauge()
     await gauge.set(10.0)
     await gauge.inc(5.0)
     await gauge.dec(2.0)
@@ -166,15 +160,16 @@ async def test_gauge_protocol() -> None:
 async def test_timer_protocol() -> None:
     """Test timer protocol implementation."""
 
-    class TestTimer(TimerProtocol, MetricProtocol):
+    class FakeTimer:
         def __init__(self) -> None:
             self._durations: list[float] = []
             self._lock = asyncio.Lock()
 
-        async def time(self) -> TimerContext:
+        async def time(self) -> TimerContextProtocol:
             # Implementation of time method
-            class Context(TimerContext):
-                def __init__(self, timer: "TestTimer") -> None:
+            class Context(TimerContextProtocol):
+
+                def __init__(self, timer: "FakeTimer") -> None:
                     self.timer = timer
                     self.start_time = 0.0
 
@@ -211,7 +206,7 @@ async def test_timer_protocol() -> None:
                     "count": len(durations),
                 }
 
-    timer = TestTimer()
+    timer = FakeTimer()
 
     # Test timing context
     async with await timer.time():

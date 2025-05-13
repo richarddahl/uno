@@ -1,7 +1,7 @@
 from uno.logging.protocols import LoggerProtocol
 
 
-class FakeLogger(LoggerProtocol):
+class FakeLogger:
     def debug(self, message: str, **kwargs):
         pass
 

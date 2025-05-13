@@ -4,20 +4,30 @@ from typing import Any
 from pydantic import BaseModel
 from enum import Enum
 
+
 class ErrorSeverity(str, Enum):
     CRITICAL = "critical"
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
 
+
 class LoggingErrorContext(BaseModel):
     code: str
     severity: ErrorSeverity = ErrorSeverity.ERROR
     context: dict[str, str] = {}
 
+
 class LoggingError(Exception):
     """Base class for all Uno logging-related errors (Uno idiom: local, Pydantic context)."""
-    def __init__(self, message: str, code: str = "LOG_ERROR", severity: ErrorSeverity = ErrorSeverity.ERROR, **context: str) -> None:
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "LOG_ERROR",
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        **context: str,
+    ) -> None:
         self.message = message
         self.context = LoggingErrorContext(
             code=code,
@@ -57,6 +67,8 @@ class ErrorLogger:
             "severity": severity.value,
             "context": error.context.context,
         }
-        self.logger.log(level, "Error occurred", extra={"error": log_data})
+        await self.logger.log(level, "Error occurred", extra={"error": log_data})
         if hasattr(error, "__traceback__") and error.__traceback__ is not None:
-            self.logger.debug(f"Traceback for {error.context.code}:", exc_info=error)
+            await self.logger.debug(
+                f"Traceback for {error.context.code}:", exc_info=error
+            )

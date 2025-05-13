@@ -26,7 +26,7 @@ class InMemorySnapshotStore(SnapshotStore):
             "type": type(aggregate).__name__,
             "data": data,
         }
-        self.logger.structured_log("INFO", f"Snapshot saved for {aggregate_id}")
+        await self.logger.structured_log("INFO", f"Snapshot saved for {aggregate_id}")
 
     async def get_snapshot(
         self, aggregate_id: str, aggregate_type: type[T]
@@ -39,9 +39,9 @@ class InMemorySnapshotStore(SnapshotStore):
                 f"Aggregate type {aggregate_type.__name__} does not implement from_dict method"
             )
         aggregate = aggregate_type.from_dict(snap["data"])
-        self.logger.structured_log("INFO", f"Snapshot loaded for {aggregate_id}")
+        await self.logger.structured_log("INFO", f"Snapshot loaded for {aggregate_id}")
         return aggregate
 
     async def delete_snapshot(self, aggregate_id: str) -> None:
         self._snapshots.pop(aggregate_id, None)
-        self.logger.structured_log("INFO", f"Snapshot deleted for {aggregate_id}")
+        await self.logger.structured_log("INFO", f"Snapshot deleted for {aggregate_id}")

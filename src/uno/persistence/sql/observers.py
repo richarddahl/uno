@@ -120,9 +120,11 @@ class LoggingSQLObserver(BaseObserver):
             source: Source of the SQL statements
             statements: Generated SQL statements
         """
-        self.logger.debug(f"Generated {len(statements)} SQL statements from {source}")
+        await self.logger.debug(
+            f"Generated {len(statements)} SQL statements from {source}"
+        )
         for stmt in statements:
-            self.logger.debug(f"  - {stmt.name} ({stmt.type.value})")
+            await self.logger.debug(f"  - {stmt.name} ({stmt.type.value})")
 
     def on_sql_executed(
         self, source: str, statements: list[SQLStatement], duration: float
@@ -134,7 +136,7 @@ class LoggingSQLObserver(BaseObserver):
             statements: Executed SQL statements
             duration: Execution duration in seconds
         """
-        self.logger.info(
+        await self.logger.info(
             f"Executed {len(statements)} SQL statements from {source} in {duration:.2f}s"
         )
 
@@ -148,5 +150,7 @@ class LoggingSQLObserver(BaseObserver):
             statements: SQL statements that failed
             error: Exception that occurred
         """
-        self.logger.error(f"SQL error in {source}: {error}")
-        self.logger.error(f"Failed statements: {[stmt.name for stmt in statements]}")
+        await self.logger.error(f"SQL error in {source}: {error}")
+        await self.logger.error(
+            f"Failed statements: {[stmt.name for stmt in statements]}"
+        )

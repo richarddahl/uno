@@ -12,14 +12,16 @@ import time
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from uno.events.base_event import DomainEvent
+    from uno.events.base import DomainEvent
     from uno.logging.protocols import LoggerProtocol
 
 
 class NextMiddlewareCallable(Protocol):
     """Protocol for the next middleware in the chain, supporting metadata propagation."""
 
-    async def __call__(self, event: "DomainEvent", metadata: dict[str, object] | None = None) -> None: ...
+    async def __call__(
+        self, event: "DomainEvent", metadata: dict[str, object] | None = None
+    ) -> None: ...
 
 
 class LoggingMiddleware:
@@ -57,7 +59,7 @@ class LoggingMiddleware:
             Exception: If an error occurs during processing
         """
         correlation_id = metadata.get("correlation_id") if metadata else None
-        self.logger.debug(
+        await self.logger.debug(
             "Processing event",
             event_type=event.event_type,
             event_id=getattr(event, "event_id", None),
@@ -68,7 +70,7 @@ class LoggingMiddleware:
         try:
             await next_middleware(event)
 
-            self.logger.debug(
+            await self.logger.debug(
                 "Event handled successfully",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
@@ -76,7 +78,7 @@ class LoggingMiddleware:
                 correlation_id=correlation_id,
             )
         except Exception as e:
-            self.logger.error(
+            await self.logger.error(
                 "Error handling event",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
@@ -130,7 +132,7 @@ class TimingMiddleware:
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.debug(
+            await self.logger.debug(
                 "Event handled",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),
@@ -142,7 +144,7 @@ class TimingMiddleware:
             end_time = time.time()
             elapsed_ms = (end_time - start_time) * 1000
 
-            self.logger.error(
+            await self.logger.error(
                 "Error handling event",
                 event_type=event.event_type,
                 event_id=getattr(event, "event_id", None),

@@ -32,7 +32,7 @@ class TimeoutSaga(Saga):
 
     async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Saga event received",
                 saga_type="TimeoutSaga",
@@ -43,7 +43,7 @@ class TimeoutSaga(Saga):
             if event["type"] == "StepCompleted":
                 self.data["step_completed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     f"Step completed",
                     status=self.status,
@@ -54,7 +54,7 @@ class TimeoutSaga(Saga):
                 if self.data["retries"] < self.data["max_retries"]:
                     self.data["retries"] += 1
                     self.status = "waiting_step"
-                    self.logger.structured_log(
+                    await self.logger.structured_log(
                         "INFO",
                         f"Timeout triggered - retrying (attempt {self.data['retries']})",
                         status=self.status,
@@ -63,7 +63,7 @@ class TimeoutSaga(Saga):
                     # Would dispatch a retry command here
                 else:
                     self.status = "failed"
-                    self.logger.structured_log(
+                    await self.logger.structured_log(
                         "ERROR",
                         f"Timeout triggered - max retries ({self.data['max_retries']}) exceeded",
                         status=self.status,
@@ -72,7 +72,7 @@ class TimeoutSaga(Saga):
                     raise RuntimeError("Max retries exceeded")
             # Add more event types as needed
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Saga event handling failed",
                 error=str(e),

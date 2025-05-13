@@ -13,17 +13,22 @@ from uno.config.base import UnoSettings, Environment
 from uno.config.di import ConfigRegistrationExtensions
 from uno.di import ContainerProtocol
 
+
 # Use a minimal fake container if create_container is not available
-class FakeContainer(ContainerProtocol):
+class FakeContainer:
     def __init__(self):
         self._singletons = {}
+
     def register_singleton(self, typ, instance):
         self._singletons[typ] = instance
+
     def resolve(self, typ):
         return self._singletons[typ]
 
+
 def create_container() -> ContainerProtocol:
     return FakeContainer()
+
 
 class FakeSettings(UnoSettings):
     foo: str = "bar"
@@ -37,9 +42,11 @@ class FakeSettings(UnoSettings):
             obj.env_specific = env.value
         return obj
 
+
 @pytest.fixture
 def fake_container() -> ContainerProtocol:
     return create_container()
+
 
 @pytest.mark.asyncio
 async def test_register_and_resolve_config(fake_container: ContainerProtocol) -> None:
@@ -51,6 +58,7 @@ async def test_register_and_resolve_config(fake_container: ContainerProtocol) ->
     resolved2 = fake_container.resolve(UnoSettings)
     assert resolved2 is settings
 
+
 @pytest.mark.asyncio
 async def test_config_env_override(fake_container: ContainerProtocol) -> None:
     env = Environment.TESTING
@@ -59,13 +67,16 @@ async def test_config_env_override(fake_container: ContainerProtocol) -> None:
     resolved = fake_container.resolve(UnoSettings)
     assert resolved.env_specific == env.value
 
+
 @pytest.mark.asyncio
 async def test_async_config_loader(fake_container: ContainerProtocol) -> None:
     from uno.config.async_loader import AsyncConfigLoader
+
     loader = AsyncConfigLoader()
     settings = await loader.load(FakeSettings, Environment.PRODUCTION)
     assert isinstance(settings, FakeSettings)
     assert settings.env_specific == Environment.PRODUCTION.value
+
 
 # Type safety test is commented out; Uno idiom is to use type hints and static analysis, not runtime type errors
 # @pytest.mark.asyncio

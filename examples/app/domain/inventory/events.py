@@ -1,6 +1,4 @@
-"""
-Inventory events for the inventory bounded context.
-"""
+"""Inventory events for the inventory bounded context."""
 
 from __future__ import annotations
 
@@ -21,7 +19,12 @@ from uno.errors.codes import ErrorCode
 from uno.errors.factories import event_error
 from uno.events import DomainEvent
 
-from examples.app.domain.vendor.value_objects import EmailAddress
+# Forward references for type hints
+if TYPE_CHECKING:
+    from examples.app.domain.vendor.value_objects import EmailAddress
+else:
+    # Forward reference for runtime
+    EmailAddress = "EmailAddress"
 
 
 class GradeAssignedToLot(DomainEvent):
@@ -44,7 +47,41 @@ class GradeAssignedToLot(DomainEvent):
     grade: Grade
     assigned_by: EmailAddress
     version: int = 1
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(
+        frozen=True,
+        arbitrary_types_allowed=True,
+    )
+
+    @field_serializer("assigned_by")
+    def serialize_assigned_by(
+        self, v: "EmailAddress", _info: FieldSerializationInfo
+    ) -> str:
+        """Serialize EmailAddress to string."""
+        return str(v)
+
+    @field_serializer("grade")
+    def serialize_grade(self, v: "Grade", _info: FieldSerializationInfo) -> str:
+        """Serialize Grade to string.
+        
+        Args:
+            v: The Grade object to serialize
+            _info: Field serialization info
+            
+        Returns:
+            String representation of the Grade
+            
+        Raises:
+            ValueError: If grade is None or invalid
+        """
+        if not v:
+            raise ValueError("Grade cannot be None")
+        
+        # Ensure we have a value to serialize
+        if not hasattr(v, "value") and not isinstance(v, str):
+            raise ValueError(f"Invalid grade value: {v}")
+            
+        # Convert to string, handling both value objects and direct values
+        return str(v.value if hasattr(v, "value") else v)
 
     @classmethod
     def create(
@@ -509,45 +546,25 @@ class InventoryItemRenamed(DomainEvent):
             The upcasted event
 
         Raises:
-            UnoError: If upcasting is not supported
+            UnoError: If upcasting is not supported or invalid version
         """
         if target_version == self.version:
             return self
-
-        raise event_error(
-            f"Upcasting from version {self.version} to {target_version} is not implemented",
-            code=ErrorCode.NOT_IMPLEMENTED,
-        )
-
-    def _record_event(self, event: DomainEvent) -> None:
-        self._domain_events.append(event)
-        self._apply_event(event)
-
-    def _apply_event(self, event: DomainEvent) -> None:
-        from examples.app.domain.measurement import Count, Measurement
-
-        if isinstance(event, InventoryItemCreated):
-            self.name = event.name
-            self.measurement = event.measurement
-        elif isinstance(event, InventoryItemRenamed):
-            self.name = event.new_name
-        elif isinstance(event, InventoryItemAdjusted):
-            # event.adjustment is always numeric
-            current_value = self.measurement.value.value
-            new_value = current_value + event.adjustment
-            if new_value < 0:
-                raise event_error(
-                    "resulting measurement cannot be negative",
-                    code=ErrorCode.INVALID_INPUT,
-                    details={},
-                )
-            new_count = Count(value=new_value, unit=self.measurement.value.unit)
-            self.measurement = Measurement.from_count(new_count)
-        else:
+            
+        if target_version < 1 or target_version > self.__version__:
             raise event_error(
-                f"Unhandled event: {event}",
-                details={},
+                f"Cannot upcast to version {target_version}. "
+                f"Supported versions: 1-{self.__version__}",
+                code=ErrorCode.INVALID_INPUT,
+                details={
+                    "current_version": self.version,
+                    "target_version": target_version,
+                    "max_supported_version": self.__version__,
+                },
             )
+            
+        # Create a new instance with the target version
+        return self.model_copy(update={"version": target_version})
 
     @model_validator(mode="after")
     def validate_model(self) -> Self:
@@ -951,12 +968,16 @@ T = TypeVar("T", bound="InventoryLotSplit")
 class InventoryLotSplit(DomainEvent):
     """
     Event: InventoryLot was split into multiple new lots.
+
     Usage:
         result = InventoryLotSplit.create(
             source_lot_id="lot-1",
             new_lot_ids=["lot-2", "lot-3"],
             aggregate_id="item-xyz",
-            split_quantities=[Measurement.from_count(Count.from_each(5)), Measurement.from_count(Count.from_each(5))],
+            split_quantities=[
+                Measurement.from_count(Count.from_each(5)),
+                Measurement.from_count(Count.from_each(5))
+            ],
             reason="customer request"
         )
         if isinstance(result, Success):
@@ -972,16 +993,19 @@ class InventoryLotSplit(DomainEvent):
     model_config = ConfigDict(frozen=True)
 
     @field_serializer("split_quantities")
-    def serialize_split_quantities(self, values, _info):
+    def serialize_split_quantities(
+        self, values: list[Measurement], _info: FieldSerializationInfo
+    ) -> list[dict[str, Any]]:
+        """Serialize split quantities to JSON-serializable format."""
         return [q.model_dump(mode="json") for q in values]
 
     source_lot_id: str
     new_lot_ids: list[str]
     aggregate_id: str
-    split_quantities: list[int | float | Count | Measurement]
+    split_quantities: list[Measurement]  # Store only Measurement objects after validation
     reason: str | None = None  # v2: Optional explanation for why the lot was split
     version: int = 1  # default to v1 for backward compatibility with tests
-    __version__: ClassVar[int] = 2
+    __version__: ClassVar[int] = 2  # Current version of this event class
 
     @classmethod
     def create(
@@ -993,33 +1017,78 @@ class InventoryLotSplit(DomainEvent):
         reason: str | None = None,
         version: int = 1,
     ) -> Self:
+        """Create a new InventoryLotSplit event.
+        
+        Args:
+            source_lot_id: ID of the original lot being split
+            new_lot_ids: List of new lot IDs created from the split
+            aggregate_id: ID of the aggregate this event belongs to
+            split_quantities: List of quantities for each new lot
+            reason: Optional reason for the split
+            version: Version of the event schema to use
+            
+        Returns:
+            A new InventoryLotSplit event
+            
+        Raises:
+            UnoError: If validation fails
+        """
         try:
-            if not source_lot_id or not new_lot_ids or not aggregate_id:
+            # Input validation
+            if not source_lot_id or not isinstance(source_lot_id, str):
                 raise event_error(
-                    "source_lot_id, new_lot_ids, and aggregate_id are required",
-                    details={
-                        "source_lot_id": source_lot_id,
-                        "new_lot_ids": new_lot_ids,
-                        "aggregate_id": aggregate_id,
-                    },
+                    "source_lot_id is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"source_lot_id": source_lot_id},
                 )
-            if not isinstance(split_quantities, list):
+                
+            if not new_lot_ids or not isinstance(new_lot_ids, list) or not all(
+                isinstance(id, str) for id in new_lot_ids
+            ):
                 raise event_error(
-                    "split_quantities must be a list",
+                    "new_lot_ids must be a non-empty list of strings",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"new_lot_ids": new_lot_ids},
+                )
+                
+            if not aggregate_id or not isinstance(aggregate_id, str):
+                raise event_error(
+                    "aggregate_id is required and must be a string",
+                    code=ErrorCode.INVALID_INPUT,
+                    details={"aggregate_id": aggregate_id},
+                )
+                
+            if not split_quantities or not isinstance(split_quantities, list):
+                raise event_error(
+                    "split_quantities must be a non-empty list",
+                    code=ErrorCode.INVALID_INPUT,
                     details={"split_quantities": split_quantities},
                 )
-            qty_objs = []
-            for q in split_quantities:
-                if isinstance(q, Measurement):
-                    qty_objs.append(q)
-                elif isinstance(q, Count | int | float):
-                    qty_objs.append(Measurement.from_count(q))
-                else:
+                
+            # Convert all quantities to Measurement objects
+            qty_objs: list[Measurement] = []
+            for i, q in enumerate(split_quantities):
+                try:
+                    if isinstance(q, Measurement):
+                        qty_objs.append(q)
+                    elif isinstance(q, Count | int | float):
+                        qty_objs.append(Measurement.from_count(q))
+                    else:
+                        raise ValueError(
+                            f"Invalid type for split quantity: {type(q).__name__}. "
+                            "Must be Measurement, Count, int, or float"
+                        )
+                except Exception as e:
+                    if not isinstance(e, ValueError):
+                        e = ValueError(str(e))
                     raise event_error(
-                        "Each split_measurement must be a Measurement, Count, int, or float",
-                        details={"split_measurement": q},
-                    )
-            event = cls(
+                        f"Invalid split_quantity at index {i}: {e}",
+                        code=ErrorCode.INVALID_INPUT,
+                        details={"index": i, "value": str(q)},
+                    ) from e
+            
+            # Create and return the event
+            return cls(
                 source_lot_id=source_lot_id,
                 new_lot_ids=new_lot_ids,
                 aggregate_id=aggregate_id,
@@ -1027,20 +1096,60 @@ class InventoryLotSplit(DomainEvent):
                 reason=reason,
                 version=version,
             )
-            return event
+            
+        except UnoError:
+            raise
         except Exception as exc:
-            details = {"error": str(exc)}
-            details["split_quantities"] = (
-                split_quantities if "split_quantities" in locals() else None
-            )
             raise event_error(
-                "Failed to create InventoryLotSplit", details=details
+                f"Failed to create InventoryLotSplit: {exc}",
+                code=ErrorCode.INTERNAL_ERROR,
+                details={
+                    "source_lot_id": source_lot_id,
+                    "new_lot_ids": new_lot_ids,
+                    "aggregate_id": aggregate_id,
+                },
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
+        """Upcast the event to a different version.
+        
+        Args:
+            target_version: The version to upcast to
+            
+        Returns:
+            A new event instance of the target version
+            
+        Raises:
+            UnoError: If upcasting is not supported to the target version
+        """
         if target_version == self.version:
             return self
+            
+        if target_version < 1 or target_version > self.__version__:
+            raise event_error(
+                f"Cannot upcast to version {target_version}. "
+                f"Supported versions: 1-{self.__version__}",
+                code=ErrorCode.INVALID_INPUT,
+                details={
+                    "current_version": self.version,
+                    "target_version": target_version,
+                    "max_supported_version": self.__version__,
+                },
+            )
+            
+        # Handle v1 -> v2 upcasting
+        if self.version == 1 and target_version == 2:
+            return self.model_copy(update={
+                "version": 2,
+                "reason": None,  # Add default reason for v2
+            })
+            
+        # Should never reach here due to version check above
         raise event_error(
-            "Upcasting not implemented",
-            details={"from": getattr(self, "version", 1), "to": target_version},
+            "Unsupported version combination for upcasting",
+            code=ErrorCode.INVALID_INPUT,
+            details={
+                "current_version": self.version,
+                "target_version": target_version,
+            },
         )

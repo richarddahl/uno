@@ -5,9 +5,10 @@ This document provides guidance for migrating from the previous event package st
 ## Breaking Changes (Latest)
 
 1. **Deprecated Modules**
-   - `uno.events.bus` - Use `uno.events.implementations.bus` or `uno.persistence.event_sourcing.implementations.memory.bus` instead
+   - `uno.events.bus` - Use `uno.persistence.event_sourcing.implementations.memory.bus` instead
+   - `uno.events.implementations.bus` - Use `uno.persistence.event_sourcing.implementations.memory.bus` instead
+   - `uno.events.implementations.store` - Use `uno.persistence.event_sourcing.implementations.memory.event_store` instead
    - `uno.events.implementations.command` - Use `uno.commands.implementations.memory_bus` instead
-   - Several other modules are being considered for deprecation (see below)
 
 2. **Package Structure Changes**
    - Technology-specific implementations have been moved to appropriate packages
@@ -43,7 +44,7 @@ class MyHandler(CommandHandler):
 ```python
 from uno.events.protocols import EventBusProtocol
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
-from uno.events.implementations.bus import InMemoryEventBus
+from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
 from uno.commands.protocols import CommandHandlerProtocol
 
 class MyHandler:
@@ -56,6 +57,7 @@ class MyHandler:
 ### Event Bus Migration
 
 **From:**
+
 ```python
 from uno.events.bus import InMemoryEventBus
 
@@ -63,6 +65,7 @@ bus = InMemoryEventBus(logger, config)
 ```
 
 **To:**
+
 ```python
 # Option 1: Direct from implementations package
 from uno.events.implementations.bus import InMemoryEventBus
@@ -75,23 +78,20 @@ bus = InMemoryEventBus(logger, config)
 
 ### Command Implementation Migration
 
-**From:**
-```python
-from uno.events.implementations.command import InMemoryCommandBus
+The command bus implementation has been fully migrated to the commands package:
 
-command_bus = InMemoryCommandBus(logger)
-```
-
-**To:**
 ```python
 from uno.commands.implementations.memory_bus import InMemoryCommandBus
 
 command_bus = InMemoryCommandBus(logger)
 ```
 
+The previous import path `from uno.events.implementations.command import InMemoryCommandBus` is no longer available.
+
 ### Event Store Migration
 
 **From:**
+
 ```python
 from uno.events.implementations.store import InMemoryEventStore
 
@@ -99,6 +99,7 @@ store = InMemoryEventStore(logger)
 ```
 
 **To:**
+
 ```python
 from uno.persistence.event_sourcing.implementations.memory.event_store import InMemoryEventStore
 
@@ -107,9 +108,9 @@ store = InMemoryEventStore(logger)
 
 ## Deprecation Timeline
 
-* **May 2025**: Deprecation warnings added to legacy modules
-* **December 2025**: Legacy modules scheduled for removal in the next major version
-* **Q2 2026**: Complete removal of deprecated modules
+- **May 2025**: Deprecation warnings added to legacy modules
+- **December 2025**: Legacy modules scheduled for removal in the next major version
+- **Q2 2026**: Complete removal of deprecated modules
 
 ## Dependency Injection Changes
 
@@ -135,12 +136,12 @@ await register_command_services(container)
 
 ### Event Bus
 
-- In-memory: `uno.events.implementations.bus.InMemoryEventBus`
+- In-memory: `uno.persistence.event_sourcing.implementations.memory.bus.InMemoryEventBus`
 - Postgres: `uno.persistence.event_sourcing.implementations.postgres.bus.PostgresEventBus`
 
 ### Event Store
 
-- In-memory: `uno.events.implementations.store.InMemoryEventStore`
+- In-memory: `uno.persistence.event_sourcing.implementations.memory.event_store.InMemoryEventStore`
 - Postgres: `uno.persistence.event_sourcing.implementations.postgres.event_store.PostgresEventStore`
 
 ### Command Bus

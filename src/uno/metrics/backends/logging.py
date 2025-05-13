@@ -39,7 +39,7 @@ class LogConfig:
     timestamp_format: str = "%Y-%m-%d %H:%M:%S"
 
 
-class LoggingReporter(ReporterProtocol):
+class LoggingReporter:
     """Logging reporter implementation."""
 
     def __init__(self, config: Optional[LogConfig] = None) -> None:
@@ -106,7 +106,6 @@ class LoggingReporter(ReporterProtocol):
             "value": value,
             "tags": metric.tags,
         }
-
 
     async def _format_text(self, event_dict: EventDict) -> str:
         """

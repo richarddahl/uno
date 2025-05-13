@@ -13,12 +13,12 @@ from uno.metrics.protocols import (
     CounterProtocol,
     GaugeProtocol,
     HistogramProtocol,
-    TimerContext,
+    TimerContextProtocol,
     TimerProtocol,
 )
 
 
-class Counter(CounterProtocol):
+class Counter:
     """Counter metric implementation."""
 
     def __init__(
@@ -61,7 +61,7 @@ class Counter(CounterProtocol):
         return self._value
 
 
-class Gauge(GaugeProtocol):
+class Gauge:
     """Gauge metric implementation."""
 
     def __init__(
@@ -112,7 +112,7 @@ class Gauge(GaugeProtocol):
         return self._value
 
 
-class Histogram(HistogramProtocol):
+class Histogram:
     """Histogram metric implementation."""
 
     def __init__(
@@ -191,7 +191,7 @@ class Histogram(HistogramProtocol):
         return result
 
 
-class Timer(TimerProtocol):
+class Timer:
     """Timer metric implementation."""
 
     def __init__(
@@ -210,14 +210,14 @@ class Timer(TimerProtocol):
         self.description = description
         self.tags = tags or {}
 
-    async def time(self) -> TimerContext:
+    async def time(self) -> TimerContextProtocol:
         """Start timing an operation.
 
         Returns:
             A context manager for timing operations
         """
 
-        class Context(TimerContext):
+        class Context(TimerContextProtocol):
             def __init__(self, timer: "Timer") -> None:
                 self.timer = timer
                 self.start_time = 0.0

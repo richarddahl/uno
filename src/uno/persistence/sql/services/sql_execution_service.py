@@ -23,11 +23,11 @@ class SQLExecutionService:
         """
         Execute a DDL statement.
         """
-        self.logger.debug(f"Executing DDL: {ddl}")
+        await self.logger.debug(f"Executing DDL: {ddl}")
         try:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
-            self.logger.error(f"Failed to execute DDL: {e}")
+            await self.logger.error(f"Failed to execute DDL: {e}")
             raise UnoError(
                 f"Failed to execute DDL: {e}",
                 "SQL_EXECUTION_ERROR",
@@ -37,11 +37,11 @@ class SQLExecutionService:
         """
         Execute a SQL script.
         """
-        self.logger.debug(f"Executing script: {script}")
+        await self.logger.debug(f"Executing script: {script}")
         try:
             self.db_manager.execute_script(script)
         except Exception as e:
-            self.logger.error(f"Failed to execute script: {e}")
+            await self.logger.error(f"Failed to execute script: {e}")
             raise UnoError(
                 f"Failed to execute script: {e}",
                 "SQL_EXECUTION_ERROR",
@@ -51,11 +51,11 @@ class SQLExecutionService:
         """
         Execute a SQL emitter.
         """
-        self.logger.debug(f"Executing emitter: {emitter}")
+        await self.logger.debug(f"Executing emitter: {emitter}")
         try:
             return self.db_manager.execute_emitter(emitter, dry_run)
         except Exception as e:
-            self.logger.error(f"Failed to execute emitter: {e}")
+            await self.logger.error(f"Failed to execute emitter: {e}")
             raise UnoError(
                 f"Failed to execute emitter: {e}",
                 "SQL_EXECUTION_ERROR",
@@ -73,11 +73,11 @@ class SQLExecutionService:
         """
         Execute a DDL statement.
         """
-        self.logger.debug(f"Executing DDL: {ddl}")
+        await self.logger.debug(f"Executing DDL: {ddl}")
         try:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
-            self.logger.error(f"Failed to execute DDL: {e}")
+            await self.logger.error(f"Failed to execute DDL: {e}")
             raise UnoError(
                 f"Failed to execute DDL: {e}",
                 "SQL_EXECUTION_ERROR",
@@ -87,11 +87,11 @@ class SQLExecutionService:
         """
         Execute a SQL script.
         """
-        self.logger.debug(f"Executing script: {script}")
+        await self.logger.debug(f"Executing script: {script}")
         try:
             self.db_manager.execute_script(script)
         except Exception as e:
-            self.logger.error(f"Failed to execute script: {e}")
+            await self.logger.error(f"Failed to execute script: {e}")
             raise UnoError(
                 f"Failed to execute script: {e}",
                 "SQL_EXECUTION_ERROR",
@@ -101,14 +101,14 @@ class SQLExecutionService:
         """
         Execute SQL statements from an emitter.
         """
-        self.logger.debug(f"Executing emitter: {emitter.__class__.__name__}")
+        await self.logger.debug(f"Executing emitter: {emitter.__class__.__name__}")
         try:
             if dry_run:
                 return emitter.generate_sql()
             self.db_manager.execute_from_emitter(emitter)
             return [None]
         except Exception as e:
-            self.logger.error(f"Failed to execute emitter: {e}")
+            await self.logger.error(f"Failed to execute emitter: {e}")
             raise UnoError(
                 f"Failed to execute emitter: {e}",
                 "SQL_EXECUTION_ERROR",

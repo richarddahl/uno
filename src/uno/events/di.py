@@ -9,14 +9,19 @@ from typing import cast
 
 from uno.di.container import Container
 from uno.events.config import EventsConfig
-from uno.events.implementations.bus import InMemoryEventBus
-from uno.events.implementations.handlers.middleware import LoggingMiddleware, TimingMiddleware
+from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
+from uno.events.implementations.handlers.middleware import (
+    LoggingMiddleware,
+    TimingMiddleware,
+)
 from uno.events.implementations.handlers.registry import EventHandlerRegistry
 from uno.events.protocols import EventBusProtocol
 from uno.events.publisher import EventPublisher
 from uno.logging.protocols import LoggerProtocol
 from uno.persistence.event_sourcing.implementations.postgres.bus import PostgresEventBus
-from uno.persistence.event_sourcing.implementations.postgres.event_store import PostgresEventStore
+from uno.persistence.event_sourcing.implementations.postgres.event_store import (
+    PostgresEventStore,
+)
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager

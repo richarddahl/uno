@@ -13,10 +13,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast, overload
-
-if TYPE_CHECKING:
-    from uno.logging.protocols import LoggerProtocol
+from typing import Any, TypeVar, cast, overload
 
 from uno.domain.protocols import DomainEventProtocol
 from uno.events.errors import EventHandlerError
@@ -49,7 +46,9 @@ class AsyncEventHandlerAdapter:
     Implements EventHandlerProtocol through structural typing.
     """
 
-    def __init__(self, handler_func: EventHandlerFunction, logger: LoggerProtocol) -> None:
+    def __init__(
+        self, handler_func: EventHandlerFunction, logger: LoggerProtocol
+    ) -> None:
         """Initialize the adapter.
 
         Args:
@@ -136,13 +135,6 @@ class EventHandlerRegistry(EventRegistryProtocol):
         handler: EventHandlerFunction,
     ) -> None: ...
 
-    @overload
-    async def register(
-        self,
-        event_type: str,
-        handler: EventHandlerFunction,
-    ) -> None: ...
-
     async def register(
         self,
         event_type: str,
@@ -163,7 +155,7 @@ class EventHandlerRegistry(EventRegistryProtocol):
         elif callable(handler):
             # Create an adapter for raw functions
             handler_instance = AsyncEventHandlerAdapter(
-                cast("EventHandlerFunction", handler), self.logger
+                cast(EventHandlerFunction, handler), self.logger
             )
         else:
             raise TypeError(
@@ -212,107 +204,6 @@ class EventHandlerRegistry(EventRegistryProtocol):
         await self.logger.debug("Cleared all handlers")
 
 
-class HandlerDecorator:
-    """
-    Decorator for event handlers.
-
-    Allows functions and methods to be decorated as event handlers for specific event types.
-    """
-
-    _registry: ClassVar[EventHandlerRegistry | None] = None
-    _container: ClassVar[object | None] = None
-
-    @classmethod
-    def set_registry(cls, registry: EventHandlerRegistry) -> None:
-        """Set the registry to use for decorators."""
-        cls._registry = registry
-
-    @classmethod
-    def set_container(cls, container: object) -> None:
-        """Set the DI container to use for handler dependencies."""
-        cls._container = container
-
-    @classmethod
-    def get_registry(cls, logger: LoggerProtocol) -> EventHandlerRegistry:
-        """Get or create a registry.
-
-        Args:
-            logger: Logger for the registry
-
-        Returns:
-            An instance of EventHandlerRegistry
-        """
-        if cls._registry is None:
-            cls._registry = EventHandlerRegistry(logger)
-        return cls._registry
-
-    @classmethod
-    async def get_handlers(cls, event_type: str) -> list[EventHandlerProtocol]:
-        """Get handlers for an event type.
-
-        Args:
-            event_type: The event type to get handlers for
-
-        Returns:
-            List of handlers for the event type
-
-        Raises:
-            ValueError: If registry is not set
-        """
-        if cls._registry is None:
-            raise ValueError("Registry is not set")
-        return await cls._registry.get_handlers_for_event(event_type)
-
-    @classmethod
-    def handles(cls, event_type: str) -> Callable[[T], T]:
-        """Decorator to register a handler function.
-
-        Args:
-            event_type: The event type to handle
-
-        Returns:
-            A decorator function
-        """
-        # Store tasks to prevent garbage collection
-        tasks: list[asyncio.Task[None]] = []
-
-        def decorator(handler: T) -> T:
-            # Store metadata on the handler
-            handler._is_event_handler = True  # type: ignore[attr-defined]
-            handler._event_type = event_type  # type: ignore[attr-defined]
-            handler._registration_task = None  # type: ignore[attr-defined]
-
-            # If we have a registry, register the handler
-            if cls._registry is not None:
-                # Create a task to register the handler asynchronously
-                task: asyncio.Task[None] = asyncio.create_task(
-                    cls._registry.register(event_type, handler)  # type: ignore[arg-type]
-                )
-                # Store task to prevent garbage collection
-                handler._registration_task = task  # type: ignore[attr-defined]
-                # Keep a reference to the task to ensure it's awaited
-                tasks.append(task)
-            elif cls._container is not None:
-                # If we have a container, we can use it to get a logger
-                logger = LoggerProtocol.get_logger(__name__)
-                registry = EventHandlerRegistry(logger)
-                # Create and store the task
-                task = asyncio.create_task(registry.register(event_type, handler))  # type: ignore[arg-type]
-                # Store task to prevent garbage collection
-                handler._registration_task = task  # type: ignore[attr-defined]
-                # Keep a reference to the task to ensure it's awaited
-                tasks.append(task)
-                # Ensure the task is scheduled and won't be garbage collected
-                task = asyncio.create_task(
-                    task
-                )  # Store task reference in the event loop
-                tasks.append(task)  # Keep reference to prevent garbage collection
-
-            return handler
-
-        return decorator  # type: ignore[return-value]
-
-
 async def register_event_handler(
     event_type: str,
     handler: HandlerType,
@@ -326,25 +217,3 @@ async def register_event_handler(
         registry: The registry to register the handler with
     """
     await registry.register(event_type, handler)
-
-
-def subscribe(
-    event_type: str,
-    *,
-    logger: LoggerProtocol,
-) -> Callable[[T], T]:
-    """Decorator to register an event handler.
-
-    This is a simplified version of the decorator that doesn't depend on an event bus.
-    Instead, it uses the HandlerDecorator which will register with the registry when available.
-
-    Args:
-        event_type: Type of event to subscribe to
-        logger: Logger for registration actions
-
-    Returns:
-        Decorated handler
-    """
-    def decorator(handler: T) -> T:
-        return HandlerDecorator.handles(event_type)(handler)
-    return decorator

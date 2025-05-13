@@ -91,7 +91,9 @@ class SQLEmitter(BaseModel):
 
         return values
 
-    def __init__(self, *, logger: LoggerProtocol, config: ConfigProtocol, **data: Any) -> None:
+    def __init__(
+        self, *, logger: LoggerProtocol, config: ConfigProtocol, **data: Any
+    ) -> None:
         """Initialize the SQLEmitter with configuration and logger (DI required).
 
         Args:
@@ -107,7 +109,6 @@ class SQLEmitter(BaseModel):
         if config is None:
             raise ValueError("ConfigProtocol instance must be provided via DI.")
         super().__init__(logger=logger, config=config, **data)
-
 
     def generate_sql(self) -> list[SQLStatement]:
         """Generate SQL statements.
@@ -170,12 +171,12 @@ class SQLEmitter(BaseModel):
         if db_name and self.__class__.__name__ != "DropDatabaseAndRoles":
             admin_role = f"{db_name}_admin"
             connection.execute(text(f"SET ROLE {admin_role};"))
-            self.logger.debug(f"Set role to {admin_role}")
+            await self.logger.debug(f"Set role to {admin_role}")
 
         for stmt in statements:
             try:
                 connection.execute(text(stmt.sql))
-                self.logger.info(
+                await self.logger.info(
                     f"Executed SQL statement: {stmt.sql}\nMetadata: {stmt.metadata}"
                 )
             except Exception as e:
@@ -185,7 +186,7 @@ class SQLEmitter(BaseModel):
                     stmt,
                     e,
                 ) from e
-        self.logger.info("All SQL statements executed successfully")
+        await self.logger.info("All SQL statements executed successfully")
 
     def emit_with_connection(
         self,
@@ -231,7 +232,7 @@ class SQLEmitter(BaseModel):
             format_args.update(kwargs)
             return template.format(**format_args)
         except (KeyError, ValueError) as e:
-            self.logger.error(f"Error formatting SQL template: {e}")
+            await self.logger.error(f"Error formatting SQL template: {e}")
             raise SQLSyntaxError(
                 f"Error formatting SQL template: {e}",
                 SQLErrorCode.SQL_TEMPLATE_FORMATTING_FAILED,

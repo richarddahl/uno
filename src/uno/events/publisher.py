@@ -7,9 +7,9 @@ Provides a concrete, DI-friendly, and testable event publisher that delegates to
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypeVar, Generic
 
-from uno.events.base_event import DomainEvent
-from uno.events.protocols import EventBusProtocol, EventPublisherProtocol
-from uno.events.errors import UnoError, EventHandlerError, EventPublishError
+from uno.events.base import DomainEvent
+from uno.events.protocols import EventBusProtocol
+from uno.events.errors import EventPublishError
 
 
 if TYPE_CHECKING:
@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 E = TypeVar("E", bound=DomainEvent)
 
 
-class EventPublisher(EventPublisherProtocol, Generic[E]):
+class EventPublisher(Generic[E]):
     """
     Concrete event publisher that delegates to an injected event bus.
-    Implements EventPublisherProtocol.
+    Structurally implements EventPublisherProtocol without inheritance.
 
     Canonical Serialization Contract:
         - All events published/logged MUST use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True)` for serialization, storage, and transport.
@@ -47,6 +47,7 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         self.event_bus = event_bus
         # Use the injected logger or a no-op fallback
         self.logger = logger
+
     def _canonical_event_dict(self, event: E) -> dict[str, object]:
         """
         Canonical event serialization for storage, logging, and transport.
@@ -67,13 +68,15 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         """
         try:
             if self.logger:
-                self.logger.debug(f"Publishing event (canonical): {self._canonical_event_dict(event)}")
+                await self.logger.debug(
+                    f"Publishing event (canonical): {self._canonical_event_dict(event)}"
+                )
             await self.event_bus.publish(event)
             if self.logger:
-                self.logger.debug(f"Published event: {event}")
+                await self.logger.debug(f"Published event: {event}")
         except Exception as e:
             if self.logger:
-                self.logger.error(f"Exception during publish: {e!s}")
+                await self.logger.error(f"Exception during publish: {e!s}")
             raise EventPublishError(
                 event_type=type(event).__name__,
                 reason=str(e),
@@ -90,13 +93,15 @@ class EventPublisher(EventPublisherProtocol, Generic[E]):
         try:
             if self.logger:
                 for event in events:
-                    self.logger.debug(f"Publishing event (canonical): {self._canonical_event_dict(event)}")
+                    await self.logger.debug(
+                        f"Publishing event (canonical): {self._canonical_event_dict(event)}"
+                    )
             await self.event_bus.publish_many(events)
             if self.logger:
-                self.logger.debug(f"Published {len(events)} events")
+                await self.logger.debug(f"Published {len(events)} events")
         except Exception as e:
             if self.logger:
-                self.logger.error(f"Exception during publish_many: {e!s}")
+                await self.logger.error(f"Exception during publish_many: {e!s}")
             raise EventPublishError(
                 event_type=type(events[0]).__name__ if events else "Unknown",
                 reason=str(e),

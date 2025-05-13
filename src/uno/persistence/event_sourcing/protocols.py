@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
-from uno.events.base_event import DomainEvent
+from uno.events.base import DomainEvent
 
 E = TypeVar("E", bound=DomainEvent)
 

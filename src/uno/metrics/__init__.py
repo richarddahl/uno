@@ -9,7 +9,7 @@ from uno.metrics.protocols import (
     GaugeProtocol,
     HistogramProtocol,
     MetricProtocol,
-    TimerContext,
+    TimerContextProtocol,
     TimerProtocol,
 )
 from uno.metrics.types import Counter, Gauge, Histogram, Timer
@@ -20,7 +20,7 @@ __all__ = [
     "GaugeProtocol",
     "HistogramProtocol",
     "MetricProtocol",
-    "TimerContext",
+    "TimerContextProtocol",
     "TimerProtocol",
     # Implementations
     "Counter",

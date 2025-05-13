@@ -15,7 +15,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from uno.events.protocols import EventBusProtocol
-from uno.events.base_event import DomainEvent
+from uno.events.base import DomainEvent
 from uno.events.errors import EventPublishError
 
 E = TypeVar("E", bound=DomainEvent)
@@ -104,7 +104,7 @@ class PostgresBus:
                 )
 
 
-class PostgresEventBus(PostgresBus, EventBusProtocol):
+class PostgresEventBus(PostgresBus):
     """PostgreSQL-backed event bus implementation."""
 
     def __init__(self, dsn: str) -> None:

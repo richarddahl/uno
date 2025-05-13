@@ -63,11 +63,14 @@ class Vendor(AggregateRoot[str]):
                     "contact_email is required", details=get_error_context()
                 )
             vendor = cls(id=vendor_id, name=name, contact_email=contact_email)
+            # Convert EmailAddress to string for event data
+            email_str = contact_email.value if hasattr(contact_email, 'value') else contact_email
             event_data = {
                 "vendor_id": vendor_id,
                 "name": name,
-                "contact_email": contact_email,
+                "contact_email": email_str,
                 "version": 1,
+                "aggregate_id": vendor_id  # Add aggregate_id for the event
             }
             event = VendorCreated.from_dict(event_data)
             vendor._record_event(event)

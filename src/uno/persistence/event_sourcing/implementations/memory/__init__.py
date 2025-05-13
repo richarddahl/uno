@@ -8,8 +8,10 @@ This module provides aliases to the in-memory implementations from the events pa
 for backward compatibility.
 """
 
-from uno.events.implementations.bus import InMemoryEventBus
-from uno.events.implementations.store import InMemoryEventStore
+from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
+from uno.persistence.event_sourcing.implementations.memory.event_store import (
+    InMemoryEventStore,
+)
 
 __all__ = [
     "InMemoryEventBus",

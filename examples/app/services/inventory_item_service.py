@@ -61,7 +61,7 @@ class InventoryItemService:
         existing_item = await self.repo.get(aggregate_id)
 
         if existing_item:
-            self.logger.warning(
+            await self.logger.warning(
                 "Inventory item already exists",
                 aggregate_id=aggregate_id,
                 service="InventoryItemService.create_inventory_item",
@@ -84,7 +84,7 @@ class InventoryItemService:
             # Save the item
             await self.repo.save(item)
 
-            self.logger.info(
+            await self.logger.info(
                 "Inventory item created",
                 aggregate_id=aggregate_id,
                 name=name,
@@ -96,7 +96,7 @@ class InventoryItemService:
 
         except DomainValidationError as error:
             # Log the error with context
-            self.logger.warning(
+            await self.logger.warning(
                 "Failed to create inventory item",
                 aggregate_id=aggregate_id,
                 error=str(error),
@@ -115,7 +115,7 @@ class InventoryItemService:
             raise
         except Exception as error:
             # Log unexpected errors
-            self.logger.error(
+            await self.logger.error(
                 "Unexpected error creating inventory item",
                 aggregate_id=aggregate_id,
                 error=str(error),
@@ -153,7 +153,7 @@ class InventoryItemService:
         item = await self.repo.get(aggregate_id)
 
         if not item:
-            self.logger.warning(
+            await self.logger.warning(
                 "Inventory item not found",
                 aggregate_id=aggregate_id,
                 service="InventoryItemService.rename_inventory_item",
@@ -172,7 +172,7 @@ class InventoryItemService:
             # Save the updated item
             await self.repo.save(item)
 
-            self.logger.info(
+            await self.logger.info(
                 "Inventory item renamed",
                 aggregate_id=aggregate_id,
                 new_name=new_name,
@@ -183,7 +183,7 @@ class InventoryItemService:
 
         except DomainValidationError as error:
             # Log the error with context
-            self.logger.warning(
+            await self.logger.warning(
                 "Failed to rename inventory item",
                 aggregate_id=aggregate_id,
                 new_name=new_name,
@@ -203,7 +203,7 @@ class InventoryItemService:
             raise
         except Exception as error:
             # Log unexpected errors
-            self.logger.error(
+            await self.logger.error(
                 "Unexpected error renaming inventory item",
                 aggregate_id=aggregate_id,
                 new_name=new_name,
@@ -242,7 +242,7 @@ class InventoryItemService:
         item = await self.repo.get(aggregate_id)
 
         if not item:
-            self.logger.warning(
+            await self.logger.warning(
                 "Inventory item not found",
                 aggregate_id=aggregate_id,
                 service="InventoryItemService.adjust_inventory_measurement",
@@ -279,7 +279,7 @@ class InventoryItemService:
             # Save the updated item
             await self.repo.save(item)
 
-            self.logger.info(
+            await self.logger.info(
                 "Inventory measurement adjusted",
                 aggregate_id=aggregate_id,
                 adjustment=adjustment,
@@ -291,7 +291,7 @@ class InventoryItemService:
 
         except DomainValidationError as error:
             # Log the error with context
-            self.logger.warning(
+            await self.logger.warning(
                 "Failed to adjust inventory measurement",
                 aggregate_id=aggregate_id,
                 adjustment=adjustment,
@@ -311,7 +311,7 @@ class InventoryItemService:
             raise
         except Exception as error:
             # Log unexpected errors
-            self.logger.error(
+            await self.logger.error(
                 "Unexpected error adjusting inventory measurement",
                 aggregate_id=aggregate_id,
                 adjustment=adjustment,

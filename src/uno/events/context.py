@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING, Any, Self, AsyncGenerator
+from typing import TYPE_CHECKING, Any, Self, AsyncGenerator, TypeVar
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from uno.domain.protocols import DomainEventProtocol
+
+T = TypeVar("T", bound="DomainEventProtocol")
 
 
 class EventContext(BaseModel):
@@ -55,6 +57,7 @@ class EventContext(BaseModel):
         user_id: str | None = None,
         source: str | None = None,
         metadata: dict[str, Any] | None = None,
+        cancellation_token: Any = None,
     ) -> Self:
         """
         Create a new context with the specified values.
@@ -65,6 +68,7 @@ class EventContext(BaseModel):
             user_id: ID of the user who caused this event
             source: Source system or component
             metadata: Additional metadata
+            cancellation_token: Token that can be used to cancel processing
 
         Returns:
             A new context instance
@@ -75,6 +79,7 @@ class EventContext(BaseModel):
             user_id=user_id,
             source=source,
             metadata=metadata or {},
+            cancellation_token=cancellation_token,
         )
 
     def with_cancellation(self, cancellation_token: Any) -> Self:
@@ -99,6 +104,9 @@ class EventHandlerContext(BaseModel):
 
     event: DomainEventProtocol
     metadata: dict[str, Any] = Field(default_factory=dict)
+    extra: dict[str, Any] = Field(
+        default_factory=dict
+    )  # Added from other implementation
     cancellation_token: Any = None
 
     model_config = ConfigDict(
@@ -133,6 +141,47 @@ class EventHandlerContext(BaseModel):
             A new context instance
         """
         return cls.model_validate(data)
+
+    def get_typed_event(self, event_type: type[T]) -> T:
+        """
+        Get the event as a specific type.
+
+        This is a convenience method for handlers that know the
+        expected event type and want to avoid repetitive casting.
+
+        Args:
+            event_type: The expected event type
+
+        Returns:
+            The event cast to the specified type
+
+        Raises:
+            TypeError: If the event is not of the expected type
+        """
+        if not isinstance(self.event, event_type):
+            raise TypeError(
+                f"Expected event of type {event_type.__name__}, got {type(self.event).__name__}"
+            )
+
+        return self.event  # Type system will handle the cast
+
+    def with_extra(self, key: str, value: Any) -> Self:
+        """
+        Return a new context with an extra value added.
+
+        This is a convenience method for adding extra data to the context
+        without mutating the original context.
+
+        Args:
+            key: The key for the extra data
+            value: The value to add
+
+        Returns:
+            A new context with the extra data added
+        """
+        new_extra = self.extra.copy()
+        new_extra[key] = value
+        return self.model_copy(update={"extra": new_extra})
 
     @contextlib.asynccontextmanager
     async def cancellation_scope(self) -> AsyncGenerator[None, None]:

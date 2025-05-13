@@ -87,7 +87,7 @@ class EventMetrics:
         try:
             return self.metrics_factory.create_counter(name, description, tags or [])
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 f"Failed to create counter {name}",
                 error=str(e),
                 exc_info=True,
@@ -110,7 +110,7 @@ class EventMetrics:
         try:
             return self.metrics_factory.create_gauge(name, description, tags or [])
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 f"Failed to create gauge {name}",
                 error=str(e),
                 exc_info=True,
@@ -133,12 +133,14 @@ class EventMetrics:
         try:
             return self.metrics_factory.create_histogram(name, description, tags or [])
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 f"Failed to create histogram {name}",
                 error=str(e),
                 exc_info=True,
             )
-            return self.metrics_factory.create_histogram("dummy_histogram", "Dummy histogram")
+            return self.metrics_factory.create_histogram(
+                "dummy_histogram", "Dummy histogram"
+            )
 
     def _create_timer(
         self, name: str, description: str, tags: list[str] | None = None
@@ -156,7 +158,7 @@ class EventMetrics:
         try:
             return self.metrics_factory.create_timer(name, description, tags or [])
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 f"Failed to create timer {name}",
                 error=str(e),
                 exc_info=True,
@@ -171,15 +173,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.events_published.increment()
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to record event published metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
     async def record_event_processed(self, event: E) -> None:
@@ -190,15 +192,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.events_processed.increment()
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to record event processed metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
     async def record_event_error(self, event: E, error: Exception) -> None:
@@ -210,15 +212,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.event_errors.increment()
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to record event error metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
     async def record_processing_time(self, event: E, duration: float) -> None:
@@ -230,15 +232,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.processing_time.observe(duration)
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to record processing time metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
     async def increment_active_events(self, event: E) -> None:
@@ -249,15 +251,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.active_events.increment()
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to increment active events metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
     async def decrement_active_events(self, event: E) -> None:
@@ -268,15 +270,15 @@ class EventMetrics:
         """
         if not self.metrics_factory:
             return
-            
+
         try:
             await self.active_events.decrement()
         except Exception as e:
             if self.logger:
-                self.logger.error(
+                await self.logger.error(
                     "Failed to decrement active events metric",
                     error=str(e),
-                    event_type=getattr(event, 'event_type', 'unknown'),
+                    event_type=getattr(event, "event_type", "unknown"),
                 )
 
 

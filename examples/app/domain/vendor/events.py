@@ -30,26 +30,27 @@ class VendorEmailUpdated(DomainEvent):
     """
 
     vendor_id: str
-    old_email: EmailAddress
-    new_email: EmailAddress
-    version: int = 1
-    model_config = ConfigDict(frozen=True)
+    old_email: str  # Stored as string in event
+    new_email: str  # Stored as string in event
+    aggregate_id: str  # Required by DomainEvent base class
+    version: ClassVar[int] = 1
+    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
 
     @classmethod
     def create(
         cls,
         vendor_id: str,
-        old_email: EmailAddress,
-        new_email: EmailAddress,
+        old_email: str | EmailAddress,
+        new_email: str | EmailAddress,
         version: int = 1,
     ) -> Self:
         """
         Create a new VendorEmailUpdated event with validation.
         
         Args:
-            vendor_id: The ID of the vendor
-            old_email: Previous email address
-            new_email: New email address
+            vendor_id: The ID of the vendor (also used as aggregate_id)
+            old_email: Previous email address (string or EmailAddress)
+            new_email: New email address (string or EmailAddress)
             version: Event version
             
         Returns:
@@ -63,26 +64,31 @@ class VendorEmailUpdated(DomainEvent):
                 raise DomainValidationError(
                     "vendor_id is required", details=get_error_context()
                 )
-            if not isinstance(old_email, EmailAddress):
+            if not old_email:
                 raise DomainValidationError(
-                    "old_email must be an EmailAddress", details=get_error_context()
+                    "old_email is required", details=get_error_context()
                 )
-            if not isinstance(new_email, EmailAddress):
+            if not new_email:
                 raise DomainValidationError(
-                    "new_email must be an EmailAddress", details=get_error_context()
+                    "new_email is required", details=get_error_context()
                 )
+            
+            # Convert EmailAddress to string if needed
+            old_email_str = old_email.value if hasattr(old_email, 'value') else old_email
+            new_email_str = new_email.value if hasattr(new_email, 'value') else new_email
             
             return cls(
                 vendor_id=vendor_id,
-                old_email=old_email,
-                new_email=new_email,
+                old_email=old_email_str,
+                new_email=new_email_str,
+                aggregate_id=vendor_id,  # Use vendor_id as aggregate_id
                 version=version,
             )
         except Exception as exc:
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                "Failed to create VendorEmailUpdated", details={"error": str(exc)}
+                f"Failed to create VendorEmailUpdated: {str(exc)}", details={"error": str(exc)}
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
@@ -128,24 +134,25 @@ class VendorCreated(DomainEvent):
     vendor_id: str
     name: str
     contact_email: str  # Serialized as primitive for event persistence
-    version: int = 1
-    model_config = ConfigDict(frozen=True)
+    aggregate_id: str
+    version: ClassVar[int] = 1
+    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
 
     @classmethod
     def create(
         cls,
         vendor_id: str,
         name: str,
-        contact_email: str,
+        contact_email: str | EmailAddress,
         version: int = 1,
     ) -> Self:
         """
         Create a new VendorCreated event with validation.
         
         Args:
-            vendor_id: The ID of the vendor
+            vendor_id: The ID of the vendor (also used as aggregate_id)
             name: The name of the vendor
-            contact_email: The contact email for the vendor
+            contact_email: The contact email for the vendor (string or EmailAddress)
             version: Event version
             
         Returns:
@@ -167,18 +174,22 @@ class VendorCreated(DomainEvent):
                 raise DomainValidationError(
                     "contact_email is required", details=get_error_context()
                 )
-                
+            
+            # Convert EmailAddress to string if needed
+            email_str = contact_email.value if hasattr(contact_email, 'value') else contact_email
+            
             return cls(
                 vendor_id=vendor_id,
                 name=name,
-                contact_email=contact_email,
+                contact_email=email_str,
+                aggregate_id=vendor_id,  # Use vendor_id as aggregate_id
                 version=version,
             )
         except Exception as exc:
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                "Failed to create VendorCreated", details={"error": str(exc)}
+                f"Failed to create VendorCreated: {str(exc)}", details={"error": str(exc)}
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
@@ -222,25 +233,26 @@ class VendorUpdated(DomainEvent):
 
     vendor_id: str
     name: str
-    contact_email: str  # Serialized as primitive for event persistence
-    version: int = 1
-    model_config = ConfigDict(frozen=True)
+    contact_email: str
+    aggregate_id: str  # Required by DomainEvent base class
+    version: ClassVar[int] = 1
+    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
 
     @classmethod
     def create(
         cls,
         vendor_id: str,
         name: str,
-        contact_email: str,
+        contact_email: str | EmailAddress,
         version: int = 1,
     ) -> Self:
         """
         Create a new VendorUpdated event with validation.
         
         Args:
-            vendor_id: The ID of the vendor
+            vendor_id: The ID of the vendor (also used as aggregate_id)
             name: The name of the vendor
-            contact_email: The contact email for the vendor
+            contact_email: The contact email for the vendor (string or EmailAddress)
             version: Event version
             
         Returns:
@@ -262,18 +274,22 @@ class VendorUpdated(DomainEvent):
                 raise DomainValidationError(
                     "contact_email is required", details=get_error_context()
                 )
+            
+            # Convert EmailAddress to string if needed
+            email_str = contact_email.value if hasattr(contact_email, 'value') else contact_email
                 
             return cls(
                 vendor_id=vendor_id,
                 name=name,
-                contact_email=contact_email,
+                contact_email=email_str,
+                aggregate_id=vendor_id,  # Use vendor_id as aggregate_id
                 version=version,
             )
         except Exception as exc:
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                "Failed to create VendorUpdated", details={"error": str(exc)}
+                f"Failed to create VendorUpdated: {str(exc)}", details={"error": str(exc)}
             ) from exc
 
     def upcast(self, target_version: int) -> Self:

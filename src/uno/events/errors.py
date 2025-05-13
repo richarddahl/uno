@@ -5,11 +5,23 @@
 Error types specific to the events package.
 
 This module defines custom exception types used throughout the event sourcing system.
+
+NOTICE: Some error types have been moved to uno.persistence.event_sourcing.errors.
+Consider using the error types there for new code.
 """
 
+import warnings
 from typing import Any
 
 from uno.errors.base import UnoError
+
+# Emit deprecation warning
+warnings.warn(
+    "Some error types in uno.events.errors are deprecated. "
+    "Consider using uno.persistence.event_sourcing.errors for new code.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 __all__ = [
     "EventErrorCode",

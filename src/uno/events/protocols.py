@@ -2,186 +2,50 @@
 # SPDX-License-Identifier: MIT
 # SPDX-Package-Name: uno framework
 """
-Protocol definitions for the events package.
+Event handling protocols.
 
-This module contains the core protocols that define the interfaces for event
-handling components.
+This module provides the protocol definitions for the event system components,
+enabling structural typing and loose coupling.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from typing import Any, Protocol, runtime_checkable
 
 from uno.domain.protocols import DomainEventProtocol
-
-E = TypeVar("E", bound=DomainEventProtocol)
-
-
-@runtime_checkable
-class EventBusProtocol(Protocol):
-    """
-    Protocol for event buses (pub/sub, async/sync).
-
-    Event buses are responsible for publishing events to registered handlers
-    and subscribing handlers to event types.
-    """
-
-    async def publish(self, event: E, context: dict[str, Any] | None = None) -> None:
-        """
-        Publish an event to registered handlers.
-
-        Args:
-            event: The domain event to publish
-            context: Optional context information for event processing
-        """
-        ...
-
-    async def publish_many(
-        self, events: list[E], context: dict[str, Any] | None = None
-    ) -> None:
-        """
-        Publish multiple events to registered handlers.
-
-        Args:
-            events: The domain events to publish
-            context: Optional context information for event processing
-        """
-        ...
-
-    async def subscribe(self, event_type: str, handler: EventHandlerProtocol) -> None:
-        """
-        Subscribe a handler to an event type.
-
-        Args:
-            event_type: The event type to subscribe to
-            handler: The handler to register for the event type
-        """
-        ...
-
-
-@runtime_checkable
-class EventPublisherProtocol(Protocol):
-    """
-    Protocol for event publishers (decoupled publishing interface).
-
-    Event publishers provide a decoupled interface for publishing events
-    without direct knowledge of handlers.
-    """
-
-    async def publish(self, event: E, context: dict[str, Any] | None = None) -> None:
-        """
-        Publish an event.
-
-        Args:
-            event: The domain event to publish
-            context: Optional context information for event processing
-        """
-        ...
-
-    async def publish_many(
-        self, events: list[E], context: dict[str, Any] | None = None
-    ) -> None:
-        """
-        Publish multiple events.
-
-        Args:
-            events: The domain events to publish
-            context: Optional context information for event processing
-        """
-        ...
 
 
 @runtime_checkable
 class EventHandlerProtocol(Protocol):
-    """
-    Protocol for event handlers.
-
-    Defines the interface for handling domain events. Handlers implementing
-    this protocol can process events through their handle method.
-    """
+    """Protocol for event handlers."""
 
     async def handle(
-        self, event: DomainEventProtocol, context: dict[str, Any] | None = None
+        self, event: DomainEventProtocol, metadata: dict[str, Any] | None = None
     ) -> None:
         """
-        Handle a domain event.
+        Handle the event.
 
         Args:
             event: The domain event to handle
-            context: Optional context information for event processing
-        """
-        ...
+            metadata: Optional metadata associated with the event
 
-
-@runtime_checkable
-class SnapshotStrategy(Protocol):
-    """Protocol for deciding when to create a snapshot.
-
-    Canonical serialization contract for snapshots:
-      - Always use `model_dump(exclude_none=True, exclude_unset=True, by_alias=True, sort_keys=True)` for snapshot serialization, storage, and integrity checks.
-      - Unset and None fields are treated identically; excluded from serialization and hashing.
-      - This contract is enforced by dedicated tests.
-    """
-
-    async def should_snapshot(self, aggregate_id: str, event_count: int) -> bool:
-        """
-        Determine if a snapshot should be created.
-
-        Args:
-            aggregate_id: The ID of the aggregate
-            event_count: Number of events processed since last snapshot
-
-        Returns:
-            True if a snapshot should be created, False otherwise
-        """
-        ...
-
-
-@runtime_checkable
-class EventMiddlewareProtocol(Protocol):
-    """
-    Protocol for event middleware.
-
-    Defines the interface for middleware that can intercept and modify
-    event processing behavior.
-    """
-
-    async def process(
-        self,
-        event: DomainEventProtocol,
-        context: dict[str, Any] | None,
-        next_middleware: Callable[[DomainEventProtocol, dict[str, Any] | None], Any],
-    ) -> None:
-        """
-        Process an event through the middleware chain.
-
-        Args:
-            event: The domain event to process
-            context: Optional context information for event processing
-            next_middleware: The next middleware in the chain to call
+        Raises:
+            EventHandlerError: If the handler encounters an error
         """
         ...
 
 
 @runtime_checkable
 class EventRegistryProtocol(Protocol):
-    """
-    Protocol for event handler registries.
+    """Protocol for event handler registries."""
 
-    Defines the interface for registering event handlers and retrieving handlers
-    for specific event types.
-    """
-
-    async def register(self, event_type: str, handler: EventHandlerProtocol) -> None:
+    async def register(self, event_type: str, handler: Any) -> None:
         """
-        Register an event handler for a specific event type.
+        Register a handler for an event type.
 
         Args:
-            event_type: The event type the handler can process
-            handler: The event handler to register
+            event_type: The event type to register a handler for
+            handler: The handler to register (can be any callable or handler implementation)
         """
         ...
 
@@ -189,13 +53,13 @@ class EventRegistryProtocol(Protocol):
         self, event: DomainEventProtocol
     ) -> list[EventHandlerProtocol]:
         """
-        Get all handlers that can process the given event.
+        Get all handlers for an event.
 
         Args:
             event: The domain event to get handlers for
 
         Returns:
-            A list of handlers that can process the event
+            List of handlers for the event
         """
         ...
 
@@ -205,106 +69,59 @@ class EventRegistryProtocol(Protocol):
 
 
 @runtime_checkable
-class EventProcessorProtocol(Protocol):
-    """
-    Protocol for event processors.
-
-    Defines the interface for processing events with registered handlers.
-    Event processors coordinate the invocation of handlers for events.
-    """
+class EventMiddlewareProtocol(Protocol):
+    """Protocol for event handler middleware."""
 
     async def process(
         self,
         event: DomainEventProtocol,
-        context: dict[str, Any] | None = None,
+        next_middleware: Any,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
-        Process an event with all registered handlers.
+        Process the event and pass it to the next middleware.
 
         Args:
             event: The domain event to process
-            context: Optional context information for event processing
-        """
-        ...
-
-    async def process_with_cancellation(
-        self,
-        event: DomainEventProtocol,
-        context: dict[str, Any] | None = None,
-        cancellation_token: Any = None,
-    ) -> None:
-        """
-        Process an event with all registered handlers, with cancellation support.
-
-        Args:
-            event: The domain event to process
-            context: Optional context information for event processing
-            cancellation_token: Token that can be used to cancel processing
+            next_middleware: The next middleware in the chain
+            metadata: Optional event metadata
 
         Raises:
-            asyncio.CancelledError: If event processing is cancelled
+            EventHandlerError: If an error occurs during processing
         """
         ...
 
 
 @runtime_checkable
-class EventDiscoveryProtocol(Protocol):
-    """
-    Protocol for event handler discovery services.
+class EventBusProtocol(Protocol):
+    """Protocol for event buses."""
 
-    Defines the interface for discovering event handlers in modules
-    and registering them with a registry.
-    """
-
-    async def discover_handlers(
-        self,
-        package: str | object,
-        registry: EventRegistryProtocol | None = None,
-    ) -> EventRegistryProtocol:
+    async def publish(
+        self, event: DomainEventProtocol, metadata: dict[str, Any] | None = None
+    ) -> None:
         """
-        Discover event handlers in a package.
+        Publish an event to registered handlers.
 
         Args:
-            package: The package or module to scan for handlers
-            registry: Optional registry to register handlers with
+            event: The event to publish
+            metadata: Optional metadata for the event
 
-        Returns:
-            The registry with discovered handlers
+        Raises:
+            EventHandlerError: If any handler fails
         """
         ...
 
-
-@runtime_checkable
-class SerializationProtocol(Protocol):
-    """
-    Protocol for serializable events.
-
-    Provides the interface for event serialization and deserialization.
-    """
-
-    event_type: str
-    version: int
-
-    def serialize(self) -> dict[str, Any]:
+    async def publish_many(
+        self, events: list[DomainEventProtocol], metadata: dict[str, Any] | None = None
+    ) -> None:
         """
-        Serialize the event to a dictionary.
-
-        Returns:
-            A dictionary representation of the event.
-        """
-        ...
-
-    @classmethod
-    def deserialize(
-        cls: type[SerializationProtocol], data: dict[str, Any]
-    ) -> SerializationProtocol:
-        """
-        Deserialize an event from a dictionary.
+        Publish multiple events to registered handlers.
 
         Args:
-            data: A dictionary containing event data.
+            events: The events to publish
+            metadata: Optional metadata for the events
 
-        Returns:
-            An instance of the event.
+        Raises:
+            EventHandlerError: If any handler fails
         """
         ...

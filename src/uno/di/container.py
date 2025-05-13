@@ -48,9 +48,9 @@ class ContainerProtocol(Protocol):
     async def register_singleton(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with singleton lifetime.
@@ -75,9 +75,9 @@ class ContainerProtocol(Protocol):
     async def register_scoped(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with scoped lifetime.
@@ -102,9 +102,9 @@ class ContainerProtocol(Protocol):
     async def register_transient(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with transient lifetime.
@@ -199,7 +199,7 @@ class ContainerProtocol(Protocol):
         ...
 
 
-class Container(ContainerProtocol):
+class Container:
     """Dependency Injection container for managing service lifetimes.
 
     This container supports three service lifetimes:
@@ -346,10 +346,10 @@ class Container(ContainerProtocol):
         logger_scope = None
         # Try to resolve LoggerScope if registered
         try:
-            logger_scope = await self.resolve_optional('LoggerScope')
+            logger_scope = await self.resolve_optional("LoggerScope")
         except Exception:
             logger_scope = None
-        if logger_scope is not None and hasattr(logger_scope, 'scope'):
+        if logger_scope is not None and hasattr(logger_scope, "scope"):
             # Enter a logger scope with the same name as the DI scope
             logger_scope_cm = logger_scope.scope(f"di_scope_{id(scope)}")
             await logger_scope_cm.__aenter__()
@@ -394,9 +394,9 @@ class Container(ContainerProtocol):
     async def register_singleton(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with singleton lifetime.
@@ -421,9 +421,9 @@ class Container(ContainerProtocol):
     async def register_scoped(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with scoped lifetime.
@@ -448,9 +448,9 @@ class Container(ContainerProtocol):
     async def register_transient(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         replace: bool = False,
     ) -> None:
         """Register a service with transient lifetime.
@@ -475,9 +475,9 @@ class Container(ContainerProtocol):
     async def _register(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
         lifetime: Literal["singleton", "scoped", "transient"],
         replace: bool = False,
     ) -> None:
@@ -556,9 +556,9 @@ class Container(ContainerProtocol):
     async def _create_service(
         self,
         interface: type[T],
-        implementation: type[T]
-        | ServiceFactoryProtocol[T]
-        | AsyncServiceFactoryProtocol[T],
+        implementation: (
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+        ),
     ) -> T:
         """Create a service instance from the implementation.
 
@@ -623,9 +623,9 @@ class Container(ContainerProtocol):
     async def replace(
         self,
         interface: type[Any],
-        implementation: type[Any]
-        | ServiceFactoryProtocol[Any]
-        | AsyncServiceFactoryProtocol[Any],
+        implementation: (
+            type[Any] | ServiceFactoryProtocol[Any] | AsyncServiceFactoryProtocol[Any]
+        ),
         lifetime: Literal["singleton", "scoped", "transient"],
     ) -> AsyncGenerator[None]:
         """Temporarily replace a service registration for testing.

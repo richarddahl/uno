@@ -22,27 +22,25 @@ class VendorService:
         self.repo = repo
         self.logger = logger
 
-    def create_vendor(
-        self, vendor_id: str, name: str, contact_email: str
-    ) -> Vendor:
+    def create_vendor(self, vendor_id: str, name: str, contact_email: str) -> Vendor:
         """
         Create a new Vendor.
-        
+
         Args:
             vendor_id: The ID for the new vendor
             name: The vendor name
             contact_email: The vendor contact email
-            
+
         Returns:
             The created Vendor
-            
+
         Raises:
             DomainValidationError: If validation fails
         """
         # Check if vendor already exists
         result = self.repo.get(vendor_id)
         if result is not None:
-            self.logger.warning(
+            await self.logger.warning(
                 "Vendor already exists",
                 extra={
                     "event": "vendor_exists",
@@ -55,15 +53,16 @@ class VendorService:
                 details={
                     "vendor_id": vendor_id,
                     "service": "VendorService.create_vendor",
-                }
+                },
             )
-            
+
         # Validate email
         try:
             from examples.app.domain.vendor.value_objects import EmailAddress
+
             email_vo = EmailAddress(value=contact_email)
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 "Invalid email address for vendor creation",
                 extra={
                     "event": "invalid_email",
@@ -78,18 +77,16 @@ class VendorService:
                     "email": contact_email,
                     "error": str(e),
                     "service": "VendorService.create_vendor",
-                }
+                },
             ) from e
-            
+
         # Create the vendor
-        vendor = Vendor.create(
-            vendor_id=vendor_id, name=name, contact_email=email_vo
-        )
-        
+        vendor = Vendor.create(vendor_id=vendor_id, name=name, contact_email=email_vo)
+
         # Save the vendor
         self.repo.save(vendor)
-        
-        self.logger.info(
+
+        await self.logger.info(
             {
                 "event": "vendor_created",
                 "vendor_id": vendor_id,
@@ -98,27 +95,25 @@ class VendorService:
         )
         return vendor
 
-    def update_vendor(
-        self, vendor_id: str, name: str, contact_email: str
-    ) -> Vendor:
+    def update_vendor(self, vendor_id: str, name: str, contact_email: str) -> Vendor:
         """
         Update a Vendor.
-        
+
         Args:
             vendor_id: The ID of the vendor to update
             name: The new vendor name
             contact_email: The new vendor contact email
-            
+
         Returns:
             The updated Vendor
-            
+
         Raises:
             DomainValidationError: If validation fails
         """
         # Get the vendor
         result = self.repo.get(vendor_id)
         if result is None:
-            self.logger.warning(
+            await self.logger.warning(
                 "Vendor not found during update",
                 extra={
                     "event": "vendor_not_found",
@@ -131,7 +126,7 @@ class VendorService:
                 details={
                     "vendor_id": vendor_id,
                     "service": "VendorService.update_vendor",
-                }
+                },
             )
 
         vendor = result
@@ -139,9 +134,10 @@ class VendorService:
         # Validate email
         try:
             from examples.app.domain.vendor.value_objects import EmailAddress
+
             email_vo = EmailAddress(value=contact_email)
         except Exception as e:
-            self.logger.warning(
+            await self.logger.warning(
                 "Invalid email address for vendor update",
                 extra={
                     "event": "invalid_email",
@@ -157,16 +153,16 @@ class VendorService:
                     "error": str(e),
                     "vendor_id": vendor_id,
                     "service": "VendorService.update_vendor",
-                }
+                },
             ) from e
-            
+
         # Update vendor with new values
         vendor.update(name, email_vo)
 
         # Persist updated vendor
         self.repo.update(vendor)
-        
-        self.logger.info(
+
+        await self.logger.info(
             "Vendor updated successfully",
             extra={
                 "event": "vendor_updated",

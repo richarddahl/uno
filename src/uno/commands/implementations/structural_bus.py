@@ -83,14 +83,14 @@ class StructuralCommandBus:
         """
         command_type = type(command)
         if command_type not in self._handlers:
-            self.logger.error(
+            await self.logger.error(
                 "No handler registered for command",
                 command_type=command_type.__name__,
             )
             raise CommandNotFoundError(command_type.__name__)
 
         handler = self._handlers[command_type]
-        self.logger.info(
+        await self.logger.info(
             "Dispatching command",
             command_type=command_type.__name__,
             handler=handler.__class__.__name__,
@@ -104,7 +104,7 @@ class StructuralCommandBus:
         try:
             return await result(command)
         except Exception as e:
-            self.logger.error(
+            await self.logger.error(
                 "Error executing command",
                 command_type=command_type.__name__,
                 error=str(e),

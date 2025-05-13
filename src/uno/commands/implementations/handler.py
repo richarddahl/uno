@@ -47,7 +47,7 @@ class InMemoryCommandBus(CommandBus):
         command_type = type(command).__name__
         command_id = getattr(command, "command_id", None)
 
-        self.logger.info(
+        await self.logger.info(
             "Dispatching command",
             command_type=command_type,
             command_id=command_id,
@@ -57,7 +57,7 @@ class InMemoryCommandBus(CommandBus):
         try:
             result = await super().dispatch(command)
 
-            self.logger.info(
+            await self.logger.info(
                 "Command handled successfully",
                 command_type=command_type,
                 command_id=command_id,
@@ -65,7 +65,7 @@ class InMemoryCommandBus(CommandBus):
 
             return result
         except Exception as e:
-            self.logger.error(
+            await self.logger.error(
                 "Command handling failed",
                 command_type=command_type,
                 command_id=command_id,

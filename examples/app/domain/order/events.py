@@ -3,15 +3,15 @@
 Order context domain events.
 """
 
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 
 from pydantic import ConfigDict
 
-from examples.app.domain.inventory.value_objects import Count, Money
 from examples.app.domain.inventory.measurement import Measurement
+from examples.app.domain.inventory.value_objects import Count, Money
 from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.errors.base import get_error_context
 from uno.domain.errors import DomainValidationError
+from uno.errors.base import get_error_context
 from uno.events import DomainEvent
 
 
@@ -332,13 +332,13 @@ class OrderFulfilled(DomainEvent):
 
 
 class OrderCancelled(DomainEvent):
-    """
-    Event: Order was cancelled.
+    """Event: Order was cancelled.
 
     Usage:
         try:
             event = OrderCancelled.create(
                 order_id="O100",
+                aggregate_id="A100",
                 reason="Customer request",
             )
             # use event
@@ -348,14 +348,16 @@ class OrderCancelled(DomainEvent):
     """
 
     order_id: str
+    aggregate_id: str  # Required by DomainEvent
     reason: str | None = None
-    version: int = 1
+    version: ClassVar[int] = 1
     model_config = ConfigDict(frozen=True)
 
     @classmethod
     def create(
         cls,
         order_id: str,
+        aggregate_id: str | None = None,
         reason: str | None = None,
         version: int = 1,
     ) -> Self:
@@ -364,22 +366,28 @@ class OrderCancelled(DomainEvent):
 
         Args:
             order_id: The ID of the order
+            aggregate_id: The aggregate ID (defaults to order_id if not provided)
             reason: The reason for cancellation (optional)
             version: The event version
 
         Returns:
             A new OrderCancelled event
-
-        Raises:
-            DomainValidationError: If validation fails
         """
         try:
             if not order_id:
                 raise DomainValidationError(
                     "order_id is required", details=get_error_context()
                 )
-            event = cls(order_id=order_id, reason=reason, version=version)
-            return event
+            
+            # Use order_id as aggregate_id if not provided
+            resolved_aggregate_id = aggregate_id if aggregate_id is not None else order_id
+
+            return cls(
+                order_id=order_id,
+                aggregate_id=resolved_aggregate_id,
+                reason=reason,
+                version=version,
+            )
         except Exception as exc:
             if isinstance(exc, DomainValidationError):
                 raise

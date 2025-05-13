@@ -31,7 +31,7 @@ class CompensationChainSaga(Saga):
 
     async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Saga event received",
                 saga_type="CompensationChainSaga",
@@ -42,7 +42,7 @@ class CompensationChainSaga(Saga):
             if event["type"] == "Step1Completed":
                 self.data["step1_completed"] = True
                 self.status = "waiting_step2"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     f"Step1 completed",
                     status=self.status,
@@ -50,21 +50,21 @@ class CompensationChainSaga(Saga):
             elif event["type"] == "Step2Completed":
                 self.data["step2_completed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     f"Step2 completed: saga completed",
                     status=self.status,
                 )
             elif event["type"] == "Step2Failed":
                 self.status = "compensating"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "WARNING",
                     f"Step2 failed: starting compensation",
                     status=self.status,
                 )
                 await self.compensate()
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Error handling event: {e}",
                 saga_type="CompensationChainSaga",
@@ -73,7 +73,7 @@ class CompensationChainSaga(Saga):
             raise
 
     async def compensate(self) -> None:
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "INFO",
             f"Starting compensation chain",
             status=self.status,
@@ -87,7 +87,7 @@ class CompensationChainSaga(Saga):
             self.data["step1_completed"] = False
         self.data["compensated"] = True
         self.status = "compensated"
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "INFO",
             f"Compensation chain complete",
             status=self.status,

@@ -2,16 +2,16 @@
 from unittest.mock import AsyncMock
 
 from uno.domain.aggregate import AggregateRoot
-from uno.events.protocols import DomainEventProtocol, EventPublisherProtocol
+from uno.events.protocols import DomainEventProtocol
 
 
-class MockEvent(DomainEventProtocol):
+class MockEvent:
     event_type = "MockEvent"
     aggregate_id = "test-aggregate"
     version = 1
 
 
-class MockPublisher(EventPublisherProtocol):
+class MockPublisher:
     async def publish(self, event: DomainEventProtocol) -> None:
         pass
 
@@ -20,6 +20,7 @@ class TestEventSourcing:
     async def test_aggregate_event_publishing(self):
         # Arrange
         from unittest.mock import Mock
+
         aggregate = AggregateRoot(id="test-aggregate")
         aggregate._logger = Mock()  # Inject mock logger to avoid AttributeError
         mock_publisher = MockPublisher()

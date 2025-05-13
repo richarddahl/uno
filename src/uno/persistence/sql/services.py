@@ -75,7 +75,7 @@ class SQLEmitterFactoryService:
     def register_emitter(
         self, name: str, emitter_class: type["SQLEmitterProtocol"]
     ) -> None:
-        self.logger.debug(f"Registering SQL emitter: {name}")
+        await self.logger.debug(f"Registering SQL emitter: {name}")
         self._emitter_registry[name] = emitter_class
 
     def get_emitter(

@@ -26,7 +26,7 @@ def generate_aggregate(name: str) -> None:
 Aggregate: {name}
 """
 from uno.domain.aggregate import AggregateRoot
-from uno.events.base_event import DomainEvent
+from uno.events.base import DomainEvent
 
 class {name}(AggregateRoot):
     """Aggregate root for {name}."""
@@ -50,7 +50,7 @@ def generate_event(name: str) -> None:
     code = f'''"""
 Domain Event: {name}
 """
-from uno.events.base_event import DomainEvent
+from uno.events.base import DomainEvent
 
 class {name}(DomainEvent):
     """Domain event for {name}."""

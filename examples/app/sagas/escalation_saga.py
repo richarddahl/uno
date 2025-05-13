@@ -32,7 +32,7 @@ class EscalationSaga(Saga):
 
     async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Saga event received",
                 saga_type="EscalationSaga",
@@ -45,7 +45,7 @@ class EscalationSaga(Saga):
                 if self.data["attempts"] > self.data["max_attempts"]:
                     self.status = "escalated"
                     self.data["escalated"] = True
-                    self.logger.structured_log(
+                    await self.logger.structured_log(
                         "WARNING",
                         f"Escalation triggered",
                         status=self.status,
@@ -53,7 +53,7 @@ class EscalationSaga(Saga):
             elif event["type"] == "EscalationApproved":
                 self.data["approved"] = True
                 self.status = "approved"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     f"Escalation approved",
                     status=self.status,
@@ -61,13 +61,13 @@ class EscalationSaga(Saga):
             elif event["type"] == "StepCompleted":
                 self.data["completed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     f"Saga completed",
                     status=self.status,
                 )
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Error handling event: {e}",
                 saga_type="EscalationSaga",

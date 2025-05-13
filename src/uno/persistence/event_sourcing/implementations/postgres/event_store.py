@@ -12,7 +12,7 @@ from sqlalchemy import Table, Column, String, Integer, JSON, DateTime, MetaData,
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uno.persistence.event_sourcing.protocols import EventStoreProtocol
-from uno.events.base_event import DomainEvent
+from uno.events.base import DomainEvent
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
 from uno.logging.protocols import LoggerProtocol
@@ -63,7 +63,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
             async with self._connection_manager.engine.begin() as conn:
                 await conn.run_sync(self._metadata.create_all)
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Failed to create events table: {e}",
                 name="uno.persistence.event_sourcing.postgres",
@@ -93,7 +93,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 await session.execute(stmt)
                 await session.commit()
 
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Saved event {event.event_type} for aggregate {event.aggregate_id}",
                 name="uno.persistence.event_sourcing.postgres",
@@ -101,7 +101,7 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                 aggregate_id=event.aggregate_id,
             )
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Failed to save event {event.event_type}: {e}",
                 name="uno.persistence.event_sourcing.postgres",
@@ -153,14 +153,14 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                     upcasted = event_cls.upcast(event_data)
                     events.append(upcasted)
 
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events from store",
                 name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Failed to retrieve events: {e}",
                 name="uno.persistence.event_sourcing.postgres",
@@ -202,27 +202,27 @@ class PostgresEventStore(EventStoreProtocol[E], Generic[E]):
                     upcasted = event_cls.upcast(event_data)
                     events.append(upcasted)
 
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 f"Retrieved {len(events)} events for aggregate {aggregate_id}",
                 name="uno.persistence.event_sourcing.postgres",
             )
             return events
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Error retrieving events for aggregate {aggregate_id}: {e}",
                 name="uno.persistence.event_sourcing.postgres",
                 error=e,
             )
             raise
-            
+
     def _canonical_event_dict(self, event: E) -> dict[str, Any]:
         """Convert an event to a canonical dictionary format for storage.
-        
+
         Args:
             event: The event to convert
-            
+
         Returns:
             Dictionary representation of the event
         """

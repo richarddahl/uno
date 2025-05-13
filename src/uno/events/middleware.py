@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from uno.domain.protocols import DomainEventProtocol
 from uno.events.errors import EventHandlerError
+from uno.events.metrics import EventMetrics
 
 if TYPE_CHECKING:
     from uno.logging.protocols import LoggerProtocol
@@ -97,7 +98,7 @@ class RetryMiddleware:
         while attempt < self.options.max_attempts:
             try:
                 if attempt > 0:
-                    self.logger.info(
+                    await self.logger.info(
                         f"Retrying event handler (attempt {attempt+1}/{self.options.max_attempts})",
                         event_type=getattr(event, "event_type", None),
                         event_id=getattr(event, "event_id", None),
@@ -110,7 +111,7 @@ class RetryMiddleware:
 
                 # If we get here, it succeeded
                 if attempt > 0:
-                    self.logger.info(
+                    await self.logger.info(
                         "Retry successful",
                         event_type=getattr(event, "event_type", None),
                         event_id=getattr(event, "event_id", None),
@@ -127,7 +128,7 @@ class RetryMiddleware:
                     # We've used all our retry attempts
                     break
 
-                self.logger.warning(
+                await self.logger.warning(
                     f"Event handler failed (will retry)",
                     event_type=getattr(event, "event_type", None),
                     event_id=getattr(event, "event_id", None),
@@ -143,7 +144,7 @@ class RetryMiddleware:
                 )
 
         # If we get here, all retries failed
-        self.logger.error(
+        await self.logger.error(
             "All retry attempts failed",
             event_type=getattr(event, "event_type", None),
             event_id=getattr(event, "event_id", None),
@@ -226,7 +227,7 @@ class CircuitBreakerMiddleware:
         if self.state == CircuitBreakerState.OPEN:
             # Check if it's time to try again
             if time.time() - self.last_failure_time >= self.reset_timeout_seconds:
-                self.logger.info(
+                await self.logger.info(
                     "Circuit half-open, allowing test call",
                     event_type=getattr(event, "event_type", None),
                     event_id=getattr(event, "event_id", None),
@@ -257,7 +258,7 @@ class CircuitBreakerMiddleware:
 
             # Success - if we were in half-open state, close the circuit
             if self.state == CircuitBreakerState.HALF_OPEN:
-                self.logger.info(
+                await self.logger.info(
                     "Circuit closed after successful test call",
                     event_type=getattr(event, "event_type", None),
                     event_id=getattr(event, "event_id", None),
@@ -276,7 +277,7 @@ class CircuitBreakerMiddleware:
 
             if self.state == CircuitBreakerState.HALF_OPEN:
                 # Failed test call, reopen the circuit
-                self.logger.warning(
+                await self.logger.warning(
                     "Circuit reopened after failed test call",
                     event_type=getattr(event, "event_type", None),
                     event_id=getattr(event, "event_id", None),
@@ -289,7 +290,7 @@ class CircuitBreakerMiddleware:
                 and self.failure_count >= self.failure_threshold
             ):
                 # Too many failures, open the circuit
-                self.logger.warning(
+                await self.logger.warning(
                     f"Circuit opened after {self.failure_count} failures",
                     event_type=getattr(event, "event_type", None),
                     event_id=getattr(event, "event_id", None),
@@ -299,31 +300,6 @@ class CircuitBreakerMiddleware:
 
             # Re-raise the original exception
             raise
-
-
-class EventMetrics:
-    """Metrics collected for event processing."""
-
-    def __init__(
-        self,
-        event_count: "CounterProtocol",
-        event_processing_time: "TimerProtocol",
-        event_errors: "CounterProtocol",
-        active_events: "GaugeProtocol",
-    ) -> None:
-        """
-        Initialize event metrics.
-
-        Args:
-            event_count: Counter for events processed
-            event_processing_time: Timer for event processing duration
-            event_errors: Counter for event processing errors
-            active_events: Gauge for currently processing events
-        """
-        self.event_count = event_count
-        self.event_processing_time = event_processing_time
-        self.event_errors = event_errors
-        self.active_events = active_events
 
 
 class MetricsMiddleware:
@@ -365,34 +341,25 @@ class MetricsMiddleware:
             Exception: If the handler fails
         """
         # Track the event
-        self.metrics.event_count.increment()
-        self.metrics.active_events.increment()
+        await self.metrics.increment_active_events(event)
+        await self.metrics.record_event_published(event)
 
         start_time = time.time()
 
         try:
             # Process the event
             await next_middleware(event)
+            
+            # Record successful processing
+            await self.metrics.record_event_processed(event)
         except Exception as e:
             # Track errors
-            self.metrics.event_errors.increment()
-
-            tag_dict = {
-                "event_type": getattr(event, "event_type", None),
-                "error_type": type(e).__name__,
-            }
-
-            self.metrics.event_errors.increment(tags=tag_dict)
+            await self.metrics.record_event_error(event, e)
 
             # Re-raise the exception
             raise
         finally:
             # Track processing time
             elapsed = time.time() - start_time
-
-            tags = {
-                "event_type": getattr(event, "event_type", None),
-            }
-
-            self.metrics.event_processing_time.record(elapsed, tags=tags)
-            self.metrics.active_events.decrement()
+            await self.metrics.record_processing_time(event, elapsed)
+            await self.metrics.decrement_active_events(event)

@@ -13,7 +13,7 @@ sys.path.insert(
 
 from uno.di.container import Container
 from uno.di.errors import ServiceNotRegisteredError
-from uno.events.bus import InMemoryEventBus
+from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
 from uno.events.config import EventsConfig
 from uno.events.errors import EventPublishError
 from uno.logging import get_logger

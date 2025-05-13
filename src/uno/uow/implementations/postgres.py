@@ -60,11 +60,11 @@ class PostgresUnitOfWork(UnitOfWork):
         """
         try:
             await self.transaction.commit()
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "DEBUG", "PostgreSQL unit of work committed", name="uno.uow.postgres"
             )
         except Exception as exc:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Failed to commit PostgreSQL unit of work: {exc}",
                 name="uno.uow.postgres",
@@ -81,11 +81,11 @@ class PostgresUnitOfWork(UnitOfWork):
         """
         try:
             await self.transaction.rollback()
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "DEBUG", "PostgreSQL unit of work rolled back", name="uno.uow.postgres"
             )
         except Exception as exc:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Failed to rollback PostgreSQL unit of work: {exc}",
                 name="uno.uow.postgres",
@@ -125,7 +125,9 @@ class PostgresUnitOfWork(UnitOfWork):
                     if logger_factory:
                         logger = logger_factory("uow_postgres")
                     else:
-                        logger: LoggerProtocol | None = None  # Inject via DI or set externally
+                        logger: LoggerProtocol | None = (
+                            None  # Inject via DI or set externally
+                        )
 
                     logger.structured_log(
                         "ERROR",

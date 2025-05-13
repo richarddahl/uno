@@ -31,7 +31,7 @@ class ParallelStepsSaga(Saga):
     async def handle_event(self, event: Any) -> None:
 
         try:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "INFO",
                 "Saga event received",
                 saga_type="ParallelStepsSaga",
@@ -51,26 +51,26 @@ class ParallelStepsSaga(Saga):
                 if self.data["step_a_done"] and self.data["step_b_done"]:
                     self.data["joined"] = True
                     self.status = "joined"
-                    self.logger.structured_log(
+                    await self.logger.structured_log(
                         "INFO",
                         "Steps joined successfully",
                         status=self.status,
                     )
                 else:
-                    self.logger.structured_log(
+                    await self.logger.structured_log(
                         "ERROR",
                         f"Cannot join: step_a_done={self.data['step_a_done']}, step_b_done={self.data['step_b_done']}",
                         status=self.status,
                     )
             elif event["type"] == "Finalize" and self.data["joined"]:
                 self.status = "completed"
-                self.logger.structured_log(
+                await self.logger.structured_log(
                     "INFO",
                     "Saga completed",
                     status=self.status,
                 )
         except Exception as e:
-            self.logger.structured_log(
+            await self.logger.structured_log(
                 "ERROR",
                 f"Error handling event: {e!s}",
                 status=self.status,
@@ -78,7 +78,7 @@ class ParallelStepsSaga(Saga):
 
     async def _handle_step_a_completed(self) -> None:
         self.data["step_a_done"] = True
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "INFO",
             "StepA completed",
             status=self.status,
@@ -86,7 +86,7 @@ class ParallelStepsSaga(Saga):
 
     async def _handle_step_b_completed(self) -> None:
         self.data["step_b_done"] = True
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "INFO",
             "StepB completed",
             status=self.status,
@@ -94,7 +94,7 @@ class ParallelStepsSaga(Saga):
 
     async def _handle_step_a_failed(self) -> None:
         self.data["step_a_done"] = False
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "ERROR",
             "StepA failed",
             status=self.status,
@@ -102,7 +102,7 @@ class ParallelStepsSaga(Saga):
 
     async def _handle_step_b_failed(self) -> None:
         self.data["step_b_done"] = False
-        self.logger.structured_log(
+        await self.logger.structured_log(
             "ERROR",
             "StepB failed",
             status=self.status,

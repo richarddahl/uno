@@ -10,7 +10,7 @@ from typing import Protocol, Self, runtime_checkable
 
 
 @runtime_checkable
-class TimerContext(Protocol):
+class TimerContextProtocol(Protocol):
     """Protocol defining a timer context manager for measuring code execution time."""
 
     async def __aenter__(self) -> Self:
@@ -131,7 +131,7 @@ class HistogramProtocol(Protocol):
 class TimerProtocol(Protocol):
     """Protocol defining a timer metric implementation."""
 
-    async def time(self) -> TimerContext:
+    async def time(self) -> TimerContextProtocol:
         """
         Create a timer context for measuring code execution time.
 
@@ -154,7 +154,7 @@ class TimerProtocol(Protocol):
 class MetricProtocol(Protocol):
     """Base protocol for all metrics."""
 
-    async def time(self) -> TimerContext:
+    async def time(self) -> TimerContextProtocol:
         """
         Create a timer context for measuring code execution time.
 
