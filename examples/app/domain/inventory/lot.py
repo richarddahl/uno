@@ -59,13 +59,11 @@ class InventoryLot(AggregateRoot[str]):
         try:
             if not lot_id:
                 raise DomainValidationError(
-                        "lot_id is required", details=get_error_context(
-                    )
+                    "lot_id is required", details=get_error_context()
                 )
             if not aggregate_id:
                 raise DomainValidationError(
-                        "aggregate_id is required", details=get_error_context(
-                    )
+                    "aggregate_id is required", details=get_error_context()
                 )
             if isinstance(measurement, int):
                 measurement = Measurement.from_count(
@@ -78,7 +76,7 @@ class InventoryLot(AggregateRoot[str]):
                 vendor_id=vendor_id,
                 purchase_price=purchase_price,
             )
-            event_result = InventoryLotCreated.create(
+            event_result = InventoryLotCreated(
                 lot_id=lot_id,
                 aggregate_id=aggregate_id,
                 measurement=measurement,
@@ -93,11 +91,9 @@ class InventoryLot(AggregateRoot[str]):
         except Exception as e:
             raise DomainValidationError(str(e, details=get_error_context()))
 
-    def adjust_measurement(
-        self, adjustment: int, reason: str | None = None
-    ) -> Self:
+    def adjust_measurement(self, adjustment: int, reason: str | None = None) -> Self:
         try:
-            event_result = InventoryLotAdjusted.create(
+            event_result = InventoryLotAdjusted(
                 lot_id=self.id, adjustment=adjustment, reason=reason
             )
             # Exception handling handled via try/except
@@ -138,23 +134,18 @@ class InventoryLot(AggregateRoot[str]):
                 f"Unhandled event: {event}", details=get_error_context()
             )
 
-    def combine_with(
-        self, other: Self, new_lot_id: str
-    ) -> Self:
+    def combine_with(self, other: Self, new_lot_id: str) -> Self:
         if self is other or self.id == other.id:
             raise DomainValidationError(
                 "Cannot combine a lot with itself", details=get_error_context()
             )
         if self.aggregate_id != other.aggregate_id:
             raise DomainValidationError(
-                "Cannot combine lots with different items",
-                details=get_error_context()
+                "Cannot combine lots with different items", details=get_error_context()
             )
         # Sum quantities
         combined_measurement = Measurement.from_count(
-            Count.from_each(
-                self.measurement.value + other.measurement.value
-            )
+            Count.from_each(self.measurement.value + other.measurement.value)
         )
         # Blend grades if present
         blended_grade: Grade | None = None
@@ -196,7 +187,7 @@ class InventoryLot(AggregateRoot[str]):
         )
         new_lot._source_vendor_ids = source_vendor_ids
         new_lot._domain_events = []  # Reset domain events for new lot
-        event_result = InventoryLotsCombined.create(
+        event_result = InventoryLotsCombined(
             source_lot_ids=[self.id, other.id],
             source_grades=(
                 [None, None]
@@ -227,7 +218,7 @@ class InventoryLot(AggregateRoot[str]):
         if len(new_lot_ids) != len(split_quantities):
             raise DomainValidationError(
                 "Number of lot IDs must match each split measurement",
-                details=get_error_context()
+                details=get_error_context(),
             )
         """
         Split this lot into multiple new lots with given quantities and IDs.
@@ -236,18 +227,16 @@ class InventoryLot(AggregateRoot[str]):
         # Only support splitting count-based lots
         if self.measurement.type == "count":
             total = sum(
-                q.value if isinstance(q, Measurement) else q
-                for q in split_quantities
+                q.value if isinstance(q, Measurement) else q for q in split_quantities
             )
             if any(q <= 0 for q in split_quantities):
                 raise DomainValidationError(
-                    "All split quantities must be positive",
-                    details=get_error_context()
+                    "All split quantities must be positive", details=get_error_context()
                 )
             if total != self.measurement.value:
                 raise DomainValidationError(
                     "Split quantities must sum to lot measurement",
-                    details=get_error_context()
+                    details=get_error_context(),
                 )
             new_lots = []
             for quantity, lot_id in zip(split_quantities, new_lot_ids, strict=True):
@@ -263,7 +252,7 @@ class InventoryLot(AggregateRoot[str]):
                 new_lots.append(new_lot)
 
             # Create split event
-            event_result = InventoryLotSplit.create(
+            event_result = InventoryLotSplit(
                 source_lot_id=self.id,
                 new_lot_ids=new_lot_ids,
                 aggregate_id=self.aggregate_id,

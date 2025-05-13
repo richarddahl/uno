@@ -44,9 +44,12 @@ class UnoError(Exception):
     Base error class for Uno errors.
     Should only be subclassed for package-specific errors, not instantiated directly.
     """
-    def __new__(cls, *args, **kwargs):
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> "UnoError":
         if cls is UnoError:
-            raise TypeError("Do not instantiate UnoError directly; subclass it for specific errors.")
+            raise TypeError(
+                "Do not instantiate UnoError directly; subclass it for specific errors."
+            )
         return super().__new__(cls)
 
     def __init__(

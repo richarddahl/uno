@@ -6,10 +6,9 @@ Implements orchestration, error context propagation, and DI-ready business logic
 """
 
 from uno.domain.errors import DomainValidationError
-from uno.errors.base import get_error_context
 from uno.logging import LoggerProtocol
-from ..domain.vendor import Vendor
-from ..persistence.vendor_repository_protocol import VendorRepository
+from examples.app.domain.vendor import Vendor
+from examples.app.persistence.vendor_repository_protocol import VendorRepository
 
 
 class VendorService:
@@ -22,7 +21,9 @@ class VendorService:
         self.repo = repo
         self.logger = logger
 
-    def create_vendor(self, vendor_id: str, name: str, contact_email: str) -> Vendor:
+    async def create_vendor(
+        self, vendor_id: str, name: str, contact_email: str
+    ) -> Vendor:
         """
         Create a new Vendor.
 
@@ -81,7 +82,7 @@ class VendorService:
             ) from e
 
         # Create the vendor
-        vendor = Vendor.create(vendor_id=vendor_id, name=name, contact_email=email_vo)
+        vendor = Vendor(vendor_id=vendor_id, name=name, contact_email=email_vo)
 
         # Save the vendor
         self.repo.save(vendor)
@@ -95,7 +96,9 @@ class VendorService:
         )
         return vendor
 
-    def update_vendor(self, vendor_id: str, name: str, contact_email: str) -> Vendor:
+    async def update_vendor(
+        self, vendor_id: str, name: str, contact_email: str
+    ) -> Vendor:
         """
         Update a Vendor.
 
@@ -111,8 +114,8 @@ class VendorService:
             DomainValidationError: If validation fails
         """
         # Get the vendor
-        result = self.repo.get(vendor_id)
-        if result is None:
+        vendor = self.repo.get(vendor_id)
+        if vendor is None:
             await self.logger.warning(
                 "Vendor not found during update",
                 extra={
@@ -128,8 +131,6 @@ class VendorService:
                     "service": "VendorService.update_vendor",
                 },
             )
-
-        vendor = result
 
         # Validate email
         try:

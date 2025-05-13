@@ -77,7 +77,7 @@ class InventoryItemService:
 
         # Create the new item
         try:
-            item = await InventoryItem.create(
+            item = await InventoryItem(
                 aggregate_id=aggregate_id, name=name, measurement=measurement
             )
 

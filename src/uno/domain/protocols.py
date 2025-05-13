@@ -19,28 +19,6 @@ class DomainEventProtocol(Protocol):
     event_type: ClassVar[str]
     version: int
 
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert event to a dictionary for serialization.
-
-        Returns:
-            Dictionary representation of the event
-        """
-        ...
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DomainEventProtocol":
-        """
-        Create an event instance from a dictionary.
-
-        Args:
-            data: Dictionary containing event data
-
-        Returns:
-            New event instance
-        """
-        ...
-
 
 @runtime_checkable
 class ValueObjectProtocol(Protocol):
@@ -84,7 +62,7 @@ class AggregateRootProtocol(EntityProtocol, Protocol):
 
     version: int
 
-    def apply(self, event: DomainEventProtocol) -> None:
+    async def apply(self, event: DomainEventProtocol) -> None:
         """
         Apply a domain event to this aggregate.
 
@@ -93,7 +71,7 @@ class AggregateRootProtocol(EntityProtocol, Protocol):
         """
         ...
 
-    def apply_event(self, event: Any) -> None:
+    async def apply_event(self, event: Any) -> None:
         """
         Apply an event to this aggregate.
 
@@ -102,7 +80,7 @@ class AggregateRootProtocol(EntityProtocol, Protocol):
         """
         ...
 
-    def get_uncommitted_events(self) -> list[DomainEventProtocol]:
+    async def get_uncommitted_events(self) -> list[DomainEventProtocol]:
         """
         Get all uncommitted events.
 
@@ -111,7 +89,7 @@ class AggregateRootProtocol(EntityProtocol, Protocol):
         """
         ...
 
-    def clear_uncommitted_events(self) -> None:
+    async def clear_uncommitted_events(self) -> None:
         """Clear all uncommitted events."""
         ...
 

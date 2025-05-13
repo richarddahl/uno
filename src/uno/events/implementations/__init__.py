@@ -7,6 +7,8 @@ Implementation modules for the events package.
 This package contains concrete implementations of the event sourcing protocols.
 """
 
+"""Event handling implementations."""
+
 from uno.persistence.event_sourcing.implementations.memory.bus import InMemoryEventBus
 from uno.persistence.event_sourcing.implementations.memory.event_store import (
     InMemoryEventStore,

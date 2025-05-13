@@ -2,35 +2,107 @@
 # SPDX-License-Identifier: MIT
 # SPDX-Package-Name: uno framework
 """
-Event handling protocols.
+Protocol definitions for the events package.
 
-This module provides the protocol definitions for the event system components,
-enabling structural typing and loose coupling.
+This module defines interfaces for the event processing system.
 """
 
 from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
+from typing import TypeVar, Generic
 
 from uno.domain.protocols import DomainEventProtocol
 
+# Define type variables for generic protocols
+T = TypeVar("T")
+TEvent = TypeVar("TEvent", contravariant=True)  # Input parameter type
+TResult = TypeVar("TResult", covariant=True)  # Output result type
+
 
 @runtime_checkable
-class EventHandlerProtocol(Protocol):
-    """Protocol for event handlers."""
+class EventProcessorProtocol(Protocol):
+    """Protocol defining the interface for event processors."""
 
-    async def handle(
-        self, event: DomainEventProtocol, metadata: dict[str, Any] | None = None
-    ) -> None:
+    async def process_event(self, event: Any) -> Any:
         """
-        Handle the event.
+        Process an event and return a result.
 
         Args:
-            event: The domain event to handle
-            metadata: Optional metadata associated with the event
+            event: Any
+                The event to process.
 
-        Raises:
-            EventHandlerError: If the handler encounters an error
+        Returns:
+            Any: The result of processing the event.
+        """
+        ...
+
+    async def can_process(self, event: Any) -> bool:
+        """
+        Determine if this processor can handle the given event.
+
+        Args:
+            event: Any
+                The event to check.
+
+        Returns:
+            bool: True if the processor can handle the event, False otherwise.
+        """
+        ...
+
+
+@runtime_checkable
+class EventHandlerProtocol(Protocol, Generic[TEvent, TResult]):
+    """Protocol defining the interface for event handlers."""
+
+    async def handle(self, event: TEvent) -> TResult:
+        """
+        Handle an event and return a result.
+
+        Args:
+            event: TEvent
+                The event to handle.
+
+        Returns:
+            TResult: The result of handling the event.
+        """
+        ...
+
+
+@runtime_checkable
+class EventDispatcherProtocol(Protocol):
+    """Protocol defining the interface for event dispatchers."""
+
+    async def dispatch(self, event: Any) -> Any:
+        """
+        Dispatch an event to appropriate handlers and return the result.
+
+        Args:
+            event: Any
+                The event to dispatch.
+
+        Returns:
+            Any: The result of dispatching the event.
+        """
+        ...
+
+    async def register_handler(self, handler: EventHandlerProtocol[Any, Any]) -> None:
+        """
+        Register an event handler with the dispatcher.
+
+        Args:
+            handler: EventHandlerProtocol[Any, Any]
+                The event handler to register.
+        """
+        ...
+
+    async def unregister_handler(self, handler: EventHandlerProtocol[Any, Any]) -> None:
+        """
+        Unregister an event handler from the dispatcher.
+
+        Args:
+            handler: EventHandlerProtocol[Any, Any]
+                The event handler to unregister.
         """
         ...
 
@@ -51,7 +123,7 @@ class EventRegistryProtocol(Protocol):
 
     async def get_handlers_for_event(
         self, event: DomainEventProtocol
-    ) -> list[EventHandlerProtocol]:
+    ) -> list[EventHandlerProtocol[Any, Any]]:
         """
         Get all handlers for an event.
 
@@ -124,4 +196,49 @@ class EventBusProtocol(Protocol):
         Raises:
             EventHandlerError: If any handler fails
         """
+        ...
+
+
+class EventProtocol(Protocol):
+    """Protocol for events that can be dispatched through the event system."""
+
+    @property
+    def event_id(self) -> str:
+        """Unique identifier for this event instance."""
+        ...
+
+    @property
+    def event_type(self) -> str:
+        """Type of the event."""
+        ...
+
+    @property
+    def payload(self) -> dict[str, Any]:
+        """Event data payload."""
+        ...
+
+
+class EventHandlerProtocol(Protocol):
+    """Protocol for event handlers."""
+
+    async def handle(self, event: EventProtocol) -> None:
+        """Handle an event."""
+        ...
+
+
+class EventHandlerRegistryProtocol(Protocol):
+    """Protocol for event handler registries."""
+
+    def register(self, handler: EventHandlerProtocol) -> None:
+        """Register a handler for a specific event type."""
+        ...
+
+    def get_handlers_for(
+        self, event_type: type[EventProtocol]
+    ) -> list[EventHandlerProtocol]:
+        """Get all handlers registered for a specific event type."""
+        ...
+
+    def clear(self) -> None:
+        """Clear all registered handlers."""
         ...

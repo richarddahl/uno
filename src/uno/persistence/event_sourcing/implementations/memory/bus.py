@@ -65,7 +65,7 @@ class InMemoryEventBus:
         )
 
         # Import here to avoid circular imports
-        from uno.events.handlers import EventHandlerRegistry
+        from uno.events.registry import EventHandlerRegistry
 
         # Registry is required for handler resolution
         self.registry = EventHandlerRegistry(logger, getattr(config, "container", None))

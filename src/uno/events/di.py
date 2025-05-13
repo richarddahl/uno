@@ -14,7 +14,7 @@ from uno.events.implementations.handlers.middleware import (
     LoggingMiddleware,
     TimingMiddleware,
 )
-from uno.events.implementations.handlers.registry import EventHandlerRegistry
+from uno.events.registry import EventHandlerRegistry
 from uno.events.protocols import EventBusProtocol
 from uno.events.publisher import EventPublisher
 from uno.logging.protocols import LoggerProtocol

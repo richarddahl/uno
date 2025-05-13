@@ -11,7 +11,7 @@ from collections.abc import Callable
 from typing import Any, ClassVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from uno.events.implementations.handlers.registry import EventHandlerRegistry
+    from uno.events.registry import EventHandlerRegistry
     from uno.logging.protocols import LoggerProtocol
 
 
@@ -48,7 +48,7 @@ class EventHandlerDecorator:
         """
         if cls._registry is None:
             # Import here to avoid circular imports
-            from uno.events.implementations.handlers.registry import (
+            from uno.events.registry import (
                 EventHandlerRegistry,
             )
 

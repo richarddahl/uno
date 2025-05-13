@@ -31,38 +31,15 @@ class ValueObject(FrameworkBaseModel):
             amount: int
             currency: str
         data = {"amount": 100, "currency": "USD"}
-        result = Money.from_dict(data)
-        if isinstance(result, Success):
-            money = result.value
-        else:
+        try:
+            money = Money(**data)
+        except ValidationError as e:
             # handle error
             ...
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
     _logger: LoggerProtocol | None = None  # Inject via DI or set externally
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Returns the canonical dict representation using Uno contract.
-        """
-        return self.model_dump(exclude_none=True, exclude_unset=True, by_alias=True)
-
-    @classmethod
-    def from_dict(cls: type[Self], data: dict[str, Any]) -> Self:
-        """
-        Creates a value object from a dict using the Uno contract. Raises exceptions for Uno error handling.
-        Returns:
-            The validated value object instance.
-        Raises:
-            DomainValidationError: If validation fails.
-        """
-        try:
-            return cls.model_validate(data)
-        except Exception as exc:
-            if cls._logger:
-                cls._logger.error(f"Failed to create {cls.__name__} from dict: {exc}")
-            raise DomainValidationError(f"Validation failed for {cls.__name__}: {exc}")
 
     def equals(self, other: object) -> bool:
         """

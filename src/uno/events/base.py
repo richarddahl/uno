@@ -15,16 +15,12 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-if TYPE_CHECKING:
-    from uno.domain.protocols import DomainEventProtocol
-    from uno.events.protocols import SerializationProtocol
-
 
 class DomainEvent(BaseModel):
     """
     Base class for all domain events.
 
-    Implements the DomainEventProtocol and SerializationProtocol, providing
+    Implements the DomainEventProtocol, providing
     common functionality for all domain events in the system. Domain events:
 
     1. Are immutable records of something that happened in the domain
@@ -48,60 +44,6 @@ class DomainEvent(BaseModel):
         frozen=True,
         from_attributes=True,
     )
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert event to a dictionary for serialization.
-
-        Returns:
-            Dictionary representation of the event
-        """
-        return self.model_dump(mode="json")
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
-        """
-        Create an event instance from a dictionary.
-
-        Args:
-            data: Dictionary containing event data
-
-        Returns:
-            New event instance
-        """
-        # Apply upcasting if needed
-        if "version" in data and data["version"] < cls.version:
-            data = cls.upcast(data)
-
-        return cls.model_validate(data)
-
-    def serialize(self) -> dict[str, Any]:
-        """
-        Serialize the event to a dictionary.
-
-        Implements the SerializationProtocol.serialize method.
-        This is an alias for to_dict() for backward compatibility.
-
-        Returns:
-            A dictionary representation of the event.
-        """
-        return self.to_dict()
-
-    @classmethod
-    def deserialize(cls, data: dict[str, Any]) -> Self:
-        """
-        Deserialize an event from a dictionary.
-
-        Implements the SerializationProtocol.deserialize method.
-        This is an alias for from_dict() for backward compatibility.
-
-        Args:
-            data: A dictionary containing event data.
-
-        Returns:
-            An instance of the event.
-        """
-        return cls.from_dict(data)
 
     @classmethod
     def upcast(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -162,22 +104,3 @@ class DomainEvent(BaseModel):
             f"aggregate_id='{self.aggregate_id}', "
             f"version={self.version})"
         )
-
-
-# Register DomainEvent as a virtual subclass of DomainEventProtocol.
-# This ensures that runtime isinstance/issubclass checks recognize DomainEvent
-# as implementing the DomainEventProtocol, even without explicit inheritance.
-if not TYPE_CHECKING:
-    try:
-        from uno.domain.protocols import DomainEventProtocol
-        from uno.events.protocols import SerializationProtocol
-
-    except ImportError as e:
-        import logging
-    except ImportError as e:
-        import logging
-
-        logging.warning(
-            f"Failed to import DomainEventProtocol or SerializationProtocol: {e}"
-        )
-        pass

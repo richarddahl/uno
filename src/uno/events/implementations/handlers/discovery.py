@@ -15,7 +15,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from uno.events.implementations.handlers.registry import EventHandlerRegistry
+    from uno.events.registry import EventHandlerRegistry
     from uno.logging.protocols import LoggerProtocol
 
 
@@ -44,20 +44,21 @@ async def discover_handlers(
         The registry with discovered handlers
     """
     # Import registry here to avoid circular imports
-    from uno.events.implementations.handlers.registry import EventHandlerRegistry
-    
+    from uno.events.registry import EventHandlerRegistry
+
     # Create the registry if not provided
     if registry is None:
         registry = EventHandlerRegistry(logger)
 
     # Set up handler decorator if it exists
     from uno.events.implementations.handlers.decorator import EventHandlerDecorator
+
     if hasattr(EventHandlerDecorator, "set_registry"):
         EventHandlerDecorator.set_registry(registry)
 
     # Process the package
     await _process_package(package, logger, registry)
-    
+
     return registry
 
 
@@ -68,7 +69,7 @@ async def _process_package(
 ) -> None:
     """
     Process a package to discover handlers.
-    
+
     Args:
         package: The package to process
         logger: Logger for structured logging
@@ -98,10 +99,10 @@ async def _process_package(
     initial_handler_count = sum(
         len(handlers) for handlers in registry._handlers.values()
     )
-    
+
     # Process all modules in the package
     await _process_modules(package_module, logger, registry)
-    
+
     # Calculate number of new handlers discovered
     final_handler_count = sum(len(handlers) for handlers in registry._handlers.values())
     new_handlers = final_handler_count - initial_handler_count
@@ -118,7 +119,7 @@ async def _process_modules(
 ) -> None:
     """
     Process all modules in a package recursively.
-    
+
     Args:
         pkg: The package to process
         logger: Logger for structured logging
@@ -133,14 +134,14 @@ async def _process_modules(
 
         try:
             module = importlib.import_module(full_name)
-            
+
             # Process the current module for handlers
             await _find_handlers_in_module(module, logger, registry)
-            
+
             # Process subpackages recursively
             if is_pkg:
                 await _process_modules(module, logger, registry)
-                
+
         except ImportError as e:
             logger.warning(
                 "Error importing module during handler discovery",
@@ -154,7 +155,7 @@ async def _find_handlers_in_module(
 ) -> None:
     """
     Find and register handlers in a module.
-    
+
     Args:
         module: The module to search
         logger: Logger for structured logging
@@ -181,7 +182,7 @@ async def _process_class_handler(
 ) -> None:
     """
     Process a class that might be a handler.
-    
+
     Args:
         cls: The class to process
         logger: Logger for structured logging
@@ -190,22 +191,22 @@ async def _process_class_handler(
     # Skip if already registered
     if getattr(cls, "_registered_with_discovery", False):
         return
-        
+
     # Check if it has a handle method
     if hasattr(cls, "handle") and callable(cls.handle):
         try:
             # Try to instantiate and register the handler
             instance = cls()
-            
+
             # Get the event type from the class or instance
             event_type = getattr(cls, "_event_type", None)
             if event_type is None and hasattr(instance, "event_type"):
                 event_type = instance.event_type
-                
+
             if event_type:
                 await registry.register_handler(event_type, instance)
                 cls._registered_with_discovery = True
-                
+
                 await logger.debug(
                     "Registered handler class",
                     handler=cls.__name__,
@@ -225,7 +226,7 @@ async def _process_decorated_handler(
 ) -> None:
     """
     Process a decorated handler.
-    
+
     Args:
         handler: The handler to process
         logger: Logger for structured logging
@@ -234,12 +235,12 @@ async def _process_decorated_handler(
     # Skip if already registered
     if getattr(handler, "_registered_with_discovery", False):
         return
-        
+
     event_type = getattr(handler, "_event_type", None)
     if event_type:
         await registry.register_handler(event_type, handler)
         handler._registered_with_discovery = True
-        
+
         await logger.debug(
             "Registered decorated handler",
             handler=handler.__name__,

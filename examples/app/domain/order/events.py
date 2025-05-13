@@ -22,7 +22,7 @@ class PaymentReceived(DomainEvent):
 
     Usage:
         try:
-            event = PaymentReceived.create(
+            event = PaymentReceived(
                 order_id="O100",
                 amount=Money(amount=100.0, currency="USD"),
                 received_from=EmailAddress(value="user@example.com"),
@@ -117,7 +117,7 @@ class OrderCreated(DomainEvent):
 
     Usage:
         try:
-            event = OrderCreated.create(
+            event = OrderCreated(
                 order_id="O100",
                 aggregate_id="A100",
                 lot_id="L100",
@@ -251,7 +251,7 @@ class OrderFulfilled(DomainEvent):
 
     Usage:
         try:
-            event = OrderFulfilled.create(
+            event = OrderFulfilled(
                 order_id="O100",
                 fulfilled_measurement=10,
             )
@@ -336,7 +336,7 @@ class OrderCancelled(DomainEvent):
 
     Usage:
         try:
-            event = OrderCancelled.create(
+            event = OrderCancelled(
                 order_id="O100",
                 aggregate_id="A100",
                 reason="Customer request",
@@ -378,9 +378,11 @@ class OrderCancelled(DomainEvent):
                 raise DomainValidationError(
                     "order_id is required", details=get_error_context()
                 )
-            
+
             # Use order_id as aggregate_id if not provided
-            resolved_aggregate_id = aggregate_id if aggregate_id is not None else order_id
+            resolved_aggregate_id = (
+                aggregate_id if aggregate_id is not None else order_id
+            )
 
             return cls(
                 order_id=order_id,

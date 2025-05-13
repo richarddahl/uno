@@ -20,7 +20,7 @@ class ScopeProtocol(Protocol):
     def id(self) -> str:
         """Get the unique ID of this scope."""
         ...
-        
+
     @property
     def parent(self) -> "ScopeProtocol | None":
         """Get the parent scope, or None if this is a root scope."""
@@ -45,12 +45,12 @@ class ScopeProtocol(Protocol):
     def create_scope(self) -> "ScopeProtocol":
         """Create a child scope."""
         ...
-        
+
     def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope synchronously."""
         ...
-        
-    async def get_service_keys_async(self) -> list[str]:
+
+    async def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope asynchronously."""
         ...
 
@@ -72,19 +72,19 @@ class ContainerProtocol(Protocol):
     async def _dispose_service(self, service: T) -> None: ...
 
     async def _create_service(self, interface: type[T], implementation: Any) -> T: ...
-    
-    def get_registration_keys(self) -> list[str]:
+
+    async def get_registration_keys(self) -> list[str]:
         """Get all registered service keys synchronously."""
         ...
-        
+
     async def get_registration_keys_async(self) -> list[str]:
         """Get all registered service keys asynchronously."""
         ...
 
-    def get_scope_chain(self) -> list[ScopeProtocol]:
+    async def get_scope_chain(self) -> list[ScopeProtocol]:
         """Get the chain of scopes from current to root synchronously."""
         ...
-        
+
     async def get_scope_chain_async(self) -> list[ScopeProtocol]:
         """Get the chain of scopes from current to root asynchronously."""
         ...
@@ -116,15 +116,11 @@ class ScopeProtocol(Protocol):
         """Dispose of the scope and its services."""
         ...
 
-    def create_scope(self) -> "ScopeProtocol":
+    async def create_scope(self) -> "ScopeProtocol":
         """Create a child scope."""
         ...
-        
-    def get_service_keys(self) -> list[str]:
-        """Get the service keys available in this scope synchronously."""
-        ...
-        
-    async def get_service_keys_async(self) -> list[str]:
+
+    async def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope asynchronously."""
         ...
 

@@ -17,7 +17,7 @@ class TimerContextProtocol(Protocol):
         """Enter the timer context, starting the timer."""
         ...
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: type, exc_val: float, exc_tb: float) -> None:
         """Exit the timer context, stopping the timer and recording the duration."""
         ...
 

@@ -113,35 +113,6 @@ class EventHandlerContext(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Canonical serialization: returns dict using Uno contract.
-
-        Uses model_dump(exclude_none=True, exclude_unset=True, by_alias=True).
-
-        Returns:
-            Dictionary representation of the context
-        """
-        return self.model_dump(
-            exclude={"cancellation_token"},
-            exclude_none=True,
-            exclude_unset=True,
-            by_alias=True,
-        )
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
-        """
-        Create a context from a dictionary.
-
-        Args:
-            data: Dictionary containing context data
-
-        Returns:
-            A new context instance
-        """
-        return cls.model_validate(data)
-
     def get_typed_event(self, event_type: type[T]) -> T:
         """
         Get the event as a specific type.

@@ -52,7 +52,7 @@ class ErrorLogger:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._log_error_sync, error)
 
-    def _log_error_sync(self, error: LoggingError) -> None:
+    async def _log_error_sync(self, error: LoggingError) -> None:
         level = logging.ERROR
         severity = error.context.severity
         if severity == ErrorSeverity.CRITICAL:

@@ -13,11 +13,15 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar, cast, overload
+from typing import Any, TypeVar, get_type_hints
 
 from uno.domain.protocols import DomainEventProtocol
 from uno.events.errors import EventHandlerError
-from uno.events.protocols import EventHandlerProtocol, EventRegistryProtocol
+from uno.events.protocols import (
+    EventHandlerProtocol,
+    EventRegistryProtocol,
+    EventProtocol,
+)
 from uno.logging.protocols import LoggerProtocol
 
 # Type alias for handler functions that can be either sync or async
@@ -105,103 +109,41 @@ class AsyncEventHandlerAdapter:
             ) from e
 
 
-class EventHandlerRegistry(EventRegistryProtocol):
-    """Registry for event handlers.
+class EventHandlerRegistry:
+    """Registry for event handlers that maps event types to their handlers."""
 
-    Tracks registered handlers for each event type using an async-first approach
-    without DI container dependencies.
-    """
+    def __init__(self) -> None:
+        self._handlers: dict[type[EventProtocol], list[EventHandlerProtocol]] = {}
 
-    def __init__(self, logger: LoggerProtocol) -> None:
-        """Initialize the registry.
+    def register(self, handler: EventHandlerProtocol) -> None:
+        """Register a handler for a specific event type.
 
-        Args:
-            logger: Logger for structured logging
+        The event type is determined by inspecting the handler's handle method signature.
         """
-        self.logger = logger
-        self._handlers: dict[str, list[EventHandlerProtocol]] = {}
-
-    @overload
-    async def register(
-        self,
-        event_type: str,
-        handler: EventHandlerProtocol,
-    ) -> None: ...
-
-    @overload
-    async def register(
-        self,
-        event_type: str,
-        handler: EventHandlerFunction,
-    ) -> None: ...
-
-    async def register(
-        self,
-        event_type: str,
-        handler: HandlerType | None = None,
-    ) -> None:
-        """Register a handler for an event type.
-
-        Args:
-            event_type: The event type to handle
-            handler: The handler to register (can be any callable or handler implementation)
-        """
-        if handler is None:
-            raise ValueError("Handler cannot be None")
-
-        handler_instance: EventHandlerProtocol
-        if isinstance(handler, EventHandlerProtocol):
-            handler_instance = handler
-        elif callable(handler):
-            # Create an adapter for raw functions
-            handler_instance = AsyncEventHandlerAdapter(
-                cast(EventHandlerFunction, handler), self.logger
-            )
-        else:
-            raise TypeError(
-                "Handler must be either an EventHandlerProtocol or a callable"
+        # Get the event type from the handler's signature
+        hints = get_type_hints(handler.handle)
+        if "event" not in hints:
+            raise ValueError(
+                f"Handler {handler.__class__.__name__} must have an 'event' parameter"
             )
 
+        event_type = hints["event"]
+
+        # Register the handler for this event type
         if event_type not in self._handlers:
             self._handlers[event_type] = []
 
-        self._handlers[event_type].append(handler_instance)
+        self._handlers[event_type].append(handler)
 
-        handler_name = (
-            handler_instance.__class__.__name__
-            if hasattr(handler_instance, "__class__")
-            else str(handler_instance)
-        )
-
-        await self.logger.debug(
-            "Registered handler for event type",
-            event_type=event_type,
-            handler_name=handler_name,
-        )
-
-    async def get_handlers_for_event(
-        self, event: DomainEventProtocol
+    def get_handlers_for(
+        self, event_type: type[EventProtocol]
     ) -> list[EventHandlerProtocol]:
-        """Get all handlers for an event.
-
-        Args:
-            event: The domain event to get handlers for
-
-        Returns:
-            List of handlers for the event
-        """
-        event_type = getattr(event, "event_type", None)
-        if event_type is None:
-            await self.logger.warning(
-                "Event has no event_type attribute", event=str(event)
-            )
-            return []
+        """Get all handlers registered for a specific event type."""
         return self._handlers.get(event_type, [])
 
-    async def clear(self) -> None:
-        """Clear all handlers in the registry."""
+    def clear(self) -> None:
+        """Clear all registered handlers."""
         self._handlers.clear()
-        await self.logger.debug("Cleared all handlers")
 
 
 async def register_event_handler(

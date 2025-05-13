@@ -7,7 +7,7 @@ Implements Uno canonical serialization, DDD, and event sourcing contracts.
 
 from typing import Self
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, model_validator
 
 from examples.app.domain.inventory.events import (
     InventoryItemAdjusted,
@@ -85,16 +85,13 @@ class InventoryItem(AggregateRoot[str]):
                 # Avoid any usage of factory methods or DI for test compatibility
                 item = cls(id=aggregate_id, name=name, measurement=m)
 
-                # Create a dict representing the event data (DDD core pattern)
-                event_data = {
-                    "aggregate_id": aggregate_id,
-                    "name": name,
-                    "measurement": m,
-                    "version": 1,
-                }
-
-                # Create the event using the synchronous from_dict method
-                event = InventoryItemCreated.from_dict(event_data)
+                # Create the event with named parameters
+                event = InventoryItemCreated(
+                    aggregate_id=aggregate_id,
+                    name=name,
+                    measurement=m,
+                    version=1,
+                )
 
                 # Record the event
                 item._record_event(event)
@@ -130,8 +127,10 @@ class InventoryItem(AggregateRoot[str]):
                 raise DomainValidationError(
                     "new_name is required", details=get_error_context()
                 )
-            event = InventoryItemRenamed.create(
-                aggregate_id=self.id, new_name=new_name, measurement=self.measurement
+            event = InventoryItemRenamed(
+                aggregate_id=self.id,
+                new_name=new_name,
+                measurement=self.measurement,
             )
             self._record_event(event)
         except Exception as e:
@@ -226,10 +225,6 @@ class InventoryItem(AggregateRoot[str]):
                 )
             current_value = self.measurement.value.value
             adjustment = event.adjustment
-            if not isinstance(current_value, float):
-                current_value = float(current_value)
-            if not isinstance(adjustment, float):
-                adjustment = float(adjustment)
             new_value = round(current_value + adjustment, 10)
             if new_value < 0:
                 raise DomainValidationError(
@@ -241,21 +236,3 @@ class InventoryItem(AggregateRoot[str]):
             raise DomainValidationError(
                 f"Unhandled event: {event}", details=get_error_context()
             )
-
-    from pydantic import model_validator
-
-    @model_validator(mode="after")
-    def check_invariants(self) -> Self:
-        """
-        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
-        """
-        from examples.app.domain.inventory.measurement import Measurement
-
-        if not self.name or not isinstance(self.name, str):
-            raise ValueError("name must be a non-empty string")
-        if self.measurement is None or not isinstance(self.measurement, Measurement):
-            raise ValueError("measurement must be a Measurement value object")
-        if self.measurement.value.value < 0:
-            raise ValueError("measurement must be non-negative")
-        # Add more invariants as needed
-        return self

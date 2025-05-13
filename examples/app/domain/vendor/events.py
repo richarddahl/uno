@@ -18,7 +18,7 @@ class VendorEmailUpdated(DomainEvent):
 
     Usage:
         try:
-            event = VendorEmailUpdated.create(
+            event = VendorEmailUpdated(
                 vendor_id="V100",
                 old_email=EmailAddress(value="old@example.com"),
                 new_email=EmailAddress(value="new@example.com"),
@@ -34,7 +34,9 @@ class VendorEmailUpdated(DomainEvent):
     new_email: str  # Stored as string in event
     aggregate_id: str  # Required by DomainEvent base class
     version: ClassVar[int] = 1
-    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
+    model_config = ConfigDict(
+        frozen=True, json_encoders={EmailAddress: lambda v: v.value}
+    )
 
     @classmethod
     def create(
@@ -46,16 +48,16 @@ class VendorEmailUpdated(DomainEvent):
     ) -> Self:
         """
         Create a new VendorEmailUpdated event with validation.
-        
+
         Args:
             vendor_id: The ID of the vendor (also used as aggregate_id)
             old_email: Previous email address (string or EmailAddress)
             new_email: New email address (string or EmailAddress)
             version: Event version
-            
+
         Returns:
             A new VendorEmailUpdated event
-            
+
         Raises:
             DomainValidationError: If validation fails
         """
@@ -72,11 +74,15 @@ class VendorEmailUpdated(DomainEvent):
                 raise DomainValidationError(
                     "new_email is required", details=get_error_context()
                 )
-            
+
             # Convert EmailAddress to string if needed
-            old_email_str = old_email.value if hasattr(old_email, 'value') else old_email
-            new_email_str = new_email.value if hasattr(new_email, 'value') else new_email
-            
+            old_email_str = (
+                old_email.value if hasattr(old_email, "value") else old_email
+            )
+            new_email_str = (
+                new_email.value if hasattr(new_email, "value") else new_email
+            )
+
             return cls(
                 vendor_id=vendor_id,
                 old_email=old_email_str,
@@ -88,25 +94,26 @@ class VendorEmailUpdated(DomainEvent):
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                f"Failed to create VendorEmailUpdated: {str(exc)}", details={"error": str(exc)}
+                f"Failed to create VendorEmailUpdated: {str(exc)}",
+                details={"error": str(exc)},
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
         """
         Upcast to a newer version of the event.
-        
+
         Args:
             target_version: The version to upcast to
-            
+
         Returns:
             The upcasted event
-            
+
         Raises:
             DomainValidationError: If upcasting is not implemented for the target version
         """
         if target_version == self.version:
             return self
-            
+
         raise DomainValidationError(
             "Upcasting not implemented",
             details={"from": self.version, "to": target_version},
@@ -120,7 +127,7 @@ class VendorCreated(DomainEvent):
 
     Usage:
         try:
-            event = VendorCreated.create(
+            event = VendorCreated(
                 vendor_id="V100",
                 name="Acme Corp",
                 contact_email="info@acme.com",
@@ -136,7 +143,9 @@ class VendorCreated(DomainEvent):
     contact_email: str  # Serialized as primitive for event persistence
     aggregate_id: str
     version: ClassVar[int] = 1
-    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
+    model_config = ConfigDict(
+        frozen=True, json_encoders={EmailAddress: lambda v: v.value}
+    )
 
     @classmethod
     def create(
@@ -148,16 +157,16 @@ class VendorCreated(DomainEvent):
     ) -> Self:
         """
         Create a new VendorCreated event with validation.
-        
+
         Args:
             vendor_id: The ID of the vendor (also used as aggregate_id)
             name: The name of the vendor
             contact_email: The contact email for the vendor (string or EmailAddress)
             version: Event version
-            
+
         Returns:
             A new VendorCreated event
-            
+
         Raises:
             DomainValidationError: If validation fails
         """
@@ -174,10 +183,14 @@ class VendorCreated(DomainEvent):
                 raise DomainValidationError(
                     "contact_email is required", details=get_error_context()
                 )
-            
+
             # Convert EmailAddress to string if needed
-            email_str = contact_email.value if hasattr(contact_email, 'value') else contact_email
-            
+            email_str = (
+                contact_email.value
+                if hasattr(contact_email, "value")
+                else contact_email
+            )
+
             return cls(
                 vendor_id=vendor_id,
                 name=name,
@@ -189,25 +202,26 @@ class VendorCreated(DomainEvent):
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                f"Failed to create VendorCreated: {str(exc)}", details={"error": str(exc)}
+                f"Failed to create VendorCreated: {str(exc)}",
+                details={"error": str(exc)},
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
         """
         Upcast to a newer version of the event.
-        
+
         Args:
             target_version: The version to upcast to
-            
+
         Returns:
             The upcasted event
-            
+
         Raises:
             DomainValidationError: If upcasting is not implemented for the target version
         """
         if target_version == self.version:
             return self
-            
+
         raise DomainValidationError(
             "Upcasting not implemented",
             details={"from": self.version, "to": target_version},
@@ -220,7 +234,7 @@ class VendorUpdated(DomainEvent):
 
     Usage:
         try:
-            event = VendorUpdated.create(
+            event = VendorUpdated(
                 vendor_id="V100",
                 name="Acme Corp",
                 contact_email="info@acme.com",
@@ -236,7 +250,9 @@ class VendorUpdated(DomainEvent):
     contact_email: str
     aggregate_id: str  # Required by DomainEvent base class
     version: ClassVar[int] = 1
-    model_config = ConfigDict(frozen=True, json_encoders={EmailAddress: lambda v: v.value})
+    model_config = ConfigDict(
+        frozen=True, json_encoders={EmailAddress: lambda v: v.value}
+    )
 
     @classmethod
     def create(
@@ -248,16 +264,16 @@ class VendorUpdated(DomainEvent):
     ) -> Self:
         """
         Create a new VendorUpdated event with validation.
-        
+
         Args:
             vendor_id: The ID of the vendor (also used as aggregate_id)
             name: The name of the vendor
             contact_email: The contact email for the vendor (string or EmailAddress)
             version: Event version
-            
+
         Returns:
             A new VendorUpdated event
-            
+
         Raises:
             DomainValidationError: If validation fails
         """
@@ -274,10 +290,14 @@ class VendorUpdated(DomainEvent):
                 raise DomainValidationError(
                     "contact_email is required", details=get_error_context()
                 )
-            
+
             # Convert EmailAddress to string if needed
-            email_str = contact_email.value if hasattr(contact_email, 'value') else contact_email
-                
+            email_str = (
+                contact_email.value
+                if hasattr(contact_email, "value")
+                else contact_email
+            )
+
             return cls(
                 vendor_id=vendor_id,
                 name=name,
@@ -289,25 +309,26 @@ class VendorUpdated(DomainEvent):
             if isinstance(exc, DomainValidationError):
                 raise
             raise DomainValidationError(
-                f"Failed to create VendorUpdated: {str(exc)}", details={"error": str(exc)}
+                f"Failed to create VendorUpdated: {str(exc)}",
+                details={"error": str(exc)},
             ) from exc
 
     def upcast(self, target_version: int) -> Self:
         """
         Upcast to a newer version of the event.
-        
+
         Args:
             target_version: The version to upcast to
-            
+
         Returns:
             The upcasted event
-            
+
         Raises:
             DomainValidationError: If upcasting is not implemented for the target version
         """
         if target_version == self.version:
             return self
-            
+
         raise DomainValidationError(
             "Upcasting not implemented",
             details={"from": self.version, "to": target_version},

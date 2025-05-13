@@ -28,8 +28,8 @@ class EventMetrics:
 
     def __init__(
         self,
-        metrics_factory: MetricProtocol | None = None,
-        logger: LoggerProtocol | None = None,
+        metrics_factory: MetricProtocol,
+        logger: LoggerProtocol,
     ) -> None:
         """Initialize event metrics with the given factory and logger.
 
@@ -71,7 +71,7 @@ class EventMetrics:
             ["event_type"],
         )
 
-    def _create_counter(
+    async def _create_counter(
         self, name: str, description: str, tags: list[str] | None = None
     ) -> CounterProtocol:
         """Create a counter metric.
@@ -94,7 +94,7 @@ class EventMetrics:
             )
             return self.metrics_factory.create_counter("dummy_counter", "Dummy counter")
 
-    def _create_gauge(
+    async def _create_gauge(
         self, name: str, description: str, tags: list[str] | None = None
     ) -> GaugeProtocol:
         """Create a gauge metric.
@@ -117,7 +117,7 @@ class EventMetrics:
             )
             return self.metrics_factory.create_gauge("dummy_gauge", "Dummy gauge")
 
-    def _create_histogram(
+    async def _create_histogram(
         self, name: str, description: str, tags: list[str] | None = None
     ) -> HistogramProtocol:
         """Create a histogram metric.
@@ -142,7 +142,7 @@ class EventMetrics:
                 "dummy_histogram", "Dummy histogram"
             )
 
-    def _create_timer(
+    async def _create_timer(
         self, name: str, description: str, tags: list[str] | None = None
     ) -> TimerProtocol:
         """Create a timer metric.
@@ -282,7 +282,7 @@ class EventMetrics:
                 )
 
 
-def create_event_metrics(
+async def create_event_metrics(
     metrics_factory: MetricProtocol | None = None, logger: LoggerProtocol | None = None
 ) -> EventMetrics:
     """Create and initialize event metrics.
@@ -296,4 +296,8 @@ def create_event_metrics(
     Returns:
         EventMetrics: Initialized event metrics instance
     """
+    # We need to ensure metrics_factory and logger are not None
+    if metrics_factory is None or logger is None:
+        raise ValueError("Both metrics_factory and logger must be provided")
+
     return EventMetrics(metrics_factory=metrics_factory, logger=logger)
