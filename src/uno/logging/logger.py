@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Never
 
 from uno.logging.errors import LoggingError
 from uno.logging.config import LoggingSettings
-from uno.logging.protocols import LoggerProtocol, LogLevel
+from uno.logging.protocols import LogLevel, LoggerProtocol
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
@@ -245,24 +245,85 @@ class UnoJsonEncoder(json.JSONEncoder):
                 return obj.dict()
             if hasattr(obj, "model_dump"):  # Pydantic v2 models
                 return obj.model_dump()
-                
+
             # Try to get a dictionary representation
             if hasattr(obj, "__dict__"):
-                return {
-                    k: v 
-                    for k, v in obj.__dict__.items() 
-                    if not k.startswith("_")
-                }
-                
+                return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+
             # Fall back to string representation
             return str(obj)
-            
+
         except Exception as e:
             # If anything goes wrong, return a string representation
             return f"<Unserializable {obj.__class__.__name__}: {str(e)}>"
 
 
-class UnoLogger(LoggerProtocol):
+class UnoLogger:
+    """Default logger implementation for the Uno framework.
+
+    Supports async context management for resource setup and teardown.
+    Implements all methods required by LoggerProtocol.
+    """
+
+    async def debug(self, message: str, **kwargs: Any) -> None:
+        await self._log(logging.DEBUG, message, **kwargs)
+
+    async def info(self, message: str, **kwargs: Any) -> None:
+        await self._log(logging.INFO, message, **kwargs)
+
+    async def warning(self, message: str, **kwargs: Any) -> None:
+        await self._log(logging.WARNING, message, **kwargs)
+
+    async def error(self, message: str, **kwargs: Any) -> None:
+        await self._log(logging.ERROR, message, **kwargs)
+
+    async def critical(self, message: str, **kwargs: Any) -> None:
+        await self._log(logging.CRITICAL, message, **kwargs)
+
+    async def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
+        await self._log(level.to_stdlib_level(), message, **kwargs)
+
+    def set_level(self, level: LogLevel | str) -> None:
+        if isinstance(level, str):
+            # Try to convert string to LogLevel if possible
+            try:
+                level_enum = LogLevel[level.upper()]
+            except Exception:
+                # If not found, fall back to standard logging level
+                self._logger.setLevel(level.upper())
+                return
+            self._logger.setLevel(level_enum.to_stdlib_level())
+        else:
+            self._logger.setLevel(level.to_stdlib_level())
+
+    from contextlib import contextmanager, asynccontextmanager
+
+    @contextmanager
+    def context(self, **kwargs: Any):
+        prev_context = self._context.copy() if hasattr(self, '_context') else {}
+        self._context.update(kwargs)
+        try:
+            yield
+        finally:
+            self._context = prev_context
+
+    @asynccontextmanager
+    async def async_context(self, **kwargs: Any):
+        prev_context = _log_context.get().copy() if _log_context.get() else {}
+        _log_context.set({**prev_context, **kwargs})
+        try:
+            yield
+        finally:
+            _log_context.set(prev_context)
+
+    def bind(self, **kwargs: Any) -> "LoggerProtocol":
+        new_logger = UnoLogger(self.name, level=logging.getLevelName(self._logger.level), settings=self._settings)
+        new_logger._bound_context = {**self._bound_context, **kwargs}
+        return new_logger
+
+    def with_correlation_id(self, correlation_id: str) -> "LoggerProtocol":
+        return self.bind(correlation_id=correlation_id)
+
     """Default logger implementation for the Uno framework.
 
     Supports async context management for resource setup and teardown.
@@ -310,7 +371,10 @@ class UnoLogger(LoggerProtocol):
         self.name = name
         self._settings = settings or LoggingSettings.load()
         # Fallback for test/legacy settings: map log_format to json_format
-        if hasattr(self._settings, "log_format") and getattr(self._settings, "log_format") == "json":
+        if (
+            hasattr(self._settings, "log_format")
+            and getattr(self._settings, "log_format") == "json"
+        ):
             self._settings.json_format = True
         self._handler = _handler
 
@@ -420,7 +484,7 @@ class UnoLogger(LoggerProtocol):
         # Add current context (from context manager)
         if self._context:
             combined_context.update(self._context)
-            
+
         # Add context from context var (set by async_context)
         context_var_data = _log_context.get()
         if context_var_data:
@@ -443,7 +507,7 @@ class UnoLogger(LoggerProtocol):
         combined_context.update(kwargs)
 
         if getattr(self, "_settings", None) and getattr(
-                self._settings, "json_format", False
+            self._settings, "json_format", False
         ):
             # Create a structured record for JSON format
             record: dict[str, Any] = {
@@ -453,6 +517,7 @@ class UnoLogger(LoggerProtocol):
             # Optionally add timestamp if configured
             if getattr(self._settings, "include_timestamp", False):
                 import datetime
+
                 record["timestamp"] = datetime.datetime.now(datetime.UTC).isoformat()
 
             # Add logger name if available
@@ -462,7 +527,9 @@ class UnoLogger(LoggerProtocol):
             handler = getattr(self, "_handler", None)
             if handler is not None:
                 # Compose the message with all context as key=value for test assertion
-                context_parts = [f"{k}={str(v)}" for k, v in combined_context.items() if k != "level"]
+                context_parts = [
+                    f"{k}={str(v)}" for k, v in combined_context.items() if k != "level"
+                ]
                 msg_with_context = msg
                 if context_parts:
                     msg_with_context += " " + " ".join(context_parts)
@@ -487,155 +554,54 @@ class UnoLogger(LoggerProtocol):
                 level,
                 msg,
                 extra={
-                    "uno_context": json.dumps(
-                        combined_context, cls=UnoJsonEncoder, ensure_ascii=False
-                    )
-                },
+                    "uno_context": json.dumps(combined_context, cls=UnoJsonEncoder, ensure_ascii=False)
+                }
             )
 
-    async def info(self, message: str, **kwargs: Any) -> None:
-        """Log an info message asynchronously.
+async def debug(self, message: str, **kwargs: Any) -> None:
+    await self._log(logging.DEBUG, message, **kwargs)
 
-        Args:
-        # For standard logging, include all context in the extras
-        self._logger.log(
-            level,
-            msg,
-            extra={
-                "uno_context": json.dumps(
-                    combined_context, cls=UnoJsonEncoder, ensure_ascii=False
-                )
-            },
-        )
-            message: Log message
-            **kwargs: Additional context data
-        """
-        await self._log(logging.INFO, message, **kwargs)
+async def info(self, message: str, **kwargs: Any) -> None:
+    await self._log(logging.INFO, message, **kwargs)
 
-    async def warning(self, message: str, **kwargs: Any) -> None:
-        """Log a warning message asynchronously.
+async def warning(self, message: str, **kwargs: Any) -> None:
+    await self._log(logging.WARNING, message, **kwargs)
 
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        await self._log(logging.WARNING, message, **kwargs)
+async def error(self, message: str, **kwargs: Any) -> None:
+    await self._log(logging.ERROR, message, **kwargs)
 
-    async def error(self, message: str, **kwargs: Any) -> None:
-        """Log an error message asynchronously.
+async def critical(self, message: str, **kwargs: Any) -> None:
+    await self._log(logging.CRITICAL, message, **kwargs)
 
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        await self._log(logging.ERROR, message, **kwargs)
+async def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
+    await self._log(level.to_stdlib_level(), message, **kwargs)
 
-    async def critical(self, message: str, **kwargs: Any) -> None:
-        """Log a critical message asynchronously.
+def set_level(self, level: LogLevel) -> None:
+    self._logger.setLevel(level.to_stdlib_level())
 
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        await self._log(logging.CRITICAL, message, **kwargs)
+@contextlib.contextmanager
+def context(self, **kwargs: Any):
+    prev_context = self._context.copy() if hasattr(self, '_context') else {}
+    self._context.update(kwargs)
+    try:
+        yield
+    finally:
+        self._context = prev_context
 
-    async def structured_log(
-        self, level: LogLevel, message: str, **kwargs: Any
-    ) -> None:
-        """Log a structured message with level and context asynchronously.
+@contextlib.asynccontextmanager
+async def async_context(self, **kwargs: Any):
+    prev_context = _log_context.get().copy() if _log_context.get() else {}
+    _log_context.set({**prev_context, **kwargs})
+    try:
+        yield
+    finally:
+        _log_context.set(prev_context)
 
-        Args:
-            level: Log level
-            message: Log message
-            **kwargs: Additional context data
-        """
-        await self._log(level.to_stdlib_level(), message, **kwargs)
+# --- end of UnoLogger methods ---
 
-    def set_level(self, level: LogLevel) -> None:
-        """Set the logger's level.
-
-        Args:
-            level: New logging level
-        """
-        self._logger.setLevel(level.to_stdlib_level())
-
-    @contextlib.contextmanager
-    def context(self, **kwargs: Any) -> Generator[None]:
-        """
-        Context manager for adding contextual information to log messages.
-
-        Args:
-            **kwargs: Context key-value pairs to add to log messages
-        """
-        # Save the original context
-        original_context = self._context.copy()
-
-        # Update context with new values
-        self._context.update(kwargs)
-
-        try:
-            yield
-        finally:
-            # Restore the original context
-            self._context = original_context
-
-    @contextlib.asynccontextmanager
-    async def async_context(self, **kwargs: Any) -> AsyncGenerator[Never]:
-        """Add context information to all logs within this async context.
-
-        This creates an async context manager that adds the provided context
-        information to all logs emitted within its scope.
-
-        Args:
-            **kwargs: Context key-value pairs
-
-        Yields:
-            Never
-        """
-        # Get the current context
-        current = _log_context.get()
-
-        # Create a new context with the additional values
-        updated = {**current, **kwargs}
-
-        # Set the new context
-        token = _log_context.set(updated)
-        try:
-            yield
-        finally:
-            # Restore the previous context
-            _log_context.reset(token)
-
-    def bind(self, **kwargs: Any) -> LoggerProtocol:
-        """Create a new logger with bound context values.
-
-        Ensures the new logger has the same handler/formatter configuration as the original,
-        so context is always emitted in the log output.
-
-        Args:
-            **kwargs: Context values to bind
-
-        Returns:
-            New logger instance with bound context
-        """
-        logger = UnoLogger(self.name, settings=self._settings, _handler=self._handler)
-        logger._bound_context = {**self._bound_context, **kwargs}
-        # Logger configuration (handlers/formatter) is handled by UnoLogger.__init__ using the parent's settings and level.
-        return logger
-
-    def with_correlation_id(self, correlation_id: str) -> LoggerProtocol:
-        """Bind a correlation ID to all logs from this logger.
-
-        Args:
-            correlation_id: Correlation ID for tracing
-
-        Returns:
-            New logger instance with correlation ID
-        """
-        return self.bind(correlation_id=correlation_id)
-
-
-def get_logger(name: str, level: LogLevel | None = None, _handler: callable[..., Any] | None = None) -> LoggerProtocol:
+def get_logger(
+    name: str, level: LogLevel | None = None, _handler: callable[..., Any] | None = None
+) -> LoggerProtocol:
     """Get a logger for the specified name.
 
     Args:
@@ -652,3 +618,10 @@ def get_logger(name: str, level: LogLevel | None = None, _handler: callable[...,
         logger.set_level(level)
 
     return logger
+
+
+# At the end of the file, after the UnoLogger class, add a runtime check:
+# This verifies UnoLogger implements LoggerProtocol without inheriting from it
+assert isinstance(
+    UnoLogger("test"), LoggerProtocol
+), "UnoLogger must implement LoggerProtocol"

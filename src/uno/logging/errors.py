@@ -2,14 +2,7 @@ import asyncio
 import logging
 from typing import Any
 from pydantic import BaseModel
-from enum import Enum
-
-
-class ErrorSeverity(str, Enum):
-    CRITICAL = "critical"
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
+from uno.errors.base import ErrorSeverity
 
 
 class LoggingErrorContext(BaseModel):
@@ -50,9 +43,9 @@ class ErrorLogger:
 
     async def log_error(self, error: LoggingError) -> None:
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._log_error_sync, error)
+        await loop.run_in_executor(None, self._log_error, error)
 
-    async def _log_error_sync(self, error: LoggingError) -> None:
+    def _log_error(self, error: LoggingError) -> None:
         level = logging.ERROR
         severity = error.context.severity
         if severity == ErrorSeverity.CRITICAL:
@@ -67,8 +60,6 @@ class ErrorLogger:
             "severity": severity.value,
             "context": error.context.context,
         }
-        await self.logger.log(level, "Error occurred", extra={"error": log_data})
+        self.logger.log(level, "Error occurred", extra={"error": log_data})
         if hasattr(error, "__traceback__") and error.__traceback__ is not None:
-            await self.logger.debug(
-                f"Traceback for {error.context.code}:", exc_info=error
-            )
+            self.logger.debug(f"Traceback for {error.context.code}:", exc_info=error)

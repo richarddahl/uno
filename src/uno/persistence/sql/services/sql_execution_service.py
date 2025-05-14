@@ -7,7 +7,7 @@ from typing import Any
 
 from uno.persistence.sql.interfaces import SQLExecutionServiceProtocol
 from uno.persistence.sql.interfaces import DBManagerProtocol
-from uno.errors.base import UnoError
+from uno.persistence.sql.errors import SQLExecutionError
 
 
 class SQLExecutionService:
@@ -28,9 +28,9 @@ class SQLExecutionService:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
             await self.logger.error(f"Failed to execute DDL: {e}")
-            raise UnoError(
-                f"Failed to execute DDL: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute DDL: {e}",
+                statement_type="DDL",
             ) from e
 
     def execute_script(self, script: str) -> None:
@@ -42,9 +42,9 @@ class SQLExecutionService:
             self.db_manager.execute_script(script)
         except Exception as e:
             await self.logger.error(f"Failed to execute script: {e}")
-            raise UnoError(
-                f"Failed to execute script: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute script: {e}",
+                statement_type="SCRIPT",
             ) from e
 
     def execute_emitter(self, emitter: Any, dry_run: bool = False) -> list[Any]:
@@ -56,9 +56,9 @@ class SQLExecutionService:
             return self.db_manager.execute_emitter(emitter, dry_run)
         except Exception as e:
             await self.logger.error(f"Failed to execute emitter: {e}")
-            raise UnoError(
-                f"Failed to execute emitter: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute emitter: {e}",
+                statement_type="EMITTER",
             ) from e
 
     """
@@ -78,9 +78,9 @@ class SQLExecutionService:
             self.db_manager.execute_ddl(ddl)
         except Exception as e:
             await self.logger.error(f"Failed to execute DDL: {e}")
-            raise UnoError(
-                f"Failed to execute DDL: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute DDL: {e}",
+                statement_type="DDL",
             ) from e
 
     def execute_script(self, script: str) -> None:
@@ -92,9 +92,9 @@ class SQLExecutionService:
             self.db_manager.execute_script(script)
         except Exception as e:
             await self.logger.error(f"Failed to execute script: {e}")
-            raise UnoError(
-                f"Failed to execute script: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute script: {e}",
+                statement_type="SCRIPT",
             ) from e
 
     def execute_emitter(self, emitter: Any, dry_run: bool = False) -> list[Any]:
@@ -109,7 +109,7 @@ class SQLExecutionService:
             return [None]
         except Exception as e:
             await self.logger.error(f"Failed to execute emitter: {e}")
-            raise UnoError(
-                f"Failed to execute emitter: {e}",
-                "SQL_EXECUTION_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to execute emitter: {e}",
+                statement_type="EMITTER",
             ) from e

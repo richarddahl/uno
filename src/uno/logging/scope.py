@@ -7,32 +7,10 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 if TYPE_CHECKING:
     from uno.di.protocols import ContainerProtocol
-
-
-@runtime_checkable
-class LoggerScopeProtocol(Protocol):
-    """Protocol for managing logger scopes."""
-
-    def get_scope(self) -> dict[str, Any]:
-        """Get the current scope data."""
-        ...
-
-    def set_scope(self, scope: dict[str, Any]) -> None:
-        """Set the current scope data."""
-        ...
-
-    def update_scope(self, **kwargs: Any) -> None:
-        """Update the current scope data with new values."""
-        ...
-
-    @asynccontextmanager
-    async def scope(self, **kwargs: Any) -> AsyncGenerator[None]:
-        """Create a scope that will be automatically cleaned up."""
-        ...
 
 
 class LoggerScope:
@@ -77,22 +55,25 @@ class LoggerScope:
         self._scopes.setdefault(scope_name, {}).update(kwargs)
 
     @asynccontextmanager
-    async def scope(self, scope_name: str, **kwargs: Any) -> AsyncGenerator[None]:
+    async def scope(self, name: str, **kwargs: Any) -> AsyncGenerator[None, None]:
         """Create a scope that will be automatically cleaned up.
 
+        This method is part of LoggerScopeProtocol from uno.logging.protocols.
+
         Args:
-            scope_name: The name of the scope
-            **kwargs: The scope data to use
+            name: The name of the scope
+            **kwargs: Additional scope data to use (not part of the protocol)
 
         Yields:
             None
         """
         try:
-            self.set_scope(scope_name, kwargs)
+            # Use name as scope_name to match implementation in protocols.py
+            self.set_scope(name, kwargs)
             yield
         finally:
             # Clean up the scope when exiting
-            self._scopes.pop(scope_name, None)
+            self._scopes.pop(name, None)
 
     def get_logger(self, name: str) -> logging.Logger:
         """Get a logger with scope-aware context.
@@ -104,7 +85,7 @@ class LoggerScope:
             A logger instance
         """
         logger = logging.getLogger(name)
-        
+
         # Apply scope context to the logger
         for scope_name, scope_data in self._scopes.items():
             for key, value in scope_data.items():

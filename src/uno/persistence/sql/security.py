@@ -10,7 +10,7 @@ from typing import Any, cast, Optional
 from pydantic import BaseModel, Field
 from uno.persistence.sql.config import SQLConfig
 from uno.logging.protocols import LoggerProtocol
-from uno.errors import UnoError
+from uno.persistence.sql.errors import SQLEmitterError, SQLExecutionError
 
 
 class SecurityViolation(BaseModel):
@@ -122,9 +122,9 @@ class SQLSecurityManager:
                         {},
                         details={"blocked_keyword": keyword},
                     )
-                    raise UnoError(
-                        "Statement contains blocked keyword",
-                        "SQL_SECURITY_ERROR",
+                    raise SQLEmitterError(
+                        reason="Statement contains blocked keyword",
+                        emitter="SQLSecurityManager",
                         details={"blocked_keyword": keyword},
                     )
 
@@ -138,9 +138,9 @@ class SQLSecurityManager:
                     {},
                     details={"unknown_keyword": next(iter(unknown_keywords))},
                 )
-                raise UnoError(
-                    "Statement contains unknown keyword",
-                    "SQL_SECURITY_ERROR",
+                raise SQLEmitterError(
+                    reason="Statement contains unknown keyword",
+                    emitter="SQLSecurityManager",
                     details={"unknown_keyword": next(iter(unknown_keywords))},
                 )
 
@@ -150,9 +150,9 @@ class SQLSecurityManager:
                     self._log_violation(
                         "injection_pattern", statement, {}, details={"pattern": pattern}
                     )
-                    raise UnoError(
-                        "Statement contains potential injection pattern",
-                        "SQL_SECURITY_ERROR",
+                    raise SQLEmitterError(
+                        reason="Statement contains potential injection pattern",
+                        emitter="SQLSecurityManager",
                         details={"pattern": pattern},
                     )
 
@@ -164,9 +164,9 @@ class SQLSecurityManager:
                 name="uno.sql.security",
                 error=e,
             )
-            raise UnoError(
-                f"Failed to sanitize statement: {str(e)}",
-                "SQL_SECURITY_ERROR",
+            raise SQLExecutionError(
+                reason=f"Failed to sanitize statement: {str(e)}",
+                statement_type="SECURITY_SANITIZE",
             ) from e
 
     def check_permissions(

@@ -3,7 +3,7 @@ SQL trigger emitter implementation.
 """
 
 from typing import Any
-from uno.errors import UnoError
+from uno.persistence.sql.errors import SQLEmitterError
 from uno.persistence.sql.interfaces import SQLEmitterProtocol
 
 
@@ -37,9 +37,9 @@ END;
 """
             return sql
         except Exception as e:
-            raise UnoError(
-                f"Failed to create trigger emitter: {e}",
-                "SQL_EMITTER_ERROR",
+            raise SQLEmitterError(
+                reason=f"Failed to create trigger emitter: {e}",
+                emitter=self.__class__.__name__,
             ) from e
 
 
@@ -63,7 +63,7 @@ class DropTriggerEmitter:
             sql = f"DROP TRIGGER IF EXISTS {self.name} ON {self.table};"
             return sql
         except Exception as e:
-            raise UnoError(
-                f"Failed to create drop trigger emitter: {e}",
-                "SQL_EMITTER_ERROR",
+            raise SQLEmitterError(
+                reason=f"Failed to create drop trigger emitter: {e}",
+                emitter=self.__class__.__name__,
             ) from e

@@ -12,14 +12,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
-
-
-class ErrorSeverity(str, Enum):
-    """Severity levels for domain errors."""
-
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
+from uno.errors.base import ErrorSeverity
 
 
 class ErrorCategory(str, Enum):

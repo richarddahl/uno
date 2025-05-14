@@ -16,13 +16,16 @@ from uno.di.errors import (
 )
 from uno.di.protocols import ContainerProtocol, ScopeProtocol
 
+
 class FakeService:
     def __init__(self):
         self.value = 42
 
+
 class FakeScopedService:
     def __init__(self):
         self.value = 99
+
 
 @pytest.mark.asyncio
 async def test_singleton_registration_and_resolution():
@@ -32,6 +35,7 @@ async def test_singleton_registration_and_resolution():
     instance2 = await container.resolve(FakeService)
     assert instance1 is instance2
     assert instance1.value == 42
+
 
 @pytest.mark.asyncio
 async def test_scoped_registration_and_resolution():
@@ -46,6 +50,7 @@ async def test_scoped_registration_and_resolution():
         inst3 = await scope2.resolve(FakeScopedService)
         assert inst3 is not inst1
 
+
 @pytest.mark.asyncio
 async def test_transient_registration_and_resolution():
     container = await Container.create()
@@ -53,6 +58,7 @@ async def test_transient_registration_and_resolution():
     inst1 = await container.resolve(FakeService)
     inst2 = await container.resolve(FakeService)
     assert inst1 is not inst2
+
 
 @pytest.mark.asyncio
 async def test_dispose_container_and_scope():
@@ -63,11 +69,13 @@ async def test_dispose_container_and_scope():
     with pytest.raises(ContainerDisposedError):
         await container.resolve(FakeService)
 
+
 @pytest.mark.asyncio
 async def test_service_not_registered_error():
     container = await Container.create()
     with pytest.raises(DIServiceNotFoundError):
         await container.resolve(FakeScopedService)
+
 
 @pytest.mark.asyncio
 async def test_duplicate_registration_error():
@@ -75,6 +83,7 @@ async def test_duplicate_registration_error():
     await container.register_singleton(FakeService, FakeService)
     with pytest.raises(DuplicateRegistrationError):
         await container.register_singleton(FakeService, FakeService)
+
 
 @pytest.mark.asyncio
 async def test_scope_disposed_error():
@@ -85,22 +94,52 @@ async def test_scope_disposed_error():
     with pytest.raises(DIScopeDisposedError):
         await scope.resolve(FakeScopedService)
 
+
 @pytest.mark.asyncio
 async def test_circular_dependency_detection():
-    class ServiceA:
-        def __init__(self, b: 'ServiceB'):
-            self.b = b
-    class ServiceB:
-        def __init__(self, a: ServiceA):
-            self.a = a
+    """Test that circular dependencies are properly detected and reported."""
     container = Container()
-    async def factory_a(_):
-        b = await container.resolve(ServiceB)
-        return ServiceA(b)
-    async def factory_b(_):
-        a = await container.resolve(ServiceA)
-        return ServiceB(a)
-    await container.register_singleton(ServiceA, factory_a)
-    await container.register_singleton(ServiceB, factory_b)
-    with pytest.raises(DICircularDependencyError):
+
+    # Create a container with both services registered
+    await container.register_transient(ServiceA, factory_a)
+    await container.register_transient(ServiceB, factory_b)
+
+    # This should raise a DICircularDependencyError directly
+    with pytest.raises(DICircularDependencyError) as excinfo:
         await container.resolve(ServiceA)
+
+    # Verify the error message contains the dependency chain
+    error_message = str(excinfo.value)
+    assert "Circular dependency detected" in error_message
+    assert "ServiceA -> ServiceB -> ServiceA" in error_message
+
+    # Cleanup
+    await container.dispose()
+
+
+async def factory_a(container):
+    # Create ServiceA that depends on ServiceB
+    b = await container.resolve(ServiceB)
+    return ServiceA()
+
+
+async def factory_b(container):
+    # Create ServiceB that depends on ServiceA
+    a = await container.resolve(ServiceA)
+    return ServiceB()
+
+
+class ServiceA:
+    def __init__(self, container=None):
+        # Create circular dependency: A -> B -> A
+        if container:
+            b = container.resolve(ServiceB)
+            self.b = b
+
+
+class ServiceB:
+    def __init__(self, container=None):
+        # Complete the circular dependency: B -> A
+        if container:
+            a = container.resolve(ServiceA)
+            self.a = a

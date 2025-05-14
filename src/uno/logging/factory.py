@@ -9,34 +9,38 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING
 
 from uno.logging.config import LoggingSettings
 from uno.logging.logger import get_logger
+from uno.logging.protocols import LoggerFactoryProtocol, LoggerProtocol
 
 if TYPE_CHECKING:
     from uno.di.protocols import ContainerProtocol
-    from uno.logging.protocols import LoggerProtocol
 
 
-@runtime_checkable
-class LoggerFactoryProtocol(Protocol):
-    """Protocol for logger factory implementations."""
+class LoggerFactory:
+    """
+    Logger factory for Uno DI system.
 
-    async def create_logger(self, name: str) -> LoggerProtocol:
-        """Create a new logger instance."""
-        ...
+    Usage:
+        - Register with DI using register_logger_factory(container, settings).
+        - Use create_logger(name) to get a logger instance (async).
+        - Use scoped_logger(name) as an async context manager for per-scope loggers.
 
-    @asynccontextmanager
-    async def scoped_logger(self, name: str) -> AsyncIterator[LoggerProtocol]:
-        """Create a scoped logger instance."""
-        ...
+    Lifecycle:
+        - LoggerFactory is a singleton in the DI container.
+        - Logger instances are created on demand and are not reused unless cached externally.
+        - scoped_logger provides a context-managed logger, ensuring cleanup hooks are called (currently a no-op, but contract is enforced).
 
+    Resource Cleanup:
+        - The scoped_logger context manager ensures any future cleanup logic is executed.
+        - Even if currently a no-op, always use the context manager for scoped loggers.
+    """
 
-class LoggerFactory(LoggerFactoryProtocol):
-    """Logger factory implementation that integrates with Uno's dependency injection system."""
-
-    def __init__(self, container: ContainerProtocol, settings: LoggingSettings) -> None:
+    def __init__(
+        self, container: "ContainerProtocol", settings: LoggingSettings
+    ) -> None:
         """Initialize the logger factory."""
         self.container = container
         self.settings = settings
@@ -76,11 +80,21 @@ def register_logger_factory(
     container: ContainerProtocol, settings: LoggingSettings
 ) -> None:
     """
-    Register the logger factory with the dependency injection container.
+    Register LoggerFactory as a singleton in the DI container.
+
+    Usage:
+        - Call this during DI setup to make LoggerFactory available everywhere via LoggerFactoryProtocol.
+        - Ensures all loggers are configured using the provided settings.
 
     Args:
         container: The dependency injection container.
         settings: The logging configuration settings.
     """
     factory = LoggerFactory(container, settings)
+    # Uno idiom: Protocols are for structural subtyping, not inheritance. Ensure at runtime.
+    # LoggerFactoryProtocol is @runtime_checkable, so this is safe and correct.
+    if not isinstance(factory, LoggerFactoryProtocol):
+        raise TypeError(
+            "LoggerFactory does not structurally implement LoggerFactoryProtocol"
+        )
     container.register_singleton(LoggerFactoryProtocol, factory)

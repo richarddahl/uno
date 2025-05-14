@@ -14,6 +14,7 @@ from enum import Enum, auto
 import inspect
 import os
 from typing import Any
+import copy
 
 
 class ErrorCategory(Enum):
@@ -29,14 +30,13 @@ class ErrorCategory(Enum):
     SECURITY = auto()  # Security-related errors
 
 
-class ErrorSeverity(Enum):
-    """Severity levels for errors."""
-
-    INFO = auto()  # Informational message, not an error
-    WARNING = auto()  # Warning that might need attention
-    ERROR = auto()  # Error that affects operation but not critical
-    CRITICAL = auto()  # Critical error that prevents core functionality
-    FATAL = auto()  # Fatal error that requires system shutdown
+class ErrorSeverity(str, Enum):
+    """Severity levels for errors across Uno (logging, domain, infra, etc)."""
+    CRITICAL = "critical"
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
+    FATAL = "fatal"
 
 
 class UnoError(Exception):
@@ -85,24 +85,13 @@ class UnoError(Exception):
         self.context = context or {}
         self.timestamp = datetime.now(UTC)
 
-
     def with_context(self, context: dict[str, Any]) -> "UnoError":
-        """
-        Create a new error instance of the same subclass with the given context merged.
-
-        Args:
-            context: Context data to add to existing context
-
-        Returns:
-            New error instance (same type as self) with updated context
-        """
-        return type(self)(
-            self.code,
-            self.message,
-            self.category,
-            self.severity,
-            {**self.context, **context},
-        )
+        """Return a new error with additional context."""
+        # Create a new instance with the same class, copying all attributes
+        new_error = copy.copy(self)
+        # Just update the context attribute
+        new_error.context = {**self.context, **context}
+        return new_error
 
     @classmethod
     def wrap(
@@ -192,7 +181,6 @@ def get_error_context() -> dict[str, Any]:
             "function_name": "unknown",
             "timestamp": datetime.now(UTC).isoformat(),
         }
-
     frame_info = inspect.getframeinfo(caller_frame)
 
     # Extract relevant information

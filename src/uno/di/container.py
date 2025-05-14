@@ -347,6 +347,17 @@ class Container:
         After disposal, the container cannot be used and will raise ScopeError
         when attempting to register or resolve services.
         """
+        if self._disposed:
+            return  # Already disposed
+
+        # Mark as disposed first to prevent new registrations during disposal
+        self._disposed = True
+
+        # Wait for any pending tasks
+        await self.wait_for_pending_tasks()
+
+        # Use the disposal manager to properly dispose all services
+        await self._disposal_manager.dispose_container()
 
     async def register_singleton(
         self,
@@ -378,7 +389,7 @@ class Container:
 
     async def _register(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         implementation: Any,
         lifetime: ServiceLifetime,
         replace: bool = False,
@@ -400,11 +411,13 @@ class Container:
             try:
                 return implementation()
             except Exception as exc:
-                raise DIServiceCreationError(
-                    f"Failed to instantiate service for {interface}: {exc}",
-                    interface=interface,
-                    implementation=implementation,
-                ) from exc
+                # Special handling for circular dependency errors - propagate directly
+                if isinstance(exc, DICircularDependencyError):
+                    raise exc
+                # Use async_init instead of direct instantiation
+                raise await DIServiceCreationError.async_init(
+                    service_type=interface, original_error=exc, container=self
+                )
         elif callable(implementation):
             try:
                 result = implementation(self)
@@ -412,15 +425,17 @@ class Container:
                     return await result
                 return result
             except Exception as exc:
-                raise DIServiceCreationError(
-                    f"Failed to create service via factory for {interface}: {exc}",
-                    interface=interface,
-                    implementation=implementation,
-                ) from exc
+                # Special handling for circular dependency errors - propagate directly
+                if isinstance(exc, DICircularDependencyError):
+                    raise exc
+                # Use async_init instead of direct instantiation
+                raise await DIServiceCreationError.async_init(
+                    service_type=interface, original_error=exc, container=self
+                )
         else:
             return implementation
 
-    async def resolve(self, interface: Type[Any]) -> Any:
+    async def resolve(self, interface: type[T]) -> T:
         """Resolve a service instance asynchronously.
 
         Args:
@@ -432,6 +447,7 @@ class Container:
         Raises:
             ScopeError: If trying to resolve a scoped service outside of a scope
             DIServiceNotFoundError: If the service is not registered
+            DICircularDependencyError: If a circular dependency is detected
         """
         await self._check_not_disposed("resolve")
 
@@ -441,31 +457,53 @@ class Container:
                 service_type=interface, container=self
             )
 
-        registration = self._registrations[interface]
+        # Get the type name for dependency tracking
+        service_type_name = getattr(interface, "__name__", str(interface))
 
-        # Check for scoped service outside of scope
-        if registration.lifetime == ServiceLifetime.SCOPED and (
-            len(self._scopes) <= 1 or self._current_scope is None
-        ):
-            # Only singleton scope exists or no current scope
-            raise ScopeError.outside_scope(interface)
+        # Track dependency chain to detect circular dependencies
+        dependency_chain = _DI_DEPENDENCY_CHAIN.get()
 
-        policy = registration.lifetime_policy
-        scope = self._scopes[-1] if self._scopes else self._singleton_scope
-        key = interface
+        # Check for circular dependencies
+        if service_type_name in dependency_chain:
+            # Create a new chain that includes the current service to show the complete cycle
+            circular_chain = dependency_chain + [service_type_name]
+            raise await DICircularDependencyError.async_init(
+                container=self,
+                dependency_chain=circular_chain,
+            )
 
-        async def factory():
-            return await self.create_service(interface, registration.implementation)
+        # Set a new context with the current service added to the chain
+        token = _DI_DEPENDENCY_CHAIN.set(dependency_chain + [service_type_name])
 
-        instance = await policy.get_instance(scope, factory, key)
-        return instance
+        try:
+            registration = self._registrations[interface]
+
+            # Check for scoped service outside of scope
+            if registration.lifetime == ServiceLifetime.SCOPED and (
+                len(self._scopes) <= 1 or self._current_scope is None
+            ):
+                # Only singleton scope exists or no current scope
+                raise ScopeError.outside_scope(interface)
+
+            policy = registration.lifetime_policy
+            scope = self._scopes[-1] if self._scopes else self._singleton_scope
+            key = interface
+
+            async def factory() -> Any:  # Fix: Changed from Container to Any
+                return await self.create_service(interface, registration.implementation)
+
+            instance = await policy.get_instance(scope, factory, key)
+            return instance
+        finally:
+            # Restore the previous dependency chain
+            _DI_DEPENDENCY_CHAIN.reset(token)
 
     async def replace(
         self,
         interface: Type[Any],
         implementation: Any,
         lifetime: ServiceLifetime,
-    ) -> AsyncGenerator[None]:
+    ) -> AsyncGenerator[None, None]:  # Add proper return type
         await self._check_not_disposed("get_registration_keys")
         original_registration = self._registrations.get(interface)
         original_instance = None
@@ -485,7 +523,6 @@ class Container:
             await self._register(interface, implementation, lifetime, replace=True)
             yield
         finally:
-            await self._cleanup_replacement(interface)
             await self._restore_original(
                 interface, original_registration, original_instance, lifetime
             )

@@ -7,47 +7,51 @@ using the Uno configuration system for environment-driven settings.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
+from pydantic import BaseModel, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from uno.logging.protocols import LogLevel
 
 
-# Simplified LoggingSettings class
-class LoggingSettings:
-    """Simplified configuration settings for the logging system."""
+class LoggingSettings(BaseSettings):
+    """
+    Configuration settings for the Uno logging system.
+    Loads from environment variables using Pydantic v2's env support.
+    """
 
-    def __init__(
-        self,
-        level: str = LogLevel.INFO,
-        json_format: bool = False,
-        include_timestamp: bool = True,
-        include_level: bool = True,
-        console_enabled: bool = True,
-        file_enabled: bool = False,
-        file_path: Optional[str] = None,
-    ):
-        self.level = level
-        self.json_format = json_format
-        self.include_timestamp = include_timestamp
-        self.include_level = include_level
-        self.console_enabled = console_enabled
-        self.file_enabled = file_enabled
-        self.file_path = file_path
+    model_config = SettingsConfigDict(
+        env_prefix="UNO_LOGGING_",
+        extra="ignore",
+        case_sensitive=False,
+        frozen=False,
+    )
+
+    level: str = Field(default=LogLevel.INFO, description="Log level")
+    json_format: bool = Field(default=False, description="Enable JSON log format")
+    include_timestamp: bool = Field(
+        default=True, description="Include timestamp in logs"
+    )
+    include_level: bool = Field(default=True, description="Include log level in logs")
+    console_enabled: bool = Field(default=True, description="Enable console logging")
+    file_enabled: bool = Field(default=False, description="Enable file logging")
+    file_path: str | None = Field(default=None, description="Path to log file")
+
+    @field_validator("level")
+    @classmethod
+    def validate_level(cls, v: Any) -> str:
+        """Validate that the level is a valid log level."""
+        if not isinstance(v, str):
+            raise ValueError(f"Log level must be a string, got {type(v).__name__}")
+        try:
+            return LogLevel.from_string(v).value
+        except ValueError:
+            raise ValueError(f"Invalid log level: {v}")
 
     @classmethod
     def load(cls) -> LoggingSettings:
-        """Load logging settings from environment variables or defaults."""
-        import os
-
-        return cls(
-            level=os.getenv("UNO_LOGGING_LEVEL", "INFO"),
-            json_format=os.getenv("UNO_LOGGING_JSON_FORMAT", "false").lower() == "true",
-            include_timestamp=os.getenv("UNO_LOGGING_INCLUDE_TIMESTAMP", "true").lower()
-            == "true",
-            include_level=os.getenv("UNO_LOGGING_INCLUDE_LEVEL", "true").lower()
-            == "true",
-            console_enabled=os.getenv("UNO_LOGGING_CONSOLE_ENABLED", "true").lower()
-            == "true",
-            file_enabled=os.getenv("UNO_LOGGING_FILE_ENABLED", "false").lower()
-            == "true",
-            file_path=os.getenv("UNO_LOGGING_FILE_PATH"),
-        )
+        """
+        Load logging settings from environment variables or defaults using Pydantic v2.
+        Returns:
+            LoggingSettings: Loaded and validated settings instance.
+        """
+        return cls()

@@ -34,7 +34,7 @@ class LoggingRegistrationExtensions:
             settings: Optional logging settings. If not provided, will use default settings.
         """
         if settings is None:
-            settings = LoggingSettings()
+            settings = LoggingSettings.load()
 
         # Register logger factory
         register_logger_factory(container, settings)

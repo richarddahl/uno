@@ -531,33 +531,50 @@ class ScopeError(UnoError):
         return error.with_context({"interface_name": interface.__name__})
 
 
-class ContainerDisposedError(UnoError):
+class ContainerDisposedError(ContainerError):
     """Error raised when trying to use a disposed container."""
 
-    def __init__(
-        self,
+    @classmethod
+    async def async_init(
+        cls,
         message: str | None = None,
-        code: str = "CONTAINER_DISPOSED",
-        category: ErrorCategory = ErrorCategory.DI,
+        container: "ContainerProtocol" | None = None,
+        capture_container_state: bool = True,
+        code: str | None = None,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the container disposed error.
+        operation: str | None = None,
+        **context: Any,
+    ) -> "ContainerDisposedError":
+        """Async factory for creating container disposed errors.
 
         Args:
             message: Optional custom error message
-            code: Error code
-            category: Error category
-            severity: Error severity
-            **kwargs: Additional keyword arguments
+            container: The DI container to capture state from
+            capture_container_state: Whether to capture container state
+            code: The error code
+            severity: The error severity
+            operation: The operation that was attempted
+            **context: Additional context to include
+
+        Returns:
+            An initialized ContainerDisposedError instance
         """
-        message = message or "Container has been disposed and cannot be used"
-        super().__init__(
+        # Generate the appropriate message based on the parameters
+        if message:
+            pass  # Use the provided message
+        elif operation:
+            message = f"Container has been disposed and cannot perform: {operation}"
+            context["operation"] = operation
+        else:
+            message = "Container has been disposed and cannot be used"
+
+        return await super().async_init(
             message=message,
-            code=code,
-            category=category,
+            container=container,
+            capture_container_state=capture_container_state,
+            code=code or "CONTAINER_DISPOSED",
             severity=severity,
-            **kwargs,
+            **context,
         )
 
 
