@@ -11,7 +11,6 @@ from uno.config.settings import (
     UnoSettings,
     load_settings,
     get_config,
-    SettingsConfigDict,
 )
 from uno.config.secure import (
     SecureValue,
@@ -29,9 +28,6 @@ from uno.config.errors import (
     ConfigValidationError,
     SecureValueError,
 )
-
-# Create a cache for configuration objects
-_config_cache = {}
 
 __all__ = [
     "Environment",

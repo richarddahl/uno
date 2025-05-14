@@ -344,6 +344,8 @@ class UnoSettings(BaseSettings):
         schema = self.model_json_schema()
         properties = schema.get("properties", {})
 
+
+ 
         # Find all secure fields
         for field_name, field_schema in properties.items():
             if field_schema.get("secure"):

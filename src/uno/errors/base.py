@@ -45,6 +45,13 @@ class UnoError(Exception):
     Should only be subclassed for package-specific errors, not instantiated directly.
     """
 
+    def add_context(self, key: str, value: Any) -> "UnoError":
+        """Add a key-value pair to the error context and return self for chaining."""
+        if not hasattr(self, "context") or self.context is None:
+            self.context = {}
+        self.context[key] = value
+        return self
+
     def __new__(cls, *args: Any, **kwargs: Any) -> "UnoError":
         if cls is UnoError:
             raise TypeError(
@@ -59,8 +66,9 @@ class UnoError(Exception):
         category: ErrorCategory,
         severity: ErrorSeverity,
         context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize a new UnoError.
+        """Initialize a new UnoError (never instantiate directly).
 
         Args:
             code: Unique identifier for this error type
@@ -68,6 +76,7 @@ class UnoError(Exception):
             category: Category the error belongs to
             severity: Severity level of the error
             context: Additional contextual information
+            **kwargs: Ignored. Accepts arbitrary keyword arguments for subclass compatibility and error context propagation. This allows error subclasses to propagate extra context (e.g., timestamp) safely.
         """
         self.code = code
         self.message = message
@@ -75,6 +84,7 @@ class UnoError(Exception):
         self.severity = severity
         self.context = context or {}
         self.timestamp = datetime.now(UTC)
+
 
     def with_context(self, context: dict[str, Any]) -> "UnoError":
         """
