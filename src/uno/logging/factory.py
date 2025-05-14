@@ -96,11 +96,6 @@ async def register_logger_factory(
     factory = LoggerFactory(container, settings)
     from uno.logging.protocols import LoggerFactoryProtocol  # avoid circular import
 
-    if not isinstance(factory, LoggerFactoryProtocol):
-        raise TypeError(
-            "LoggerFactory does not structurally implement LoggerFactoryProtocol"
-        )
-
     async def factory_provider(_: ContainerProtocol) -> LoggerFactory:
         return factory
 

@@ -95,10 +95,56 @@ class ErrorLogger:
             severity: The severity level for this error
             additional_context: Any additional context to include in the log
         """
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None, self._log_error, error, severity, additional_context
-        )
+        # If the logger's log method is async, await it; else, run in executor
+        log_method = getattr(self.logger, "log", None)
+        if log_method and asyncio.iscoroutinefunction(log_method):
+            await self._log_error_async(error, severity, additional_context)
+        else:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                None, self._log_error, error, severity, additional_context
+            )
+
+    async def _log_error_async(
+        self,
+        error: Exception,
+        severity: ErrorSeverity | str = ErrorSeverity.ERROR,
+        additional_context: dict[str, Any] | None = None,
+    ) -> None:
+        """Async version of error logging for async loggers."""
+        # Convert string severity to enum if needed
+        sev = severity
+        if isinstance(sev, str):
+            try:
+                sev = ErrorSeverity(sev)
+            except ValueError:
+                sev = ErrorSeverity.ERROR
+
+        context = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "traceback": traceback.format_exception(
+                type(error), error, error.__traceback__
+            ),
+            "severity": sev.value,
+        }
+
+        if additional_context:
+            context.update(additional_context)
+
+        log_method = getattr(self.logger, "log", None)
+        if log_method:
+            await log_method(sev.value, f"Error occurred: {error}", extra=context)
+        else:
+            # Fallback: append to logs if present
+            if hasattr(self.logger, "logs") and isinstance(self.logger.logs, list):
+                self.logger.logs.append(
+                    {
+                        "message": f"Error occurred: {error}",
+                        "severity": sev.value,
+                        **context,
+                    }
+                )
 
     def _log_error(
         self,

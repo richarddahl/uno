@@ -116,7 +116,8 @@ class StructuredFormatter(logging.Formatter):
             log_data["exception"] = self.formatException(record.exc_info)
             log_data["error"] = str(record.exc_info[1])
 
-        return json.dumps(log_data)
+        # Use UnoJsonEncoder to serialize all values safely
+        return json.dumps(log_data, cls=UnoJsonEncoder)
 
     def _format_text(
         self, record: logging.LogRecord, message: str, extra: dict[str, Any]
@@ -257,7 +258,11 @@ class UnoJsonEncoder(json.JSONEncoder):
 
             # Try to get a dictionary representation
             if hasattr(obj, "__dict__"):
-                return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+                d = {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+                if d:
+                    return d
+                # If dict is empty, fall back to string representation
+                return str(obj)
 
             # Fall back to string representation
             return str(obj)

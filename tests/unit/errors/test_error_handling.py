@@ -268,7 +268,7 @@ def test_error_context_merging_async_thread():
                 ErrorSeverity.ERROR,
                 context={"thread": 2},
             ).with_context(err.context)
-        except UnoError as e:
+        except Exception as e:
             result["exception"] = e
 
     t = threading.Thread(target=thread_func)
@@ -276,6 +276,7 @@ def test_error_context_merging_async_thread():
     t.join()
     if "exception" in result:
         raise result["exception"]
+    assert "err" in result, f"Thread did not set 'err', got: {result}"
     err = result["err"]
     assert err.context["a"] == 1
     assert err.context["thread"] == 2
