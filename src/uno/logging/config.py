@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework# core_library/logging/interfaces.py
 """
 Configuration for the Uno logging system.
 
@@ -8,9 +11,10 @@ using the Uno configuration system for environment-driven settings.
 from __future__ import annotations
 
 from typing import Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from uno.logging.protocols import LogLevel
+
+from uno.logging.level import LogLevel
 
 
 class LoggingSettings(BaseSettings):

@@ -22,7 +22,7 @@ class LoggingRegistrationExtensions:
     """Extension methods for registering logging components."""
 
     @staticmethod
-    def register_logging(
+    async def register_logging(
         container: ContainerProtocol,
         settings: LoggingSettings | None = None,
     ) -> None:
@@ -37,7 +37,7 @@ class LoggingRegistrationExtensions:
             settings = LoggingSettings.load()
 
         # Register logger factory
-        register_logger_factory(container, settings)
+        await register_logger_factory(container, settings)
 
     @staticmethod
     def register_logger(

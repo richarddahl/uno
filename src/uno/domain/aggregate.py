@@ -20,19 +20,45 @@ from uno.domain.entity import Entity
 from uno.domain.errors import AggregateNotDeletedError, DomainValidationError
 from uno.events.deleted_event import DeletedEvent
 from uno.events.restored_event import RestoredEvent
+from uno.core.di import DIContainer
+from uno.core.config import Config
+from uno.core.logging import LoggerProtocol
 
 T_ID = TypeVar("T_ID")
 
 
 class AggregateRoot:
     """
-    Uno idiom: Protocol-based aggregate root template for event sourcing.
+    Uno idiom: Protocol-based aggregate root template for DDD/event sourcing.
+
+    Required dependencies (injected via constructor):
+      - logger: LoggerProtocol (Uno DI)
+      - config: Config (Uno DI)
 
     - DO NOT inherit from this class; instead, implement all required attributes/methods from AggregateRootProtocol directly.
     - Inherit from Pydantic's BaseModel if validation/serialization is needed.
     - This class serves as a template/example only.
     - All type checking should use AggregateRootProtocol, not this class.
     """
+
+    id: object
+    logger: LoggerProtocol
+    config: Config
+
+    def __init__(self, id: object, logger: LoggerProtocol, config: Config) -> None:
+        if not logger or not isinstance(logger, LoggerProtocol):
+            raise ValueError("logger (LoggerProtocol) is required via DI")
+        if not config or not isinstance(config, Config):
+            raise ValueError("config (Config) is required via DI")
+        self.id = id
+        self.logger = logger
+        self.config = config
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, AggregateRoot) and self.id == other.id
+
+    def __hash__(self) -> int:
+        return hash(self.id)
 
     # Example attributes required by AggregateRootProtocol
     version: int

@@ -9,7 +9,7 @@ This module defines interfaces for the event processing system.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 from typing import TypeVar, Generic
 
 from uno.domain.protocols import DomainEventProtocol
@@ -20,7 +20,6 @@ TEvent = TypeVar("TEvent", contravariant=True)  # Input parameter type
 TResult = TypeVar("TResult", covariant=True)  # Output result type
 
 
-@runtime_checkable
 class EventProcessorProtocol(Protocol):
     """Protocol defining the interface for event processors."""
 
@@ -51,7 +50,6 @@ class EventProcessorProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EventHandlerProtocol(Protocol, Generic[TEvent, TResult]):
     """Protocol defining the interface for event handlers."""
 
@@ -69,7 +67,6 @@ class EventHandlerProtocol(Protocol, Generic[TEvent, TResult]):
         ...
 
 
-@runtime_checkable
 class EventDispatcherProtocol(Protocol):
     """Protocol defining the interface for event dispatchers."""
 
@@ -107,7 +104,6 @@ class EventDispatcherProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EventRegistryProtocol(Protocol):
     """Protocol for event handler registries."""
 
@@ -140,7 +136,6 @@ class EventRegistryProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EventMiddlewareProtocol(Protocol):
     """Protocol for event handler middleware."""
 
@@ -164,7 +159,6 @@ class EventMiddlewareProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EventBusProtocol(Protocol):
     """Protocol for event buses."""
 

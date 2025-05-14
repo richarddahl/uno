@@ -28,10 +28,15 @@ class ErrorCategory(Enum):
     EVENT = auto()  # Event handling errors
     VALIDATION = auto()  # Validation errors
     SECURITY = auto()  # Security-related errors
+    DOMAIN = auto()  # Domain-specific errors
+    INFRASTRUCTURE = auto()  # Infrastructure-related errors
+    LOGGING = auto()  # Logging-related errors
+    APPLICATION = auto()  # Application-specific errors
 
 
 class ErrorSeverity(str, Enum):
     """Severity levels for errors across Uno (logging, domain, infra, etc)."""
+
     CRITICAL = "critical"
     ERROR = "error"
     WARNING = "warning"

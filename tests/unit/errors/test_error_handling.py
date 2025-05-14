@@ -1,19 +1,112 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
+
 import pytest
 import asyncio
 import threading
-from uno.errors.base import UnoError, ErrorCategory, ErrorSeverity, get_error_context
+from typing import Any
+from uno.errors.base import (
+    UnoError,
+    ErrorCategory,
+    ErrorSeverity,
+    get_error_context,
+)
+
+from uno.errors.codes import ErrorCode
 
 
-# --- Fake error subclasses for testing ---
 class FakeAppError(UnoError):
-    def __init__(self, message: str, context: dict[str, object] | None = None):
-        super().__init__(
-            code="FAKE_APP_ERROR",
-            message=message,
-            category=ErrorCategory.INTERNAL,
-            severity=ErrorSeverity.ERROR,
-            context=context,
-        )
+    """Fake application error for testing error handling functionality."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        category: ErrorCategory = ErrorCategory.APPLICATION,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the fake application error.
+
+        Args:
+            code: Error code identifier
+            message: Human-readable error message
+            category: Category of the error
+            severity: Severity level
+            context: Additional contextual information
+        """
+        super().__init__(code, message, category, severity, context)
+
+    @classmethod
+    def wrap(
+        cls,
+        exception: Exception,
+        code: str = "FAKE_APP_ERROR",
+        message: str | None = None,
+        category: ErrorCategory = ErrorCategory.APPLICATION,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+    ) -> "FakeAppError":
+        """Wrap an exception in a FakeAppError.
+
+        Args:
+            exception: The exception to wrap
+            code: Error code identifier
+            message: Human-readable error message (defaults to exception message)
+            category: Error category
+            severity: Error severity
+            context: Additional context information
+
+        Returns:
+            A new FakeAppError instance
+        """
+        # Create a context with information about the original exception
+        merged_context = {
+            "original_exception": exception.__class__.__name__,
+            "original_message": str(exception),
+        }
+
+        # Merge with provided context
+        if context:
+            merged_context.update(context)
+
+        # Use default message if none provided
+        if message is None:
+            message = f"Wrapped exception: {exception}"
+
+        # Create the error instance
+        result = cls(code, message, category, severity, merged_context)
+
+        # Set the __cause__ to maintain the exception chain
+        result.__cause__ = exception
+
+        return result
+
+    @classmethod
+    async def async_wrap(
+        cls,
+        exception: Exception,
+        code: str = "FAKE_APP_ERROR",
+        message: str | None = None,
+        category: ErrorCategory = ErrorCategory.APPLICATION,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+    ) -> "FakeAppError":
+        """Asynchronously wrap an exception in a FakeAppError.
+
+        Args:
+            exception: The exception to wrap
+            code: Error code identifier
+            message: Human-readable error message (defaults to exception message)
+            category: Error category
+            severity: Error severity
+            context: Additional context information
+
+        Returns:
+            A new FakeAppError instance
+        """
+        return cls.wrap(exception, code, message, category, severity, context)
 
 
 class FakeValidationError(UnoError):
@@ -34,7 +127,7 @@ def test_unoerror_cannot_be_instantiated():
 
 
 def test_fake_error_subclass_instantiation():
-    err = FakeAppError("something went wrong")
+    err = FakeAppError(ErrorCode.INTERNAL_ERROR, "something went wrong")
     assert err.code == "FAKE_APP_ERROR"
     assert err.message == "something went wrong"
     assert err.category == ErrorCategory.INTERNAL
@@ -44,8 +137,16 @@ def test_fake_error_subclass_instantiation():
 
 
 def test_with_context_merges_context():
-    err = FakeAppError("fail", {"a": 1})
-    err2 = err.with_context({"b": 2})
+    err = FakeAppError(
+        ErrorCode.UNKNOWN_ERROR,
+        "fail",
+        ErrorCategory.APPLICATION,
+        ErrorSeverity.ERROR,
+        context={"a": 1},
+    )
+    err2 = err.with_context(
+        context={"b": 2},
+    )
     assert err2.context["a"] == 1
     assert err2.context["b"] == 2
     assert err is not err2
@@ -90,7 +191,13 @@ def test_get_error_context():
 async def test_async_error_context_propagation():
     async def raise_and_catch():
         try:
-            raise FakeAppError("async fail", {"async": True})
+            raise FakeAppError(
+                ErrorCode.UNKNOWN_ERROR,
+                "async fail",
+                ErrorCategory.APPLICATION,
+                ErrorSeverity.ERROR,
+                context={"async": True},
+            )
         except FakeAppError as e:
             return e
 
@@ -143,15 +250,25 @@ def test_error_context_merging_async_thread():
     result = {}
 
     async def async_func():
-        return FakeAppError("async", {"a": 1})
+        return FakeAppError(
+            ErrorCode.UNKNOWN_ERROR,
+            "async",
+            ErrorCategory.APPLICATION,
+            ErrorSeverity.ERROR,
+            context={"a": 1},
+        )
 
     def thread_func():
         try:
             err = asyncio.run(async_func())
             result["err"] = FakeAppError(
-                err.message, context={"thread": 2, **err.context}
-            )
-        except Exception as e:
+                ErrorCode.UNKNOWN_ERROR,
+                "thread fail",
+                ErrorCategory.APPLICATION,
+                ErrorSeverity.ERROR,
+                context={"thread": 2},
+            ).with_context(err.context)
+        except UnoError as e:
             result["exception"] = e
 
     t = threading.Thread(target=thread_func)

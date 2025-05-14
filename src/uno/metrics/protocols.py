@@ -6,10 +6,9 @@ This module defines the interfaces that metrics implementations must follow.
 
 from __future__ import annotations
 
-from typing import Protocol, Self, runtime_checkable
+from typing import Protocol, Self
 
 
-@runtime_checkable
 class TimerContextProtocol(Protocol):
     """Protocol defining a timer context manager for measuring code execution time."""
 
@@ -22,7 +21,6 @@ class TimerContextProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class CounterProtocol(Protocol):
     """Protocol defining a counter metric implementation."""
 
@@ -63,7 +61,6 @@ class CounterProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class GaugeProtocol(Protocol):
     """Protocol defining a gauge metric implementation."""
 
@@ -104,7 +101,6 @@ class GaugeProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class HistogramProtocol(Protocol):
     """Protocol defining a histogram metric implementation."""
 
@@ -127,7 +123,6 @@ class HistogramProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class TimerProtocol(Protocol):
     """Protocol defining a timer metric implementation."""
 
@@ -150,7 +145,6 @@ class TimerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class MetricProtocol(Protocol):
     """Base protocol for all metrics."""
 

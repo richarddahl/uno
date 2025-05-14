@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
+
 """
 Dependency injection integration for secure configuration.
 
@@ -17,6 +21,7 @@ from uno.config import (
     requires_secure_access,
 )
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from uno.di.protocols import ContainerProtocol
 
@@ -25,7 +30,7 @@ T = TypeVar("T", bound=UnoSettings)
 
 class ServiceLifetime(str, Enum):
     """Service lifetime options for dependency injection."""
-    
+
     SINGLETON = "singleton"
     SCOPED = "scoped"
     TRANSIENT = "transient"
@@ -51,7 +56,9 @@ class ConfigProvider(Generic[T]):
         else:
             # Fallback: should only occur if DI failed to provide a logger
             fallback_logger = logging.getLogger("uno.config")
-            fallback_logger.debug("Falling back to direct logger instantiation in ConfigProvider")
+            fallback_logger.debug(
+                "Falling back to direct logger instantiation in ConfigProvider"
+            )
             self._logger = fallback_logger
 
     def get_settings(self) -> T:
@@ -111,10 +118,10 @@ async def register_secure_config(
         container: The DI container to register with
         settings_class: Settings class to create config for
         lifetime: Service lifetime ("singleton", "scoped", or "transient")
-        
+
     Returns:
         The created ConfigProvider instance
-        
+
     Raises:
         ValueError: If an invalid lifetime is provided
     """
@@ -130,7 +137,9 @@ async def register_secure_config(
                 return logger
         except Exception as e:
             fallback_logger = logging.getLogger(name)
-            fallback_logger.debug(f"Falling back to direct logger instantiation in register_secure_config: {e}")
+            fallback_logger.debug(
+                f"Falling back to direct logger instantiation in register_secure_config: {e}"
+            )
             return fallback_logger
         return logging.getLogger(name)
 
@@ -138,19 +147,29 @@ async def register_secure_config(
 
     # Create provider
     provider = ConfigProvider(settings, logger)
-    
+
     # Register the provider with the container
     if lifetime == ServiceLifetime.SINGLETON:
-        await container.register_singleton(ConfigProvider[settings_class], provider, replace=True)
+        await container.register_singleton(
+            ConfigProvider[settings_class], provider, replace=True
+        )
     elif lifetime == ServiceLifetime.SCOPED:
-        await container.register_scoped(ConfigProvider[settings_class], provider, replace=True)
+        await container.register_scoped(
+            ConfigProvider[settings_class], provider, replace=True
+        )
     elif lifetime == ServiceLifetime.TRANSIENT:
-        await container.register_transient(ConfigProvider[settings_class], provider, replace=True)
+        await container.register_transient(
+            ConfigProvider[settings_class], provider, replace=True
+        )
     else:
-        raise ValueError(f"Invalid lifetime: {lifetime}. Expected one of: {', '.join(t.value for t in ServiceLifetime)}")
-    
+        raise ValueError(
+            f"Invalid lifetime: {lifetime}. Expected one of: {', '.join(t.value for t in ServiceLifetime)}"
+        )
+
     # Also register with the concrete type name for convenience
     container_type_name = settings_class.__name__ + "Provider"
-    await container.register_type_name(container_type_name, ConfigProvider[settings_class])
-    
+    await container.register_type_name(
+        container_type_name, ConfigProvider[settings_class]
+    )
+
     return provider

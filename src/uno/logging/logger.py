@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework# core_library/logging/interfaces.py
 """
 Logger implementation for the Uno framework.
 
@@ -7,24 +10,24 @@ standard logging module, enhanced with structured logging capabilities.
 
 from __future__ import annotations
 
+import logging
 import asyncio
-import contextlib
 import datetime
 import enum  # Add this to the imports at the top
 import json
-import logging
 import sys
+from contextlib import asynccontextmanager
 import uuid
 from contextvars import ContextVar
 from logging import StreamHandler
-from typing import TYPE_CHECKING, Any, Never
+from typing import TYPE_CHECKING, Any, AsyncIterator, Self, Callable
 
 from uno.logging.errors import LoggingError
 from uno.logging.config import LoggingSettings
-from uno.logging.protocols import LogLevel, LoggerProtocol
+from uno.logging.protocols import LoggerProtocol
+from uno.logging.level import LogLevel
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Generator
     from types import TracebackType
 
 # Context variable for storing log context data
@@ -161,7 +164,7 @@ class StructuredFormatter(logging.Formatter):
                 error_dict = {"message": str(value)}
 
                 # Recursively extract all error attributes to handle inheritance properly
-                current_class = value.__class__
+                current_class: type[BaseException] | None = value.__class__
                 while current_class != BaseException and current_class != object:
                     # Extract class-level attributes from the error object
                     for key, val in vars(value).items():
@@ -189,14 +192,20 @@ class StructuredFormatter(logging.Formatter):
                                 error_dict[key] = val
 
                     # Move up the inheritance chain
-                    current_class = current_class.__base__
+                    current_class = type(value)
+                    while current_class is not None and issubclass(
+                        current_class, BaseException
+                    ):
+                        current_class = current_class.__base__
 
                 # Handle context specially to avoid circular references
                 if hasattr(value, "context"):
                     context = value.context
                     # Add context data safely
                     if isinstance(context, dict):
-                        error_dict["context"] = {k: str(v) for k, v in context.items()}
+                        error_dict["context"] = json.dumps(
+                            {k: str(v) for k, v in context.items()}
+                        )
                     else:
                         error_dict["context"] = str(context)
 
@@ -265,6 +274,15 @@ class UnoLogger:
     Implements all methods required by LoggerProtocol.
     """
 
+    @asynccontextmanager
+    async def context(self, **kwargs: Any) -> AsyncIterator[None]:
+        prev_context = _log_context.get().copy() if _log_context.get() else {}
+        _log_context.set({**prev_context, **kwargs})
+        try:
+            yield
+        finally:
+            _log_context.set(prev_context)
+
     async def debug(self, message: str, **kwargs: Any) -> None:
         await self._log(logging.DEBUG, message, **kwargs)
 
@@ -280,48 +298,27 @@ class UnoLogger:
     async def critical(self, message: str, **kwargs: Any) -> None:
         await self._log(logging.CRITICAL, message, **kwargs)
 
-    async def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
+    async def structured_log(
+        self, level: LogLevel, message: str, **kwargs: Any
+    ) -> None:
         await self._log(level.to_stdlib_level(), message, **kwargs)
 
     def set_level(self, level: LogLevel | str) -> None:
         if isinstance(level, str):
-            # Try to convert string to LogLevel if possible
-            try:
-                level_enum = LogLevel[level.upper()]
-            except Exception:
-                # If not found, fall back to standard logging level
-                self._logger.setLevel(level.upper())
-                return
+            level_enum = LogLevel[level.upper()]
             self._logger.setLevel(level_enum.to_stdlib_level())
-        else:
-            self._logger.setLevel(level.to_stdlib_level())
 
-    from contextlib import contextmanager, asynccontextmanager
+    def bind(self, **kwargs: Any) -> Self:
 
-    @contextmanager
-    def context(self, **kwargs: Any):
-        prev_context = self._context.copy() if hasattr(self, '_context') else {}
-        self._context.update(kwargs)
-        try:
-            yield
-        finally:
-            self._context = prev_context
-
-    @asynccontextmanager
-    async def async_context(self, **kwargs: Any):
-        prev_context = _log_context.get().copy() if _log_context.get() else {}
-        _log_context.set({**prev_context, **kwargs})
-        try:
-            yield
-        finally:
-            _log_context.set(prev_context)
-
-    def bind(self, **kwargs: Any) -> "LoggerProtocol":
-        new_logger = UnoLogger(self.name, level=logging.getLevelName(self._logger.level), settings=self._settings)
+        new_logger = type(self)(
+            self.name,
+            level=logging.getLevelName(self._logger.level),
+            settings=self._settings,
+        )
         new_logger._bound_context = {**self._bound_context, **kwargs}
         return new_logger
 
-    def with_correlation_id(self, correlation_id: str) -> "LoggerProtocol":
+    def with_correlation_id(self, correlation_id: str) -> Self:
         return self.bind(correlation_id=correlation_id)
 
     """Default logger implementation for the Uno framework.
@@ -329,7 +326,7 @@ class UnoLogger:
     Supports async context management for resource setup and teardown.
     """
 
-    async def __aenter__(self) -> LoggerProtocol:
+    async def __aenter__(self) -> Self:
         """Enter the async context manager.
 
         Returns:
@@ -358,7 +355,7 @@ class UnoLogger:
         name: str,
         level: str = LogLevel.INFO,
         settings: LoggingSettings | None = None,
-        _handler: callable[..., Any] | None = None,
+        _handler: Callable[..., Any] | None = None,
     ) -> None:
         """
         Initialize a new logger.
@@ -386,7 +383,6 @@ class UnoLogger:
 
         # Bound context values for this logger instance
         self._bound_context: dict[str, Any] = {}
-        self._context: dict[str, Any] = {}
 
     def _configure(self, level: str) -> None:
         """
@@ -481,11 +477,7 @@ class UnoLogger:
         # Start with bound context (permanent for this logger instance)
         combined_context = self._bound_context.copy() if self._bound_context else {}
 
-        # Add current context (from context manager)
-        if self._context:
-            combined_context.update(self._context)
-
-        # Add context from context var (set by async_context)
+        # Add context from context var (set by context)
         context_var_data = _log_context.get()
         if context_var_data:
             combined_context.update(context_var_data)
@@ -554,54 +546,16 @@ class UnoLogger:
                 level,
                 msg,
                 extra={
-                    "uno_context": json.dumps(combined_context, cls=UnoJsonEncoder, ensure_ascii=False)
-                }
+                    "uno_context": json.dumps(
+                        combined_context, cls=UnoJsonEncoder, ensure_ascii=False
+                    )
+                },
             )
 
-async def debug(self, message: str, **kwargs: Any) -> None:
-    await self._log(logging.DEBUG, message, **kwargs)
-
-async def info(self, message: str, **kwargs: Any) -> None:
-    await self._log(logging.INFO, message, **kwargs)
-
-async def warning(self, message: str, **kwargs: Any) -> None:
-    await self._log(logging.WARNING, message, **kwargs)
-
-async def error(self, message: str, **kwargs: Any) -> None:
-    await self._log(logging.ERROR, message, **kwargs)
-
-async def critical(self, message: str, **kwargs: Any) -> None:
-    await self._log(logging.CRITICAL, message, **kwargs)
-
-async def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
-    await self._log(level.to_stdlib_level(), message, **kwargs)
-
-def set_level(self, level: LogLevel) -> None:
-    self._logger.setLevel(level.to_stdlib_level())
-
-@contextlib.contextmanager
-def context(self, **kwargs: Any):
-    prev_context = self._context.copy() if hasattr(self, '_context') else {}
-    self._context.update(kwargs)
-    try:
-        yield
-    finally:
-        self._context = prev_context
-
-@contextlib.asynccontextmanager
-async def async_context(self, **kwargs: Any):
-    prev_context = _log_context.get().copy() if _log_context.get() else {}
-    _log_context.set({**prev_context, **kwargs})
-    try:
-        yield
-    finally:
-        _log_context.set(prev_context)
-
-# --- end of UnoLogger methods ---
 
 def get_logger(
-    name: str, level: LogLevel | None = None, _handler: callable[..., Any] | None = None
-) -> LoggerProtocol:
+    name: str, level: LogLevel | None = None, _handler: Callable[..., Any] | None = None
+) -> UnoLogger:
     """Get a logger for the specified name.
 
     Args:
@@ -618,10 +572,3 @@ def get_logger(
         logger.set_level(level)
 
     return logger
-
-
-# At the end of the file, after the UnoLogger class, add a runtime check:
-# This verifies UnoLogger implements LoggerProtocol without inheriting from it
-assert isinstance(
-    UnoLogger("test"), LoggerProtocol
-), "UnoLogger must implement LoggerProtocol"

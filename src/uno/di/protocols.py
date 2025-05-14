@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import AsyncGenerator, Awaitable, Callable
-from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar
 from uno.types import T
+
 T_co = TypeVar("T_co", covariant=True)
 
 
-# Need to define ScopeProtocol first so ContainerProtocol can reference it
-@runtime_checkable
 class ScopeProtocol(Protocol):
     """Protocol for a DI scope."""
 
@@ -59,7 +58,6 @@ AsyncServiceFactoryProtocol = Callable[["ContainerProtocol"], Awaitable[T]]
 Lifetime = Literal["singleton", "scoped", "transient"]
 
 
-@runtime_checkable
 class ContainerProtocol(Protocol):
     async def dispose_services(self, services: list[Any]) -> None:
         """Dispose of a list of services."""
@@ -158,7 +156,6 @@ class ContainerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class ServiceRegistrationProtocol(Protocol[T]):
     """Protocol for service registration."""
 
@@ -166,7 +163,7 @@ class ServiceRegistrationProtocol(Protocol[T]):
     implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
     lifetime: Literal["singleton", "scoped", "transient"]
 
-    async def __init__(
+    def __init__(
         self,
         interface: type[T],
         implementation: (
@@ -177,20 +174,19 @@ class ServiceRegistrationProtocol(Protocol[T]):
         """Asynchronously initialize a service registration."""
         ...
 
-    async def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Asynchronously compare service registrations."""
         ...
 
-    async def __hash__(self) -> int:
+    def __hash__(self) -> int:
         """Asynchronously hash a service registration."""
         ...
 
-    async def __repr__(self) -> str:
+    def __repr__(self) -> str:
         """Asynchronously represent a service registration as a string."""
         ...
 
 
-@runtime_checkable
 class ConfigProviderProtocol(Protocol[T_co]):
     """Protocol for config providers used in dependency injection."""
 

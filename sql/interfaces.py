@@ -6,7 +6,7 @@ Protocols for Uno SQL infrastructure DI/extension points.
 from __future__ import annotations
 
 
-from typing import Protocol, Any, runtime_checkable
+from typing import Protocol, Any
 
 
 class EngineFactoryProtocol(Protocol):
@@ -15,7 +15,6 @@ class EngineFactoryProtocol(Protocol):
     def get_engine(self) -> Any: ...
 
 
-@runtime_checkable
 class ConnectionConfigProtocol(Protocol):
     """
     Protocol for Uno SQL connection configuration.
@@ -62,10 +61,9 @@ class SQLEmitterProtocol(Protocol):
 SQL infrastructure interfaces and protocols.
 """
 
-from typing import Any, Protocol, TypeVar, runtime_checkable, Generic
+from typing import Any, Protocol, TypeVar, Generic
 
 
-@runtime_checkable
 class ConfigProtocol(Protocol):
     """Protocol for configuration providers."""
 
@@ -79,7 +77,6 @@ class ConfigProtocol(Protocol):
 T = TypeVar("T")
 
 
-@runtime_checkable
 class UnitOfWorkProtocol(Protocol):
     """Protocol for unit of work implementations."""
 
@@ -89,7 +86,6 @@ class UnitOfWorkProtocol(Protocol):
     def rollback(self) -> None: ...
 
 
-@runtime_checkable
 class RepositoryProtocol(Protocol, Generic[T]):
     """Protocol for repository interfaces."""
 
@@ -99,7 +95,6 @@ class RepositoryProtocol(Protocol, Generic[T]):
     def list(self) -> list[T]: ...
 
 
-@runtime_checkable
 class SQLEmitterFactoryProtocol(Protocol):
     def create(self, emitter_type: str, **kwargs: Any) -> Any: ...
 
@@ -158,7 +153,6 @@ from uno.persistence.sql.errors import (
 T = TypeVar("T")
 
 
-@runtime_checkable
 class ConnectionManagerProtocol(Protocol):
     """Protocol for managing database connections."""
 
@@ -171,7 +165,6 @@ class ConnectionManagerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class TransactionManagerProtocol(Protocol):
     """Protocol for managing database transactions."""
 
@@ -188,7 +181,6 @@ class TransactionManagerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class SQLValidatorProtocol(Protocol):
     """Protocol for validating SQL statements."""
 
@@ -211,7 +203,6 @@ class SQLValidatorProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class PerformanceMonitorProtocol(Protocol):
     """Protocol for monitoring SQL performance."""
 
@@ -224,7 +215,6 @@ class PerformanceMonitorProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class SecurityManagerProtocol(Protocol):
     """Protocol for managing SQL security."""
 
@@ -242,7 +232,6 @@ class SecurityManagerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class MockHelperProtocol(Protocol):
     """Protocol for SQL mock helpers."""
 
@@ -267,7 +256,6 @@ class MockHelperProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class DocumentationGeneratorProtocol(Protocol):
     """Protocol for generating SQL documentation."""
 
@@ -280,7 +268,6 @@ class DocumentationGeneratorProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class MigrationManagerProtocol(Protocol):
     """Protocol for managing SQL migrations."""
 
@@ -298,7 +285,6 @@ class MigrationManagerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class ConfigManagerProtocol(Protocol):
     """Protocol for managing SQL configuration."""
 
@@ -321,7 +307,6 @@ class ConfigManagerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class SQLLoggerProtocol(Protocol):
     """Protocol for logging SQL operations."""
 

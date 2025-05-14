@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 
-@runtime_checkable
 class SnapshotProtocol(Protocol):
     """Protocol defining the structure of snapshots used for aggregate rehydration."""
 
@@ -16,7 +15,6 @@ class SnapshotProtocol(Protocol):
     state: dict[str, Any]
 
 
-@runtime_checkable
 class SnapshotStrategyProtocol(Protocol):
     """Protocol defining how snapshots are triggered during event processing."""
 
@@ -34,7 +32,6 @@ class SnapshotStrategyProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class SnapshotStoreProtocol(Protocol):
     """Protocol defining storage and retrieval operations for snapshots."""
 
@@ -73,14 +70,12 @@ class SnapshotStoreProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EventCountSnapshotStrategyProtocol(SnapshotStrategyProtocol, Protocol):
     """Protocol for snapshot strategies based on event count."""
 
     frequency: int
 
 
-@runtime_checkable
 class TimeBasedSnapshotStrategyProtocol(SnapshotStrategyProtocol, Protocol):
     """Protocol for snapshot strategies based on time intervals."""
 

@@ -9,7 +9,7 @@ components.
 """
 
 from abc import abstractmethod
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar
 
 E = TypeVar("E")
 E_co = TypeVar("E_co", covariant=True)  # Event type
@@ -24,14 +24,19 @@ class SagaState:
     Base class for saga/process manager state.
     """
 
-    def __init__(self, saga_id: str, status: str, data: dict[str, Any], saga_type: str | None = None):
+    def __init__(
+        self,
+        saga_id: str,
+        status: str,
+        data: dict[str, Any],
+        saga_type: str | None = None,
+    ):
         self.saga_id = saga_id
         self.status = status  # e.g., 'pending', 'waiting', 'completed', 'failed'
         self.data = data
         self.saga_type = saga_type
 
 
-@runtime_checkable
 class SagaStoreProtocol(Protocol):
     """
     Protocol for saga state persistence.
@@ -73,7 +78,6 @@ class SagaStoreProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class SagaProtocol(Protocol, Generic[E_contra, C_co]):
     """
     Protocol for sagas/process managers.

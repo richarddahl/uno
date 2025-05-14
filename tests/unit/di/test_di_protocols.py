@@ -1,7 +1,12 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
+
+
 import contextlib
 import asyncio
 from collections.abc import AsyncGenerator, Callable
-from typing import Any, Awaitable, Literal, TypeVar, runtime_checkable
+from typing import Any, Awaitable, Literal, TypeVar
 
 import pytest
 

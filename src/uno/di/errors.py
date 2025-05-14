@@ -7,20 +7,9 @@ providing detailed error messages and context for DI-related failures.
 
 from __future__ import annotations
 
-import inspect
-import logging
 import threading
-import traceback
 from contextlib import contextmanager
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Final,
-    Protocol,
-    TypeVar,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeVar
 
 from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
 
@@ -30,10 +19,6 @@ if TYPE_CHECKING:
 
 # Prefix for all DI error codes
 ERROR_CODE_PREFIX: Final[str] = "DI"
-
-
-# =============================================================================
-from typing import TYPE_CHECKING
 
 T = TypeVar("T")
 TContainer = TypeVar("TContainer", bound="ContainerProtocol")

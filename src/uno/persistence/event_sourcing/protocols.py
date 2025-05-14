@@ -9,14 +9,13 @@ This module contains protocols specific to event sourcing persistence.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar
 
 from uno.events.base import DomainEvent
 
 E = TypeVar("E", bound=DomainEvent)
 
 
-@runtime_checkable
 class EventStoreProtocol(Protocol[E]):
     """
     Protocol for event store implementations.

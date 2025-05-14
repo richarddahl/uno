@@ -9,7 +9,7 @@ and read model components.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar
 
 T = TypeVar("T")
 
@@ -25,7 +25,6 @@ class Projection(ABC):
         pass
 
 
-@runtime_checkable
 class ProjectionStore(Protocol[T]):
     """
     Protocol for storing and retrieving projections/read models.

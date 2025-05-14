@@ -5,12 +5,11 @@ Repository protocol for Vendor (Uno example app).
 Defines the interface for all Vendor repository implementations.
 """
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from examples.app.domain.vendor import Vendor
 
 
-@runtime_checkable
 class VendorRepository(Protocol):
     def save(self, vendor: Vendor) -> None: ...
     def get(self, vendor_id: str) -> Vendor:

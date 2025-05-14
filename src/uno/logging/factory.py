@@ -10,10 +10,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
+import asyncio
 
 from uno.logging.config import LoggingSettings
 from uno.logging.logger import get_logger
-from uno.logging.protocols import LoggerFactoryProtocol, LoggerProtocol
+
+if TYPE_CHECKING:
+    from uno.logging.protocols import LoggerFactoryProtocol, LoggerProtocol
 
 if TYPE_CHECKING:
     from uno.di.protocols import ContainerProtocol
@@ -76,8 +79,8 @@ class LoggerFactory:
             pass  # Currently no cleanup needed, but placeholder for future needs
 
 
-def register_logger_factory(
-    container: ContainerProtocol, settings: LoggingSettings
+async def register_logger_factory(
+    container: "ContainerProtocol", settings: LoggingSettings
 ) -> None:
     """
     Register LoggerFactory as a singleton in the DI container.
@@ -91,10 +94,14 @@ def register_logger_factory(
         settings: The logging configuration settings.
     """
     factory = LoggerFactory(container, settings)
-    # Uno idiom: Protocols are for structural subtyping, not inheritance. Ensure at runtime.
-    # LoggerFactoryProtocol is @runtime_checkable, so this is safe and correct.
+    from uno.logging.protocols import LoggerFactoryProtocol  # avoid circular import
+
     if not isinstance(factory, LoggerFactoryProtocol):
         raise TypeError(
             "LoggerFactory does not structurally implement LoggerFactoryProtocol"
         )
-    container.register_singleton(LoggerFactoryProtocol, factory)
+
+    async def factory_provider(_: ContainerProtocol) -> LoggerFactory:
+        return factory
+
+    await container.register_singleton(LoggerFactoryProtocol, factory_provider)

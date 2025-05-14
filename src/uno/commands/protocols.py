@@ -9,13 +9,12 @@ This module contains the core protocols that define the interfaces for command h
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar
 
 C = TypeVar("C")  # Generic command type
 T = TypeVar("T")  # Return type
 
 
-@runtime_checkable
 class CommandHandlerProtocol(Protocol[C, T]):
     """
     Protocol for command handlers.
@@ -26,7 +25,6 @@ class CommandHandlerProtocol(Protocol[C, T]):
     async def handle(self, command: C) -> T: ...
 
 
-@runtime_checkable
 class CommandBusProtocol(Protocol):
     """
     Protocol for command buses (dispatching commands).

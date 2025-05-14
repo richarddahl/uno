@@ -4,7 +4,8 @@ Integrates with uno.events.snapshots.SnapshotStore for demo/testing purposes.
 """
 
 from uno.snapshots import SnapshotStore
-from uno.logging import LoggerProtocol, LogLevel
+from uno.logging import LoggerProtocol
+from uno.logging.level import LogLevel
 from typing import Any, TypeVar
 
 T = TypeVar("T")

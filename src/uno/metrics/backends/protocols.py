@@ -7,12 +7,11 @@ storage, reporting, and exporting.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 from collections.abc import AsyncIterable, AsyncIterator
 from datetime import datetime
 
 
-@runtime_checkable
 class BackendProtocol(Protocol):
     """Protocol for metric storage backends."""
 
@@ -47,7 +46,6 @@ class BackendProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class ReporterProtocol(Protocol):
     """Protocol for metric reporters."""
 
@@ -67,7 +65,6 @@ class ReporterProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class ExporterProtocol(Protocol):
     """Protocol for metric exporters."""
 
@@ -93,7 +90,6 @@ class ExporterProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class QueryProtocol(Protocol):
     """Protocol for metric queries."""
 
@@ -144,7 +140,6 @@ class QueryProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class AggregatorProtocol(Protocol):
     """Protocol for metric aggregation."""
 

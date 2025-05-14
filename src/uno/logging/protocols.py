@@ -11,50 +11,41 @@ providing a consistent contract for all logging implementations.
 
 from __future__ import annotations
 
-import logging
 from contextlib import contextmanager, asynccontextmanager
-from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
     Protocol,
-    TypeVar,
-    runtime_checkable,
 )
+
+from uno.logging.level import LogLevel
 
 if TYPE_CHECKING:
     from collections.abc import Generator, AsyncGenerator, AsyncIterator
     from types import TracebackType
 
 
-@runtime_checkable
 class ContextProtocol(Protocol):
     """Protocol for managing context data in the logging system."""
 
-    def get_context(self) -> dict[str, Any]:
+    async def get_context(self) -> dict[str, Any]:
         """Get the current context data."""
         ...
 
-    def set_context(self, context: dict[str, Any]) -> None:
+    async def set_context(self, context: dict[str, Any]) -> None:
         """Set the current context data."""
         ...
 
-    def update_context(self, **kwargs: Any) -> None:
+    async def update_context(self, **kwargs: Any) -> None:
         """Update the current context data with new values."""
         ...
 
-    @contextmanager
-    def context_scope(self, **kwargs: Any) -> Generator[None]:
-        """Create a context scope that will be automatically cleaned up."""
-        ...
-
     @asynccontextmanager
-    async def async_context_scope(self, **kwargs: Any) -> AsyncGenerator[None]:
+    async def context_scope(self, **kwargs: Any) -> AsyncGenerator[None]:
         """Create an async context scope that will be automatically cleaned up."""
         ...
 
 
-@runtime_checkable
 class LoggerScopeProtocol(Protocol):
     """Protocol for logger scope/context management in Uno logging system."""
 
@@ -63,47 +54,6 @@ class LoggerScopeProtocol(Protocol):
         ...
 
 
-# Define standard logging levels
-class LogLevel(str, Enum):
-    """Standard logging levels."""
-
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-    def to_stdlib_level(self) -> int:
-        """Convert to standard library logging level.
-
-        Returns:
-            Standard library logging level integer
-        """
-        return getattr(logging, self.value)
-
-    @classmethod
-    def from_string(cls, value: str) -> LogLevel:
-        """Convert a string to a LogLevel.
-
-        Args:
-            value: String representation of level
-
-        Returns:
-            LogLevel enum value
-
-        Raises:
-            ValueError: If the string doesn't match a valid level
-        """
-        try:
-            return cls(value.upper())
-        except ValueError:
-            raise ValueError(f"Invalid log level: {value}")
-
-
-T = TypeVar("T")
-
-
-@runtime_checkable
 class LoggerProtocol(Protocol):
     """Protocol defining the interface for all loggers in the Uno framework.
 
@@ -190,7 +140,7 @@ class LoggerProtocol(Protocol):
         """
         ...
 
-    def set_level(self, level: LogLevel) -> None:
+    async def set_level(self, level: LogLevel) -> None:
         """Set the logger's level.
 
         Args:
@@ -198,23 +148,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
-    @contextmanager
-    def context(self, **kwargs: Any) -> Generator[None]:
-        """Add context information to all logs within this context.
-
-        This creates a context manager that adds the provided context
-        information to all logs emitted within its scope.
-
-        Args:
-            **kwargs: Context key-value pairs
-
-        Yields:
-            None
-        """
-        ...
-
     @asynccontextmanager
-    async def async_context(self, **kwargs: Any) -> AsyncGenerator[None]:
+    async def context(self, **kwargs: Any) -> AsyncGenerator[None]:
         """Add context information to all logs within this async context.
 
         This creates an async context manager that adds the provided context
@@ -251,7 +186,6 @@ class LoggerProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class LoggerFactoryProtocol(Protocol):
     """Protocol for logger factory implementations."""
 

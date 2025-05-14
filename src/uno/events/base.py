@@ -16,91 +16,46 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class DomainEvent(BaseModel):
+class DomainEvent:
     """
-    Base class for all domain events.
+    Uno idiom: Protocol-based event template for all domain events.
 
-    Implements the DomainEventProtocol, providing
-    common functionality for all domain events in the system. Domain events:
-
-    1. Are immutable records of something that happened in the domain
-    2. Contain all the data needed to understand what happened
-    3. Include metadata like timestamps and correlation IDs
-    4. Support versioning for schema evolution
-    5. Support serialization for persistence and transport
-
-    All domain events in the Uno framework should inherit from this class
-    to ensure consistency and compatibility with the event system.
+    - DO NOT inherit from this class; instead, implement all required attributes/methods from DomainEventProtocol directly.
+    - Inherit from Pydantic's BaseModel if validation/serialization is needed.
+    - This class serves as a template/example only.
+    - All type checking should use DomainEventProtocol, not this class.
     """
 
-    event_id: str = Field(default_factory=lambda: str(uuid4()))
+    # Example attributes required by DomainEventProtocol
+    event_id: str
     aggregate_id: str
     event_type: ClassVar[str] = "DomainEvent"
     version: int = 1
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        frozen=True,
-        from_attributes=True,
-    )
+    timestamp: datetime
 
     @classmethod
     def upcast(cls, data: dict[str, Any]) -> dict[str, Any]:
         """
         Upcast event data from an older version to the current version.
-
-        Transforms event data from older schema versions to the current version.
-        This method implements a recursive upcasting approach where events are
-        incrementally upcasted from one version to the next until reaching the
-        current version.
-
-        Args:
-            data: Event data in an older schema version
-
-        Returns:
-            Event data transformed to the current schema version
-
-        Example:
-            ```python
-            class UserEmailChanged(DomainEvent):
-                event_type: ClassVar[str] = "UserEmailChanged"
-                version: int = 2
-                user_id: str
-                email: str
-                verified: bool = False  # Added in v2
-
-                @classmethod
-                def _upcast_v1_to_v2(cls, data: dict[str, Any]) -> dict[str, Any]:
-                    result = data.copy()
-                    result["verified"] = False
-                    return result
-            ```
+        See Uno documentation for versioning/upcasting idioms.
         """
         version = data.get("version", 1)
-
-        # Call appropriate upcasting function based on version
-        if version < cls.version:
+        if version < getattr(cls, "version", 1):
             upcast_method = f"_upcast_v{version}_to_v{version + 1}"
             upcast_func = getattr(cls, upcast_method, None)
-
             if upcast_func:
                 data = upcast_func(data)
                 data["version"] = version + 1
-                # Recursively upcast if needed
                 return cls.upcast(data)
-
         return data
 
     def __str__(self) -> str:
-        """Return a string representation of the event."""
-        return f"{self.__class__.__name__}({self.event_id[:8]}...)"
+        return f"{self.__class__.__name__}({getattr(self, 'event_id', '')[:8]}...)"
 
     def __repr__(self) -> str:
-        """Return a detailed string representation of the event."""
         return (
             f"{self.__class__.__name__}("
-            f"event_id='{self.event_id}', "
-            f"aggregate_id='{self.aggregate_id}', "
-            f"version={self.version})"
+            f"event_id='{getattr(self, 'event_id', '')}', "
+            f"aggregate_id='{getattr(self, 'aggregate_id', '')}', "
+            f"version={getattr(self, 'version', '')})"
         )

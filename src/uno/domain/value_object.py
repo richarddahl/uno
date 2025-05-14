@@ -15,10 +15,17 @@ if TYPE_CHECKING:
     from uno.domain.protocols import ValueObjectProtocol
     from uno.logging.protocols import LoggerProtocol
 
+from uno.core.di import DIContainer
+from uno.core.config import Config
+from uno.core.logging import LoggerProtocol
 
 class ValueObject:
     """
     Uno idiom: Protocol-based value object template for DDD.
+
+    Required dependencies (injected via constructor):
+      - logger: LoggerProtocol (Uno DI)
+      - config: Config (Uno DI)
 
     - DO NOT inherit from this class; instead, implement all required attributes/methods from ValueObjectProtocol directly.
     - Inherit from Pydantic's BaseModel if validation/serialization is needed.
@@ -26,16 +33,18 @@ class ValueObject:
     - All type checking should use ValueObjectProtocol, not this class.
     """
 
-    # Example method required by ValueObjectProtocol
-    def __eq__(self, other: object) -> bool:
-        ...
-        Compare this value object with another for equality.
+    value: object
+    logger: LoggerProtocol
+    config: Config
 
-        Args:
-            other: The object to compare with
-            True if the objects are equal, False otherwise
-        """
-        return self.__eq__(other)
+    def __init__(self, value: object, logger: LoggerProtocol, config: Config) -> None:
+        if not logger or not isinstance(logger, LoggerProtocol):
+            raise ValueError("logger (LoggerProtocol) is required via DI")
+        if not config or not isinstance(config, Config):
+            raise ValueError("config (Config) is required via DI")
+        self.value = value
+        self.logger = logger
+        self.config = config
 
     def __eq__(self, other: Any) -> bool:
         """

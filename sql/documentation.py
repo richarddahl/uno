@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uno.errors import UnoError
 from uno.persistence.sql.config import SQLConfig
 from uno.persistence.sql.connection import ConnectionManager
-from uno.logging.protocols import LoggerProtocol, LogLevel
+from uno.logging.protocols import LoggerProtocol
+from uno.logging.level import LogLevel
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence

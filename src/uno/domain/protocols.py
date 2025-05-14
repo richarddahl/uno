@@ -7,10 +7,9 @@ like entities, aggregates, value objects, and domain events.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, TypeVar, Generic, runtime_checkable
+from typing import Any, ClassVar, Protocol, TypeVar, Generic
 
 
-@runtime_checkable
 class DomainEventProtocol(Protocol):
     """Protocol for domain events in event sourcing systems."""
 
@@ -20,7 +19,6 @@ class DomainEventProtocol(Protocol):
     version: int
 
 
-@runtime_checkable
 class ValueObjectProtocol(Protocol):
     """Protocol for value objects in domain-driven design."""
 
@@ -37,7 +35,6 @@ class ValueObjectProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class EntityProtocol(Protocol):
     """Protocol for entities in domain-driven design."""
 
@@ -56,7 +53,6 @@ class EntityProtocol(Protocol):
         ...
 
 
-@runtime_checkable
 class AggregateRootProtocol(EntityProtocol, Protocol):
     """Protocol for aggregate roots in domain-driven design."""
 
@@ -98,7 +94,6 @@ class AggregateRootProtocol(EntityProtocol, Protocol):
 T = TypeVar("T", bound="AggregateRootProtocol")
 
 
-@runtime_checkable
 class RepositoryProtocol(Protocol, Generic[T]):
     """Repository protocol for aggregate persistence."""
 
