@@ -10,7 +10,7 @@ import contextlib
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 from uno.types import T
-from uno.di.types import T_co
+T_co = TypeVar("T_co", covariant=True)
 
 
 # Need to define ScopeProtocol first so ContainerProtocol can reference it
@@ -64,6 +64,11 @@ class ContainerProtocol(Protocol):
     async def dispose_services(self, services: list[Any]) -> None:
         """Dispose of a list of services."""
         ...
+
+    async def create_service(self, interface: type[Any], implementation: Any) -> Any:
+        """Create a service instance for the given interface and implementation."""
+        ...
+
     """Protocol for dependency injection containers."""
 
     async def register_singleton(
@@ -99,6 +104,14 @@ class ContainerProtocol(Protocol):
         """Register a service with transient lifetime."""
         ...
 
+    async def register_type_name(
+        self,
+        name: str,
+        implementation: type[T],
+    ) -> None:
+        """Register a service with a specific type name."""
+        ...
+
     async def get_registration_keys(self) -> list[str]:
         """Get all registered service keys asynchronously."""
         ...
@@ -124,6 +137,26 @@ class ContainerProtocol(Protocol):
         """Resolve a service by type."""
         ...
 
+    async def has_registration(self, interface: type[T]) -> bool:
+        """
+        Asynchronously check if a service is registered.
+
+        Args:
+            interface: The service type to check
+
+        Returns:
+            True if the service is registered, False otherwise
+        """
+        ...
+
+    async def get_scopes(self) -> list[ScopeProtocol]:
+        """Get all scopes managed by this container."""
+        ...
+
+    async def get_singleton_scope(self) -> ScopeProtocol | None:
+        """Get the singleton scope for this container."""
+        ...
+
 
 @runtime_checkable
 class ServiceRegistrationProtocol(Protocol[T]):
@@ -133,7 +166,7 @@ class ServiceRegistrationProtocol(Protocol[T]):
     implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
     lifetime: Literal["singleton", "scoped", "transient"]
 
-    def __init__(
+    async def __init__(
         self,
         interface: type[T],
         implementation: (
@@ -141,19 +174,19 @@ class ServiceRegistrationProtocol(Protocol[T]):
         ),
         lifetime: Literal["singleton", "scoped", "transient"],
     ) -> None:
-        """Initialize a service registration."""
+        """Asynchronously initialize a service registration."""
         ...
 
-    def __eq__(self, other: object) -> bool:
-        """Compare service registrations."""
+    async def __eq__(self, other: object) -> bool:
+        """Asynchronously compare service registrations."""
         ...
 
-    def __hash__(self) -> int:
-        """Hash a service registration."""
+    async def __hash__(self) -> int:
+        """Asynchronously hash a service registration."""
         ...
 
-    def __repr__(self) -> str:
-        """Represent a service registration as a string."""
+    async def __repr__(self) -> str:
+        """Asynchronously represent a service registration as a string."""
         ...
 
 

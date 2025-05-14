@@ -8,16 +8,27 @@ the configuration system with secure value handling.
 from __future__ import annotations
 
 import logging
-from typing import Any, Generic, TypeVar
+from enum import Enum
+from typing import Any, Generic, TypeVar, Optional
 
 from uno.config import (
     SecureValue,
     UnoSettings,
     requires_secure_access,
 )
-from uno.di.protocols import ConfigProviderProtocol
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from uno.di.protocols import ContainerProtocol
 
 T = TypeVar("T", bound=UnoSettings)
+
+
+class ServiceLifetime(str, Enum):
+    """Service lifetime options for dependency injection."""
+    
+    SINGLETON = "singleton"
+    SCOPED = "scoped"
+    TRANSIENT = "transient"
 
 
 class ConfigProvider(Generic[T]):
@@ -27,7 +38,7 @@ class ConfigProvider(Generic[T]):
     values, providing logging and access control capabilities.
     """
 
-    def __init__(self, settings: T, logger: logging.Logger | None = None):
+    def __init__(self, settings: T, logger: Optional[logging.Logger] = None):
         """Initialize the config provider.
 
         Args:
@@ -35,7 +46,13 @@ class ConfigProvider(Generic[T]):
             logger: Optional logger for auditing access
         """
         self._settings = settings
-        self._logger = logger or logging.getLogger("uno.config")
+        if logger is not None:
+            self._logger = logger
+        else:
+            # Fallback: should only occur if DI failed to provide a logger
+            fallback_logger = logging.getLogger("uno.config")
+            fallback_logger.debug("Falling back to direct logger instantiation in ConfigProvider")
+            self._logger = fallback_logger
 
     def get_settings(self) -> T:
         """Get the wrapped settings object.
@@ -81,10 +98,10 @@ class ConfigProvider(Generic[T]):
 
 
 async def register_secure_config(
-    container: Any,  # Actual type would be Container from DI module
+    container: "ContainerProtocol",
     settings_class: type[T],
-    lifetime: str = "singleton",
-) -> None:
+    lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
+) -> ConfigProvider[T]:
     """Register secure configuration with the DI container.
 
     This function creates and registers a ConfigProvider for the given
@@ -94,40 +111,46 @@ async def register_secure_config(
         container: The DI container to register with
         settings_class: Settings class to create config for
         lifetime: Service lifetime ("singleton", "scoped", or "transient")
+        
+    Returns:
+        The created ConfigProvider instance
+        
+    Raises:
+        ValueError: If an invalid lifetime is provided
     """
+    # Create settings instance synchronously
+    # If settings_class.from_env() could be async, this would need to be handled differently
+    settings = settings_class.from_env()
 
-    # Factory function to create the config provider
-    async def create_config_provider() -> ConfigProvider[T]:
-        """Create a ConfigProvider instance.
-
-        Returns:
-            ConfigProvider instance
-        """
-        # Get a logger from the container if available
-        logger = None
+    # Get a logger from the container if available
+    async def resolve_logger(container, name: str = "uno.config") -> logging.Logger:
         try:
             logger = await container.resolve(logging.Logger)
-        except Exception:
-            # Fall back to default logger
-            logger = logging.getLogger("uno.config")
+            if logger is not None:
+                return logger
+        except Exception as e:
+            fallback_logger = logging.getLogger(name)
+            fallback_logger.debug(f"Falling back to direct logger instantiation in register_secure_config: {e}")
+            return fallback_logger
+        return logging.getLogger(name)
 
-        # Create settings instance
-        settings = settings_class.from_env()
+    logger = await resolve_logger(container, "uno.config")
 
-        # Create and return provider
-        return ConfigProvider(settings, logger)
-
+    # Create provider
+    provider = ConfigProvider(settings, logger)
+    
     # Register the provider with the container
-    provider = await create_config_provider()
-    await container.register(
-        ConfigProviderProtocol[T],
-        instance=provider,
-        lifetime=lifetime,
-    )
-
-    # Also register the concrete provider type for use cases that need the specific type
-    await container.register(
-        ConfigProvider[T],
-        factory=create_config_provider,
-        lifetime=lifetime,
-    )
+    if lifetime == ServiceLifetime.SINGLETON:
+        await container.register_singleton(ConfigProvider[settings_class], provider, replace=True)
+    elif lifetime == ServiceLifetime.SCOPED:
+        await container.register_scoped(ConfigProvider[settings_class], provider, replace=True)
+    elif lifetime == ServiceLifetime.TRANSIENT:
+        await container.register_transient(ConfigProvider[settings_class], provider, replace=True)
+    else:
+        raise ValueError(f"Invalid lifetime: {lifetime}. Expected one of: {', '.join(t.value for t in ServiceLifetime)}")
+    
+    # Also register with the concrete type name for convenience
+    container_type_name = settings_class.__name__ + "Provider"
+    await container.register_type_name(container_type_name, ConfigProvider[settings_class])
+    
+    return provider

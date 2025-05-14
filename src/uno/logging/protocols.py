@@ -34,24 +34,43 @@ class ContextProtocol(Protocol):
         """Get the current context data."""
         ...
 
+
+
     def set_context(self, context: dict[str, Any]) -> None:
         """Set the current context data."""
         ...
 
+
+
     def update_context(self, **kwargs: Any) -> None:
         """Update the current context data with new values."""
         ...
+
+
 
     @contextmanager
     def context_scope(self, **kwargs: Any) -> Generator[None]:
         """Create a context scope that will be automatically cleaned up."""
         ...
 
+
+
     @asynccontextmanager
     async def async_context_scope(self, **kwargs: Any) -> AsyncGenerator[None]:
         """Create an async context scope that will be automatically cleaned up."""
         ...
 
+
+
+
+
+@runtime_checkable
+class LoggerScopeProtocol(Protocol):
+    """Protocol for logger scope/context management in Uno logging system."""
+
+    async def scope(self, name: str) -> Any:
+        """Async context manager for logger scope. Yields a logger scope/context object."""
+        ...
 
 # Define standard logging levels
 class LogLevel(str, Enum):
@@ -108,6 +127,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -123,6 +144,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     async def debug(self, message: str, **kwargs: Any) -> None:
         """Log a debug message asynchronously.
 
@@ -131,6 +154,8 @@ class LoggerProtocol(Protocol):
             **kwargs: Additional context data
         """
         ...
+
+
 
     async def info(self, message: str, **kwargs: Any) -> None:
         """Log an info message asynchronously.
@@ -141,6 +166,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     async def warning(self, message: str, **kwargs: Any) -> None:
         """Log a warning message asynchronously.
 
@@ -150,6 +177,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     async def error(self, message: str, **kwargs: Any) -> None:
         """Log an error message asynchronously.
 
@@ -158,6 +187,8 @@ class LoggerProtocol(Protocol):
             **kwargs: Additional context data
         """
         ...
+
+
 
     async def structured_log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
         """Log a structured message with level and context asynchronously.
@@ -169,6 +200,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     async def critical(self, message: str, **kwargs: Any) -> None:
         """Log a critical message asynchronously.
 
@@ -178,6 +211,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     def set_level(self, level: LogLevel) -> None:
         """Set the logger's level.
 
@@ -185,6 +220,8 @@ class LoggerProtocol(Protocol):
             level: New logging level
         """
         ...
+
+
 
     @contextmanager
     def context(self, **kwargs: Any) -> Generator[None]:
@@ -201,6 +238,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     @asynccontextmanager
     async def async_context(self, **kwargs: Any) -> AsyncGenerator[None]:
         """Add context information to all logs within this async context.
@@ -216,6 +255,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     def bind(self, **kwargs: Any) -> LoggerProtocol:
         """Create a new logger with bound context values.
 
@@ -227,6 +268,8 @@ class LoggerProtocol(Protocol):
         """
         ...
 
+
+
     def with_correlation_id(self, correlation_id: str) -> LoggerProtocol:
         """Bind a correlation ID to all logs from this logger.
 
@@ -237,3 +280,5 @@ class LoggerProtocol(Protocol):
             New logger instance with correlation ID
         """
         ...
+
+

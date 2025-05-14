@@ -4,9 +4,14 @@ Service resolution implementation for uno DI system.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast, Any
 
-from uno.di.errors import ScopeError, ServiceNotRegisteredError, DICircularDependencyError, DIScopeDisposedError
+from uno.di.errors import (
+    ScopeError,
+    DIServiceNotFoundError,
+    DICircularDependencyError,
+    DIScopeDisposedError,
+)
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -29,8 +34,15 @@ class _Scope:
         self._disposed = False
 
     @classmethod
-    def singleton(cls, container: ContainerProtocol) -> _Scope:
-        """Create a singleton (root) scope with no parent."""
+    def singleton(cls, container: Any) -> _Scope:
+        """Create a singleton (root) scope with no parent.
+
+        Args:
+            container: The container that owns this scope
+
+        Returns:
+            A new singleton scope
+        """
         return cls(container)
 
     async def __aenter__(self) -> _Scope:
@@ -53,10 +65,14 @@ class _Scope:
         await self._dispose_services()
         self._disposed = True
 
-    def _check_not_disposed(self, operation: str) -> None:
+    async def _check_not_disposed(self, operation: str) -> None:
         """Check if the scope is disposed and raise an error if it is."""
         if self._disposed:
-            raise DIScopeDisposedError(operation=operation, scope_id=str(id(self)))
+            raise await DIScopeDisposedError.async_init(
+                f"Scope is disposed, cannot perform {operation}",
+                operation=operation,
+                scope_id=str(id(self)),
+            )
 
     async def _dispose_services(self) -> None:
         """Safely dispose all services in this scope."""
@@ -64,79 +80,81 @@ class _Scope:
 
     async def resolve(self, interface: type[T]) -> T:
         """Resolve a service from this scope or parent scopes."""
-        self._check_not_disposed("operation on scope")
+        await self._check_not_disposed("operation on scope")
         try:
             # First check in this scope for non-singleton services
             if interface in self._services:
-                return cast("T", self._services[interface])
+                # Cast needed because _services is typed as dict[type, object]
+                return cast(T, self._services[interface])
 
-            # Try container registrations for non-singleton services
-            if interface in self.container._registrations:
-                registration = self.container._registrations[interface]
+            # Simply try to resolve from the container directly
+            # This delegates the resolution logic to the container
+            # which knows how to handle different lifetimes
+            try:
+                # Try to resolve from the container
+                instance = await self.container.resolve(interface)
 
-                match registration.lifetime:
-                    case "scoped":
-                        if not self._scopes and self.parent is None:
-                            raise ScopeError(
-                                f"Cannot resolve scoped service {interface.__name__} outside of a scope"
-                            )
-                        instance = await self.container._create_service(
-                            interface, registration.implementation
-                        )
-                        self._services[interface] = instance
-                        return cast("T", instance)
-                    case "transient":
-                        # For transient services, always create a new instance
-                        # Never cache or reuse transient instances
-                        return await self.container._create_service(
-                            interface, registration.implementation
-                        )
+                # If it's a scoped service, cache it in this scope
+                # We can cache all non-transient services for performance
+                # The container should handle lifetime rules
+                if interface not in self._services:
+                    # Only store in the scope if not already present
+                    # and if the container allows it to be stored
+                    self._services[interface] = instance
 
-            # If not found and we have a parent, try the parent
+                # Cast needed because instance might come from different sources
+                return cast(T, instance)  # type: ignore
+            except DIServiceNotFoundError:
+                # Container couldn't resolve it, so we'll check parent or fail
+                pass
+
+            # Check if we have a parent scope
             if self.parent is not None:
-                return await self.parent.resolve(interface)
+                # Simply try to resolve from parent and catch any DIServiceNotFoundError
+                try:
+                    return await self.parent.resolve(interface)
+                except DIServiceNotFoundError:
+                    # If parent can't resolve it, we'll fall through to our own
+                    # DIServiceNotFoundError below
+                    pass
 
             # If all else fails
-            raise ServiceNotRegisteredError(interface)
+            raise DIServiceNotFoundError(interface)
         except DICircularDependencyError:
             raise  # propagate directly
 
-    def create_scope(self) -> _Scope:
+    async def create_scope(self) -> _Scope:
         """Create a nested scope."""
-        self._check_not_disposed("operation on scope")
+        await self._check_not_disposed("operation on scope")
         scope = type(self)(self.container, parent=self)
         self._scopes.append(scope)
         return scope
 
     async def __getitem__(self, interface: type[T]) -> T:
         """Get a service instance from this scope or its parent asynchronously."""
-        self._check_not_disposed("operation on scope")
+        await self._check_not_disposed("operation on scope")
 
-        # Check if this is a singleton service
-        if (
-            interface in self.container._registrations
-            and self.container._registrations[interface].lifetime == "singleton"
-            and interface in self.container._singleton_scope._services
-        ):
-            # For singletons, always get from the singleton scope
-            return cast("T", self.container._singleton_scope._services[interface])
-
-        # For non-singleton services or if singleton not found
+        # For services already resolved in this scope
         if interface in self._services:
-            return cast("T", self._services[interface])
+            return cast(T, self._services[interface])
 
-        # If not found and we have a parent, try the parent
-        if self.parent is not None:
-            return await self.parent.__getitem__(interface)
-
-        raise ServiceNotRegisteredError(interface)
+        # Try to resolve from container
+        try:
+            # Use the container's resolve method directly
+            # This should handle different lifetimes appropriately
+            instance = await self.container.resolve(interface)
+            return cast(T, instance)  # type: ignore
+        except DIServiceNotFoundError:
+            # If the container can't resolve it, try the parent
+            if self.parent is not None:
+                return await self.parent.__getitem__(interface)
+            # If there's no parent, re-raise the error
+            raise
 
     async def __setitem__(self, interface: type[T], service: T) -> None:
         """Set a service instance in this scope asynchronously."""
-        self._check_not_disposed("operation on scope")
+        await self._check_not_disposed("operation on scope")
         self._services[interface] = service
-
-
 
     async def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope asynchronously.
@@ -144,5 +162,18 @@ class _Scope:
         Returns:
             A list of service type names available in this scope.
         """
-        self._check_not_disposed("operation on scope")
+        await self._check_not_disposed("operation on scope")
         return [t.__name__ for t in self._services]
+
+    async def has_registration(self, interface: type[T]) -> bool:
+        """Asynchronously check if a service is registered in this scope or its container.
+
+        Args:
+            interface: The service type to check
+
+        Returns:
+            True if the service is registered, False otherwise
+        """
+        return interface in self._services or await self.container.has_registration(
+            interface
+        )

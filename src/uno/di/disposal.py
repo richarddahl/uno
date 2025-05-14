@@ -8,8 +8,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    # Use TYPE_CHECKING to avoid circular imports
-    from uno.di.container import Container
+    from uno.di.protocols import ContainerProtocol, ScopeProtocol
 
 T = TypeVar("T")
 
@@ -23,7 +22,7 @@ class DisposalError(Exception):
 class _DisposalManager:
     """Manages service disposal for the container."""
 
-    def __init__(self, container: Container) -> None:
+    def __init__(self, container: ContainerProtocol) -> None:
         self.container = container
         self._pending_tasks: set[asyncio.Task[None]] = set()
 
@@ -46,9 +45,15 @@ class _DisposalManager:
         """Dispose the container and all its services."""
         try:
             await self.wait_for_pending_tasks()
-            for scope in reversed(self.container._scopes):
+
+            # Get all scopes from the container using protocol method
+            scopes = await self.container.get_scopes()
+            for scope in reversed(scopes):
                 await scope.dispose()
-            await self.container._singleton_scope.dispose()
+
+            # Get the singleton scope using protocol method
+            singleton_scope = await self.container.get_singleton_scope()
+            await singleton_scope.dispose()
         except Exception as e:
             raise DisposalError(f"Failed to dispose container: {e}") from e
 
