@@ -24,7 +24,7 @@ class DomainEventProtocol(Protocol):
 class ValueObjectProtocol(Protocol):
     """Protocol for value objects in domain-driven design."""
 
-    def equals(self, other: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Compare this value object with another for equality.
 
@@ -43,7 +43,7 @@ class EntityProtocol(Protocol):
 
     id: str
 
-    def equals(self, other: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Compare this entity with another for identity equality.
 

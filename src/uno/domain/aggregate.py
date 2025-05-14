@@ -24,86 +24,34 @@ from uno.events.restored_event import RestoredEvent
 T_ID = TypeVar("T_ID")
 
 
-class AggregateRoot(Entity[T_ID]):
+class AggregateRoot:
     """
-    Base class for aggregate roots with event sourcing lifecycle and soft delete/restore support.
+    Uno idiom: Protocol-based aggregate root template for event sourcing.
 
-    Aggregates are intentionally mutable to support event sourcing and transactional workflows.
-    All state changes must be made via domain events and explicit mutation methods.
-
-    Example:
-        class MyAggregate(AggregateRoot[int]):
-            ...
-        events = [SomeCreated(...), SomeUpdated(...)]
-        result = MyAggregate.from_events(events)
-        if isinstance(result, Success):
-            agg = result.value
-        else:
-            # handle error
-            ...
+    - DO NOT inherit from this class; instead, implement all required attributes/methods from AggregateRootProtocol directly.
+    - Inherit from Pydantic's BaseModel if validation/serialization is needed.
+    - This class serves as a template/example only.
+    - All type checking should use AggregateRootProtocol, not this class.
     """
 
-    _logger: LoggerProtocol | None = None  # Inject via DI or set externally
-    _events: list[DomainEventProtocol] = PrivateAttr(default_factory=list)
-    version: int = 0
-    _is_deleted: bool = PrivateAttr(default=False)
+    # Example attributes required by AggregateRootProtocol
+    version: int
 
-    @property
-    def is_deleted(self) -> bool:
-        """
-        Returns True if the aggregate has been soft deleted (DeletedEvent applied and not restored).
-        """
-        return self._is_deleted
+    # Example methods required by AggregateRootProtocol
+    def apply(self, event: "DomainEventProtocol") -> None:
+        ...
 
-    def get_uncommitted_events(self) -> list[DomainEventProtocol]:
-        """
-        Returns a copy of the list of uncommitted domain events since last persistence.
-        """
-        return list(self._events)
+    def apply_event(self, event: object) -> None:
+        ...
 
-    def enforce_invariants(self) -> None:
-        """
-        Override in subclasses to enforce aggregate invariants after event application.
-        Raise an exception if invariants are violated.
-        """
-        pass
+    def get_uncommitted_events(self) -> list["DomainEventProtocol"]:
+        ...
 
-    def validate(self) -> None:
-        """
-        Validate the aggregate's invariants. Override in subclasses for custom validation.
-        Raises:
-            DomainValidationError: If validation fails.
-        """
-        try:
-            # Custom validation logic here
-            pass
-        except Exception as exc:
-            if self._logger:
-                self._logger.error(
-                    f"Invariant check failed for aggregate {self}: {exc}"
-                )
-            raise DomainValidationError(f"Validation failed: {exc}") from exc
+    def clear_uncommitted_events(self) -> None:
+        ...
 
-    def add_event(self, event: DomainEventProtocol) -> None:
-        """
-        Adds an event to the aggregate and marks it as uncommitted.
-        """
-        if isinstance(event, RestoredEvent) and not self.is_deleted:
-            self._logger.error(f"Cannot restore aggregate {self.id}: not deleted.")
-            raise AggregateNotDeletedError(
-                f"Cannot restore aggregate {self.id}: not deleted."
-            )
-        self.apply_event(event)
-        self._events.append(event)
-        self.version += 1
-        self._logger.info(f"Event {event.event_type} added to aggregate {self.id}.")
+    # Add any additional Uno idiom methods as needed for your aggregates
 
-    def clear_events(self) -> None:
-        self._events.clear()
-
-    def apply_event(self, event: DomainEventProtocol) -> None:
-        handler_name = f"apply_{event.event_type}"
-        if hasattr(self, handler_name):
             getattr(self, handler_name)(event)
         # Defensive: fallback if event_type string doesn't match
         elif isinstance(event, DeletedEvent):

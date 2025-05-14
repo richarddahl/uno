@@ -11,14 +11,14 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 from uno.domain.aggregate import AggregateRoot
 from uno.domain.errors import DomainError
-from uno.domain.protocols import (
-    AggregateRootProtocol,
-    DomainEventProtocol,
-    RepositoryProtocol,
-)
-from uno.events.deleted_event import DeletedEvent
-from uno.persistence.event_sourcing.protocols import EventStoreProtocol
-from uno.snapshots.protocols import SnapshotStoreProtocol, SnapshotStrategyProtocol
+if TYPE_CHECKING:
+    from uno.domain.protocols import (
+        AggregateRootProtocol,
+        DomainEventProtocol,
+        RepositoryProtocol,
+    )
+    from uno.persistence.event_sourcing.protocols import EventStoreProtocol
+    from uno.snapshots.protocols import SnapshotStoreProtocol, SnapshotStrategyProtocol
 
 if TYPE_CHECKING:
     from uno.domain.config import DomainConfig
