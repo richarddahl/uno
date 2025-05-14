@@ -12,14 +12,29 @@ This document lists all issues and concerns identified in the current implementa
 ## Dependency Injection Patterns
 
 - [ ] **Protocol Usage:** Protocols are correctly used for structural subtyping, not inheritance. However, ensure all Protocol imports are in `if TYPE_CHECKING:` blocks to avoid runtime import overhead (see Uno rules/memories).
-- [ ] **DI API Consistency:** Some registration/resolution APIs are both sync and async. Ensure that sync APIs never call async code under the hood, and that async APIs are always preferred in Uno code.
+- [ ] **DI API Consistency:** Some registration/resolution APIs are both sync and async. Convert them all to async.
+
+  **Migration Checklist:**
+  - [x] Identify all sync DI registration and resolution methods (e.g., `register_singleton`, `register_scoped`, `resolve`, etc.)
+    - [x] `Container.get_registration_keys(self) -> list[str]`
+    - [x] `ContainerProtocol.get_registration_keys(self) -> list[str]` (protocol)
+    - [x] `_Scope.__setitem__(self, interface: type[T], service: T) -> None`
+    - [x] `_Scope.get_service_keys(self) -> list[str]`
+  - [x] Refactor all DI error classes and usages to be async-only (e.g., DICircularDependencyError, DIServiceCreationError, ContainerError, and tests now use async_init)
+  - [x] Update all internal usages and tests to use `await ...async_init(...)` for DI error creation and container state capture
+  - [x] Refactor remaining registration/resolution methods to be `async def` only; remove or deprecate sync versions
+  - [x] Update all internal usages to use `await` for DI operations
+  - [x] Update all tests to use async DI APIs (with `pytest.mark.asyncio` as needed)
+  - [ ] Update documentation to reflect async-only DI API
+  - [ ] Add migration notes for users upgrading from previous versions
+
 - [ ] **Service Registration API:** The registration API in `registration.py` is not fully type safe (e.g., use of `Any` in places). Consider stricter type bounds for all generics.
 - [ ] **ConfigProvider Registration:** The `register_secure_config` function in `config.py` uses `Any` for the container type. This should be properly typed as `Container` or `ContainerProtocol` for type safety.
 
 ## Error Handling
 
 - [ ] **Error Context Propagation:** Error classes are generally robust, but ensure all error contexts propagate full dependency chains, constructor signatures, and relevant metadata for debugging (especially in `DIServiceCreationError`, `DICircularDependencyError`).
-- [ ] **Redundant Error Classes:** There is duplication between base and enhanced error types (e.g., `ServiceNotRegisteredError` vs `DIServiceNotFoundError`). Consider consolidating or clearly documenting when each should be raised.
+- [ ] **Redundant Error Classes:** There is duplication between base and enhanced error types (e.g., `ServiceNotRegisteredError` vs `DIServiceNotFoundError`). Consolidate error classes to avoid confusion and ensure consistency.
 
 ## Logging & Observability
 

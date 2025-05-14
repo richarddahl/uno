@@ -25,7 +25,6 @@ from .protocols import (
     Lifetime,
     ScopeProtocol,
     ServiceFactoryProtocol,
-    ServiceProtocol,
     ServiceRegistrationProtocol,
 )
 from .registration import ServiceRegistration
@@ -42,7 +41,6 @@ __all__ = [
     "ServiceCreationError",
     "ServiceFactoryProtocol",
     "ServiceNotRegisteredError",
-    "ServiceProtocol",
     "ServiceRegistration",
     "ServiceRegistrationProtocol",
     "SyncInAsyncContextError",

@@ -33,6 +33,10 @@ def register_logging_services(container: ContainerProtocol) -> None:
 class ServiceRegistration(Generic[T]):
     """Represents a service registration in the container."""
 
+    interface: type[T]
+    implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
+    lifetime: Literal["singleton", "scoped", "transient"]
+
     def __init__(
         self,
         interface: type[T],

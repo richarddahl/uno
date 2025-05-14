@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import contextvars
 from collections.abc import AsyncGenerator, Callable
 from typing import (
     TYPE_CHECKING,
@@ -25,20 +26,30 @@ from uno.di.errors import (
     ServiceCreationError,
     ServiceNotRegisteredError,
     TypeMismatchError,
+    DICircularDependencyError,
 )
 from uno.di.protocols import (
     AsyncServiceFactoryProtocol,
-    ContainerProtocol,
     ServiceFactoryProtocol,
-    ScopeProtocol,
 )
 from uno.di.registration import ServiceRegistration
 from uno.di.resolution import _Scope
 
 T = TypeVar("T")
 
+# Context variable for dependency chain tracking (per-task/async context)
+_DI_DEPENDENCY_CHAIN: contextvars.ContextVar[list[str]] = contextvars.ContextVar(
+    "_DI_DEPENDENCY_CHAIN", default=[]
+)
+
 
 class Container:
+    async def dispose_services(self, services: list[Any]) -> None:
+        for service in services:
+            await self._dispose_service(service)
+
+
+
     """Dependency Injection container for managing service lifetimes.
 
     This container supports three service lifetimes:
@@ -47,13 +58,13 @@ class Container:
     - Transient: New instance per resolution
 
     Attributes:
-        _singleton_scope: ScopeProtocol[Any]
+        _singleton_scope: _Scope
             The singleton scope that contains all singleton services.
-        _current_scope:int | NoneScopeProtocol[Any]]
+        _current_scope: _Scope | None
             The current active scope, if any.
-        _registrations: dict[type[Any], ServiceRegistration[Any]]
+        _registrations: dict[type, ServiceRegistration]
             Dictionary mapping service interfaces to their registrations.
-        _scopes: list[ScopeProtocol[Any]]
+        _scopes: list[_Scope]
             List of active scopes created by this container.
     """
 
@@ -64,7 +75,7 @@ class Container:
         """
         self._singleton_scope: _Scope = _Scope.singleton(self)
         self._current_scope: _Scope | None = None
-        self._registrations: dict[type[Any], ServiceRegistration[Any]] = {}
+        self._registrations: dict[type, ServiceRegistration] = {}
         self._scopes: list[_Scope] = [self._singleton_scope]
         self._disposal_manager = _DisposalManager(self)
         self._disposed: bool = False
@@ -113,27 +124,18 @@ class Container:
             raise e
         return container
 
-    def _check_not_disposed(self) -> None:
+    def _check_not_disposed(self, operation: str) -> None:
         """Check if the container is disposed and raise an error if it is."""
         if self._disposed:
-            raise ScopeError("Container has been disposed")
+            raise ContainerDisposedError(operation=operation)
 
-    def get_registration_keys(self) -> list[str]:
-        """Get all registered service keys synchronously.
-
-        Returns:
-            A list of service keys (type names) that are registered in this container.
-        """
-        self._check_not_disposed()
-        return [t.__name__ for t in self._registrations]
-
-    async def get_registration_keys_async(self) -> list[str]:
+    async def get_registration_keys(self) -> list[str]:
         """Get all registered service keys asynchronously.
 
         Returns:
             A list of service keys (type names) that are registered in this container.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("register")
         return [t.__name__ for t in self._registrations]
 
     def get_scope_chain(self) -> list[_Scope]:
@@ -142,7 +144,7 @@ class Container:
         Returns:
             A list of scopes from the current scope to the root scope.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("get_scope_chain")
         if self._current_scope is None:
             return [self._singleton_scope]
 
@@ -154,13 +156,17 @@ class Container:
 
         return chain
 
+    async def _dispose_service(self, service: Any) -> None:
+        """Safely dispose a service using the disposal manager (internal use)."""
+        await self._disposal_manager.dispose_service(service)
+
     async def get_scope_chain_async(self) -> list[_Scope]:
         """Get the chain of scopes from current to root asynchronously.
 
         Returns:
             A list of scopes from the current scope to the root scope.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("get_scope_chain_async")
         return self.get_scope_chain()
 
     @contextlib.asynccontextmanager
@@ -178,7 +184,7 @@ class Container:
             # Scope is automatically disposed here
             ```
         """
-        self._check_not_disposed()
+        self._check_not_disposed("create_scope")
         scope = self._singleton_scope.create_scope()
         self._scopes.append(scope)
         logger_scope_cm = None
@@ -213,6 +219,7 @@ class Container:
         Raises:
             Exception: If any of the pending tasks raised an exception.
         """
+        self._check_not_disposed("wait_for_pending_tasks")
         await self._disposal_manager.wait_for_pending_tasks()
 
     async def dispose(self) -> None:
@@ -226,7 +233,7 @@ class Container:
         After disposal, the container cannot be used and will raise ScopeError
         when attempting to register or resolve services.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("dispose_container")
         await self._disposal_manager.dispose_container()
         self._disposed = True
 
@@ -342,7 +349,7 @@ class Container:
             DuplicateRegistrationError: If a service is already registered for this interface and replace=False.
             TypeMismatchError: If the implementation does not implement the interface.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("get_registration_keys")
 
         # If replacing an existing registration, ensure we clean up properly first
         if interface in self._registrations and replace:
@@ -356,13 +363,9 @@ class Container:
         registration = ServiceRegistration(interface, implementation, lifetime)
         self._registrations[interface] = registration
 
-        # Create singleton instance immediately
-        if lifetime == "singleton":
-            instance = await self._create_service(interface, implementation)
-            self._singleton_scope._services[interface] = instance
 
     async def resolve(self, interface: type[T]) -> T:
-        """Resolve a service.
+        """Resolve a service instance asynchronously.
 
         Args:
             interface: type[T]
@@ -376,21 +379,30 @@ class Container:
             ServiceNotRegisteredError: If the service is not registered.
             TypeMismatchError: If the implementation does not implement the interface.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("get_registration_keys")
 
         # Check if service is registered before attempting to resolve
         if interface not in self._registrations:
             raise ServiceNotRegisteredError(interface)
 
-        # If trying to resolve a scoped service outside of a scope, provide a clear error
         registration = self._registrations[interface]
-        if (
-            registration.lifetime == "scoped" and len(self._scopes) <= 1
-        ):  # Only singleton scope
-            raise ScopeError.outside_scope(interface)
+        if registration.lifetime == "singleton":
+            # Lazy singleton instantiation
+            if interface not in self._singleton_scope._services:
+                instance = await self._create_service(interface, registration.implementation)
+                self._singleton_scope._services[interface] = instance
+            return self._singleton_scope._services[interface]
+        elif registration.lifetime == "scoped":
+            if len(self._scopes) <= 1:  # Only singleton scope
+                raise ScopeError.outside_scope(interface)
+            scope = self._scopes[-1]
+            if interface not in scope._services:
+                instance = await self._create_service(interface, registration.implementation)
+                scope._services[interface] = instance
+            return scope._services[interface]
+        else:  # transient
+            return await self._create_service(interface, registration.implementation)
 
-        # Delegate to the singleton scope's resolve method for actual resolution
-        return await self._singleton_scope.resolve(interface)
 
     async def _create_service(
         self,
@@ -399,71 +411,48 @@ class Container:
             type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
         ),
     ) -> T:
-        """Create a service instance from the implementation.
-
-        Args:
-            interface: type[T]
-                The interface type that will be used to resolve the service.
-            implementation: type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
-                Either a class that implements the interface, a synchronous factory function,
-                or an asynchronous factory function that returns an instance of the implementation.
-
-        Returns:
-            T: The created service instance.
-
-        Raises:
-            TypeMismatchError: If the implementation does not implement the interface.
-            ServiceCreationError: If the service cannot be created.
-        """
+        """Create a service instance from the implementation, with circular dependency detection."""
+        # Track dependency chain using contextvar
+        chain = _DI_DEPENDENCY_CHAIN.get([])
+        interface_name = getattr(interface, "__name__", str(interface))
+        if interface_name in chain:
+            # Circular dependency detected
+            raise await DICircularDependencyError.async_init(chain + [interface_name], container=self)
+        # Push to chain
+        token = _DI_DEPENDENCY_CHAIN.set(chain + [interface_name])
         try:
             if isinstance(implementation, type):
-                # Type is a class, instantiate it directly
                 instance = implementation()
             elif asyncio.iscoroutinefunction(implementation):
-                # Handle async factory function
                 try:
-                    # Try to call with container argument first (per AsyncServiceFactory definition)
                     instance = await implementation(self)
                 except TypeError:
-                    # Fall back to calling without arguments
                     instance = await implementation()
             else:
-                # Handle sync factory function
                 try:
-                    # Try to call with container argument first (per ServiceFactory definition)
                     instance = implementation(self)
                 except TypeError:
-                    # Fall back to calling without arguments
                     instance = implementation()
 
             if not isinstance(instance, interface):
-                # Defensive: if instance is a coroutine, close it to avoid warning
                 import inspect
-
                 if inspect.iscoroutine(instance):
                     instance.close()
                 raise TypeMismatchError(interface, type(instance))
-
             return instance
-
+        except DICircularDependencyError as e:
+            raise e  # propagate directly
         except Exception as e:
             raise ServiceCreationError(interface, e) from e
+        finally:
+            _DI_DEPENDENCY_CHAIN.reset(token)
 
-    async def _dispose_service(self, service: Any) -> None:
-        """Dispose a service if it has a dispose method.
 
-        Args:
-            service: Any
-                The service instance to dispose.
-        """
-        await self._disposal_manager.dispose_service(service)
-
-    @contextlib.asynccontextmanager
     async def replace(
         self,
-        interface: type[Any],
+        interface: type[T],
         implementation: (
-            type[Any] | ServiceFactoryProtocol[Any] | AsyncServiceFactoryProtocol[Any]
+            type[T] | ServiceFactoryProtocol[T] | AsyncServiceFactoryProtocol[T]
         ),
         lifetime: Literal["singleton", "scoped", "transient"],
     ) -> AsyncGenerator[None]:
@@ -496,7 +485,7 @@ class Container:
             assert isinstance(service, RealEmailService)
             ```
         """
-        self._check_not_disposed()
+        self._check_not_disposed("get_registration_keys")
 
         # Save original registration and instance
         original_registration = self._registrations.get(interface)

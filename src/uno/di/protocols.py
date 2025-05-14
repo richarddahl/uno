@@ -32,27 +32,23 @@ class ScopeProtocol(Protocol):
         """Resolve a service within this scope."""
         ...
 
-    def __getitem__(self, key: type[T]) -> T:
-        """Get a service by type."""
+    async def __getitem__(self, key: type[T]) -> T:
+        """Get a service by type asynchronously."""
         ...
 
-    def __setitem__(self, key: type[T], value: T) -> None:
-        """Set a service by type."""
+    async def __setitem__(self, key: type[T], value: T) -> None:
+        """Set a service by type asynchronously."""
         ...
 
     async def dispose(self) -> None:
         """Dispose of the scope and its services."""
         ...
 
-    def create_scope(self) -> "ScopeProtocol":
+    async def create_scope(self) -> "ScopeProtocol":
         """Create a child scope."""
         ...
 
-    def get_service_keys(self) -> list[str]:
-        """Get the service keys available in this scope synchronously."""
-        ...
-
-    async def get_service_keys_async(self) -> list[str]:
+    async def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope asynchronously."""
         ...
 
@@ -65,6 +61,9 @@ Lifetime = Literal["singleton", "scoped", "transient"]
 
 @runtime_checkable
 class ContainerProtocol(Protocol):
+    async def dispose_services(self, services: list[Any]) -> None:
+        """Dispose of a list of services."""
+        ...
     """Protocol for dependency injection containers."""
 
     async def register_singleton(
@@ -100,19 +99,11 @@ class ContainerProtocol(Protocol):
         """Register a service with transient lifetime."""
         ...
 
-    def get_registration_keys(self) -> list[str]:
-        """Get all registered service keys synchronously."""
-        ...
-
-    async def get_registration_keys_async(self) -> list[str]:
+    async def get_registration_keys(self) -> list[str]:
         """Get all registered service keys asynchronously."""
         ...
 
-    def get_scope_chain(self) -> list[ScopeProtocol]:
-        """Get the chain of scopes from current to root synchronously."""
-        ...
-
-    async def get_scope_chain_async(self) -> list[ScopeProtocol]:
+    async def get_scope_chain(self) -> list[ScopeProtocol]:
         """Get the chain of scopes from current to root asynchronously."""
         ...
 
@@ -132,13 +123,6 @@ class ContainerProtocol(Protocol):
     async def resolve(self, interface: type[T]) -> T:
         """Resolve a service by type."""
         ...
-
-
-@runtime_checkable
-class ServiceProtocol(Protocol):
-    """Protocol for a service."""
-
-    ...
 
 
 @runtime_checkable

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from uno.di.errors import ScopeError, ServiceNotRegisteredError
+from uno.di.errors import ScopeError, ServiceNotRegisteredError, DICircularDependencyError, DIScopeDisposedError
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -53,63 +53,64 @@ class _Scope:
         await self._dispose_services()
         self._disposed = True
 
-    def _check_not_disposed(self) -> None:
+    def _check_not_disposed(self, operation: str) -> None:
         """Check if the scope is disposed and raise an error if it is."""
         if self._disposed:
-            raise ScopeError("Scope has been disposed")
+            raise DIScopeDisposedError(operation=operation, scope_id=str(id(self)))
 
     async def _dispose_services(self) -> None:
         """Safely dispose all services in this scope."""
-        for service in list(self._services.values()):
-            await self.container._dispose_service(service)
+        await self.container.dispose_services(list(self._services.values()))
 
     async def resolve(self, interface: type[T]) -> T:
         """Resolve a service from this scope or parent scopes."""
-        self._check_not_disposed()
+        self._check_not_disposed("operation on scope")
+        try:
+            # First check in this scope for non-singleton services
+            if interface in self._services:
+                return cast("T", self._services[interface])
 
-        # First check in this scope for non-singleton services
-        if interface in self._services:
-            return cast("T", self._services[interface])
+            # Try container registrations for non-singleton services
+            if interface in self.container._registrations:
+                registration = self.container._registrations[interface]
 
-        # Try container registrations for non-singleton services
-        if interface in self.container._registrations:
-            registration = self.container._registrations[interface]
-
-            match registration.lifetime:
-                case "scoped":
-                    if not self._scopes and self.parent is None:
-                        raise ScopeError(
-                            f"Cannot resolve scoped service {interface.__name__} outside of a scope"
+                match registration.lifetime:
+                    case "scoped":
+                        if not self._scopes and self.parent is None:
+                            raise ScopeError(
+                                f"Cannot resolve scoped service {interface.__name__} outside of a scope"
+                            )
+                        instance = await self.container._create_service(
+                            interface, registration.implementation
                         )
-                    instance = await self.container._create_service(
-                        interface, registration.implementation
-                    )
-                    self._services[interface] = instance
-                    return cast("T", instance)
-                case "transient":
-                    # For transient services, always create a new instance
-                    # Never cache or reuse transient instances
-                    return await self.container._create_service(
-                        interface, registration.implementation
-                    )
+                        self._services[interface] = instance
+                        return cast("T", instance)
+                    case "transient":
+                        # For transient services, always create a new instance
+                        # Never cache or reuse transient instances
+                        return await self.container._create_service(
+                            interface, registration.implementation
+                        )
 
-        # If not found and we have a parent, try the parent
-        if self.parent is not None:
-            return await self.parent.resolve(interface)
+            # If not found and we have a parent, try the parent
+            if self.parent is not None:
+                return await self.parent.resolve(interface)
 
-        # If all else fails
-        raise ServiceNotRegisteredError(interface)
+            # If all else fails
+            raise ServiceNotRegisteredError(interface)
+        except DICircularDependencyError:
+            raise  # propagate directly
 
     def create_scope(self) -> _Scope:
         """Create a nested scope."""
-        self._check_not_disposed()
+        self._check_not_disposed("operation on scope")
         scope = type(self)(self.container, parent=self)
         self._scopes.append(scope)
         return scope
 
-    def __getitem__(self, interface: type[T]) -> T:
-        """Get a service instance from this scope or its parent."""
-        self._check_not_disposed()
+    async def __getitem__(self, interface: type[T]) -> T:
+        """Get a service instance from this scope or its parent asynchronously."""
+        self._check_not_disposed("operation on scope")
 
         # Check if this is a singleton service
         if (
@@ -126,23 +127,16 @@ class _Scope:
 
         # If not found and we have a parent, try the parent
         if self.parent is not None:
-            return self.parent[interface]
+            return await self.parent.__getitem__(interface)
 
         raise ServiceNotRegisteredError(interface)
 
-    def __setitem__(self, interface: type[T], service: T) -> None:
-        """Set a service instance in this scope."""
-        self._check_not_disposed()
+    async def __setitem__(self, interface: type[T], service: T) -> None:
+        """Set a service instance in this scope asynchronously."""
+        self._check_not_disposed("operation on scope")
         self._services[interface] = service
 
-    def get_service_keys(self) -> list[str]:
-        """Get the service keys available in this scope synchronously.
 
-        Returns:
-            A list of service type names available in this scope.
-        """
-        self._check_not_disposed()
-        return [t.__name__ for t in self._services]
 
     async def get_service_keys(self) -> list[str]:
         """Get the service keys available in this scope asynchronously.
@@ -150,5 +144,5 @@ class _Scope:
         Returns:
             A list of service type names available in this scope.
         """
-        self._check_not_disposed()
+        self._check_not_disposed("operation on scope")
         return [t.__name__ for t in self._services]
