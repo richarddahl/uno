@@ -21,18 +21,14 @@ class MockContainer:
     def __init__(self) -> None:
         self.registered: dict[type, object] = {}
 
-    async def register_singleton(self, service_type: type, factory: object) -> None:
+    def register_singleton(self, service_type: type, factory: object) -> None:
         """Register a singleton service."""
         if callable(factory) and not isinstance(factory, type):
             # If factory is a lambda/function, call it with self
             # Check if it's awaitable or not
             result = factory(self)
-            if hasattr(result, "__await__"):
-                # If awaitable, await it
-                self.registered[service_type] = await result
-            else:
-                # Non-awaitable factory
-                self.registered[service_type] = result
+            # All factories are now synchronous
+            self.registered[service_type] = result
         else:
             self.registered[service_type] = factory
 
@@ -50,9 +46,8 @@ def test_encryption_key() -> bytes:
 @pytest.fixture
 async def setup_secure_config(test_encryption_key: bytes) -> None:
     """Set up secure configuration for testing."""
-    from uno.config import setup_secure_config
-
-    await setup_secure_config(test_encryption_key)
+    from uno.config import setup_secure_config as _setup_secure_config
+    await _setup_secure_config(test_encryption_key)
 
 
 @pytest.fixture

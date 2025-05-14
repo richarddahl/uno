@@ -2,12 +2,12 @@
 Integration extension for Uno configuration system: DI registration helpers.
 """
 
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable
+from uno.types import T
 
 from uno.config import UnoSettings
 from uno.di.protocols import ContainerProtocol
 
-T = TypeVar("T", bound=UnoSettings)
 
 
 class ConfigRegistrationExtensions:
@@ -16,7 +16,7 @@ class ConfigRegistrationExtensions:
     """
 
     @staticmethod
-    async def register_configuration(container: ContainerProtocol, config: T) -> None:
+    def register_configuration(container: ContainerProtocol, config: T) -> None:
         """
         Register the configuration object as a singleton in the DI container.
 
@@ -31,5 +31,5 @@ class ConfigRegistrationExtensions:
             return config
 
         # Register with specific type and base UnoSettings type
-        await container.register_singleton(type(config), config_factory)
-        await container.register_singleton(UnoSettings, config_factory)
+        container.register_singleton(type(config), config_factory)
+        container.register_singleton(UnoSettings, config_factory)

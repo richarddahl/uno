@@ -2,73 +2,68 @@
 
 This document outlines potential issues and improvements for the Uno configuration system.
 
-## Type Annotation Issues
-
-1. **Inconsistent Union Type Usage**: In `secure.py`, the code still uses `typing.Callable` instead of the recommended function type syntax `X -> Y`. This should be updated to match the project standards.
-
-2. **Redundant Type Imports**: In `secure.py`, some type imports from typing module are duplicated (e.g., `Callable` appears twice in the import list).
-
-3. **Missing Python 3.13 Return Type Annotations**: Some methods lack proper return type annotations according to the Python 3.13 style guide.
-
-## API Design Issues
-
-1. **Inconsistent Async/Sync Design**: The system mixes async and synchronous code. For example:
-   - `setup_secure_config()` in `__init__.py` is async but calls the synchronous `SecureValue.setup_encryption()`
-   - `load_settings()` is async but simply returns the result of the synchronous `from_env()` method
-   - `ConfigRegistrationExtensions.register_configuration()` is async but interacts with potentially synchronous container operations
-
-2. **Unnecessary TypeVar Redefinition**: TypeVar `T` is defined in multiple modules (`base.py` and `__init__.py`) which can lead to confusion.
-
-3. **Incomplete Exception Hierarchy**: `SecureValueError` is directly inheriting from `UnoError` instead of from `ConfigError`, breaking the logical error hierarchy.
-
 ## Implementation Issues
 
-1. **Mutable Class Variable**: In `UnoSettings`, `_secure_fields` is a mutable class variable that could lead to unintended shared state between different `UnoSettings` subclasses.
-
-2. **Non-Atomic Cache Operations**: In `get_config()`, the caching mechanism is not thread-safe due to non-atomic read and write operations.
-
-3. **Incomplete SecureValue Implementation**:
-   - The `_original_type` storage might not work correctly for complex types
+2. **Incomplete SecureValue Implementation**:
+   - The `_original_type` storage might not work correctly for complex types or nested complex types
    - The `_decrypt()` method uses error-prone type casting and may not properly restore all types
-
-4. **Hardcoded Salt Value**: In `setup_encryption()` method, there's a hardcoded salt value (`b"uno_framework_salt"`) which is not a security best practice.
-
-5. **Environment File Loading Logic Issues**: The environment file loading in `env_loader.py` might not handle multiple `.env` files properly if values are meant to override each other.
+   - Type conversion logic in `_convert_to_original_type()` has edge cases for complex nested types
 
 ## Security Issues
 
-1. **Limited Key Rotation Support**: The system doesn't provide a clear mechanism for rotating encryption keys.
+1. **Lack of Secure Memory Handling**: No explicit clearing of sensitive data from memory after use, which could leave sensitive information vulnerable to memory dumps.
 
-2. **Lack of Secure Memory Handling**: No explicit clearing of sensitive data from memory after use.
+2. **Debug Representation Leakage**: While `__str__` and `__repr__` are masked, other debugging tools might expose the secure values, and there's no clear documentation on these risks.
 
-3. **Debug Representation Leakage**: While `__str__` and `__repr__` are masked, other debugging tools might expose the secure values.
+3. **Key Derivation Not Future-Proof**: The key derivation functions use fixed parameters (like 100,000 iterations) that might need to be upgraded as security standards evolve.
 
-4. **Key Derivation Not Future-Proof**: The key derivation functions use fixed parameters that might need to be upgraded as security standards evolve.
-
-5. **Insufficient Validation of Secure Values**: No validation that secure values meet minimum security requirements (for passwords, etc.).
+4. **Insufficient Validation of Secure Values**: No validation that secure values meet minimum security requirements (for passwords, etc.) before encryption.
 
 ## Documentation Issues
 
-1. **Incomplete DocStrings**: Some methods lack comprehensive documentation about their behavior, especially around error conditions.
+1. **Incomplete DocStrings**: Some methods lack comprehensive documentation about their behavior, especially around error conditions and edge cases.
 
-2. **Missing Examples**: Lack of usage examples for complex features like encrypting configuration values.
+2. **Missing Examples**: Lack of usage examples for complex features like encrypting configuration values or handling environment variable overrides.
 
-3. **Insufficient Security Guidelines**: Limited guidance on best practices for handling master keys in production environments.
+3. **Insufficient Security Guidelines**: Limited guidance on best practices for handling master keys in production environments or rotating encryption keys.
 
 ## Testing Considerations
 
-1. **Mocking Challenges**: The current design might be difficult to test due to tight coupling between components.
+1. **Mocking Challenges**: The current design might be difficult to test due to tight coupling between components and the mix of sync/async operations.
 
-2. **Production Environment Testing**: No specific guidance on how to safely test configuration in production-like environments.
+2. **Production Environment Testing**: No specific guidance on how to safely test configuration in production-like environments without exposing secrets.
+
+3. **Test Coverage for Edge Cases**: The complex environment variable resolution and secure value type handling have many edge cases that would benefit from extensive testing.
+
+## Performance Concerns
+
+1. **Repeated Environment Scanning**: The code repeatedly scans the entire environment for variables, which could be inefficient for systems with many environment variables.
+
+2. **Inefficient Type Conversion**: Some type conversion operations may be inefficient, especially for complex nested types.
+
+3. **Multiple File I/O Operations**: The environment file loading performs multiple file I/O operations that could be optimized.
 
 ## Improvement Recommendations
 
-1. **Consistent Async/Sync Boundary**: Decide on clear async/sync boundaries and refactor accordingly.
+1. **Consistent Async/Sync Boundary**: Decide on clear async/sync boundaries and refactor accordingly:
+   - Make `SecureValue.setup_encryption()` truly async if it needs to be async
+   - Consider making `UnoSettings.from_env()` async to match the async nature of the framework
 
-2. **Enhanced Security Features**: Add support for key rotation, secure memory handling, and stronger validation.
+2. **Enhanced Security Features**:
+   - Add support for key rotation
+   - Implement secure memory handling with explicit memory clearing
+   - Strengthen validation of secure values
 
-3. **Type System Improvements**: Follow the project's type annotation standards consistently.
+3. **Type System Improvements**:
+   - Follow the project's type annotation standards consistently
+   - Use Python 3.13 type syntax throughout
+   - Replace cast operations with more precise type narrowing
 
-4. **Improved Error Messages**: Enhance error messages with more context for easier debugging.
+4. **Improved Error Messages**: Enhance error messages with more context for easier debugging, especially for environment variable resolution failures.
 
-5. **Configuration Layering**: Consider implementing a more robust configuration layering system with clearer precedence rules.
+5. **Configuration Layering**: Consider implementing a more robust configuration layering system with clearer precedence rules and better documentation.
+
+6. **Performance Optimization**:
+   - Cache environment variable lookups
+   - Optimize file I/O operations
+   - Simplify the complex alias resolution logic

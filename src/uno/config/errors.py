@@ -182,8 +182,25 @@ class ConfigEnvironmentError(ConfigError):
         )
 
 
-class SecureValueError(ConfigError):
-    """Base class for secure value related errors."""
+class SecureConfigError(ConfigError):
+    """Base class for secure config related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str | None = None,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        **context: Any,
+    ) -> None:
+        super().__init__(
+            message=message,
+            code=code or "SECURE_CONFIG_ERROR",
+            severity=severity,
+            context=context,
+        )
+
+class SecureValueError(SecureConfigError):
+    """Error for invalid secure config values."""
 
     def __init__(
         self,

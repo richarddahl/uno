@@ -8,9 +8,12 @@ with support for env files, environment variables, and type validation.
 from __future__ import annotations
 
 import os
+import re
+import json
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, TypeVar, cast
+from typing import Any, ClassVar, cast, get_origin, get_args
+from uno.types import T
 
 from pydantic import model_serializer, model_validator, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -74,7 +77,28 @@ class Environment(str, Enum):
         return cls.from_string(env_var)
 
 
-T = TypeVar("T", bound="UnoSettings")
+
+
+def get_env_var(name: str, case_sensitive: bool = True) -> str | None:
+    """
+    Get environment variable with optional case-insensitive support.
+
+    Args:
+        name: Environment variable name
+        case_sensitive: Whether to do a case-sensitive lookup
+
+    Returns:
+        Value of environment variable or None if not found
+    """
+    if case_sensitive:
+        return os.environ.get(name)
+
+    # Case-insensitive lookup
+    for env_name, value in os.environ.items():
+        if env_name.lower() == name.lower():
+            return value
+
+    return None
 
 
 class UnoSettings(BaseSettings):
@@ -92,7 +116,6 @@ class UnoSettings(BaseSettings):
     )
 
     # Use PrivateAttr instead of trying to set a ClassVar
-    _secure_fields_data: ClassVar[dict[str, SecureValueHandling]] = {}
     _secure_values_initialized: bool = PrivateAttr(default=False)
     _instance_secure_fields: dict[str, SecureValueHandling] = PrivateAttr(
         default_factory=dict
@@ -186,215 +209,130 @@ class UnoSettings(BaseSettings):
         )
 
         # Get environment overrides and create instance
-        overrides = cls._get_environment_overrides(env)
+        overrides = cls._get_environment_overrides()
         return dynamic_settings(**overrides)
 
     @classmethod
-    def _get_environment_overrides(
-        cls, env: Environment | None = None
-    ) -> dict[str, Any]:
-        """Get environment-specific overrides from env vars."""
-        # Extract environment variables that match the prefix
-        result: dict[str, Any] = {}
-        prefix = cls.model_config.get("env_prefix", "")
+    def _get_environment_overrides(cls) -> dict[str, Any]:
+        """
+        Get environment variable overrides for settings.
 
-        # Add special handling for test environment
-        test_mode = (
-            env == Environment.TESTING or os.environ.get("UNO_TEST_MODE") == "true"
-        )
+        Scans environment variables once and resolves field values based on:
+        1. Exact match with model field name
+        2. Match with field alias, if defined
+        3. Match with field name in uppercase with underscores
 
-        # Create a mapping from various formats to field names
-        field_aliases: dict[str, str] = {}
+        Returns:
+            Dictionary of field names and their values from environment
+        """
+        # Scan environment only once
+        env_vars = os.environ
 
-        # Generate class prefixes for environment variables
-        class_name = cls.__name__
-        if class_name.endswith("Settings"):
-            class_name = class_name[:-8]  # Remove "Settings" suffix
+        # Create single mapping dictionary for field names to env variable candidates
+        field_to_env_candidates: dict[str, list[str]] = {}
 
-        class_prefix = class_name.upper() + "__"
-        alt_class_prefix = (
-            "_".join([s.upper() for s in class_name]) + "__"
-            if "_" not in class_name
-            else ""
-        )
+        # Get model fields and their potential environment variable names
+        model_fields = cls.model_fields
 
-        # First, build the field aliases map
-        for field_name, field_info in cls.model_fields.items():
-            # Add direct field name mappings
-            field_aliases[field_name] = field_name
-            field_aliases[field_name.upper()] = field_name
-            field_aliases[field_name.lower()] = field_name
+        # Build mapping of field names to possible environment variable forms
+        for field_name, field_info in model_fields.items():
+            # Skip if field doesn't allow env var overrides
+            if getattr(field_info, "exclude_from_env", False):
+                continue
 
-            # Add class-prefixed mappings
-            field_aliases[f"{class_prefix}{field_name}"] = field_name
-            field_aliases[f"{class_prefix}{field_name.upper()}"] = field_name
+            # List of potential environment variable names for this field
+            candidates = []
 
-            if alt_class_prefix:
-                field_aliases[f"{alt_class_prefix}{field_name}"] = field_name
-                field_aliases[f"{alt_class_prefix}{field_name.upper()}"] = field_name
+            # 1. Exact field name
+            candidates.append(field_name)
 
-            # Add settings-prefixed mappings
-            settings_prefix = cls.__name__.upper() + "__"
-            field_aliases[f"{settings_prefix}{field_name}"] = field_name
-            field_aliases[f"{settings_prefix}{field_name.upper()}"] = field_name
-
-            # Add prefix mappings if specified
-            if prefix:
-                field_aliases[f"{prefix}{field_name}"] = field_name
-                field_aliases[f"{prefix}{field_name.upper()}"] = field_name
-
-            # Handle field aliases
+            # 2. Field alias if available
             if hasattr(field_info, "alias") and field_info.alias:
-                alias = field_info.alias
-                field_aliases[alias] = field_name
-                field_aliases[alias.upper()] = field_name
-                field_aliases[alias.lower()] = field_name
+                candidates.append(field_info.alias)
 
-                # Add prefixed versions of aliases
-                field_aliases[f"{class_prefix}{alias}"] = field_name
-                field_aliases[f"{settings_prefix}{alias}"] = field_name
-                if alt_class_prefix:
-                    field_aliases[f"{alt_class_prefix}{alias}"] = field_name
+            # 3. Uppercase with underscores (common env var convention)
+            env_style_name = re.sub(r"(?<!^)(?=[A-Z])", "_", field_name).upper()
+            candidates.append(env_style_name)
 
-            # Handle alias priority
-            elif hasattr(field_info, "alias_priority") and field_info.alias_priority:
-                try:
-                    for a in field_info.alias_priority:  # type: ignore
-                        if a:
-                            field_aliases[a] = field_name
-                            field_aliases[a.upper()] = field_name
-                            field_aliases[a.lower()] = field_name
+            # 4. Add prefix if defined
+            if hasattr(cls, "env_prefix") and cls.env_prefix:
+                prefix = cls.env_prefix
+                prefixed_candidates = [f"{prefix}{c}" for c in candidates]
+                candidates.extend(prefixed_candidates)
 
-                            field_aliases[f"{class_prefix}{a}"] = field_name
-                            field_aliases[f"{settings_prefix}{a}"] = field_name
-                            if alt_class_prefix:
-                                field_aliases[f"{alt_class_prefix}{a}"] = field_name
-                except TypeError:
-                    if field_info.alias_priority:
-                        alias = str(field_info.alias_priority)
-                        field_aliases[alias] = field_name
-                        field_aliases[alias.upper()] = field_name
-                        field_aliases[alias.lower()] = field_name
+            field_to_env_candidates[field_name] = candidates
 
-                        field_aliases[f"{class_prefix}{alias}"] = field_name
-                        field_aliases[f"{settings_prefix}{alias}"] = field_name
-                        if alt_class_prefix:
-                            field_aliases[f"{alt_class_prefix}{alias}"] = field_name
+        # Single pass through candidate mapping to find matches
+        result: dict[str, Any] = {}
+        for field_name, candidates in field_to_env_candidates.items():
+            field_info = model_fields[field_name]
 
-        # Process environment variables with enhanced matching
-        # First process UNO_TEST_* variables which should have highest priority in tests
-        if test_mode:
-            test_overrides = {}
-            for key, value in os.environ.items():
-                if key.startswith("UNO_TEST_") and not key == "UNO_TEST_MODE":
-                    # Remove the UNO_TEST_ prefix to get the actual field name
-                    clean_key = key[9:]  # "UNO_TEST_" is 9 chars
+            # Check each candidate in priority order
+            for env_var_name in candidates:
+                if env_var_name in env_vars:
+                    # Convert environment string to appropriate type
+                    env_value = env_vars[env_var_name]
+                    field_type = field_info.annotation
 
-                    # Direct match
-                    if clean_key in field_aliases:
-                        test_overrides[field_aliases[clean_key]] = value
-                    elif clean_key.upper() in field_aliases:
-                        test_overrides[field_aliases[clean_key.upper()]] = value
-                    elif clean_key.lower() in field_aliases:
-                        test_overrides[field_aliases[clean_key.lower()]] = value
-                    else:
-                        # Try with class prefixes
-                        for possible_prefix in [
-                            class_prefix,
-                            alt_class_prefix,
-                            settings_prefix,
-                        ]:
-                            if possible_prefix and clean_key.startswith(
-                                possible_prefix
-                            ):
-                                field_key = clean_key[len(possible_prefix) :]
-                                if field_key in field_aliases:
-                                    test_overrides[field_aliases[field_key]] = value
-                                    break
-                                elif field_key.upper() in field_aliases:
-                                    test_overrides[field_aliases[field_key.upper()]] = (
-                                        value
-                                    )
-                                    break
+                    try:
+                        # Convert string value to field's type
+                        typed_value = cls._convert_env_value(env_value, field_type)
+                        result[field_name] = typed_value
+                        # Stop at first match (highest priority)
+                        break
+                    except ValueError:
+                        # Log invalid type conversion
+                        import logging
 
-            # Apply test overrides with highest priority
-            result.update(test_overrides)
-
-        # Create a reverse alias mapping for more efficient lookups
-        reversed_aliases: dict[str, list[str]] = {}
-        for alias, field in field_aliases.items():
-            if field not in reversed_aliases:
-                reversed_aliases[field] = []
-            reversed_aliases[field].append(alias)
-
-        # Process regular environment variables - improved matching algorithm
-        for key, value in os.environ.items():
-            # Skip test variables which we already processed
-            if test_mode and key.startswith("UNO_TEST_"):
-                continue
-
-            # Direct field match
-            if key in cls.model_fields:
-                result[key] = value
-                continue
-
-            # First look for direct matches in aliases
-            if key in field_aliases:
-                result[field_aliases[key]] = value
-                continue
-
-            # Try standard environment variable formats
-            normalized_key = key.lower().replace("-", "_")
-
-            # Check for environ vars in format ENV_VAR or ENV_PREFIX_VAR
-            for field_name in cls.model_fields:
-                if key.upper() == field_name.upper():
-                    result[field_name] = value
-                    break
-
-                # Check with common prefixes
-                if key.upper() == f"{prefix.upper()}{field_name.upper()}":
-                    result[field_name] = value
-                    break
-
-                # Check with class name prefix
-                if (
-                    key.upper() == f"{class_name.upper()}_{field_name.upper()}"
-                    or key.upper() == f"{class_name.upper()}__{field_name.upper()}"
-                ):
-                    result[field_name] = value
-                    break
-
-                # Try to match with class and settings variants
-                if key.upper().endswith(
-                    f"__{field_name.upper()}"
-                ) or key.upper().endswith(f"_{field_name.upper()}"):
-                    result[field_name] = value
-                    break
-
-            # If we haven't found a match yet, try with prefixes
-            if key not in result:
-                clean_key = key
-                for possible_prefix in [
-                    prefix,
-                    class_prefix,
-                    alt_class_prefix,
-                    settings_prefix,
-                ]:
-                    if possible_prefix and key.startswith(possible_prefix):
-                        clean_key = key[len(possible_prefix) :]
-
-                        if clean_key in field_aliases:
-                            result[field_aliases[clean_key]] = value
-                            break
-                        elif clean_key.upper() in field_aliases:
-                            result[field_aliases[clean_key.upper()]] = value
-                            break
-                        elif clean_key.lower() in field_aliases:
-                            result[field_aliases[clean_key.lower()]] = value
-                            break
+                        logger = logging.getLogger(__name__)
+                        logger.warning(
+                            f"Environment variable {env_var_name} value '{env_value}' "
+                            f"could not be converted to type {field_type}"
+                        )
 
         return result
+
+    @classmethod
+    def _convert_env_value(cls, value: str, target_type: type) -> Any:
+        """
+        Convert environment variable string value to the target type.
+
+        Args:
+            value: String value from environment
+            target_type: Target type to convert to
+
+        Returns:
+            Converted value
+
+        Raises:
+            ValueError: If conversion fails
+        """
+        # Handle basic types
+        if target_type == str:
+            return value
+        elif target_type == int:
+            return int(value)
+        elif target_type == float:
+            return float(value)
+        elif target_type == bool:
+            return value.lower() in ("true", "1", "yes", "y", "on")
+        # Handle list types - comma-separated values
+        elif get_origin(target_type) == list:
+            item_type = get_args(target_type)[0]
+            items = [s.strip() for s in value.split(",")]
+            return [cls._convert_env_value(item, item_type) for item in items]
+        # Handle dict types from JSON string
+        elif get_origin(target_type) == dict:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                raise ValueError(f"Could not parse JSON for dict type: {value}")
+        # Handle other complex types with best effort
+        else:
+            try:
+                return target_type(value)
+            except Exception as e:
+                raise ValueError(f"Failed to convert to {target_type}: {e}")
 
     @model_validator(mode="after")
     def _handle_secure_fields(self) -> UnoSettings:
@@ -416,7 +354,9 @@ class UnoSettings(BaseSettings):
                     # If it's a dict, try to get a string value from it
                     handling_value = handling_value.get("value", "mask")
                 handling_str = str(handling_value)
-                self._instance_secure_fields[field_name] = SecureValueHandling(handling_str)
+                self._instance_secure_fields[field_name] = SecureValueHandling(
+                    handling_str
+                )
 
         # Process each secure field
         for field_name, handling in self._instance_secure_fields.items():
@@ -448,7 +388,7 @@ class UnoSettings(BaseSettings):
 
             # Mask secure fields
             if k in self._instance_secure_fields:
-                d[k] = "********"
+                d[k] = "******"
             # Unwrap SecureValue for non-secure fields
             elif isinstance(v, SecureValue):
                 d[k] = v.get_value()

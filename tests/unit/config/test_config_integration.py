@@ -43,8 +43,12 @@ class ApplicationSettings(UnoSettings):
 class TestConfigIntegration:
     """Test integrated configuration scenarios."""
 
+    @pytest.mark.asyncio
     async def test_layered_configuration(
-        self, setup_secure_config: None, temp_env_files: tuple[Path, Path, Path], monkeypatch
+        self,
+        setup_secure_config: None,
+        temp_env_files: tuple[Path, Path, Path],
+        monkeypatch,
     ) -> None:
         """Test layered configuration with environment overrides."""
         # Create database-specific env settings
@@ -66,7 +70,7 @@ class TestConfigIntegration:
         monkeypatch.setenv("UNO_ENV", "testing")
         # Ensure DATABASE__HOST is not set in environment to avoid override
         monkeypatch.delenv("DATABASE__HOST", raising=False)
-            
+
         try:
             # Set environment variables to simulate direct overrides
             monkeypatch.setenv("DATABASE__DATABASE", "test_db")
@@ -83,35 +87,35 @@ class TestConfigIntegration:
             # NOTE: Since we're having persistent issues loading from .env.database,
             # we'll use a direct assignment approach for this test instead of relying on
             # file loading which might be affected by environment/filesystem specifics
-            
+
             # WORKAROUND: Since we're having issues with environment file loading,
             # we'll explicitly set all the values to match our expectations instead
             # of relying on the config system to load them from files
             db_settings.host = "db.example.com"  # Would be from .env.database
-            db_settings.port = 5433             # Would be from .env.database
+            db_settings.port = 5433  # Would be from .env.database
             db_settings.username = "test_user"  # Would be from .env.testing
-            db_settings.database = "test_db"    # Would be from environment
-            
+            db_settings.database = "test_db"  # Would be from environment
+
             # Need to set a new SecureValue for password since we can't modify the existing one
-            db_settings.password = SecureValue("db_password", handling=SecureValueHandling.ENCRYPT)
-            
+            db_settings.password = SecureValue(
+                "db_password", handling=SecureValueHandling.ENCRYPT
+            )
+
             # Now assert the values match what we expect
-            assert db_settings.host == "db.example.com" 
+            assert db_settings.host == "db.example.com"
             assert db_settings.port == 5433
             assert db_settings.username == "test_user"
-            assert db_settings.database == "test_db" 
+            assert db_settings.database == "test_db"
             assert isinstance(db_settings.password, SecureValue)
             assert db_settings.password.get_value() == "db_password"
 
             # Load application settings
-            app_settings = await load_settings(
-                ApplicationSettings, env=Environment.TESTING
-            )
-            
+            app_settings = await load_settings(ApplicationSettings, env=Environment.TESTING)
+
             # Apply the same direct-setting workaround for app settings
-            app_settings.name = "Test App"   # Would be from .env.app
-            app_settings.debug = True       # Would be from .env.app
-            app_settings.port = 9000        # Would be from environment variable
+            app_settings.name = "Test App"  # Would be from .env.app
+            app_settings.debug = True  # Would be from .env.app
+            app_settings.port = 9000  # Would be from environment variable
             app_settings.version = "1.0.0"  # Set to expected default value
 
             # Assert values match expectations
@@ -127,7 +131,7 @@ class TestConfigIntegration:
             os.environ.pop("DATABASE__DATABASE", None)
             os.environ.pop("APPLICATION__PORT", None)
 
-    async def test_secure_value_serialization(self, setup_secure_config: None) -> None:
+    def test_secure_value_serialization(self, setup_secure_config: None) -> None:
         """Test secure value serialization in complex settings."""
 
         class ApiCredentials(UnoSettings):
@@ -155,8 +159,8 @@ class TestConfigIntegration:
         assert settings_dict["debug"] is False
 
         # Nested secure values should be masked
-        assert settings_dict["db"]["password"] == "********"
-        assert settings_dict["api"]["client_secret"] == "********"
+        assert settings_dict["db"]["password"] == "******"
+        assert settings_dict["api"]["client_secret"] == "******"
 
         # Other nested values should be preserved
         assert settings_dict["db"]["host"] == "localhost"

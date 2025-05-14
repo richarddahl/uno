@@ -9,9 +9,8 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
-
-T = TypeVar("T")
-T_co = TypeVar("T_co", covariant=True)
+from uno.types import T
+from uno.di.types import T_co
 
 
 # Need to define ScopeProtocol first so ContainerProtocol can reference it

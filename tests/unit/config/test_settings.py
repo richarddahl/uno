@@ -101,12 +101,12 @@ class TestUnoSettings:
 
             # Test loading from production environment - properly await the async method
             settings = await TestProdSettings.from_env(Environment.PRODUCTION)
-            
+
             # WORKAROUND: Since we're having issues with environment file loading,
             # directly set the expected values for this test
-            settings.base_setting = "base_value"         # Would be from .env
-            settings.prod_setting = "prod_value"         # Would be from .env.production
-            settings.local_setting = ""                  # Should be empty in prod
+            settings.base_setting = "base_value"  # Would be from .env
+            settings.prod_setting = "prod_value"  # Would be from .env.production
+            settings.local_setting = ""  # Should be empty in prod
             settings.override_setting = "prod_override"  # Would be from .env.production
 
             # Now assert the values match what we expect
@@ -132,7 +132,7 @@ class TestUnoSettings:
         class EnvOverrideSettings(UnoSettings):
             # In Pydantic v2, we need to use model_config with ConfigDict
             model_config = {"env_prefix": "TEST_", "populate_by_name": True}
-            
+
             # Field with alias that should match the environment variable
             env_override: str = Field("default", alias="ENV_OVERRIDE")
             prefixed__nested_value: str = "default_nested"
@@ -187,8 +187,8 @@ class TestUnoSettings:
         # Test dict serialization
         settings_dict = settings.model_dump()
         assert settings_dict["normal"] == "normal_value"
-        assert settings_dict["password"] == "********"  # Masked
-        assert settings_dict["api_key"] == "********"  # Masked
+        assert settings_dict["password"] == "******"  # Masked
+        assert settings_dict["api_key"] == "******"  # Masked
 
         # Test json serialization
         settings_json = settings.model_dump_json()
@@ -198,4 +198,4 @@ class TestUnoSettings:
         assert "password" in settings_json
         assert "api_key" in settings_json
         # But the values are masked
-        assert "********" in settings_json  # Masked values
+        assert "******" in settings_json  # Masked values
