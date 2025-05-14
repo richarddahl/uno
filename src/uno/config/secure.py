@@ -28,7 +28,20 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from pydantic import Field
+# Default KDF parameters (upgradeable)
+DEFAULT_KDF_PARAMS = {
+    "algorithm": "sha256",
+    "iterations": 200_000,
+    "length": 32,
+}
+
+_SUPPORTED_KDF_ALGOS = {
+    "sha256": lambda: hashes.SHA256(),
+    # Add more algorithms here if needed
+}
+
+
+from pydantic import Field, BaseModel, TypeAdapter
 
 from uno.config.errors import SecureValueError
 
@@ -77,6 +90,23 @@ class SecureValue(Generic[T]):
     """
     Container for secure values with controlled access.
 
+    SECURITY WARNING:
+    While __str__, __repr__, __getstate__, and __dir__ mask sensitive values,
+    advanced debugging, pickling, or introspection (e.g., vars(), __dict__, memory inspection)
+    may still expose secrets. Never log, print, or serialize SecureValue objects directly.
+
+    This class ensures sensitive configuration values are handled securely. It preserves the original type
+    and provides masking/encryption as specified by the handling strategy. Use `get_value()` to retrieve
+    the original value with type fidelity. String representation always returns a masked value ("******")
+    for masked fields, regardless of the underlying type.
+
+    Note: Secure memory wiping is best-effort in Python. Due to garbage collection and string immutability,
+    some sensitive data may remain in memory after use. This class will overwrite internal buffers and attributes
+    where possible, but cannot guarantee absolute memory security.
+    """
+    """
+    Container for secure values with controlled access.
+
     This class ensures sensitive configuration values are handled securely. It preserves the original type
     and provides masking/encryption as specified by the handling strategy. Use `get_value()` to retrieve
     the original value with type fidelity. String representation always returns a masked value ("******")
@@ -105,6 +135,7 @@ class SecureValue(Generic[T]):
         handling: SecureValueHandling = SecureValueHandling.MASK,
         salt: bytes | None = None,
         key_version: str | None = None,  # Optional key version for encryption
+        kdf_params: dict | None = None,  # Optionally override KDF params
     ):
         """
         Initialize a secure value.
@@ -115,29 +146,53 @@ class SecureValue(Generic[T]):
             handling: How to handle the value (mask, encrypt, seal).
             salt: Optional salt for encryption (random if None).
             key_version: Optional specific key version to use (current key if None).
+            kdf_params: Optional dict of KDF parameters (algorithm, iterations, length).
         Raises:
             TypeError: If value is not a supported type.
             SecureValueError: If specified key version doesn't exist.
         """
-        # Type enforcement: only allow primitives, collections, or Enum
         allowed = (str, int, float, bool, type(None), dict, list, tuple, set)
         if not (isinstance(value, allowed) or isinstance(value, Enum)):
             raise TypeError(
                 f"SecureValue only supports primitive types, collections, or Enum. Got: {type(value)}"
             )
-        self._original_type = type(value)
         self._handling_strategy = handling
         self._salt = salt or os.urandom(16)
-        self._is_enum = isinstance(value, Enum)
-        self._original_value = value
         self._key_version = key_version or self._current_key_version
+        self._kdf_params = kdf_params or DEFAULT_KDF_PARAMS.copy()
 
-        if isinstance(value, (dict, list, tuple, set)):
-            self._value = json.dumps(value)
+        # Store type info for restoration
+        self._type_info = None
+        if isinstance(value, BaseModel):
+            self._original_type = type(value)
+            self._type_info = {
+                "module": value.__class__.__module__,
+                "qualname": value.__class__.__qualname__,
+            }
+            payload = {"type": self._type_info, "data": value.model_dump()}
+            self._serialized_value = json.dumps(payload)
+            self._value = self._serialized_value
             self._complex_type = True
-        else:
-            self._value = str(value)
+        elif isinstance(value, (dict, list, tuple, set)):
+            self._original_type = type(value)
+            payload = {"type": {"builtin": self._original_type.__name__}, "data": value}
+            self._serialized_value = json.dumps(payload)
+            self._value = self._serialized_value
+            self._complex_type = True
+        elif isinstance(value, Enum):
+            self._original_type = type(value)
+            payload = {"type": {"enum": self._original_type.__name__, "module": value.__class__.__module__}, "data": value.value}
+            self._serialized_value = json.dumps(payload)
+            self._value = self._serialized_value
             self._complex_type = False
+            self._is_enum = True
+        else:
+            self._original_type = type(value)
+            self._serialized_value = str(value)
+            self._value = self._serialized_value
+            self._complex_type = False
+            self._is_enum = False
+        self._original_value = value
 
         if handling in (SecureValueHandling.ENCRYPT, SecureValueHandling.SEALED):
             self._encrypt()
@@ -231,11 +286,12 @@ class SecureValue(Generic[T]):
         cls._current_key_version = key_version
         cls._logger.info(f"Set current encryption key version to: {key_version}")
 
-    def _get_fernet(self, key_version: str | None = None) -> tuple[Fernet, str]:
+    def _get_fernet(self, key_version: str | None = None, kdf_params: dict | None = None) -> tuple[Fernet, str]:
         """Get a Fernet cipher for encryption/decryption.
 
         Args:
             key_version: Specific key version to use (defaults to this value's key version)
+            kdf_params: Dict of KDF params (algorithm, iterations, length)
 
         Returns:
             Tuple of (Fernet cipher, key version used)
@@ -243,41 +299,34 @@ class SecureValue(Generic[T]):
         Raises:
             SecureValueError: If encryption is not set up or key version is invalid
         """
-        # Use instance key version if none specified
         version_to_use = key_version or self._key_version
-
         if not version_to_use:
             raise SecureValueError(
                 "No key version specified and no current key set",
                 code="NO_KEY_VERSION",
             )
-
-        if not self._encryption_keys:
-            raise SecureValueError(
-                "Encryption not set up, call SecureValue.setup_encryption() first",
-                code="ENCRYPTION_NOT_SETUP",
-            )
-
-        # Get the key for this version
-        if version_to_use not in self._encryption_keys:
+        if not hasattr(self, '_encryption_keys') or version_to_use not in self._encryption_keys:
             raise SecureValueError(
                 f"Key version {version_to_use} not found in key ring",
                 code="UNKNOWN_KEY_VERSION",
             )
-
         key = self._encryption_keys[version_to_use]
         if not key:
             raise SecureValueError(
                 "Encryption key is None or empty",
                 code="INVALID_ENCRYPTION_KEY",
             )
-
-        # For each value, we derive a unique key using the master key and this value's salt
+        # Use provided KDF params or fall back to self._kdf_params
+        params = (kdf_params or getattr(self, '_kdf_params', None) or DEFAULT_KDF_PARAMS)
+        algo_name = params.get("algorithm", "sha256")
+        algo = _SUPPORTED_KDF_ALGOS[algo_name]()
+        length = params.get("length", 32)
+        iterations = params.get("iterations", 200_000)
         kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
+            algorithm=algo,
+            length=length,
             salt=self._salt,
-            iterations=10000,
+            iterations=iterations,
         )
 
         derived_key = base64.urlsafe_b64encode(kdf.derive(key))
@@ -295,24 +344,20 @@ class SecureValue(Generic[T]):
             SecureValueHandling.SEALED,
         ):
             return
-
         # Get the cipher and actual key version used
-        fernet, used_version = self._get_fernet(key_version)
-
-        # Store the key version that was used
+        fernet, used_version = self._get_fernet(key_version, self._kdf_params)
         self._key_version = used_version
-
-        # Ensure we always encrypt a str, never bytes
         value_str = (
-            self._value.decode("utf-8")
-            if isinstance(self._value, bytes)
-            else self._value
+            self._serialized_value.decode("utf-8")
+            if isinstance(self._serialized_value, bytes)
+            else self._serialized_value
         )
-
-        # Format as JSON with metadata
-        metadata = {"version": used_version, "value": value_str}
-
-        # Encrypt the full metadata package
+        # Store KDF params in metadata
+        metadata = {
+            "version": used_version,
+            "kdf_params": self._kdf_params,
+            "value": value_str,
+        }
         self._value = fernet.encrypt(json.dumps(metadata).encode("utf-8"))
 
     def _decrypt(self) -> str:
@@ -329,35 +374,29 @@ class SecureValue(Generic[T]):
                 "Cannot access sealed value directly",
                 code="SEALED_VALUE_ACCESS",
             )
-
         if self._handling_strategy != SecureValueHandling.ENCRYPT:
-            # Always return str, decode if bytes
             return (
                 self._value.decode("utf-8")
                 if isinstance(self._value, bytes)
                 else str(self._value)
             )
-
-        # Try to extract metadata format first
         try:
-            # Get the cipher based on stored key version
-            fernet, _ = self._get_fernet()
-
-            # Decrypt the value
+            # Try to decrypt and parse metadata
+            # First, decrypt with default/fallback KDF params in case metadata is not present
+            fernet, _ = self._get_fernet(kdf_params=self._kdf_params)
             decrypted_bytes = fernet.decrypt(self._value)
-
-            # Parse the metadata
             metadata = json.loads(decrypted_bytes.decode("utf-8"))
-
-            # Extract the actual value
+            # If kdf_params present in metadata, re-derive and re-decrypt
+            kdf_params = metadata.get("kdf_params")
+            if kdf_params:
+                fernet, _ = self._get_fernet(kdf_params=kdf_params)
+                decrypted_bytes = fernet.decrypt(self._value)
+                metadata = json.loads(decrypted_bytes.decode("utf-8"))
+                self._kdf_params = kdf_params
             if isinstance(metadata, dict) and "value" in metadata:
                 return str(metadata["value"])
-
-            # Legacy format without metadata, just return as is
             return decrypted_bytes.decode("utf-8")
-
         except (json.JSONDecodeError, KeyError):
-            # Legacy format without metadata - try with current key
             try:
                 fernet, _ = self._get_fernet()
                 return fernet.decrypt(self._value).decode("utf-8")
@@ -383,50 +422,66 @@ class SecureValue(Generic[T]):
             )
         if version_to_use == self._key_version:
             return
-        decrypted = self._decrypt()
-        self._value = decrypted
+        # No need to overwrite self._value; _encrypt will use the current serialization
         self._encrypt(key_version=version_to_use)
         self._logger.info(
             f"Rotated secure value from key {self._key_version} to {version_to_use}"
         )
 
-    def _convert_to_original_type(self, value_str: str) -> T:
-        """Convert a string value back to its original type.
-
-        Args:
-            value_str: String value to convert
-
-        Returns:
-            Value converted to its original type
-
-        Raises:
-            ValueError: If conversion fails
-            TypeError: If type is not supported
+    def rotate_kdf(self, new_kdf_params: dict) -> None:
         """
+        Re-encrypt this value with new KDF parameters (e.g., to upgrade security).
+        Args:
+            new_kdf_params: dict with new KDF parameters (algorithm, iterations, length)
+        """
+        if self._handling_strategy not in (
+            SecureValueHandling.ENCRYPT,
+            SecureValueHandling.SEALED,
+        ):
+            return
+        self._kdf_params = new_kdf_params.copy()
+        self._encrypt(key_version=self._key_version)
+        self._logger.info(f"Rotated secure value to new KDF params: {new_kdf_params}")
+
+    def _convert_to_original_type(self, value_str: str) -> T:
+        """Convert a string value back to its original type, using Pydantic when possible."""
         # Handle None type
         if self._original_type is type(None):
             if value_str == "None":
                 return cast(T, None)
-            # Defensive: if not "None", still return None for type(None)
             return cast(T, None)
-        # Handle complex types (dict, list, etc)
-        if self._complex_type:
+        try:
             parsed = json.loads(value_str)
-
-            if self._original_type == set and isinstance(parsed, list):
-                return cast(T, set(parsed))
-            if self._original_type == tuple and isinstance(parsed, list):
-                return cast(T, tuple(parsed))
-            return cast(T, parsed)
-
-        # Handle enums
-        if self._is_enum and issubclass(self._original_type, Enum):
-            for member in self._original_type:
-                if str(member.value) == value_str:
-                    return cast(T, member)
-            # If we can't find a matching enum value, just return the string
-            return cast(T, value_str)
-
+        except Exception:
+            parsed = value_str
+        # Handle Pydantic model restoration
+        if isinstance(parsed, dict) and "type" in parsed and "data" in parsed:
+            type_info = parsed["type"]
+            data = parsed["data"]
+            if "module" in type_info and "qualname" in type_info:
+                # Pydantic model
+                import importlib
+                module = importlib.import_module(type_info["module"])
+                cls = module
+                for attr in type_info["qualname"].split("."):
+                    cls = getattr(cls, attr)
+                return TypeAdapter(cls).validate_python(data)
+            elif "builtin" in type_info:
+                # Builtin container
+                if type_info["builtin"] == "set":
+                    return cast(T, set(data))
+                if type_info["builtin"] == "tuple":
+                    return cast(T, tuple(data))
+                return cast(T, data)
+            elif "enum" in type_info:
+                # Enum
+                import importlib
+                module = importlib.import_module(type_info["module"])
+                enum_cls = getattr(module, type_info["enum"])
+                for member in enum_cls:
+                    if member.value == data:
+                        return cast(T, member)
+                return cast(T, data)
         # Handle primitive types
         if self._original_type is bool:
             return cast(T, value_str.lower() in ("true", "1", "yes"))
@@ -434,9 +489,9 @@ class SecureValue(Generic[T]):
             return cast(T, int(value_str))
         if self._original_type is float:
             return cast(T, float(value_str))
-
-        # For strings and other types that can be represented as strings
+        # For strings and fallback
         return cast(T, value_str)
+
 
     @requires_secure_access
     def get_value(self) -> T:
@@ -460,9 +515,9 @@ class SecureValue(Generic[T]):
 
         # For unencrypted values, convert directly
         value_str = (
-            self._value.decode("utf-8")
-            if isinstance(self._value, bytes)
-            else self._value
+            self._serialized_value.decode("utf-8")
+            if isinstance(self._serialized_value, bytes)
+            else self._serialized_value
         )
         return self._convert_to_original_type(value_str)
 
@@ -529,6 +584,55 @@ class SecureValue(Generic[T]):
         except (TypeError, ValueError):
             # If conversion to string fails, they can't be equal
             return False
+
+    def clear(self) -> None:
+        """
+        Overwrite sensitive data in memory (best effort).
+        This should be called when the value is no longer needed.
+        Robust to missing attributes if construction failed.
+        """
+        # Overwrite _value only if it exists
+        if hasattr(self, '_value'):
+            if isinstance(self._value, bytearray):
+                for i in range(len(self._value)):
+                    self._value[i] = 0
+            elif isinstance(self._value, (str, bytes)):
+                self._value = "\x00" * len(self._value) if isinstance(self._value, str) else b"\x00" * len(self._value)
+        # Overwrite original_value if possible
+        if hasattr(self, '_original_value'):
+            self._original_value = None
+        # Overwrite salt
+        if hasattr(self, '_salt') and isinstance(self._salt, (bytes, bytearray)):
+            self._salt = b"\x00" * len(self._salt)
+        # Overwrite decrypted type info
+        if hasattr(self, '_type_info'):
+            self._type_info = None
+
+
+    def __enter__(self):
+        """Allow use as a context manager. Returns self."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Automatically clear sensitive data when exiting context."""
+        self.clear()
+
+    def __del__(self):
+        self.clear()
+
+    def __getstate__(self):
+        # Mask sensitive fields during pickling or introspection
+        state = self.__dict__.copy()
+        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
+            if k in state:
+                state[k] = '******'
+        return state
+
+    def __dir__(self):
+        # Hide sensitive attributes from dir()
+        return [attr for attr in super().__dir__() if attr not in ('_value', '_original_value', '_serialized_value', '_salt')]
+
+
 
 
 def SecureField(

@@ -24,6 +24,21 @@ from uno.config import (
 
 
 class TestSecureValue:
+    def test_getstate_and_dir_masking(self, setup_secure_config):
+        import pickle
+        val = SecureValue("supersecret", handling=SecureValueHandling.ENCRYPT)
+        state = val.__getstate__()
+        # Sensitive fields are masked
+        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
+            assert state[k] == '******'
+        # dir() does not show sensitive fields
+        attrs = dir(val)
+        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
+            assert k not in attrs
+        # Pickling does not leak secret
+        pickled = pickle.dumps(val)
+        assert b'supersecret' not in pickled
+
     """Test SecureValue class with proper handling of types."""
 
     def test_mask_handling(self, setup_secure_config: None) -> None:
