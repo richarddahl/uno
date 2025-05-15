@@ -10,7 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from sqlalchemy import text, MetaData, Table, Column, String, Integer, DateTime
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.persistence.sql.connection import ConnectionManager
+from uno.persistance.sql.connection import ConnectionManager
 from uno.logging.protocols import LoggerProtocol
 
 

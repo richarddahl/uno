@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """
 Backwards compatibility module for SQL classes.
 
@@ -12,14 +11,14 @@ modules.
 
 import warnings
 
-from uno.persistence.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
-from uno.persistence.sql.config import SQLConfig
-from uno.persistence.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
-from uno.persistence.sql.observers import LoggingSQLObserver, SQLObserver
+from uno.persistance.sql.builders import SQLFunctionBuilder, SQLTriggerBuilder
+from uno.persistance.sql.config import SQLConfig
+from uno.persistance.sql.emitter import SQLEmitter, SQLExecutor, SQLGenerator
+from uno.persistance.sql.observers import LoggingSQLObserver, SQLObserver
 
 # Re-export from new modular structure
-from uno.persistence.sql.registry import SQLConfigRegistry
-from uno.persistence.sql.statement import SQLStatement, SQLStatementType
+from uno.persistance.sql.registry import SQLConfigRegistry
+from uno.persistance.sql.statement import SQLStatement, SQLStatementType
 
 # Show deprecation warning
 warnings.warn(

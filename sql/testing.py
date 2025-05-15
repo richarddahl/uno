@@ -8,8 +8,8 @@ from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy import text, MetaData, Table, Column
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.persistence.sql.config import SQLConfig
-from uno.persistence.sql.connection import ConnectionManager
+from uno.persistance.sql.config import SQLConfig
+from uno.persistance.sql.connection import ConnectionManager
 from uno.logging.protocols import LoggerProtocol
 
 
@@ -100,6 +100,7 @@ class SQLTestHelper:
                 error=e,
             )
             raise RuntimeError(f"Failed to create mock database: {str(e)}") from e
+
     async def cleanup_mock_database(self, name: str) -> None:
         """Clean up a mock database.
 
@@ -140,6 +141,7 @@ class SQLTestHelper:
                 error=e,
             )
             raise RuntimeError(f"Failed to clean up mock database: {str(e)}") from e
+
     async def create_mock_tables(
         self, db_name: str, tables: list[dict[str, Any]]
     ) -> None:
@@ -192,6 +194,7 @@ class SQLTestHelper:
                 error=e,
             )
             raise RuntimeError(f"Failed to create mock tables: {str(e)}") from e
+
     async def cleanup_mock_tables(self, db_name: str) -> None:
         """Clean up mock tables in a database.
 
@@ -226,6 +229,7 @@ class SQLTestHelper:
                 error=e,
             )
             raise RuntimeError(f"Failed to clean up mock tables: {str(e)}") from e
+
     async def rollback_transaction(self, session: AsyncSession) -> None:
         """Rollback a transaction for testing.
 
@@ -245,6 +249,7 @@ class SQLTestHelper:
                 error=e,
             )
             raise RuntimeError(f"Failed to rollback transaction: {str(e)}") from e
+
     @property
     def mock_databases(self) -> dict[str, MockDatabase]:
         """Get all mock databases.

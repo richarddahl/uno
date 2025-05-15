@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """
 API-specific error classes for the Uno framework.
 
@@ -11,152 +10,64 @@ authorization, validation, and resource handling.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
+from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
-# =============================================================================
-# API Errors
-# =============================================================================
+# Define application-specific error categories and codes here
+APPLICATION = ErrorCategory("APPLICATION")
+APPLICATION_ERROR: Final = ErrorCode("APPLICATION_ERROR", APPLICATION)
+APPLICATION_STARTUP: Final = ErrorCode("APPLICATION_STARTUP", APPLICATION)
+APPLICATION_SHUTDOWN: Final = ErrorCode("APPLICATION_SHUTDOWN", APPLICATION)
 
 
-class APIError(UnoError):
-    """Base class for all API-related errors."""
+class ApplicationError(UnoError):
+    """Base class for all application-related errors."""
 
     def __init__(
         self,
         message: str,
-        code: str | None = None,
+        code: ErrorCode = APPLICATION_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize an API-specific error.
-
-        Args:
-            message: Human-readable error message
-            code: Error code without prefix (will be prefixed automatically)
-            severity: How severe this error is
-            **context: Additional context information
-        """
         super().__init__(
-            message=message,
-            code=f"API_{code}" if code else "API_ERROR",
-            category=ErrorCategory.API,
+            message,
+            code=code,
             severity=severity,
-            **context,
+            context=context,
+            **kwargs,
         )
 
 
-class APIAuthenticationError(APIError):
-    """Raised when API authentication fails."""
+class ApplicationStartupError(ApplicationError):
+    """Error raised during application startup."""
 
     def __init__(
         self,
-        message: str = "Authentication failed",
-        code: str | None = "AUTH_FAILED",
-        **context: Any,
+        message: str,
+        code: ErrorCode = APPLICATION_STARTUP,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
-            message=message,
-            code=code,
-            severity=ErrorSeverity.ERROR,
-            **context,
+            message, code=code, severity=severity, context=context, **kwargs
         )
 
 
-class APIAuthorizationError(APIError):
-    """Raised when API authorization fails."""
+class ApplicationShutdownError(ApplicationError):
+    """Error raised during application shutdown."""
 
     def __init__(
         self,
-        message: str = "Authorization failed",
-        resource: str | None = None,
-        action: str | None = None,
-        code: str | None = "AUTH_DENIED",
-        **context: Any,
+        message: str,
+        code: ErrorCode = APPLICATION_SHUTDOWN,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        ctx = context.copy()
-        if resource:
-            ctx["resource"] = resource
-        if action:
-            ctx["action"] = action
-
         super().__init__(
-            message=message,
-            code=code,
-            severity=ErrorSeverity.ERROR,
-            **ctx,
-        )
-
-
-class APIValidationError(APIError):
-    """Raised when API input validation fails."""
-
-    def __init__(
-        self,
-        message: str = "Validation failed",
-        field: str | None = None,
-        value: Any | None = None,
-        code: str | None = "VALIDATION_ERROR",
-        **context: Any,
-    ) -> None:
-        ctx = context.copy()
-        if field:
-            ctx["field"] = field
-        if value is not None:
-            ctx["value"] = str(value)
-
-        super().__init__(
-            message=message,
-            code=code,
-            severity=ErrorSeverity.ERROR,
-            **ctx,
-        )
-
-
-class APIResourceNotFoundError(APIError):
-    """Raised when an API resource is not found."""
-
-    def __init__(
-        self,
-        resource_type: str,
-        resource_id: Any,
-        message: str | None = None,
-        code: str | None = "RESOURCE_NOT_FOUND",
-        **context: Any,
-    ) -> None:
-        message = message or f"{resource_type} with ID '{resource_id}' not found"
-
-        super().__init__(
-            message=message,
-            code=code,
-            severity=ErrorSeverity.ERROR,
-            resource_type=resource_type,
-            resource_id=str(resource_id),
-            **context,
-        )
-
-
-class APIRateLimitError(APIError):
-    """Raised when API rate limit is exceeded."""
-
-    def __init__(
-        self,
-        message: str = "Rate limit exceeded",
-        limit: int | None = None,
-        reset_after: int | None = None,
-        code: str | None = "RATE_LIMIT_EXCEEDED",
-        **context: Any,
-    ) -> None:
-        ctx = context.copy()
-        if limit:
-            ctx["limit"] = limit
-        if reset_after:
-            ctx["reset_after"] = reset_after
-
-        super().__init__(
-            message=message,
-            code=code,
-            severity=ErrorSeverity.ERROR,
-            **ctx,
+            message, code=code, severity=severity, context=context, **kwargs
         )

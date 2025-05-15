@@ -11,11 +11,11 @@ from pydantic import BaseModel
 
 from uno.logging import LogLevel
 from uno.logging.protocols import LoggerProtocol
-from uno.persistence.sql.config import SQLConfig
+from uno.persistance.sql.config import SQLConfig
 
 if TYPE_CHECKING:
     from uno.logging.protocols import LoggerProtocol
-    from uno.persistence.sql.config import SQLConfig
+    from uno.persistance.sql.config import SQLConfig
 
 
 class StatementMetrics(BaseModel):

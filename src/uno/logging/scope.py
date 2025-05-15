@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 if TYPE_CHECKING:
-    from uno.di.protocols import ContainerProtocol
+    from uno.injection.protocols import ContainerProtocol
 
 
 class LoggerScope:

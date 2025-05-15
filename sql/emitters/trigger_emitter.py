@@ -3,8 +3,8 @@ SQL trigger emitter implementation.
 """
 
 from typing import Any
-from uno.persistence.sql.errors import SQLEmitterError
-from uno.persistence.sql.interfaces import SQLEmitterProtocol
+from uno.persistance.sql.errors import SQLEmitterError
+from uno.persistance.sql.interfaces import SQLEmitterProtocol
 
 
 class CreateTriggerEmitter:
@@ -22,7 +22,7 @@ class CreateTriggerEmitter:
     def emit(self) -> str:
         """
         Emit the SQL statement for creating a trigger.
-        
+
         Raises:
             UnoError: If there's an error creating the trigger emitter
         """
@@ -55,7 +55,7 @@ class DropTriggerEmitter:
     def emit(self) -> str:
         """
         Emit the SQL statement for dropping a trigger.
-        
+
         Raises:
             UnoError: If there's an error creating the drop trigger emitter
         """

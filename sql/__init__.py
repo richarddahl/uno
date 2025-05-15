@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL generation and execution for database operations.
 
 This package provides tools for generating and executing SQL statements
@@ -11,9 +10,9 @@ and other database objects.
 
 # Core SQL generation and execution components
 # SQL builders for functions and triggers
-from uno.persistence.sql.builders.function import SQLFunctionBuilder
-from uno.persistence.sql.builders.index import SQLIndexBuilder
-from uno.persistence.sql.builders.trigger import SQLTriggerBuilder
+from uno.persistance.sql.builders.function import SQLFunctionBuilder
+from uno.persistance.sql.builders.index import SQLIndexBuilder
+from uno.persistance.sql.builders.trigger import SQLTriggerBuilder
 
 __all__ = [
     "SQLFunctionBuilder",

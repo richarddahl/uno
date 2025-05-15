@@ -22,9 +22,9 @@ from examples.app.services.inventory_item_service import InventoryItemService
 from examples.app.services.vendor_service import VendorService
 
 # Import the new DI, error, config, and logging systems
-from uno.di.container import Container
+from uno.injection.container import Container
 from uno.domain.di import register_domain_services
-from uno.events.di import register_event_services
+from uno.events.injection import register_event_services
 from uno.domain.errors import DomainValidationError
 from uno.logging.protocols import LoggerProtocol
 from uno.events.config import EventsConfig

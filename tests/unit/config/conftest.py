@@ -12,7 +12,7 @@ from cryptography.fernet import Fernet
 
 from uno.config import Environment, SecureValue, UnoSettings
 from uno.config.base import UnoSettings
-from uno.di.protocols import ContainerProtocol
+from uno.injection.protocols import ContainerProtocol
 
 
 class MockContainer:
@@ -47,6 +47,7 @@ def test_encryption_key() -> bytes:
 async def setup_secure_config(test_encryption_key: bytes) -> None:
     """Set up secure configuration for testing."""
     from uno.config import setup_secure_config as _setup_secure_config
+
     await _setup_secure_config(test_encryption_key)
 
 

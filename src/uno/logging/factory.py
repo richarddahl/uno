@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from uno.logging.protocols import LoggerFactoryProtocol, LoggerProtocol
 
 if TYPE_CHECKING:
-    from uno.di.protocols import ContainerProtocol
+    from uno.injection.protocols import ContainerProtocol
 
 
 class LoggerFactory:

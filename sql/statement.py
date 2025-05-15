@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL statement representations with metadata."""
 
 from enum import Enum
 from uno.errors import UnoError
-from uno.persistence.sql.errors import (
+from uno.persistance.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,

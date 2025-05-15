@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from uno.di.protocols import ContainerProtocol
+from uno.injection.protocols import ContainerProtocol
 from uno.logging.config import LoggingSettings
 from uno.logging.factory import register_logger_factory
 from uno.logging.logger import get_logger

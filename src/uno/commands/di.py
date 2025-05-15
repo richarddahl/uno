@@ -10,10 +10,10 @@ with the DI container.
 
 from typing import cast, TYPE_CHECKING
 
-from uno.di.container import Container
+from uno.injection.container import Container
 from uno.commands.protocols import CommandBusProtocol
 from uno.commands.implementations.structural_bus import StructuralCommandBus
-from uno.persistence.event_sourcing.implementations.postgres.bus import (
+from uno.persistance.event_sourcing.implementations.postgres.bus import (
     PostgresCommandBus,
 )
 

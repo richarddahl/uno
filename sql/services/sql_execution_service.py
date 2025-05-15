@@ -5,9 +5,9 @@ SQL execution service implementation.
 import logging
 from typing import Any
 
-from uno.persistence.sql.interfaces import SQLExecutionServiceProtocol
-from uno.persistence.sql.interfaces import DBManagerProtocol
-from uno.persistence.sql.errors import SQLExecutionError
+from uno.persistance.sql.interfaces import SQLExecutionServiceProtocol
+from uno.persistance.sql.interfaces import DBManagerProtocol
+from uno.persistance.sql.errors import SQLExecutionError
 
 
 class SQLExecutionService:

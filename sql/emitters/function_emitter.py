@@ -3,8 +3,8 @@ SQL function emitter implementation.
 """
 
 from typing import Any
-from uno.persistence.sql.errors import SQLEmitterError
-from uno.persistence.sql.interfaces import SQLEmitterProtocol
+from uno.persistance.sql.errors import SQLEmitterError
+from uno.persistance.sql.interfaces import SQLEmitterProtocol
 
 
 class CreateFunctionEmitter:
@@ -19,7 +19,7 @@ class CreateFunctionEmitter:
     def emit(self) -> str:
         """
         Emit the SQL statement for creating a function.
-        
+
         Raises:
             UnoError: If there's an error creating the function emitter
         """
@@ -51,7 +51,7 @@ class DropFunctionEmitter:
     def emit(self) -> str:
         """
         Emit the SQL statement for dropping a function.
-        
+
         Raises:
             UnoError: If there's an error creating the drop function emitter
         """

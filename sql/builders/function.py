@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL function builder."""
 
 from pydantic import BaseModel, field_validator

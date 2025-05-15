@@ -13,7 +13,7 @@ from babel import dates, numbers
 from uno.config import GeneralConfig
 
 
-from uno.logging.protocols import LoggerProtocol
+from uno.logging import LoggerProtocol, LogLevel
 
 
 def import_from_path(
@@ -28,14 +28,14 @@ def import_from_path(
         return module
     except Exception as exc:
         if logger and hasattr(logger, "structured_log"):
-            logger.structured_log(
+            await logger.structured_log(
                 LogLevel.ERROR,
                 f"Failed to import module '{module_name}' from '{file_path}'",
-                name="uno.utils.import_from_path",
-                error=exc,
-                module_name=module_name,
-                file_path=file_path,
-                message=str(exc),
+                # name="uno.utils.import_from_path",
+                # error=exc,
+                # module_name=module_name,
+                # file_path=file_path,
+                # message=str(exc),
             )
         raise
 
@@ -94,8 +94,6 @@ def timedelta_to_string(time_delta: timedelta | None) -> str | None:
 
 
 def boolean_to_okui(boolean: bool) -> dict[str, Any] | None:
-    if boolean is None:
-        return None
     return {
         "value": boolean,
         "type": "boolean",
@@ -126,7 +124,9 @@ def obj_to_okui(model: Any) -> str | None:
     return model.__str__() if model else None
 
 
-def timedelta_to_okui(time_delta: timedelta | None) -> str | None:
+def timedelta_to_okui(
+    time_delta: timedelta | None, config: GeneralConfig
+) -> str | None:
     return (
         dates.format_timedelta(time_delta, locale=config.LOCALE) if time_delta else None
     )

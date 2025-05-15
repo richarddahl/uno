@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """Base class and protocols for SQL emitters.
 
 SQL emitters are responsible for generating and executing SQL statements for various
@@ -19,24 +18,24 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.sql import text
 
 from uno.errors import UnoError
-from uno.persistence.sql.errors import (
+from uno.persistance.sql.errors import (
     SQLErrorCode,
     SQLExecutionError,
     SQLSyntaxError,
 )
-from uno.persistence.sql.interfaces import (
+from uno.persistance.sql.interfaces import (
     ConfigProtocol,
     ConnectionConfigProtocol,
     EngineFactoryProtocol,
 )
 from uno.logging import LoggerProtocol
-from uno.persistence.sql.observers import BaseObserver, SQLObserver
-from uno.persistence.sql.statement import SQLStatement, SQLStatementType
-from uno.persistence.sql.config import ConnectionConfig
-from uno.persistence.sql.engine import SyncEngineFactory, sync_connection
+from uno.persistance.sql.observers import BaseObserver, SQLObserver
+from uno.persistance.sql.statement import SQLStatement, SQLStatementType
+from uno.persistance.sql.config import ConnectionConfig
+from uno.persistance.sql.engine import SyncEngineFactory, sync_connection
 
 if TYPE_CHECKING:
-    from uno.persistence.sql.engine import SyncEngineFactory
+    from uno.persistance.sql.engine import SyncEngineFactory
 
 T = TypeVar("T", bound="SQLEmitter")
 

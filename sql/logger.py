@@ -5,22 +5,40 @@ SQL logging.
 from __future__ import annotations
 from typing import Any, Optional
 from pydantic import BaseModel, Field
-from uno.persistence.sql.interfaces import SQLLoggerProtocol
+from uno.persistance.sql.interfaces import SQLLoggerProtocol
 
 
 class LogConfig(BaseModel):
     """SQL logging configuration."""
 
-    log_level: str = Field(default=LogLevel.INFO, description="Logging level", json_schema_extra={"env": "LOG_LEVEL"})
-    log_file: str | None = Field(default=None, description="Log file path", json_schema_extra={"env": "LOG_FILE"})
+    log_level: str = Field(
+        default=LogLevel.INFO,
+        description="Logging level",
+        json_schema_extra={"env": "LOG_LEVEL"},
+    )
+    log_file: str | None = Field(
+        default=None, description="Log file path", json_schema_extra={"env": "LOG_FILE"}
+    )
     log_format: str = Field(
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log message format",
-        json_schema_extra={"env": "LOG_FORMAT"}
+        json_schema_extra={"env": "LOG_FORMAT"},
     )
-    log_sql: bool = Field(default=True, description="Log SQL statements", json_schema_extra={"env": "LOG_SQL"})
-    log_errors: bool = Field(default=True, description="Log SQL errors", json_schema_extra={"env": "LOG_ERRORS"})
-    log_performance: bool = Field(default=True, description="Log performance metrics", json_schema_extra={"env": "LOG_PERFORMANCE"})
+    log_sql: bool = Field(
+        default=True,
+        description="Log SQL statements",
+        json_schema_extra={"env": "LOG_SQL"},
+    )
+    log_errors: bool = Field(
+        default=True,
+        description="Log SQL errors",
+        json_schema_extra={"env": "LOG_ERRORS"},
+    )
+    log_performance: bool = Field(
+        default=True,
+        description="Log performance metrics",
+        json_schema_extra={"env": "LOG_PERFORMANCE"},
+    )
 
 
 class SQLLogger:

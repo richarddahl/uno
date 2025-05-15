@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Any, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from uno.persistence.sql.interfaces import TransactionManagerProtocol
-from uno.persistence.sql.config import SQLConfig
+from uno.persistance.sql.interfaces import TransactionManagerProtocol
+from uno.persistance.sql.config import SQLConfig
 
 
 class TransactionConfig(BaseModel):

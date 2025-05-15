@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL emitters for database-level operations."""
 
 import logging
 
 from uno.errors import UnoError
-from uno.persistence.sql.errors import (
+from uno.persistance.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -19,8 +18,8 @@ from uno.persistence.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.persistence.sql.emitter import SQLEmitter
-from uno.persistence.sql.statement import SQLStatement, SQLStatementType
+from uno.persistance.sql.emitter import SQLEmitter
+from uno.persistance.sql.statement import SQLStatement, SQLStatementType
 
 
 class CreateRolesAndDatabase(SQLEmitter):

@@ -6,8 +6,7 @@ from typing import Any, Callable
 from uno.types import T
 
 from uno.config import UnoSettings
-from uno.di.protocols import ContainerProtocol
-
+from uno.injection.protocols import ContainerProtocol
 
 
 class ConfigRegistrationExtensions:

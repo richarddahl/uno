@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL emitter implementations.
 
 This package provides concrete implementations of SQL emitters for
 common database operations.
 """
 
-from uno.persistence.sql.emitters.grants import AlterGrants
+from uno.persistance.sql.emitters.grants import AlterGrants
 from .trigger_emitter import CreateTriggerEmitter, DropTriggerEmitter
 from .function_emitter import CreateFunctionEmitter, DropFunctionEmitter
 
@@ -19,12 +18,12 @@ __all__ = [
     "DropFunctionEmitter",
     "AlterGrants",
 ]
-from uno.persistence.sql.emitters.table import TableMergeFunction
-from uno.persistence.sql.emitters.triggers import (
+from uno.persistance.sql.emitters.table import TableMergeFunction
+from uno.persistance.sql.emitters.triggers import (
     InsertMetaRecordTrigger,
     RecordUserAuditFunction,
 )
-from uno.persistence.sql.emitters.vector import (
+from uno.persistance.sql.emitters.vector import (
     VectorIntegrationEmitter,
     VectorSQLEmitter,
 )

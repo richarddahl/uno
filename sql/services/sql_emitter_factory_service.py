@@ -4,8 +4,8 @@ SQL emitter factory service implementation.
 
 from typing import Any
 
-from uno.persistence.sql.interfaces import SQLEmitterFactoryProtocol
-from uno.persistence.sql.emitters import (
+from uno.persistance.sql.interfaces import SQLEmitterFactoryProtocol
+from uno.persistance.sql.emitters import (
     CreateTriggerEmitter,
     DropTriggerEmitter,
     CreateFunctionEmitter,

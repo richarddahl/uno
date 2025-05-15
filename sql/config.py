@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """Configuration for SQL generation and execution."""
 
 from __future__ import annotations
@@ -13,11 +12,11 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import Table
 from pydantic_settings import BaseSettings
-from uno.persistence.sql.interfaces import ConfigManagerProtocol
+from uno.persistance.sql.interfaces import ConfigManagerProtocol
 
 if TYPE_CHECKING:
-    from uno.persistence.sql.engine import SyncEngineFactory
-    from uno.persistence.sql.interfaces import ConnectionConfigProtocol
+    from uno.persistance.sql.engine import SyncEngineFactory
+    from uno.persistance.sql.interfaces import ConnectionConfigProtocol
 
 
 class ConnectionConfig(BaseModel):
@@ -62,9 +61,9 @@ class ConnectionConfig(BaseModel):
             return uri
 
 
-from uno.persistence.sql.registry import SQLConfigRegistry
+from uno.persistance.sql.registry import SQLConfigRegistry
 from uno.errors import UnoError
-from uno.persistence.sql.errors import (
+from uno.persistance.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -76,7 +75,7 @@ from uno.persistence.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.persistence.sql.interfaces import EngineFactoryProtocol
+from uno.persistance.sql.interfaces import EngineFactoryProtocol
 
 
 class SQLConfig(BaseSettings):

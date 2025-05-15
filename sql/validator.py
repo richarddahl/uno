@@ -5,8 +5,8 @@ SQL statement validation.
 from __future__ import annotations
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field
-from uno.persistence.sql.interfaces import SQLValidatorProtocol
-from uno.persistence.sql.config import SQLConfig
+from uno.persistance.sql.interfaces import SQLValidatorProtocol
+from uno.persistance.sql.config import SQLConfig
 from uno.errors import UnoError
 
 

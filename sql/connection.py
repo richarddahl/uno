@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSessio
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 from uno.errors import UnoError
-from uno.persistence.sql.errors import SQLErrorCode
-from uno.persistence.sql.interfaces import ConnectionManagerProtocol
-from uno.persistence.sql.config import SQLConfig
+from uno.persistance.sql.errors import SQLErrorCode
+from uno.persistance.sql.interfaces import ConnectionManagerProtocol
+from uno.persistance.sql.config import SQLConfig
 from uno.logging.protocols import LoggerProtocol
 
 

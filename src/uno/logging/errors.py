@@ -8,12 +8,19 @@ This module provides error logging capabilities, allowing for structured
 error reporting with proper severity handling.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import traceback
-from typing import Any, TypeVar, Callable, ClassVar, cast, Type
+from typing import Any, Final, TypeVar, Type
 
-from uno.errors import ErrorSeverity, UnoError, ErrorCategory
+from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
+
+# Define logging-specific error categories and codes
+LOGGING = ErrorCategory("LOGGING")
+LOGGING_ERROR: Final = ErrorCode("LOGGING_ERROR", LOGGING)
+LOGGING_CONFIGURATION: Final = ErrorCode("LOGGING_CONFIGURATION", LOGGING)
 
 T = TypeVar("T", bound="LoggingError")
 
@@ -21,13 +28,37 @@ T = TypeVar("T", bound="LoggingError")
 class LoggingError(UnoError):
     """Base exception for all logging-related errors."""
 
+    def __init__(
+        self,
+        message: str,
+        code: ErrorCode = LOGGING_ERROR,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a logging error.
+
+        Args:
+            message: Human-readable error message
+            code: Error code
+            severity: How severe this error is
+            context: Additional context information
+            **kwargs: Additional context keys
+        """
+        super().__init__(
+            message,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
+
     @classmethod
     def wrap(
         cls: Type[T],
         exception: Exception,
-        code: str = "LOGGING_ERROR",
+        code: ErrorCode = LOGGING_ERROR,
         message: str | None = None,
-        category: ErrorCategory = ErrorCategory.INTERNAL,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
     ) -> T:
@@ -35,17 +66,17 @@ class LoggingError(UnoError):
 
         Args:
             exception: The original exception to wrap
-            code: Unique identifier for this error type (defaults to "LOGGING_ERROR")
+            code: Error code to use
             message: Human-readable error message (defaults to exception message)
-            category: Category the error belongs to (defaults to INTERNAL)
-            severity: Severity level of the error (defaults to ERROR)
+            severity: Severity level of the error
             context: Additional contextual information
 
         Returns:
             A new instance of the LoggingError subclass
         """
         # Create a context dictionary containing information about the original error
-        merged_context = {
+        merged_context = context or {}
+        exception_context = {
             "original_error": exception,
             "original_type": type(exception).__name__,
             "original_message": str(exception),
@@ -53,18 +84,19 @@ class LoggingError(UnoError):
                 type(exception), exception, exception.__traceback__
             ),
         }
-
-        # Merge with provided context
-        if context:
-            merged_context.update(context)
+        merged_context.update(exception_context)
 
         # Use a default message if none provided
         if message is None:
             message = f"Error occurred: {exception}"
 
         # Create the instance using the standard UnoError constructor pattern
-        # This assumes all subclasses follow the proper inheritance contract
-        return cls(code, message, category, severity, merged_context)
+        return cls(
+            message=message,
+            code=code,
+            severity=severity,
+            context=merged_context,
+        )
 
 
 class ErrorLogger:

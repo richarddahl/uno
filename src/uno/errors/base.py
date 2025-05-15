@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Base error classes and utilities for the Uno error handling system.
 
@@ -9,29 +12,12 @@ This module provides the foundation for structured error handling with
 error codes, contextual information, and error categories.
 """
 
+import logging
 from datetime import UTC, datetime
-from enum import Enum, auto
 import inspect
 import os
-from typing import Any
-import copy
-
-
-class ErrorCategory(Enum):
-    """Categories of errors for classification."""
-
-    INTERNAL = auto()  # Internal/unknown errors
-    CONFIG = auto()  # Configuration errors
-    DI = auto()  # Dependency injection errors
-    DB = auto()  # Database errors
-    API = auto()  # API errors
-    EVENT = auto()  # Event handling errors
-    VALIDATION = auto()  # Validation errors
-    SECURITY = auto()  # Security-related errors
-    DOMAIN = auto()  # Domain-specific errors
-    INFRASTRUCTURE = auto()  # Infrastructure-related errors
-    LOGGING = auto()  # Logging-related errors
-    APPLICATION = auto()  # Application-specific errors
+from enum import Enum
+from typing import Any, ClassVar, Final
 
 
 class ErrorSeverity(str, Enum):
@@ -44,11 +30,247 @@ class ErrorSeverity(str, Enum):
     FATAL = "fatal"
 
 
+class ErrorCategory:
+    """Base class for error categories with hierarchical support."""
+
+    # Registry of all categories by name for validation
+    _registry: dict[str, "ErrorCategory"] = {}
+
+    def __init__(self, name: str, parent: "ErrorCategory | None" = None) -> None:
+        """Initialize a new error category.
+
+        Args:
+            name: Unique identifier for this category
+            parent: Optional parent category for hierarchical structure
+        """
+        if name in ErrorCategory._registry:
+            raise ValueError(f"Error category '{name}' already exists")
+
+        self.name = name
+        self.parent = parent
+        ErrorCategory._registry[name] = self
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ErrorCategory):
+            return False
+        return self.name == other.name
+
+    def is_subcategory_of(self, category: "ErrorCategory") -> bool:
+        """Check if this category is a subcategory of the given category."""
+        current: "ErrorCategory | None" = self
+        while current:
+            if current == category:
+                return True
+            current = current.parent
+        return False
+
+    def get_all_subcategories(self) -> set["ErrorCategory"]:
+        """Get this category and all its subcategories recursively.
+
+        Returns:
+            A set containing this category and all its subcategories.
+        """
+        result = {self}
+        queue = [self]
+
+        while queue:
+            current = queue.pop(0)
+            # Find direct children
+            for category in ErrorCategory._registry.values():
+                if category.parent == current and category not in result:
+                    result.add(category)
+                    queue.append(category)
+
+        return result
+
+    @staticmethod
+    def is_error_in_category(error: "UnoError", category: "ErrorCategory") -> bool:
+        """Check if an error's category is within a category or its subcategories.
+
+        Args:
+            error: The error to check
+            category: The category to check against
+
+        Returns:
+            True if the error's category is the given category or any of its subcategories.
+        """
+        return error.category.is_subcategory_of(category)
+
+    @staticmethod
+    def filter_errors_by_category(
+        errors: list["UnoError"], category: "ErrorCategory"
+    ) -> list["UnoError"]:
+        """Filter a list of errors to those in a category or any of its subcategories.
+
+        Args:
+            errors: The list of errors to filter
+            category: The category to filter by
+
+        Returns:
+            A list of errors that belong to the given category or any of its subcategories.
+        """
+        subcategories = category.get_all_subcategories()
+        return [error for error in errors if error.category in subcategories]
+
+    @classmethod
+    def get_all(cls) -> list["ErrorCategory"]:
+        """Get all registered categories.
+
+        Returns:
+            A list of all registered error categories
+        """
+        return list(cls._registry.values())
+
+    @classmethod
+    def get_by_name(cls, name: str) -> "ErrorCategory | None":
+        """Get a category by its name.
+
+        Args:
+            name: Category name to look up
+
+        Returns:
+            The category if found, None otherwise
+        """
+        return cls._registry.get(name)
+
+
+INTERNAL: Final = ErrorCategory("INTERNAL")
+
+
+class ErrorCode:
+    """Base class for error codes with hierarchical support and category association."""
+
+    # Registry of all error codes by name
+    _registry: ClassVar[dict[str, "ErrorCode"]] = {}
+
+    def __init__(
+        self,
+        code: str,
+        category: ErrorCategory = INTERNAL,
+        parent: "ErrorCode | None" = None,
+    ) -> None:
+        """Initialize a new error code.
+
+        Args:
+            code: Unique identifier for this error code
+            category: The category this error code belongs to
+            parent: Optional parent error code for hierarchical structure
+        """
+        if code in ErrorCode._registry:
+            raise ValueError(f"Error code '{code}' already exists")
+
+        self.code = code
+        self.category = category
+        self.parent = parent
+        ErrorCode._registry[code] = self
+
+    def __str__(self) -> str:
+        return f"{self.category.name}_{self.code}"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ErrorCode):
+            return False
+        return self.code == other.code
+
+    def is_subcode_of(self, parent_code: "ErrorCode") -> bool:
+        """Check if this error code is a subcode of the given error code.
+
+        Args:
+            parent_code: The potential parent error code
+
+        Returns:
+            Whether this code is a subcode of the given code
+        """
+        current: "ErrorCode | None" = self
+        while current:
+            if current == parent_code:
+                return True
+            current = current.parent
+        return False
+
+    def get_all_subcodes(self) -> set["ErrorCode"]:
+        """Get this error code and all its subcodes recursively.
+
+        Returns:
+            A set containing this error code and all its subcodes
+        """
+        result = {self}
+        queue = [self]
+
+        while queue:
+            current = queue.pop(0)
+            # Find direct children
+            for code in ErrorCode._registry.values():
+                if code.parent == current and code not in result:
+                    result.add(code)
+                    queue.append(code)
+
+        return result
+
+    @classmethod
+    def get_by_code(
+        cls, code: str, *, raise_if_missing: bool = True
+    ) -> "ErrorCode | None":
+        """Get an error code by its string representation.
+
+        Args:
+            code: The error code string
+            raise_if_missing: Whether to raise if the code is not found (defaults to True)
+
+        Returns:
+            The ErrorCode object if found, None if not found and raise_if_missing is False
+
+        Raises:
+            ValueError: If the error code is not found and raise_if_missing is True
+        """
+        error_code = cls._registry.get(code)
+        if error_code is None:
+            if raise_if_missing:
+                raise ValueError(f"Error code '{code}' not found in registry")
+            else:
+                logging.warning(
+                    f"Error code '{code}' not found in registry, returning None"
+                )
+        return error_code
+
+    @classmethod
+    def filter_by_category(cls, category: ErrorCategory) -> list["ErrorCode"]:
+        """Filter error codes by category.
+
+        Args:
+            category: The category to filter by
+
+        Returns:
+            List of error codes belonging to the specified category or its subcategories
+        """
+        # Get all subcategories
+        subcategories = category.get_all_subcategories()
+
+        # Filter error codes by category
+        return [
+            code for code in cls._registry.values() if code.category in subcategories
+        ]
+
+
+# Define base error categories and codes here
+INTERNAL_ERROR: Final = ErrorCode("INTERNAL_ERROR", category=INTERNAL)
+
+
 class UnoError(Exception):
     """
     Base error class for Uno errors.
     Should only be subclassed for package-specific errors, not instantiated directly.
     """
+
+    # Add type annotations for class attributes
+    message: str
+    code: ErrorCode
+    severity: ErrorSeverity
+    context: dict[str, Any] | None
+    timestamp: datetime
 
     def add_context(self, key: str, value: Any) -> "UnoError":
         """Add a key-value pair to the error context and return self for chaining."""
@@ -66,68 +288,66 @@ class UnoError(Exception):
 
     def __init__(
         self,
-        code: str,
         message: str,
-        category: ErrorCategory,
-        severity: ErrorSeverity,
+        code: ErrorCode,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a new UnoError (never instantiate directly).
 
         Args:
-            code: Unique identifier for this error type
+            code: ErrorCode object containing the code and category
             message: Human-readable error message
-            category: Category the error belongs to
             severity: Severity level of the error
             context: Additional contextual information
-            **kwargs: Ignored. Accepts arbitrary keyword arguments for subclass compatibility and error context propagation. This allows error subclasses to propagate extra context (e.g., timestamp) safely.
+            **kwargs: Ignored. Accepts arbitrary keyword arguments for subclass compatibility.
         """
-        self.code = code
+        # Combine explicit context dict with any additional kwargs
+        full_context = context or {}
+        full_context.update(kwargs)
+
+        self.code: ErrorCode = code
         self.message = message
-        self.category = category
+        self.category = code.category  # Get category from the ErrorCode
         self.severity = severity
-        self.context = context or {}
+        self.context = full_context
         self.timestamp = datetime.now(UTC)
 
     def with_context(self, context: dict[str, Any]) -> "UnoError":
         """Return a new error with additional context."""
-        # Create a new instance with the same class, copying all attributes
-        new_error = copy.copy(self)
-        # Just update the context attribute
-        new_error.context = {**self.context, **context}
+        # Combine the original context with the new context
+        # The __init__ will handle merging this with any kwargs
+        combined_context = {**(self.context or {}), **context}
+
+        # Get the class of the current instance (supports subclasses)
+        error_class = self.__class__
+
+        # Create a new instance with the same attributes as the original
+        new_error = error_class(
+            message=self.message,
+            code=self.code,
+            severity=self.severity,
+            context=combined_context,
+        )
+
+        # Copy any additional attributes that might have been added
+        for attr_name, attr_value in self.__dict__.items():
+            if attr_name not in (
+                "code",
+                "message",
+                "category",
+                "severity",
+                "context",
+                "timestamp",
+            ):
+                setattr(new_error, attr_name, attr_value)
+
+        # Ensure __cause__ is properly copied as well
+        if hasattr(self, "__cause__") and self.__cause__ is not None:
+            new_error.__cause__ = self.__cause__
+
         return new_error
-
-    @classmethod
-    def wrap(
-        cls,
-        exception: Exception,
-        code: str,
-        message: str,
-        category: ErrorCategory,
-        severity: ErrorSeverity,
-        context: dict[str, Any] | None = None,
-    ) -> "UnoError":
-        """
-        Wrap an exception with a UnoError, always including the exception type in context.
-
-        Args:
-            exception: The exception to wrap
-            code: Unique identifier for this error type
-            message: Human-readable error message
-            category: Category the error belongs to
-            severity: Severity level of the error
-            context: Additional contextual information
-
-        Returns:
-            New UnoError instance wrapping the exception
-        """
-        merged_context = dict(context) if context else {}
-        if "original_exception" not in merged_context:
-            merged_context["original_exception"] = type(exception).__name__
-        err = cls(code, message, category, severity, merged_context)
-        err.__cause__ = exception
-        return err
 
     def __str__(self) -> str:
         """Get string representation of the error.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Structured logging middleware for error handling.
 
@@ -17,7 +20,7 @@ from typing import Any, TypeVar, TYPE_CHECKING
 from structlog.types import EventDict, Processor
 
 from uno.logging.logger import get_logger
-from uno.core.tracing import get_trace_context
+from uno.tracing import get_trace_context
 
 from .base import UnoError
 from .context import get_current_context
@@ -115,7 +118,7 @@ class ErrorLogger:
         self._bound_context: dict[str, Any] = {}
         self.name = name  # For testing purposes
 
-    def bind_context(self, **context: Any) -> 'ErrorLogger':
+    def bind_context(self, **context: Any) -> "ErrorLogger":
         """Bind context to the logger.
 
         Args:
@@ -224,7 +227,7 @@ class LoggingMiddleware:
     def __init__(
         self,
         logger: ErrorLogger | None = None,
-        metrics: 'ErrorMetrics | None' = None,
+        metrics: "ErrorMetrics | None" = None,
         record_metrics: bool = True,
     ) -> None:
         """Initialize the middleware.
@@ -307,7 +310,7 @@ class LoggingMiddleware:
                     "Failed to record error metrics",
                     error=metrics_error,
                     original_error=str(error),
-                    level="error"
+                    level="error",
                 )
 
         # Log at appropriate level based on error severity

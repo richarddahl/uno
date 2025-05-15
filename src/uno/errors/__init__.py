@@ -1,50 +1,25 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 
 """
 Error handling for the Uno framework.
 """
 
 from __future__ import annotations
+from typing import Any
 
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
-from uno.errors.helpers import create_error, error_context_from_dict, wrap_exception
+from uno.errors.base import UnoError, ErrorCode, ErrorCategory, ErrorSeverity
+from uno.errors.helpers import error_context_from_dict, wrap_exception
 
 __all__ = [
     # Error categories
+    "ErrorCode",
     "ErrorCategory",
     "ErrorSeverity",
     # Base errors
     "UnoError",
-    "MockIntegrationError",
     # Error helpers
-    "create_error",
     "error_context_from_dict",
-    "wrap_exception",
+    "wrap_exception",  # Expose the helper function at the package level
 ]
-
-
-class MockIntegrationError(UnoError):
-    """Test error class with additional attributes for integration testing."""
-
-    def __init__(
-        self,
-        message: str,
-        code: str,
-        category: str = "integration",
-        **kwargs: Any,
-    ) -> None:
-        """
-        Initialize a new test integration error.
-
-        Args:
-            message: The error message
-            code: Error code for categorization
-            category: Error category string
-            **kwargs: Additional context values
-        """
-        super().__init__(message=message, **kwargs)
-        self.code = code
-        self.category = category
-        self.timestamp = datetime.datetime.now(datetime.UTC).isoformat()

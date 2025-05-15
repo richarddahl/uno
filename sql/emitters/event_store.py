@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL emitters for event store operations."""
 
-from uno.persistence.sql.emitter import SQLEmitter
-from uno.persistence.sql.statement import SQLStatement, SQLStatementType
+from uno.persistance.sql.emitter import SQLEmitter
+from uno.persistance.sql.statement import SQLStatement, SQLStatementType
 
 
 class CreateDomainEventsTable(SQLEmitter):

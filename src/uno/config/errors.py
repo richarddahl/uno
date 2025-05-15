@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """
 Configuration-specific error classes for the Uno framework.
 
@@ -11,13 +10,20 @@ file handling, parsing, validation, and environment issues.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
+from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
-# =============================================================================
-# Configuration Errors
-# =============================================================================
+# Define error category and codes
+CONFIG = ErrorCategory("CONFIG")
+CFG_ERROR: Final = ErrorCode("CFG_ERROR", CONFIG)
+CFG_VALIDATION: Final = ErrorCode("CFG_VALIDATION", CONFIG)
+CFG_FILE_NOT_FOUND: Final = ErrorCode("CFG_FILE_NOT_FOUND", CONFIG)
+CFG_PARSE: Final = ErrorCode("CFG_PARSE", CONFIG)
+CFG_MISSING_KEY: Final = ErrorCode("CFG_MISSING_KEY", CONFIG)
+CFG_ENVIRONMENT: Final = ErrorCode("CFG_ENVIRONMENT", CONFIG)
+CFG_SECURE: Final = ErrorCode("CFG_SECURE", CONFIG)
+CFG_SECURE_VALUE: Final = ErrorCode("CFG_SECURE_VALUE", CONFIG)
 
 
 class ConfigError(UnoError):
@@ -26,7 +32,7 @@ class ConfigError(UnoError):
     def __init__(
         self,
         message: str,
-        code: str | None = None,
+        code: ErrorCode = CFG_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -35,21 +41,17 @@ class ConfigError(UnoError):
 
         Args:
             message: Human-readable error message
-            code: Error code without prefix (will be prefixed automatically)
+            code: Error code
             severity: How severe this error is
             context: Additional context information
             **kwargs: Additional context keys (will be merged with context)
         """
-        # Combine explicit context dict with any additional kwargs
-        full_context = context or {}
-        full_context.update(kwargs)
-
         super().__init__(
-            message=message,
-            code=f"CONFIG_{code}" if code else "CONFIG_ERROR",
-            category=ErrorCategory.CONFIG,
+            message,
+            code=code,
             severity=severity,
-            context=full_context,
+            context=context,
+            **kwargs,
         )
 
 
@@ -61,22 +63,24 @@ class ConfigValidationError(ConfigError):
         message: str,
         config_key: str | None = None,
         config_value: Any | None = None,
-        code: str | None = "VALIDATION_ERROR",
-        **context: Any,
+        code: ErrorCode = CFG_VALIDATION,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        ctx = {}
+        # Pass specific parameters as kwargs, UnoError will handle merging them
+        validation_kwargs = kwargs.copy()
         if config_key:
-            ctx["config_key"] = config_key
+            validation_kwargs["config_key"] = config_key
         if config_value is not None:
-            ctx["config_value"] = str(config_value)
-        # Add any additional context
-        ctx.update(context)
+            validation_kwargs["config_value"] = str(config_value)
 
         super().__init__(
             message=message,
             code=code,
-            severity=ErrorSeverity.ERROR,
-            context=ctx,
+            severity=severity,
+            context=context,
+            **validation_kwargs,
         )
 
 
@@ -87,19 +91,20 @@ class ConfigFileNotFoundError(ConfigError):
         self,
         file_path: str,
         message: str | None = None,
-        code: str | None = "FILE_NOT_FOUND",
-        **context: Any,
+        code: ErrorCode = CFG_FILE_NOT_FOUND,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         message = message or f"Configuration file not found: {file_path}"
-
-        ctx = {"file_path": file_path}
-        ctx.update(context)
 
         super().__init__(
             message=message,
             code=code,
-            severity=ErrorSeverity.ERROR,
-            context=ctx,
+            severity=severity,
+            context=context,
+            file_path=file_path,
+            **kwargs,
         )
 
 
@@ -111,27 +116,27 @@ class ConfigParseError(ConfigError):
         file_path: str,
         reason: str,
         line_number: int | None = None,
-        code: str | None = "PARSE_ERROR",
-        **context: Any,
+        code: ErrorCode = CFG_PARSE,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        ctx = {
-            "file_path": file_path,
-            "reason": reason,
-        }
-        if line_number is not None:
-            ctx["line_number"] = line_number
-        # Add any additional context
-        ctx.update(context)
-
         message = f"Failed to parse configuration file {file_path}: {reason}"
         if line_number is not None:
             message += f" at line {line_number}"
 
+        parse_kwargs = kwargs.copy()
+        parse_kwargs["file_path"] = file_path
+        parse_kwargs["reason"] = reason
+        if line_number is not None:
+            parse_kwargs["line_number"] = line_number
+
         super().__init__(
             message=message,
             code=code,
-            severity=ErrorSeverity.ERROR,
-            context=ctx,
+            severity=severity,
+            context=context,
+            **parse_kwargs,
         )
 
 
@@ -142,19 +147,20 @@ class ConfigMissingKeyError(ConfigError):
         self,
         key: str,
         message: str | None = None,
-        code: str | None = "MISSING_KEY",
-        **context: Any,
+        code: ErrorCode = CFG_MISSING_KEY,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         message = message or f"Required configuration key missing: {key}"
-
-        ctx = {"key": key}
-        ctx.update(context)
 
         super().__init__(
             message=message,
             code=code,
-            severity=ErrorSeverity.ERROR,
-            context=ctx,
+            severity=severity,
+            context=context,
+            key=key,
+            **kwargs,
         )
 
 
@@ -165,20 +171,21 @@ class ConfigEnvironmentError(ConfigError):
         self,
         message: str,
         environment: str | None = None,
-        code: str | None = "ENVIRONMENT_ERROR",
-        **context: Any,
+        code: ErrorCode = CFG_ENVIRONMENT,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
-        ctx = {}
+        env_kwargs = kwargs.copy()
         if environment:
-            ctx["environment"] = environment
-        # Add any additional context
-        ctx.update(context)
+            env_kwargs["environment"] = environment
 
         super().__init__(
             message=message,
             code=code,
-            severity=ErrorSeverity.ERROR,
-            context=ctx,
+            severity=severity,
+            context=context,
+            **env_kwargs,
         )
 
 
@@ -188,16 +195,19 @@ class SecureConfigError(ConfigError):
     def __init__(
         self,
         message: str,
-        code: str | None = None,
+        code: ErrorCode = CFG_SECURE,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             message=message,
-            code=code or "SECURE_CONFIG_ERROR",
+            code=code,
             severity=severity,
             context=context,
+            **kwargs,
         )
+
 
 class SecureValueError(SecureConfigError):
     """Error for invalid secure config values."""
@@ -205,21 +215,24 @@ class SecureValueError(SecureConfigError):
     def __init__(
         self,
         message: str,
-        code: str | None = None,
+        code: ErrorCode = CFG_SECURE_VALUE,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
-        **context: Any,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize a secure value error.
 
         Args:
             message: Human-readable error message
-            code: Error code without prefix
+            code: Error code
             severity: ErrorSeverity for the error (default: ERROR)
-            **context: Additional context information
+            context: Additional context information
+            **kwargs: Additional context keys
         """
         super().__init__(
             message=message,
-            code=f"SECURE_{code}" if code else "SECURE_ERROR",
+            code=code,
             severity=severity,
             context=context,
+            **kwargs,
         )

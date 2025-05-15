@@ -9,13 +9,13 @@ import logging
 from typing import Any, Protocol, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from uno.persistence.sql.engine import SyncEngineFactory
-    from uno.persistence.sql.interfaces import (
+    from uno.persistance.sql.engine import SyncEngineFactory
+    from uno.persistance.sql.interfaces import (
         ConnectionConfigProtocol,
         SQLEmitterProtocol,
     )
     from sqlalchemy.engine import Connection
-    from uno.persistence.sql.interfaces import (
+    from uno.persistance.sql.interfaces import (
         DBManagerProtocol,
         ConfigProtocol,
         SQLEmitterFactoryProtocol,
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         ConfigProtocol,
         SQLEmitterFactoryProtocol,
     )
-    from uno.persistence.sql.emitters.database import (
+    from uno.persistance.sql.emitters.database import (
         CreateRolesAndDatabase,
         CreateSchemasAndExtensions,
         RevokeAndGrantPrivilegesAndSetSearchPaths,
@@ -33,16 +33,16 @@ if TYPE_CHECKING:
         CreatePGULID,
         CreateTokenSecret,
     )
-    from uno.persistence.sql.emitters.table import InsertMetaRecordFunction
-    from uno.persistence.sql.emitters.triggers import RecordUserAuditFunction
-    from uno.persistence.sql.statement import SQLStatement
-    from uno.persistence.sql.interfaces import SQLEmitterFactoryProtocol
+    from uno.persistance.sql.emitters.table import InsertMetaRecordFunction
+    from uno.persistance.sql.emitters.triggers import RecordUserAuditFunction
+    from uno.persistance.sql.statement import SQLStatement
+    from uno.persistance.sql.interfaces import SQLEmitterFactoryProtocol
 
-from uno.persistence.sql.interfaces import SQLEmitterFactoryProtocol
-from uno.persistence.sql.interfaces import ConfigProtocol
-from uno.persistence.sql.emitter import SQLEmitter
-from uno.persistence.sql.statement import SQLStatement
-from uno.persistence.sql.emitters.database import (
+from uno.persistance.sql.interfaces import SQLEmitterFactoryProtocol
+from uno.persistance.sql.interfaces import ConfigProtocol
+from uno.persistance.sql.emitter import SQLEmitter
+from uno.persistance.sql.statement import SQLStatement
+from uno.persistance.sql.emitters.database import (
     CreateRolesAndDatabase,
     CreateSchemasAndExtensions,
     RevokeAndGrantPrivilegesAndSetSearchPaths,
@@ -50,9 +50,9 @@ from uno.persistence.sql.emitters.database import (
     CreatePGULID,
     CreateTokenSecret,
 )
-from uno.persistence.sql.emitters.table import InsertMetaRecordFunction
-from uno.persistence.sql.emitters.triggers import RecordUserAuditFunction
-from uno.persistence.sql.interfaces import DBManagerProtocol
+from uno.persistance.sql.emitters.table import InsertMetaRecordFunction
+from uno.persistance.sql.emitters.triggers import RecordUserAuditFunction
+from uno.persistance.sql.interfaces import DBManagerProtocol
 
 # Use canonical ConfigProtocol import
 

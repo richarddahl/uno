@@ -13,7 +13,7 @@ from uno.database.manager import (
 )
 from uno.meta.sqlconfigs import MetaTypeSQLConfig
 from uno.settings import uno_settings
-from uno.persistence.sql.emitters.database import (
+from uno.persistance.sql.emitters.database import (
     CreatePGULID,
     CreateRolesAndDatabase,
     CreateSchemasAndExtensions,
@@ -23,7 +23,7 @@ from uno.persistence.sql.emitters.database import (
     RevokeAndGrantPrivilegesAndSetSearchPaths,
     SetRole,
 )
-from uno.persistence.sql.emitters.table import InsertMetaRecordFunction
+from uno.persistance.sql.emitters.table import InsertMetaRecordFunction
 
 # Initialize a logger
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ if not logger.hasHandlers():
 engine_factory = SyncEngineFactory(logger=logger)
 
 # Import vector emitters
-from uno.persistence.sql.emitters.vector import (
+from uno.persistance.sql.emitters.vector import (
     CreateVectorTables,
     VectorIntegrationEmitter,
     VectorSQLEmitter,

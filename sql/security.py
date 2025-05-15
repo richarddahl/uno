@@ -8,9 +8,9 @@ import re
 from datetime import datetime
 from typing import Any, cast, Optional
 from pydantic import BaseModel, Field
-from uno.persistence.sql.config import SQLConfig
+from uno.persistance.sql.config import SQLConfig
 from uno.logging.protocols import LoggerProtocol
-from uno.persistence.sql.errors import SQLEmitterError, SQLExecutionError
+from uno.persistance.sql.errors import SQLEmitterError, SQLExecutionError
 
 
 class SecurityViolation(BaseModel):

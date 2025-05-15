@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING, Any
 
 from uno.commands.protocols import CommandHandlerRegistryProtocol
 from uno.commands.registry import CommandHandlerRegistry
-from uno.core.config import UnoConfig
+from uno.config import UnoConfig
 from uno.events.protocols import EventHandlerRegistryProtocol, EventPublisherProtocol
 from uno.events.registry import EventHandlerRegistry
 from uno.events.publisher import EventPublisher
 from uno.logging.protocols import LoggerProtocol
 from uno.logging.logger import UnoLogger
-from uno.persistence.event_sourcing.protocols import EventStoreProtocol
-from uno.persistence.event_sourcing.implementations.memory import InMemoryEventStore
-from uno.persistence.event_sourcing.implementations.postgres import PostgresEventStore
+from uno.persistance.event_sourcing.protocols import EventStoreProtocol
+from uno.persistance.event_sourcing.implementations.memory import InMemoryEventStore
+from uno.persistance.event_sourcing.implementations.postgres import PostgresEventStore
 from uno.snapshots.implementations.memory import (
     EventCountSnapshotStrategy,
     InMemorySnapshotStore,
@@ -28,7 +28,7 @@ from uno.snapshots.implementations.postgres import PostgresSnapshotStore
 from uno.snapshots.protocols import SnapshotStoreProtocol, SnapshotStrategyProtocol
 
 if TYPE_CHECKING:
-    from uno.di.protocols import ContainerProtocol
+    from uno.injection.protocols import ContainerProtocol
 
 
 async def configure_container(container: ContainerProtocol, config: UnoConfig) -> None:

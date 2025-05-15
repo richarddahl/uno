@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """SQL observers for monitoring and logging SQL operations."""
 
 # from uno.logging.logger import get_logger  # Removed for DI-based injection
 import logging
 from typing import Protocol
 
-from uno.persistence.sql.statement import SQLStatement
+from uno.persistance.sql.statement import SQLStatement
 
 
 class SQLObserver(Protocol):

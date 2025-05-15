@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """Registry for SQL configuration classes."""
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from uno.errors import UnoError
-from uno.persistence.sql.errors import (
+from uno.persistance.sql.errors import (
     SQLErrorCode,
     SQLStatementError,
     SQLExecutionError,
@@ -19,12 +18,12 @@ from uno.persistence.sql.errors import (
     SQLConfigError,
     SQLConfigInvalidError,
 )
-from uno.persistence.sql.interfaces import (
+from uno.persistance.sql.interfaces import (
     EngineFactoryProtocol,
 )  # DI protocol for engine factories
 
 if TYPE_CHECKING:
-    from uno.persistence.sql.config import SQLConfig
+    from uno.persistance.sql.config import SQLConfig
 
 
 class SQLConfigRegistry:

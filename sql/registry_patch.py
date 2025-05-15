@@ -1,11 +1,10 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """Patch for making registry registrations idempotent."""
 
-from uno.persistence.sql.config import SQLConfig
-from uno.persistence.sql.registry import SQLConfigRegistry
+from uno.persistance.sql.config import SQLConfig
+from uno.persistance.sql.registry import SQLConfigRegistry
 
 # Save the original register method
 original_register = SQLConfigRegistry.register
