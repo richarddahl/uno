@@ -28,6 +28,7 @@ dependencies = [
   "asyncio>=3.4.3",
   "alembic>=1.13.1",
   "aiosqlite>=0.21.0",
+  "aioredis>=2.0.1",
   "babel>=2.14.0",
   "fastapi[standard]>=0.109.0",
   "jinja2>=3.1.3",
@@ -46,6 +47,8 @@ dependencies = [
   "structlog>=24.1.0",
   "rich>=13.6.0",
   "httpx>=0.25.2",
+  "sentence-transformers>=2.2.2",
+  "numpy>=1.24.3",
   "prometheus_client>=0.20.0",
   "redis>=5.0.1",
   "msgspec>=0.18.4",
@@ -54,6 +57,7 @@ dependencies = [
   "cachetools>=5.3.2",
   "graphviz>=0.20.1",
   "cryptography>=40.0.1",
+  "ulid-py>=1.1.0",
 ]
 
 [project.urls]
@@ -203,10 +207,7 @@ serve = "mkdocs serve --dev-addr localhost:8001"
 
 # Lint Environment
 [tool.hatch.envs.lint]
-dependencies = [
-  "ruff>=0.2.1",
-  "mypy>=1.8.0",
-]
+dependencies = ["ruff>=0.2.1", "mypy>=1.8.0"]
 
 [tool.hatch.envs.lint.scripts]
 lint = "ruff check src/uno tests"
@@ -252,10 +253,7 @@ module = "pytest"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = [
-    "tests.*",
-    "tests.integration.*",
-]
+module = ["tests.*", "tests.integration.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_decorators = false
@@ -266,40 +264,40 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "N",   # naming
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "SIM", # flake8-simplify
-    "TCH", # typecheck
-    "RUF", # Ruff-specific rules
-    "ERA", # eradicate
-    "PL",  # pylint
-    "S",   # bandit
-    "DTZ", # flake8-datetimez
-    "PT"   # flake8-pytest-style
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "N",   # naming
+  "UP",  # pyupgrade
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "SIM", # flake8-simplify
+  "TCH", # typecheck
+  "RUF", # Ruff-specific rules
+  "ERA", # eradicate
+  "PL",  # pylint
+  "S",   # bandit
+  "DTZ", # flake8-datetimez
+  "PT",  # flake8-pytest-style
 ]
 ignore = [
-    "E501",  # Line too long
-    "E203",  # Whitespace before ':'
-    "N806",  # Lowercase variable names in functions
-    "N815",  # MixedCase variable in class scope
-    "N816",  # MixedCase variable in global scope
-    "N999",  # Non-lowercase variable in function
-    "PLR2004",  # Magic number used in comparison
-    "PLR0913",  # Too many arguments
-    "PLR0912",  # Too many branches
-    "PLR0915",  # Too many statements
-    "S101",  # Use of assert detected
-    "S106",  # Possible hardcoded password
-    "S113",  # Probable use of requests with no timeout
-    "S301",  # Use of pickle
-    "S311",  # Standard pseudo-random generators
-    "S603",  # Subprocess call with shell=True
-    "S607"   # Starting a process with a partial executable path
+  "E501",    # Line too long
+  "E203",    # Whitespace before ':'
+  "N806",    # Lowercase variable names in functions
+  "N815",    # MixedCase variable in class scope
+  "N816",    # MixedCase variable in global scope
+  "N999",    # Non-lowercase variable in function
+  "PLR2004", # Magic number used in comparison
+  "PLR0913", # Too many arguments
+  "PLR0912", # Too many branches
+  "PLR0915", # Too many statements
+  "S101",    # Use of assert detected
+  "S106",    # Possible hardcoded password
+  "S113",    # Probable use of requests with no timeout
+  "S301",    # Use of pickle
+  "S311",    # Standard pseudo-random generators
+  "S603",    # Subprocess call with shell=True
+  "S607",    # Starting a process with a partial executable path
 ]
 
 [tool.ruff.lint.isort]

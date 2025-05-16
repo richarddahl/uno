@@ -11,16 +11,12 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from uno.injection.errors import DisposalError
+
 if TYPE_CHECKING:
     from uno.injection.protocols import ContainerProtocol, ScopeProtocol
 
 T = TypeVar("T")
-
-
-class DisposalError(Exception):
-    """Base class for disposal-related errors."""
-
-    pass
 
 
 class _DisposalManager:
@@ -50,14 +46,41 @@ class _DisposalManager:
         try:
             await self.wait_for_pending_tasks()
 
-            # Get all scopes from the container using protocol method
-            scopes = await self.container.get_scopes()
-            for scope in reversed(scopes):
-                await scope.dispose()
+            # Get all scopes safely - if we can't get them from methods, access directly
+            try:
+                scopes = await self.container.get_scopes()
+            except Exception:
+                # Direct access if method call fails due to container disposal
+                # This is safe because we know the container's implementation
+                if hasattr(self.container, "_scopes"):
+                    scopes = getattr(self.container, "_scopes", [])
+                else:
+                    scopes = []
 
-            # Get the singleton scope using protocol method
-            singleton_scope = await self.container.get_singleton_scope()
-            await singleton_scope.dispose()
+            # Get singleton scope safely
+            try:
+                singleton_scope = await self.container.get_singleton_scope()
+            except Exception:
+                # Direct access if method call fails
+                singleton_scope = getattr(self.container, "_singleton_scope", None)
+
+            # Then dispose them in the correct order (newest to oldest, except singleton)
+            for scope in reversed(list(scopes)):
+                if scope != singleton_scope:  # Don't dispose singleton scope yet
+                    try:
+                        await scope.dispose()
+                    except Exception as e:
+                        # Log error but continue with other scopes
+                        import logging
+
+                        logging.getLogger(__name__).warning(
+                            f"Error disposing scope: {e}"
+                        )
+
+            # Only dispose singleton scope if it exists
+            if singleton_scope is not None:
+                await singleton_scope.dispose()
+
         except Exception as e:
             raise DisposalError(f"Failed to dispose container: {e}") from e
 

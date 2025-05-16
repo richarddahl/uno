@@ -1,8 +1,4 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
-# SPDX-License-Identifier: MIT
-
-# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
 # SPDX-License-Identifier: MIT
 # SPDX-Package-Name: uno framework
 """
@@ -136,8 +132,17 @@ class ErrorCategory:
         """
         return cls._registry.get(name)
 
+    @classmethod
+    def get_or_create(
+        cls, name: str, parent: "ErrorCategory | None" = None
+    ) -> "ErrorCategory":
+        existing = cls.get_by_name(name)
+        if existing is not None:
+            return existing
+        return cls(name, parent=parent)
 
-INTERNAL: Final = ErrorCategory("INTERNAL")
+
+INTERNAL: Final = ErrorCategory.get_or_create("INTERNAL")
 
 
 class ErrorCode:
@@ -168,7 +173,7 @@ class ErrorCode:
         ErrorCode._registry[code] = self
 
     def __str__(self) -> str:
-        return f"{self.category.name}_{self.code}"
+        return self.code
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ErrorCode):
@@ -234,6 +239,7 @@ class ErrorCode:
                 logging.warning(
                     f"Error code '{code}' not found in registry, returning None"
                 )
+                return None
         return error_code
 
     @classmethod
@@ -254,9 +260,16 @@ class ErrorCode:
             code for code in cls._registry.values() if code.category in subcategories
         ]
 
+    @classmethod
+    def get_or_create(cls, name: str, category: "ErrorCategory") -> "ErrorCode":
+        existing = cls.get_by_code(name, raise_if_missing=False)
+        if existing is not None:
+            return existing
+        return cls(name, category=category)
+
 
 # Define base error categories and codes here
-INTERNAL_ERROR: Final = ErrorCode("INTERNAL_ERROR", category=INTERNAL)
+INTERNAL_ERROR: Final = ErrorCode.get_or_create("INTERNAL_ERROR", INTERNAL)
 
 
 class UnoError(Exception):
@@ -303,7 +316,10 @@ class UnoError(Exception):
             context: Additional contextual information
             **kwargs: Ignored. Accepts arbitrary keyword arguments for subclass compatibility.
         """
-        # Combine explicit context dict with any additional kwargs
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+
         full_context = context or {}
         full_context.update(kwargs)
 
@@ -313,6 +329,29 @@ class UnoError(Exception):
         self.severity = severity
         self.context = full_context
         self.timestamp = datetime.now(UTC)
+
+    @classmethod
+    async def async_init(
+        cls,
+        message: str,
+        code: ErrorCode,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "UnoError":
+        """
+        Async factory for UnoError. Subclasses may override for richer async context.
+        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        return cls(
+            message=message,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
 
     def with_context(self, context: dict[str, Any]) -> "UnoError":
         """Return a new error with additional context."""

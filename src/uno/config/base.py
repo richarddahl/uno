@@ -56,7 +56,7 @@ class Environment(str, Enum):
         else:
             raise ConfigError(
                 message=f"Invalid environment: {value}",
-                code="INVALID_ENVIRONMENT",
+                code="CONFIG_ENVIRONMENT_ERROR",
                 context={"provided_value": value},
             )
 
@@ -75,8 +75,6 @@ class Environment(str, Enum):
             or os.environ.get("ENV")
         )
         return cls.from_string(env_var)
-
-
 
 
 def get_env_var(name: str, case_sensitive: bool = True) -> str | None:
@@ -344,8 +342,6 @@ class UnoSettings(BaseSettings):
         schema = self.model_json_schema()
         properties = schema.get("properties", {})
 
-
- 
         # Find all secure fields
         for field_name, field_schema in properties.items():
             if field_schema.get("secure"):

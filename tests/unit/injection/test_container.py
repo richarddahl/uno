@@ -41,12 +41,12 @@ async def test_singleton_registration_and_resolution():
 async def test_scoped_registration_and_resolution():
     container = await Container.create()
     await container.register_scoped(FakeScopedService, FakeScopedService)
-    async with await container.create_scope() as scope1:
+    async with container.create_scope() as scope1:
         inst1 = await scope1.resolve(FakeScopedService)
         inst2 = await scope1.resolve(FakeScopedService)
         assert inst1 is inst2
         assert inst1.value == 99
-    async with await container.create_scope() as scope2:
+    async with container.create_scope() as scope2:
         inst3 = await scope2.resolve(FakeScopedService)
         assert inst3 is not inst1
 
@@ -89,7 +89,7 @@ async def test_duplicate_registration_error():
 async def test_scope_disposed_error():
     container = await Container.create()
     await container.register_scoped(FakeScopedService, FakeScopedService)
-    async with await container.create_scope() as scope:
+    async with container.create_scope() as scope:
         inst = await scope.resolve(FakeScopedService)
     with pytest.raises(ScopeDisposedError):
         await scope.resolve(FakeScopedService)

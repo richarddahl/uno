@@ -26,18 +26,19 @@ from uno.config import (
 class TestSecureValue:
     def test_getstate_and_dir_masking(self, setup_secure_config):
         import pickle
+
         val = SecureValue("supersecret", handling=SecureValueHandling.ENCRYPT)
         state = val.__getstate__()
         # Sensitive fields are masked
-        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
-            assert state[k] == '******'
+        for k in ["_value", "_original_value", "_serialized_value", "_salt"]:
+            assert state[k] == "******"
         # dir() does not show sensitive fields
         attrs = dir(val)
-        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
+        for k in ["_value", "_original_value", "_serialized_value", "_salt"]:
             assert k not in attrs
         # Pickling does not leak secret
         pickled = pickle.dumps(val)
-        assert b'supersecret' not in pickled
+        assert b"supersecret" not in pickled
 
     """Test SecureValue class with proper handling of types."""
 
@@ -65,9 +66,7 @@ class TestSecureValue:
         for value, expected_type in test_cases:
             secure = SecureValue(value, handling=SecureValueHandling.ENCRYPT)
             # Value should be encrypted internally
-            assert isinstance(
-                secure._value, bytes
-            )  
+            assert isinstance(secure._value, bytes)
             # But decrypted when accessed
             decrypted = secure.get_value()
             assert isinstance(decrypted, expected_type)
@@ -116,7 +115,7 @@ class TestSecureValue:
         with pytest.raises(SecureValueError) as exc_info:
             SecureValue("test", handling=SecureValueHandling.ENCRYPT)
         assert "No key version specified and no current key set" in str(exc_info.value)
-        assert exc_info.value.code == "CONFIG_SECURE_NO_KEY_VERSION"
+        assert exc_info.value.code.code == "CONFIG_NO_KEY_VERSION_ERROR"
 
         # Also test manual encryption on an existing instance
         value = SecureValue("test", handling=SecureValueHandling.MASK)
@@ -124,8 +123,8 @@ class TestSecureValue:
         with pytest.raises(SecureValueError) as exc_info2:
             value._encrypt()
         assert "No key version specified and no current key set" in str(exc_info2.value)
-        assert exc_info2.value.code == "CONFIG_SECURE_NO_KEY_VERSION"
-    
+        assert exc_info2.value.code.code == "CONFIG_NO_KEY_VERSION_ERROR"
+
     @pytest.mark.asyncio
     async def test_key_rotation(self, test_encryption_key: bytes) -> None:
         """Test the key rotation capability."""
@@ -172,7 +171,6 @@ class TestSecureValue:
         f = SecureValue("same_secret", handling=SecureValueHandling.ENCRYPT)
         assert e == f
 
-
     def test_securevalue_none_handling(self, setup_secure_config: None) -> None:
         """Test handling of None values in SecureValue."""
         # Test with None value and different handling strategies
@@ -180,7 +178,7 @@ class TestSecureValue:
         # With MASK handling
         none_mask = SecureValue(None, handling=SecureValueHandling.MASK)
         assert none_mask.get_value() is None
-        assert str(none_mask) == "******"  
+        assert str(none_mask) == "******"
 
         # With ENCRYPT handling - should be able to encrypt and decrypt None
         none_encrypt = SecureValue(None, handling=SecureValueHandling.ENCRYPT)

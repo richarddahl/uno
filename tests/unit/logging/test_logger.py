@@ -1,6 +1,7 @@
 import pytest
 import logging
 import io
+import asyncio
 import sys
 import uuid
 import datetime
@@ -193,6 +194,13 @@ def test_logger_json_output(logger, capsys):
 
 @pytest.mark.asyncio
 async def test_logger_async_context_propagation(logger):
+    # Set up an event loop explicitly for Python 3.13
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
     async with logger.context(request_id="abc"):
         await logger.info("msg", extra="value")
     # No assertion, just ensure no error

@@ -17,8 +17,10 @@ class DummyError(Exception):
 
 
 def test_service_creation_error_context():
-    err = ServiceCreationError(interface=str, error=DummyError("fail"), foo="bar")
-    assert "interface" in err.context
+    err = ServiceCreationError(
+        message="fail", service_type=str, original_error=DummyError("fail"), foo="bar"
+    )
+    assert "service_type_name" in err.context
     assert "error_type" in err.context
     assert err.context["foo"] == "bar"
 
@@ -65,7 +67,7 @@ async def test_scope_disposed_error():
         message="Operation attempted on disposed scope",
         operation="resolve",
         scope_id="xyz",
-        code="SCOPE_DISPOSED",
+        code="SCOPE_DISPOSAL_ERROR",
     )
 
     # Verify the error properties
@@ -73,4 +75,4 @@ async def test_scope_disposed_error():
     assert "disposed scope" in err.message
     assert err.context.get("scope_id") == "xyz"
     assert err.context.get("operation") == "resolve"
-    assert err.code == "DI_SCOPE_DISPOSED"
+    assert err.code.code == "SCOPE_DISPOSAL_ERROR"

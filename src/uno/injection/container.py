@@ -152,7 +152,7 @@ class Container:
 
     @classmethod
     async def create(
-        cls, configurator: Callable[[Container], Awaitable[None]]
+        cls, configurator: Callable[[Container], Awaitable[None]] = None
     ) -> Container:
         """Create and configure a new container.
 
@@ -182,6 +182,11 @@ class Container:
             ```
         """
         container = cls()
+        if configurator is None:
+
+            async def configurator(_):  # type: ignore
+                pass
+
         try:
             await configurator(container)
         except Exception as e:
@@ -194,11 +199,30 @@ class Container:
         return container
 
     async def _check_not_disposed(self, operation: str) -> None:
-        """Check if the container is disposed and raise an error if it is."""
+        """Check if the container is disposed and raise an error if it is.
+
+        Args:
+            operation: The operation being attempted
+
+        Raises:
+            ContainerDisposedError: If the container is disposed
+        """
         if self._disposed:
-            raise await ContainerDisposedError.async_init(
-                "Container is disposed", operation=operation
+            # Use the standard constructor instead of async_init
+            from uno.injection.errors import ContainerDisposedError
+
+            # Create the error using the new constructor pattern
+            error = ContainerDisposedError(
+                message=f"Container has been disposed and cannot perform: {operation}",
+                operation=operation,
+                # Add any other context information you need
             )
+
+            # If you need to capture container state, consider using a separate utility
+            # For example:
+            # await capture_container_state(error, self)
+
+            raise error
 
     async def get_registration_keys(self) -> list[str]:
         """Get all registered service keys asynchronously.
@@ -283,10 +307,15 @@ class Container:
         try:
             # Try to get the LoggerScopeProtocol
             try:
-                logger_scope = await self.resolve_optional(LoggerScopeProtocol)
-            except ImportError:
+                # Import LoggerScopeProtocol only when needed to avoid circular imports
+                from uno.logging.protocols import (
+                    LoggerScopeProtocol as LoggerScopeProtocolCls,
+                )
+
+                logger_scope = await self.resolve_optional(LoggerScopeProtocolCls)
+            except (ImportError, NameError):
                 # Try a string-based lookup if the protocol isn't available
-                logger_scope = await self.resolve_optional("LoggerScope")
+                logger_scope = await self.resolve_optional("LoggerScopeProtocol")
 
             # Set up logger scope context manager if available
             if logger_scope is not None and hasattr(logger_scope, "scope"):
@@ -311,14 +340,15 @@ class Container:
         finally:
             # Clean up logger scope if it was created
             if logger_scope_cm is not None:
-                if propagate_logger_scope_errors:
-                    # Allow exceptions to propagate for testing
+                try:
+                    # Always call __aexit__ directly and handle exceptions based on parameter
                     await logger_scope_cm.__aexit__(None, None, None)
-                else:
-                    # In normal operation, catch and log exceptions
-                    try:
-                        await logger_scope_cm.__aexit__(None, None, None)
-                    except Exception as e:
+                except Exception as e:
+                    if propagate_logger_scope_errors:
+                        # Re-raise the exception if we're supposed to propagate errors
+                        raise
+                    else:
+                        # In normal operation, catch and log exceptions
                         logger = await self._get_logger()
                         logger.debug(f"Error exiting logger scope: {e}")
 
@@ -370,17 +400,37 @@ class Container:
 
     async def register_singleton(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         implementation: Any,
         replace: bool = False,
     ) -> None:
-        await self._register(
-            interface, implementation, ServiceLifetime.SINGLETON, replace
-        )
+        import asyncio
+
+        # Remove previous instance if replace=True
+        if replace and interface in self._singleton_scope._services:
+            del self._singleton_scope._services[interface]
+
+        # If implementation is a class, instantiate it with no arguments
+        if isinstance(implementation, type):
+            instance = implementation()
+        # If implementation is a callable (but not a class), call it with self and await if needed
+        elif callable(implementation):
+            if asyncio.iscoroutinefunction(implementation):
+                instance = await implementation(self)
+            else:
+                result = implementation(self)
+                if asyncio.iscoroutine(result):
+                    instance = await result
+                else:
+                    instance = result
+        else:
+            instance = implementation
+        # Store the instance directly in the singleton scope
+        await self._register(interface, instance, ServiceLifetime.SINGLETON, replace)
 
     async def register_scoped(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         implementation: Any,
         replace: bool = False,
     ) -> None:
@@ -388,7 +438,7 @@ class Container:
 
     async def register_transient(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         implementation: Any,
         replace: bool = False,
     ) -> None:
@@ -412,6 +462,9 @@ class Container:
             raise DuplicateRegistrationError(interface)
         registration = ServiceRegistration(interface, implementation, lifetime)
         self._registrations[interface] = registration
+        # For singleton, store the instance in the singleton scope
+        if lifetime == ServiceLifetime.SINGLETON:
+            self._singleton_scope._services[interface] = implementation
 
     async def create_service(self, interface: type[Any], implementation: Any) -> Any:
         import asyncio
@@ -425,7 +478,9 @@ class Container:
                     raise exc
                 # Use async_init instead of direct instantiation
                 raise await ServiceCreationError.async_init(
-                    service_type=interface, original_error=exc, container=self
+                    service_type=interface,
+                    original_error=exc,
+                    container=cast(ContainerProtocol, self),
                 )
         elif callable(implementation):
             try:
@@ -439,7 +494,9 @@ class Container:
                     raise exc
                 # Use async_init instead of direct instantiation
                 raise await ServiceCreationError.async_init(
-                    service_type=interface, original_error=exc, container=self
+                    service_type=interface,
+                    original_error=exc,
+                    container=cast(ContainerProtocol, self),
                 )
         else:
             return implementation
@@ -463,7 +520,7 @@ class Container:
         # Check if service is registered
         if interface not in self._registrations:
             raise await ServiceNotFoundError.async_init(
-                service_type=interface, container=self
+                service_type=interface, container=cast(ContainerProtocol, self)
             )
 
         # Get the type name for dependency tracking
@@ -477,7 +534,7 @@ class Container:
             # Create a new chain that includes the current service to show the complete cycle
             circular_chain = dependency_chain + [service_type_name]
             raise await CircularDependencyError.async_init(
-                container=self,
+                container=cast(ContainerProtocol, self),
                 dependency_chain=circular_chain,
             )
 
@@ -486,6 +543,10 @@ class Container:
 
         try:
             registration = self._registrations[interface]
+
+            # Singleton: always return the instance from the singleton scope
+            if registration.lifetime == ServiceLifetime.SINGLETON:
+                return self._singleton_scope._services[interface]
 
             # Check for scoped service outside of scope
             if registration.lifetime == ServiceLifetime.SCOPED and (
@@ -498,18 +559,22 @@ class Container:
             scope = self._scopes[-1] if self._scopes else self._singleton_scope
             key = interface
 
-            async def factory() -> Any:  # Fix: Changed from Container to Any
+            async def factory() -> Any:
                 return await self.create_service(interface, registration.implementation)
 
-            instance = await policy.get_instance(scope, factory, key)
-            return instance
+            if hasattr(policy, "get_instance"):
+                instance = await policy.get_instance(scope, factory, key)
+            else:
+                # If the policy doesn't have get_instance, use the factory directly
+                instance = await factory()
+            return cast(T, instance)
         finally:
             # Restore the previous dependency chain
             _DI_DEPENDENCY_CHAIN.reset(token)
 
     async def replace(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         implementation: Any,
         lifetime: ServiceLifetime,
     ) -> AsyncGenerator[None, None]:  # Add proper return type
@@ -538,7 +603,7 @@ class Container:
 
     async def _restore_original(
         self,
-        interface: Type[Any],
+        interface: type[Any],
         original_registration: Any,
         original_instance: Any,
         lifetime: ServiceLifetime,

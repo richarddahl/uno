@@ -5,10 +5,11 @@ import pytest
 from unittest.mock import patch, Mock, AsyncMock
 
 from uno.config.secure import setup_secure_config, SecureValue, SecureValueError
-
+from uno.errors.base import ErrorCode, ErrorSeverity, ErrorCategory
 
 
 import pytest
+
 
 @pytest.mark.asyncio
 async def test_setup_secure_config_calls_setup_encryption():
@@ -35,7 +36,6 @@ async def test_setup_secure_config_calls_setup_encryption():
         )
 
 
-
 @pytest.mark.asyncio
 async def test_setup_secure_config_default_values():
     """Test that setup_secure_config uses default values correctly."""
@@ -53,7 +53,6 @@ async def test_setup_secure_config_default_values():
         )
 
 
-
 @pytest.mark.asyncio
 async def test_setup_secure_config_error_propagation():
     """Test that setup_secure_config propagates errors from setup_encryption."""
@@ -63,7 +62,10 @@ async def test_setup_secure_config_error_propagation():
         # Make setup_encryption raise an error
         # Using the expected code format with CONFIG_SECURE_ prefix
         mock_setup.side_effect = SecureValueError(
-            "Test error", code="TEST_ERROR"
+            "Test error",
+            code=ErrorCode.get_or_create(
+                "CONFIG_SECURE_TEST_ERROR", ErrorCategory.get_or_create("TEST")
+            ),
         )
 
         # Verify the error is propagated
@@ -72,8 +74,7 @@ async def test_setup_secure_config_error_propagation():
 
         assert "Test error" in str(excinfo.value)
         # Update to match the actual format with the prefix
-        assert excinfo.value.code == "CONFIG_SECURE_TEST_ERROR"
-
+        assert excinfo.value.code.code == "CONFIG_SECURE_TEST_ERROR"
 
 
 @pytest.mark.asyncio

@@ -14,16 +14,55 @@ from typing import Any, Final
 
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
-# Define error category and codes
-CONFIG = ErrorCategory("CONFIG")
-CFG_ERROR: Final = ErrorCode("CFG_ERROR", CONFIG)
-CFG_VALIDATION: Final = ErrorCode("CFG_VALIDATION", CONFIG)
-CFG_FILE_NOT_FOUND: Final = ErrorCode("CFG_FILE_NOT_FOUND", CONFIG)
-CFG_PARSE: Final = ErrorCode("CFG_PARSE", CONFIG)
-CFG_MISSING_KEY: Final = ErrorCode("CFG_MISSING_KEY", CONFIG)
-CFG_ENVIRONMENT: Final = ErrorCode("CFG_ENVIRONMENT", CONFIG)
-CFG_SECURE: Final = ErrorCode("CFG_SECURE", CONFIG)
-CFG_SECURE_VALUE: Final = ErrorCode("CFG_SECURE_VALUE", CONFIG)
+# Add this utility to ErrorCategory (if not already present)
+CONFIG = ErrorCategory.get_or_create("CONFIG")
+CONFIG_ERROR: Final = ErrorCode.get_or_create("CONFIG_ERROR", CONFIG)
+CONFIG_VALIDATION_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_VALIDATION_ERROR", CONFIG
+)
+CONFIG_FILE_NOT_FOUND: Final = ErrorCode.get_or_create("CONFIG_FILE_NOT_FOUND", CONFIG)
+CONFIG_PARSE_ERROR: Final = ErrorCode.get_or_create("CONFIG_PARSE_ERROR", CONFIG)
+CONFIG_MISSING_KEY: Final = ErrorCode.get_or_create("CONFIG_MISSING_KEY", CONFIG)
+CONFIG_ENVIRONMENT_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_ENVIRONMENT_ERROR", CONFIG
+)
+CONFIG_NO_KEY_VERSION_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_NO_KEY_VERSION_ERROR", CONFIG
+)
+CONFIG_SECURE_ERROR: Final = ErrorCode.get_or_create("CONFIG_SECURE_ERROR", CONFIG)
+CONFIG_SECURE_VALUE_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_VALUE_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_MISSING_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_MISSING_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_INVALID_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_INVALID_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_NOT_FOUND_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_NOT_FOUND_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_DECRYPTION_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_DECRYPTION_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_ENCRYPTION_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_ENCRYPTION_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_NOT_SUPPORTED_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_NOT_SUPPORTED_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_NOT_INITIALIZED_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_NOT_INITIALIZED_ERROR", CONFIG
+)
+CONFIG_SECURE_KEY_NOT_CONFIGURED_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SECURE_KEY_NOT_CONFIGURED_ERROR", CONFIG
+)
+CONFIG_SEALED_VALUE_ACCESS_ERROR: Final = ErrorCode.get_or_create(
+    "CONFIG_SEALED_VALUE_ACCESS_ERROR", CONFIG
+)
 
 
 class ConfigError(UnoError):
@@ -32,7 +71,7 @@ class ConfigError(UnoError):
     def __init__(
         self,
         message: str,
-        code: ErrorCode = CFG_ERROR,
+        code: ErrorCode = CONFIG_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -63,7 +102,7 @@ class ConfigValidationError(ConfigError):
         message: str,
         config_key: str | None = None,
         config_value: Any | None = None,
-        code: ErrorCode = CFG_VALIDATION,
+        code: ErrorCode = CONFIG_VALIDATION_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -91,7 +130,7 @@ class ConfigFileNotFoundError(ConfigError):
         self,
         file_path: str,
         message: str | None = None,
-        code: ErrorCode = CFG_FILE_NOT_FOUND,
+        code: ErrorCode = CONFIG_FILE_NOT_FOUND,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -116,7 +155,7 @@ class ConfigParseError(ConfigError):
         file_path: str,
         reason: str,
         line_number: int | None = None,
-        code: ErrorCode = CFG_PARSE,
+        code: ErrorCode = CONFIG_PARSE_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -147,7 +186,7 @@ class ConfigMissingKeyError(ConfigError):
         self,
         key: str,
         message: str | None = None,
-        code: ErrorCode = CFG_MISSING_KEY,
+        code: ErrorCode = CONFIG_MISSING_KEY,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -171,7 +210,7 @@ class ConfigEnvironmentError(ConfigError):
         self,
         message: str,
         environment: str | None = None,
-        code: ErrorCode = CFG_ENVIRONMENT,
+        code: ErrorCode = CONFIG_ENVIRONMENT_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -195,7 +234,7 @@ class SecureConfigError(ConfigError):
     def __init__(
         self,
         message: str,
-        code: ErrorCode = CFG_SECURE,
+        code: ErrorCode = CONFIG_SECURE_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
@@ -215,7 +254,7 @@ class SecureValueError(SecureConfigError):
     def __init__(
         self,
         message: str,
-        code: ErrorCode = CFG_SECURE_VALUE,
+        code: ErrorCode = CONFIG_SECURE_VALUE_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,

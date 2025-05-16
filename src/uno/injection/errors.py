@@ -22,25 +22,32 @@ TContainer = TypeVar("TContainer", bound="ContainerProtocol")
 TScope = TypeVar("TScope", bound="ScopeProtocol")
 
 # Define error categories and codes
-INJECTION: Final = ErrorCategory("INJECTION")
-INJECTION_ERROR: Final = ErrorCode("INJECTION_ERROR", INJECTION)
-INJECTION_SERVICE_CREATION: Final = ErrorCode("INJECTION_SERVICE_CREATION", INJECTION)
-INJECTION_SERVICE_NOT_FOUND: Final = ErrorCode("INJECTION_SERVICE_NOT_FOUND", INJECTION)
-INJECTION_DUPLICATE_REGISTRATION: Final = ErrorCode(
+INJECTION: Final = ErrorCategory.get_or_create("INJECTION")
+INJECTION_ERROR: Final = ErrorCode.get_or_create("INJECTION_ERROR", INJECTION)
+INJECTION_SERVICE_CREATION: Final = ErrorCode.get_or_create(
+    "INJECTION_SERVICE_CREATION", INJECTION
+)
+INJECTION_SERVICE_NOT_FOUND: Final = ErrorCode.get_or_create(
+    "INJECTION_SERVICE_NOT_FOUND", INJECTION
+)
+INJECTION_DUPLICATE_REGISTRATION: Final = ErrorCode.get_or_create(
     "INJECTION_DUPLICATE_REGISTRATION", INJECTION
 )
-INJECTION_CIRCULAR_DEPENDENCY: Final = ErrorCode(
+INJECTION_CIRCULAR_DEPENDENCY: Final = ErrorCode.get_or_create(
     "INJECTION_CIRCULAR_DEPENDENCY", INJECTION
 )
-INJECTION_SYNC_IN_ASYNC: Final = ErrorCode("INJECTION_SYNC_IN_ASYNC", INJECTION)
+INJECTION_SYNC_IN_ASYNC: Final = ErrorCode.get_or_create(
+    "INJECTION_SYNC_IN_ASYNC", INJECTION
+)
+INJECTION_DISPOSAL: Final = ErrorCode.get_or_create("INJECTION_DISPOSAL", INJECTION)
 
-CONTAINER: Final = ErrorCategory("CONTAINER", parent=INJECTION)
-CONTAINER_ERROR: Final = ErrorCode("CONTAINER_ERROR", CONTAINER)
-CONTAINER_DISPOSED: Final = ErrorCode("CONTAINER_DISPOSED", CONTAINER)
+CONTAINER: Final = ErrorCategory.get_or_create("CONTAINER", parent=INJECTION)
+CONTAINER_ERROR: Final = ErrorCode.get_or_create("CONTAINER_ERROR", CONTAINER)
+CONTAINER_DISPOSED: Final = ErrorCode.get_or_create("CONTAINER_DISPOSED", CONTAINER)
 
-SCOPE: Final = ErrorCategory("SCOPE", parent=INJECTION)
-SCOPE_ERROR: Final = ErrorCode("SCOPE_ERROR", SCOPE)
-SCOPE_DISPOSED: Final = ErrorCode("SCOPE_DISPOSED", SCOPE)
+SCOPE: Final = ErrorCategory.get_or_create("SCOPE", parent=INJECTION)
+SCOPE_ERROR: Final = ErrorCode.get_or_create("SCOPE_ERROR", SCOPE)
+SCOPE_DISPOSAL_ERROR: Final = ErrorCode.get_or_create("SCOPE_DISPOSAL_ERROR", SCOPE)
 
 
 class InjectionError(UnoError):
@@ -54,21 +61,39 @@ class InjectionError(UnoError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a DI error.
-
-        Args:
-            message: Human-readable error message
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         super().__init__(
             message,
             code=code,
             severity=severity,
             context=context,
             **kwargs,
+        )
+
+    @classmethod
+    async def async_init(
+        cls,
+        message: str | None = None,
+        code: ErrorCode = INJECTION_ERROR,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "InjectionError":
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        # Compose a default message if not provided
+        if message is None:
+            message = "An injection error occurred"
+        # Merge context and kwargs
+        merged_context = dict(context or {})
+        merged_context.update(kwargs)
+        return cls(
+            message=message,
+            code=code,
+            severity=severity,
+            context=merged_context,
         )
 
 
@@ -87,15 +112,9 @@ class ContainerError(InjectionError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a container error.
-
-        Args:
-            message: Human-readable error message
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         super().__init__(
             message,
             code=code,
@@ -105,7 +124,6 @@ class ContainerError(InjectionError):
         )
 
 
-# =============================================================================
 class ServiceCreationError(ContainerError):
     """Raised when the container cannot create a service instance.
 
@@ -124,19 +142,9 @@ class ServiceCreationError(ContainerError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a service creation error.
-
-        Args:
-            message: Human-readable error message
-            service_type: The type of service that could not be created
-            original_error: The original error that occurred during creation
-            service_key: The service key that was requested
-            dependency_chain: The chain of dependencies being resolved
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         ctx = kwargs.copy()
         if service_type is not None:
             service_type_name = getattr(service_type, "__name__", str(service_type))
@@ -162,6 +170,70 @@ class ServiceCreationError(ContainerError):
             **ctx,
         )
 
+    @classmethod
+    async def async_init(
+        cls,
+        message: str | None = None,
+        service_type: type[Any] | None = None,
+        original_error: Exception | None = None,
+        service_key: str | None = None,
+        dependency_chain: list[str] | None = None,
+        container: "ContainerProtocol | None" = None,
+        code: ErrorCode = INJECTION_SERVICE_CREATION,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "ServiceCreationError":
+        """
+        Async factory for ServiceCreationError that can capture container state.
+        """
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        # Compose message if not provided
+        if message is None:
+            if service_type is not None:
+                service_type_name = getattr(service_type, "__name__", str(service_type))
+                message = f"Failed to create service: {service_type_name}"
+            else:
+                message = "Failed to create service"
+        # Optionally capture container state
+        if container is not None:
+            try:
+                from uno.injection.diagnostics import ContainerStateCapture
+
+                error = cls(
+                    message=message,
+                    service_type=service_type,
+                    original_error=original_error,
+                    service_key=service_key,
+                    dependency_chain=dependency_chain,
+                    code=code,
+                    severity=severity,
+                    context=context,
+                    **kwargs,
+                )
+                await ContainerStateCapture.capture_service_creation_state(
+                    error,
+                    service_type or object,
+                    container,
+                    service_key,
+                    dependency_chain,
+                )
+                return error
+            except Exception:
+                pass
+        return cls(
+            message=message,
+            service_type=service_type,
+            original_error=original_error,
+            service_key=service_key,
+            dependency_chain=dependency_chain,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
+
 
 class TypeMismatchError(InjectionError):
     """Raised when a service instance doesn't match its expected interface."""
@@ -175,16 +247,9 @@ class TypeMismatchError(InjectionError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a type mismatch error.
-
-        Args:
-            interface: The expected interface type
-            actual_type: The actual type provided
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         message = f"Expected {interface.__name__}, got {actual_type.__name__}"
 
         super().__init__(
@@ -215,18 +280,9 @@ class ServiceNotFoundError(ContainerError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a service not found error.
-
-        Args:
-            message: Human-readable error message
-            service_type: The type of service that was requested
-            service_key: The service key that was requested
-            dependency_chain: The chain of dependencies being resolved
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         ctx = kwargs.copy()
         if service_type is not None:
             service_type_name = getattr(service_type, "__name__", str(service_type))
@@ -255,6 +311,60 @@ class ServiceNotFoundError(ContainerError):
             **ctx,
         )
 
+    @classmethod
+    async def async_init(
+        cls,
+        message: str | None = None,
+        service_type: type[Any] | None = None,
+        service_key: str | None = None,
+        dependency_chain: list[str] | None = None,
+        container: "ContainerProtocol | None" = None,
+        code: ErrorCode = INJECTION_SERVICE_NOT_FOUND,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "ServiceNotFoundError":
+        """
+        Async factory for ServiceNotFoundError that can capture container state.
+        """
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        if message is None:
+            if service_type is not None:
+                service_type_name = getattr(service_type, "__name__", str(service_type))
+                message = f"Service not found: {service_type_name}"
+            else:
+                message = "Service not found"
+        # Optionally capture container state
+        if container is not None:
+            try:
+                from uno.injection.diagnostics import ContainerStateCapture
+
+                error = cls(
+                    message=message,
+                    service_type=service_type,
+                    service_key=service_key,
+                    dependency_chain=dependency_chain,
+                    code=code,
+                    severity=severity,
+                    context=context,
+                    **kwargs,
+                )
+                await ContainerStateCapture.capture_state(error, container)
+                return error
+            except Exception:
+                pass
+        return cls(
+            message=message,
+            service_type=service_type,
+            service_key=service_key,
+            dependency_chain=dependency_chain,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
+
 
 class DuplicateRegistrationError(InjectionError):
     """Raised when trying to register a service that is already registered."""
@@ -267,15 +377,9 @@ class DuplicateRegistrationError(InjectionError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a duplicate registration error.
-
-        Args:
-            interface: The service interface that was already registered
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         message = f"Service {interface.__name__} is already registered"
 
         super().__init__(
@@ -304,16 +408,9 @@ class CircularDependencyError(ContainerError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a circular dependency error.
-
-        Args:
-            message: Custom error message
-            dependency_chain: The chain of dependencies that formed the circle
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         # If dependency_chain is in context, extract it
         if dependency_chain is None and "dependency_chain" in kwargs:
             dependency_chain = kwargs.pop("dependency_chain")
@@ -357,6 +454,62 @@ class CircularDependencyError(ContainerError):
             **ctx,
         )
 
+    @classmethod
+    async def async_init(
+        cls,
+        message: str | None = None,
+        dependency_chain: list[str] | None = None,
+        container: "ContainerProtocol | None" = None,
+        code: ErrorCode = INJECTION_CIRCULAR_DEPENDENCY,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "CircularDependencyError":
+        """
+        Async factory for CircularDependencyError that can capture container state.
+        """
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        # Compose message if not provided
+        if dependency_chain is None and "dependency_chain" in kwargs:
+            dependency_chain = kwargs.pop("dependency_chain")
+        if dependency_chain is None:
+            raise ValueError("dependency_chain is required for CircularDependencyError")
+        if message is None:
+            # Find where the cycle starts
+            circle_start_index = 0
+            for i, service in enumerate(dependency_chain[:-1]):
+                if service == dependency_chain[-1]:
+                    circle_start_index = i
+                    break
+            circle = " -> ".join(dependency_chain[circle_start_index:])
+            message = f"Circular dependency detected: {circle}"
+        # Optionally capture container state
+        if container is not None:
+            try:
+                from uno.injection.diagnostics import ContainerStateCapture
+
+                error = cls(
+                    message=message,
+                    dependency_chain=dependency_chain,
+                    code=code,
+                    severity=severity,
+                    context=context,
+                    **kwargs,
+                )
+                await ContainerStateCapture.capture_state(error, container)
+                return error
+            except Exception:
+                pass
+        return cls(
+            message=message,
+            dependency_chain=dependency_chain,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
+
 
 class SyncInAsyncContextError(ContainerError):
     """Raised when a sync Injection API is called from an async context (event loop running)."""
@@ -371,17 +524,9 @@ class SyncInAsyncContextError(ContainerError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a sync-in-async context error.
-
-        Args:
-            message: Custom error message
-            method: The method name that was incorrectly called
-            method_name: Alternative name for the method
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         ctx = kwargs.copy()
 
         # Generate the appropriate message based on the parameters
@@ -419,16 +564,9 @@ class ScopeError(InjectionError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a scope error.
-
-        Args:
-            message: Error message
-            interface: The interface with scope issues
-            code: Error code
-            severity: Error severity
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         ctx = kwargs.copy()
         if interface is not None:
             ctx["interface_name"] = interface.__name__
@@ -467,24 +605,32 @@ class ContainerDisposedError(ContainerError):
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a container disposed error.
-
-        Args:
-            message: Custom error message
-            operation: The operation that was attempted
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         ctx = kwargs.copy()
+
+        # Always set operation in context if provided or can be inferred
+        op = operation
+        if (
+            not op
+            and message
+            and message != "Container has been disposed and cannot be used"
+        ):
+            # Try to infer operation from message if possible
+            if "cannot perform:" in message:
+                op = message.split("cannot perform:")[-1].strip()
+        if not op and message:
+            # If message is just the operation name (e.g., "resolve"), use it
+            op = message.strip()
+        if op:
+            ctx["operation"] = op
 
         # Generate the appropriate message based on the parameters
         if message:
             pass  # Use the provided message
         elif operation:
             message = f"Container has been disposed and cannot perform: {operation}"
-            ctx["operation"] = operation
         else:
             message = "Container has been disposed and cannot be used"
 
@@ -507,24 +653,14 @@ class ScopeDisposedError(ContainerError):
         operation_name: str | None = None,
         scope_id: str | None = None,
         scope: "ScopeProtocol | None" = None,
-        code: ErrorCode = SCOPE_DISPOSED,
+        code: ErrorCode = SCOPE_DISPOSAL_ERROR,
         severity: ErrorSeverity = ErrorSeverity.ERROR,
         context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize a scope disposed error.
-
-        Args:
-            message: Custom error message
-            operation: The operation that was attempted
-            operation_name: Alternative name for the operation (backward compatibility)
-            scope_id: The ID of the disposed scope
-            scope: The scope object (from which ID will be extracted if scope_id not provided)
-            code: Error code
-            severity: How severe this error is
-            context: Additional context information
-            **kwargs: Additional context keys
-        """
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
         # Extract scope ID if not provided but scope is
         if scope_id is None and scope is not None:
             scope_id = str(
@@ -559,4 +695,57 @@ class ScopeDisposedError(ContainerError):
             severity=severity,
             context=context,
             **ctx,
+        )
+
+    @classmethod
+    async def async_init(
+        cls,
+        message: str | None = None,
+        operation: str | None = None,
+        operation_name: str | None = None,
+        scope_id: str | None = None,
+        scope: "ScopeProtocol | None" = None,
+        code: ErrorCode = SCOPE_DISPOSAL_ERROR,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "ScopeDisposedError":
+        """
+        Async factory for ScopeDisposedError.
+        """
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        return cls(
+            message=message,
+            operation=operation,
+            operation_name=operation_name,
+            scope_id=scope_id,
+            scope=scope,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
+        )
+
+
+class DisposalError(InjectionError):
+    """Error raised when container disposal fails."""
+
+    def __init__(
+        self,
+        message: str,
+        code: ErrorCode = INJECTION_DISPOSAL,
+        severity: ErrorSeverity = ErrorSeverity.ERROR,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        # Accept both ErrorCode and str for code
+        if isinstance(code, str):
+            code = ErrorCode.get_by_code(code)
+        super().__init__(
+            message,
+            code=code,
+            severity=severity,
+            context=context,
+            **kwargs,
         )

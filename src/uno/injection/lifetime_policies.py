@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
+
 from uno.injection.config import ServiceLifetime
 from typing import Any, Callable
 

@@ -93,7 +93,7 @@ def temp_env_files() -> Generator[tuple[Path, Path, Path], None, None]:
 @pytest.fixture
 def clear_config_cache() -> Generator[None, None, None]:
     """Clear the configuration cache before and after test."""
-    from uno.config import _config_cache
+    from uno.config.settings import _config_cache
 
     _config_cache.clear()
     yield

@@ -13,7 +13,7 @@ from uno.config.errors import (
     ConfigValidationError,
     SecureValueError,
 )
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
+from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 
 class TestErrorHierarchy:
@@ -23,13 +23,16 @@ class TestErrorHierarchy:
         """Test the base ConfigError class."""
         error = ConfigError("Test error")
         assert error.message == "Test error"
-        assert error.code == "CONFIG_ERROR"
-        assert error.category == ErrorCategory.CONFIG
+        assert error.code.code == "CONFIG_ERROR"
+        assert error.code.category.name == "CONFIG"
         assert error.severity == ErrorSeverity.ERROR
 
         # Test with custom code
-        error = ConfigError("Test error", code="CUSTOM")
-        assert error.code == "CONFIG_CUSTOM"
+        TEST = ErrorCategory.get_or_create("TEST")
+        error = ConfigError(
+            "Test error", code=ErrorCode.get_or_create("CONFIG_CUSTOM", TEST)
+        )
+        assert error.code.code == "CONFIG_CUSTOM"
 
     def test_config_validation_error(self) -> None:
         """Test ConfigValidationError."""
@@ -37,7 +40,7 @@ class TestErrorHierarchy:
             "Invalid config", config_key="test_key", config_value="test_value"
         )
         assert error.message == "Invalid config"
-        assert error.code == "CONFIG_VALIDATION_ERROR"
+        assert error.code.code == "CONFIG_VALIDATION_ERROR"
         assert error.context["config_key"] == "test_key"
         assert error.context["config_value"] == "test_value"
 
@@ -45,7 +48,7 @@ class TestErrorHierarchy:
         """Test ConfigFileNotFoundError."""
         error = ConfigFileNotFoundError("/path/to/config.yaml")
         assert "Configuration file not found" in error.message
-        assert error.code == "CONFIG_FILE_NOT_FOUND"
+        assert error.code.code == "CONFIG_FILE_NOT_FOUND"
         assert error.context["file_path"] == "/path/to/config.yaml"
 
     def test_config_parse_error(self) -> None:
@@ -53,7 +56,7 @@ class TestErrorHierarchy:
         error = ConfigParseError("/path/to/config.yaml", "Syntax error", line_number=42)
         assert "Failed to parse configuration file" in error.message
         assert "line 42" in error.message
-        assert error.code == "CONFIG_PARSE_ERROR"
+        assert error.code.code == "CONFIG_PARSE_ERROR"
         assert error.context["file_path"] == "/path/to/config.yaml"
         assert error.context["reason"] == "Syntax error"
         assert error.context["line_number"] == 42
@@ -62,7 +65,7 @@ class TestErrorHierarchy:
         """Test ConfigMissingKeyError."""
         error = ConfigMissingKeyError("database_url")
         assert "Required configuration key missing" in error.message
-        assert error.code == "CONFIG_MISSING_KEY"
+        assert error.code.code == "CONFIG_MISSING_KEY"
         assert error.context["key"] == "database_url"
 
     def test_config_environment_error(self) -> None:
@@ -71,7 +74,7 @@ class TestErrorHierarchy:
             "Environment not supported", environment="staging"
         )
         assert error.message == "Environment not supported"
-        assert error.code == "CONFIG_ENVIRONMENT_ERROR"
+        assert error.code.code == "CONFIG_ENVIRONMENT_ERROR"
         assert error.context["environment"] == "staging"
 
     def test_secure_value_error(self) -> None:
@@ -80,13 +83,14 @@ class TestErrorHierarchy:
         Note: This test will fail with the current implementation and should pass
         after fixing the inheritance hierarchy.
         """
-        error = SecureValueError("Encryption failed", code="KEY_ERROR")
+        CONFIG_SECURE_KEY_ERROR = ErrorCode.get_by_code("CONFIG_SECURE_KEY_ERROR")
+        error = SecureValueError("Encryption failed", code=CONFIG_SECURE_KEY_ERROR)
 
         # Should inherit from ConfigError
         assert isinstance(error, ConfigError)
         assert error.message == "Encryption failed"
-        assert error.code == "CONFIG_SECURE_KEY_ERROR"
-        assert error.category == ErrorCategory.CONFIG
+        assert error.code.code == "CONFIG_SECURE_KEY_ERROR"
+        assert error.code.category.name == "CONFIG"
 
         # Check the whole inheritance chain
         assert isinstance(error, UnoError)

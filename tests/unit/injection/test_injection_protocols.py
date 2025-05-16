@@ -16,6 +16,7 @@ from uno.injection.protocols import (
     AsyncServiceFactoryProtocol,
     ServiceFactoryProtocol,
 )
+from tests.conftest_protocols import assert_implements_protocol
 
 T = TypeVar("T")
 
@@ -181,22 +182,11 @@ class FakeScopeProtocol:
 @pytest.mark.asyncio
 async def test_container_protocol_structural():
     """Verify that ContainerProtocol works with structural typing."""
-    # Create a concrete implementation
     impl = ImplementsContainerProtocol()
-
-    # This should pass if the implementation matches the protocol
-    assert isinstance(
-        impl, ContainerProtocol
-    ), "Implementation doesn't satisfy ContainerProtocol"
-
+    assert_implements_protocol(ContainerProtocol, impl)
 
 @pytest.mark.asyncio
 async def test_scope_protocol_structural():
     """Verify that ScopeProtocol works with structural typing."""
-    # Create a concrete implementation
     impl = FakeScopeProtocol()
-
-    # This should pass if the implementation matches the protocol
-    assert isinstance(
-        impl, ScopeProtocol
-    ), "Implementation doesn't satisfy ScopeProtocol"
+    assert_implements_protocol(ScopeProtocol, impl)

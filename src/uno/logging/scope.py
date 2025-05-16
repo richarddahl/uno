@@ -24,6 +24,8 @@ class LoggerScope:
         """
         self._container = container
         self._scopes: dict[str, dict[str, Any]] = {}
+        self.entered: list[str] = []  # Track entered scopes
+        self.exited: list[str] = []  # Track exited scopes
 
     def get_scope(self, scope_name: str) -> dict[str, Any]:
         """Get the scope data for a given scope name.
@@ -70,10 +72,15 @@ class LoggerScope:
         try:
             # Use name as scope_name to match implementation in protocols.py
             self.set_scope(name, kwargs)
+            # Track that this scope was entered - use the name directly
+            # The container should be passing in a name that includes the scope ID
+            self.entered.append(name)
             yield
         finally:
             # Clean up the scope when exiting
             self._scopes.pop(name, None)
+            # Track that this scope was exited
+            self.exited.append(name)
 
     def get_logger(self, name: str) -> logging.Logger:
         """Get a logger with scope-aware context.

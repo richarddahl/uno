@@ -1,5 +1,6 @@
 import pytest
-from uno.logging.di import LoggingRegistrationExtensions
+import asyncio
+from uno.logging.injection import LoggingRegistrationExtensions
 from uno.logging.config import LoggingSettings
 from uno.logging.protocols import LoggerFactoryProtocol
 from tests.conftest_protocols import assert_implements_protocol
@@ -25,6 +26,13 @@ class FakeContainer:
 
 @pytest.mark.asyncio
 async def test_register_logging():
+    # Set up an event loop explicitly for Python 3.13
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
     container = FakeContainer()
     settings = LoggingSettings(level="INFO")
     await LoggingRegistrationExtensions.register_logging(container, settings)

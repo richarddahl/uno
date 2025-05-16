@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import inspect
 from contextlib import asynccontextmanager
 from uno.injection.container import Container
 from uno.logging.protocols import LoggerScopeProtocol
@@ -26,7 +27,8 @@ async def test_logger_scope_enter_exit():
     container = Container()
     fake_logger_scope = FakeLoggerScope()
     # Register the fake logger scope as a singleton
-    await container.register_singleton(LoggerScopeProtocol, lambda: fake_logger_scope)
+    # Fix: use the correct factory signature with container argument
+    await container.register_singleton(LoggerScopeProtocol, lambda c: fake_logger_scope)
 
     async with container.create_scope() as scope:
         # Logger scope should be entered
@@ -47,32 +49,60 @@ async def test_logger_scope_missing():
 @pytest.mark.asyncio
 async def test_logger_scope_exception_handling():
     """Test that logger scope exceptions can be propagated when configured."""
+    # Create a completely isolated container for this test
     container = Container()
 
-    class MockLoggerScope:
+    # Use a unique class name to avoid any potential shared state issues
+    class UniqueTestMockLoggerScope:
         """Mock logger scope that raises on exit."""
 
+        @asynccontextmanager
         async def scope(self, name: str):
-            return self
+            print(f"UniqueTestMockLoggerScope.scope entered with name: {name}")
+            try:
+                yield self
+            finally:
+                print(f"UniqueTestMockLoggerScope.scope exiting with name: {name}")
+                # Deliberately raise an exception on exit
+                raise RuntimeError("Test logger scope exit error")
 
-        async def __aenter__(self):
-            return self
+    # Create our mock
+    mock_scope = UniqueTestMockLoggerScope()
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            # Raise exception during exit
-            raise RuntimeError("Test logger scope exit error")
+    # The key issue is here - we need to use the same registration pattern
+    # as the test_logger_scope_enter_exit test
+    await container.register_singleton(LoggerScopeProtocol, lambda c: mock_scope)
 
-    # Register our mock logger scope that will raise an exception on exit
-    await container.register_singleton("LoggerScope", MockLoggerScope())
+    # Verify the registration and resolve it to ensure it's what we expect
+    print(f"After direct registration: {await container.get_registration_keys()}")
+    resolved = await container.resolve(LoggerScopeProtocol)
+    print(f"Resolved directly: {resolved}")
 
-    # Should propagate the exception from logger scope.__aexit__
-    with pytest.raises(RuntimeError, match="Test logger scope exit error"):
+    # Now do the identity check
+    assert (
+        resolved is mock_scope
+    ), "Expected the exact same instance that was registered"
+
+    # Should propagate the exception from logger scope's __aexit__
+    error_raised = False
+    try:
+        print("Creating scope with propagate_logger_scope_errors=True")
         async with container.create_scope(propagate_logger_scope_errors=True):
-            pass  # Just create and exit the scope
+            print("Inside scope context manager")
+            # Ensure the async context is fully processed
+            await asyncio.sleep(0.1)
+            print("After sleep in scope")
+    except RuntimeError as e:
+        error_raised = True
+        print(f"Caught expected RuntimeError: {e}")
+        assert "Test logger scope exit error" in str(e)
+
+    assert error_raised, "Expected RuntimeError was not raised"
 
     # Without propagation, the exception should be caught and logged
+    print("Creating scope with propagate_logger_scope_errors=False")
     async with container.create_scope(propagate_logger_scope_errors=False):
-        pass  # Should not raise an exception
+        await asyncio.sleep(0.1)
+        print("No exception with propagate_logger_scope_errors=False")
 
-    # Clean up
     await container.dispose()

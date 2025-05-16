@@ -104,6 +104,7 @@ class SecureValue(Generic[T]):
     some sensitive data may remain in memory after use. This class will overwrite internal buffers and attributes
     where possible, but cannot guarantee absolute memory security.
     """
+
     """
     Container for secure values with controlled access.
 
@@ -181,7 +182,13 @@ class SecureValue(Generic[T]):
             self._complex_type = True
         elif isinstance(value, Enum):
             self._original_type = type(value)
-            payload = {"type": {"enum": self._original_type.__name__, "module": value.__class__.__module__}, "data": value.value}
+            payload = {
+                "type": {
+                    "enum": self._original_type.__name__,
+                    "module": value.__class__.__module__,
+                },
+                "data": value.value,
+            }
             self._serialized_value = json.dumps(payload)
             self._value = self._serialized_value
             self._complex_type = False
@@ -232,6 +239,7 @@ class SecureValue(Generic[T]):
         if salt_file:
             try:
                 import aiofiles
+
                 async with aiofiles.open(salt_file, "rb") as f:
                     salt = await f.read()
             except Exception as e:
@@ -286,7 +294,9 @@ class SecureValue(Generic[T]):
         cls._current_key_version = key_version
         cls._logger.info(f"Set current encryption key version to: {key_version}")
 
-    def _get_fernet(self, key_version: str | None = None, kdf_params: dict | None = None) -> tuple[Fernet, str]:
+    def _get_fernet(
+        self, key_version: str | None = None, kdf_params: dict | None = None
+    ) -> tuple[Fernet, str]:
         """Get a Fernet cipher for encryption/decryption.
 
         Args:
@@ -303,9 +313,12 @@ class SecureValue(Generic[T]):
         if not version_to_use:
             raise SecureValueError(
                 "No key version specified and no current key set",
-                code="NO_KEY_VERSION",
+                code="CONFIG_NO_KEY_VERSION_ERROR",
             )
-        if not hasattr(self, '_encryption_keys') or version_to_use not in self._encryption_keys:
+        if (
+            not hasattr(self, "_encryption_keys")
+            or version_to_use not in self._encryption_keys
+        ):
             raise SecureValueError(
                 f"Key version {version_to_use} not found in key ring",
                 code="UNKNOWN_KEY_VERSION",
@@ -317,7 +330,7 @@ class SecureValue(Generic[T]):
                 code="INVALID_ENCRYPTION_KEY",
             )
         # Use provided KDF params or fall back to self._kdf_params
-        params = (kdf_params or getattr(self, '_kdf_params', None) or DEFAULT_KDF_PARAMS)
+        params = kdf_params or getattr(self, "_kdf_params", None) or DEFAULT_KDF_PARAMS
         algo_name = params.get("algorithm", "sha256")
         algo = _SUPPORTED_KDF_ALGOS[algo_name]()
         length = params.get("length", 32)
@@ -372,7 +385,7 @@ class SecureValue(Generic[T]):
         if self._handling_strategy == SecureValueHandling.SEALED:
             raise SecureValueError(
                 "Cannot access sealed value directly",
-                code="SEALED_VALUE_ACCESS",
+                code="CONFIG_SEALED_VALUE_ACCESS_ERROR",
             )
         if self._handling_strategy != SecureValueHandling.ENCRYPT:
             return (
@@ -418,7 +431,7 @@ class SecureValue(Generic[T]):
         if not version_to_use:
             raise SecureValueError(
                 "No key version specified and no current key set",
-                code="NO_KEY_VERSION",
+                code="CONFIG_NO_KEY_VERSION_ERROR",
             )
         if version_to_use == self._key_version:
             return
@@ -461,6 +474,7 @@ class SecureValue(Generic[T]):
             if "module" in type_info and "qualname" in type_info:
                 # Pydantic model
                 import importlib
+
                 module = importlib.import_module(type_info["module"])
                 cls = module
                 for attr in type_info["qualname"].split("."):
@@ -476,6 +490,7 @@ class SecureValue(Generic[T]):
             elif "enum" in type_info:
                 # Enum
                 import importlib
+
                 module = importlib.import_module(type_info["module"])
                 enum_cls = getattr(module, type_info["enum"])
                 for member in enum_cls:
@@ -491,7 +506,6 @@ class SecureValue(Generic[T]):
             return cast(T, float(value_str))
         # For strings and fallback
         return cast(T, value_str)
-
 
     @requires_secure_access
     def get_value(self) -> T:
@@ -592,22 +606,25 @@ class SecureValue(Generic[T]):
         Robust to missing attributes if construction failed.
         """
         # Overwrite _value only if it exists
-        if hasattr(self, '_value'):
+        if hasattr(self, "_value"):
             if isinstance(self._value, bytearray):
                 for i in range(len(self._value)):
                     self._value[i] = 0
             elif isinstance(self._value, (str, bytes)):
-                self._value = "\x00" * len(self._value) if isinstance(self._value, str) else b"\x00" * len(self._value)
+                self._value = (
+                    "\x00" * len(self._value)
+                    if isinstance(self._value, str)
+                    else b"\x00" * len(self._value)
+                )
         # Overwrite original_value if possible
-        if hasattr(self, '_original_value'):
+        if hasattr(self, "_original_value"):
             self._original_value = None
         # Overwrite salt
-        if hasattr(self, '_salt') and isinstance(self._salt, (bytes, bytearray)):
+        if hasattr(self, "_salt") and isinstance(self._salt, (bytes, bytearray)):
             self._salt = b"\x00" * len(self._salt)
         # Overwrite decrypted type info
-        if hasattr(self, '_type_info'):
+        if hasattr(self, "_type_info"):
             self._type_info = None
-
 
     def __enter__(self):
         """Allow use as a context manager. Returns self."""
@@ -623,16 +640,18 @@ class SecureValue(Generic[T]):
     def __getstate__(self):
         # Mask sensitive fields during pickling or introspection
         state = self.__dict__.copy()
-        for k in ['_value', '_original_value', '_serialized_value', '_salt']:
+        for k in ["_value", "_original_value", "_serialized_value", "_salt"]:
             if k in state:
-                state[k] = '******'
+                state[k] = "******"
         return state
 
     def __dir__(self):
         # Hide sensitive attributes from dir()
-        return [attr for attr in super().__dir__() if attr not in ('_value', '_original_value', '_serialized_value', '_salt')]
-
-
+        return [
+            attr
+            for attr in super().__dir__()
+            if attr not in ("_value", "_original_value", "_serialized_value", "_salt")
+        ]
 
 
 def SecureField(
@@ -661,7 +680,12 @@ def SecureField(
 
 
 @classmethod
-def setup_encryption(cls, master_key: str | bytes | None = None, salt_file: str | None = None, key_version: str = "v1") -> None:
+def setup_encryption(
+    cls,
+    master_key: str | bytes | None = None,
+    salt_file: str | None = None,
+    key_version: str = "v1",
+) -> None:
     """Set up secure configuration for the Uno framework.
 
     Args:

@@ -18,9 +18,9 @@ from typing import Any, Final, TypeVar, Type
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 # Define logging-specific error categories and codes
-LOGGING = ErrorCategory("LOGGING")
-LOGGING_ERROR: Final = ErrorCode("LOGGING_ERROR", LOGGING)
-LOGGING_CONFIGURATION: Final = ErrorCode("LOGGING_CONFIGURATION", LOGGING)
+LOGGING = ErrorCategory.get_or_create("LOGGING")
+LOGGING_ERROR: Final = ErrorCode.get_or_create("LOGGING_ERROR", LOGGING)
+LOGGING_CONFIGURATION: Final = ErrorCode.get_or_create("LOGGING_CONFIGURATION", LOGGING)
 
 T = TypeVar("T", bound="LoggingError")
 
@@ -55,7 +55,7 @@ class LoggingError(UnoError):
 
     @classmethod
     def wrap(
-        cls: Type[T],
+        cls: type[T],
         exception: Exception,
         code: ErrorCode = LOGGING_ERROR,
         message: str | None = None,
