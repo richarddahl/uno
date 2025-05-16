@@ -13,10 +13,12 @@ from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 
 # Define domain-specific error categories and codes here
-DOMAIN = ErrorCategory("DOMAIN")
-DOMAIN_ERROR: Final = ErrorCode("DOMAIN_ERROR", DOMAIN)
-DOMAIN_VALIDATION: Final = ErrorCode("DOMAIN_VALIDATION", DOMAIN)
-DOMAIN_AGGREGATE_NOT_DELETED: Final = ErrorCode("DOMAIN_AGGREGATE_NOT_DELETED", DOMAIN)
+DOMAIN = ErrorCategory.get_or_create("DOMAIN")
+DOMAIN_ERROR: Final = ErrorCode.get_or_create("DOMAIN_ERROR", DOMAIN)
+DOMAIN_VALIDATION: Final = ErrorCode.get_or_create("DOMAIN_VALIDATION", DOMAIN)
+DOMAIN_AGGREGATE_NOT_DELETED: Final = ErrorCode.get_or_create(
+    "DOMAIN_AGGREGATE_NOT_DELETED", DOMAIN
+)
 
 
 class DomainError(UnoError):

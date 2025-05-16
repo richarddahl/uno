@@ -17,21 +17,21 @@ from typing import Any, Final
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 # Define event-specific error categories and codes
-EVENT = ErrorCategory("EVENT")
-EVENT_ERROR: Final = ErrorCode("EVENT_ERROR", EVENT)
-EVENT_PUBLISH: Final = ErrorCode("EVENT_PUBLISH", EVENT)
-EVENT_SUBSCRIBE: Final = ErrorCode("EVENT_SUBSCRIBE", EVENT)
-EVENT_HANDLER: Final = ErrorCode("EVENT_HANDLER", EVENT)
-EVENT_SERIALIZATION: Final = ErrorCode("EVENT_SERIALIZATION", EVENT)
-EVENT_DESERIALIZATION: Final = ErrorCode("EVENT_DESERIALIZATION", EVENT)
-EVENT_UPCAST: Final = ErrorCode("EVENT_UPCAST", EVENT)
-EVENT_DOWNCAST: Final = ErrorCode("EVENT_DOWNCAST", EVENT)
-EVENT_STORE: Final = ErrorCode("EVENT_STORE", EVENT)
-EVENT_REPLAY: Final = ErrorCode("EVENT_REPLAY", EVENT)
-EVENT_VERSIONING: Final = ErrorCode("EVENT_VERSIONING", EVENT)
-EVENT_PROCESSING: Final = ErrorCode("EVENT_PROCESSING", EVENT)
-EVENT_CANCELLATION: Final = ErrorCode("EVENT_CANCELLATION", EVENT)
-SNAPSHOT_STORE: Final = ErrorCode("SNAPSHOT_STORE", EVENT)
+EVENT = ErrorCategory.get_or_create("EVENT")
+EVENT_ERROR: Final = ErrorCode.get_or_create("EVENT_ERROR", EVENT)
+EVENT_PUBLISH: Final = ErrorCode.get_or_create("EVENT_PUBLISH", EVENT)
+EVENT_SUBSCRIBE: Final = ErrorCode.get_or_create("EVENT_SUBSCRIBE", EVENT)
+EVENT_HANDLER: Final = ErrorCode.get_or_create("EVENT_HANDLER", EVENT)
+EVENT_SERIALIZATION: Final = ErrorCode.get_or_create("EVENT_SERIALIZATION", EVENT)
+EVENT_DESERIALIZATION: Final = ErrorCode.get_or_create("EVENT_DESERIALIZATION", EVENT)
+EVENT_UPCAST: Final = ErrorCode.get_or_create("EVENT_UPCAST", EVENT)
+EVENT_DOWNCAST: Final = ErrorCode.get_or_create("EVENT_DOWNCAST", EVENT)
+EVENT_STORE: Final = ErrorCode.get_or_create("EVENT_STORE", EVENT)
+EVENT_REPLAY: Final = ErrorCode.get_or_create("EVENT_REPLAY", EVENT)
+EVENT_VERSIONING: Final = ErrorCode.get_or_create("EVENT_VERSIONING", EVENT)
+EVENT_PROCESSING: Final = ErrorCode.get_or_create("EVENT_PROCESSING", EVENT)
+EVENT_CANCELLATION: Final = ErrorCode.get_or_create("EVENT_CANCELLATION", EVENT)
+SNAPSHOT_STORE: Final = ErrorCode.get_or_create("SNAPSHOT_STORE", EVENT)
 
 
 class EventError(UnoError):

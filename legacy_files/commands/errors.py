@@ -13,12 +13,12 @@ from typing import Any, Final
 
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
-COMMAND = ErrorCategory("COMMAND")
-CMD_ERROR: Final = ErrorCode("CMD_ERROR", COMMAND)
-CMD_NOT_FOUND: Final = ErrorCode("CMD_NOT_FOUND", COMMAND)
-CMD_HANDLER: Final = ErrorCode("CMD_HANDLER", COMMAND)
-CMD_VALIDATION: Final = ErrorCode("CMD_VALIDATION", COMMAND)
-CMD_DISPATCH: Final = ErrorCode("CMD_DISPATCH", COMMAND)
+COMMAND = ErrorCategory.get_or_create("COMMAND")
+CMD_ERROR: Final = ErrorCode.get_or_create("CMD_ERROR", COMMAND)
+CMD_NOT_FOUND: Final = ErrorCode.get_or_create("CMD_NOT_FOUND", COMMAND)
+CMD_HANDLER: Final = ErrorCode.get_or_create("CMD_HANDLER", COMMAND)
+CMD_VALIDATION: Final = ErrorCode.get_or_create("CMD_VALIDATION", COMMAND)
+CMD_DISPATCH: Final = ErrorCode.get_or_create("CMD_DISPATCH", COMMAND)
 
 
 class CommandError(UnoError):

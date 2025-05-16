@@ -15,10 +15,12 @@ from typing import Any, Final
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 # Define application-specific error categories and codes here
-APPLICATION = ErrorCategory("APPLICATION")
-APPLICATION_ERROR: Final = ErrorCode("APPLICATION_ERROR", APPLICATION)
-APPLICATION_STARTUP: Final = ErrorCode("APPLICATION_STARTUP", APPLICATION)
-APPLICATION_SHUTDOWN: Final = ErrorCode("APPLICATION_SHUTDOWN", APPLICATION)
+APPLICATION = ErrorCategory.get_or_create("APPLICATION")
+APPLICATION_ERROR: Final = ErrorCode.get_or_create("APPLICATION_ERROR", APPLICATION)
+APPLICATION_STARTUP: Final = ErrorCode.get_or_create("APPLICATION_STARTUP", APPLICATION)
+APPLICATION_SHUTDOWN: Final = ErrorCode.get_or_create(
+    "APPLICATION_SHUTDOWN", APPLICATION
+)
 
 
 class ApplicationError(UnoError):

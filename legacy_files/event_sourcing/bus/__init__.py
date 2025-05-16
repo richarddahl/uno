@@ -24,7 +24,9 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-EventQueueItem: TypeAlias = Tuple[Optional[DomainEventProtocol], Optional[Dict[str, Any]]]
+EventQueueItem: TypeAlias = Tuple[
+    Optional[DomainEventProtocol], Optional[Dict[str, Any]]
+]
 
 
 class InMemoryEventBus(EventBusProtocol):
@@ -99,7 +101,9 @@ class InMemoryEventBus(EventBusProtocol):
         )
 
     async def publish_many(
-        self, events: List[DomainEventProtocol], metadata: Optional[Dict[str, Any]] = None
+        self,
+        events: List[DomainEventProtocol],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Publish multiple events to be processed asynchronously.
@@ -121,17 +125,17 @@ class InMemoryEventBus(EventBusProtocol):
                 if queue_item is None:
                     self._queue.task_done()
                     continue
-                    
+
                 event, metadata = queue_item
-                
+
                 # Process the event (None is a shutdown sentinel)
                 if event is None:
                     break  # Exit the loop on None sentinel
-                
+
                 # Process the event with its metadata
                 event_metadata = metadata or {}
                 await self._process_event(event, event_metadata)
-                
+
             except asyncio.CancelledError:
                 await self.logger.info("Event processing cancelled")
                 break
@@ -140,7 +144,9 @@ class InMemoryEventBus(EventBusProtocol):
                     "Error processing event",
                     error=str(e),
                     event_type=type(event).__name__ if event is not None else "None",
-                    event_id=getattr(event, "event_id", None) if event is not None else None,
+                    event_id=(
+                        getattr(event, "event_id", None) if event is not None else None
+                    ),
                     exc_info=True,
                 )
             finally:
@@ -152,7 +158,7 @@ class InMemoryEventBus(EventBusProtocol):
     ) -> None:
         """Process a single event through the middleware chain."""
         event_type = type(event)
-        
+
         # Log the event
         await self.logger.debug(
             "Processing event",
@@ -179,8 +185,11 @@ class InMemoryEventBus(EventBusProtocol):
         handlers: List[Any],
     ) -> None:
         """Apply middleware chain to the event processing."""
+
         # Create a handler that will process the event with all handlers
-        async def process_with_handlers(e: DomainEventProtocol, m: Dict[str, Any]) -> None:
+        async def process_with_handlers(
+            e: DomainEventProtocol, m: Dict[str, Any]
+        ) -> None:
             for handler in handlers:
                 try:
                     if hasattr(handler, "handle") and callable(handler.handle):
@@ -199,8 +208,9 @@ class InMemoryEventBus(EventBusProtocol):
         chain = process_with_handlers
         for mw in reversed(self.middleware):
             if hasattr(mw, "process") and callable(mw.process):
-                chain = (lambda next_chain, mw: 
-                    lambda e, m: mw.process(e, next_chain, m))(chain, mw)
+                chain = (
+                    lambda next_chain, mw: lambda e, m: mw.process(e, next_chain, m)
+                )(chain, mw)
 
         # Execute the middleware chain
         await chain(event, metadata)
@@ -220,7 +230,7 @@ class InMemoryEventBus(EventBusProtocol):
 
         if event_type not in self._handlers:
             self._handlers[event_type] = []
-        
+
         if handler not in self._handlers[event_type]:
             self._handlers[event_type].append(handler)
             await self.logger.debug(
@@ -260,7 +270,7 @@ class InMemoryEventBus(EventBusProtocol):
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
@@ -273,6 +283,7 @@ class InMemoryEventBus(EventBusProtocol):
             exc_tb: The traceback if an exception was raised, None otherwise
         """
         await self.stop()
+
 
 # Export the main class
 __all__ = ["InMemoryEventBus"]

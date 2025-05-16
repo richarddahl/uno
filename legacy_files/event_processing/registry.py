@@ -31,7 +31,7 @@ TResult = TypeVar("TResult", covariant=True)
 HandlerFunc: TypeAlias = Callable[..., Any] | Callable[..., Awaitable[Any]]
 HandlerType: TypeAlias = (
     HandlerFunc
-    | Type[EventHandlerProtocol[Any, Any]]
+    | type[EventHandlerProtocol[Any, Any]]
     | EventHandlerProtocol[Any, Any]
     | type[object]
     | object
