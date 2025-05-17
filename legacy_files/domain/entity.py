@@ -9,7 +9,7 @@ T_ID = TypeVar("T_ID")
 
 
 from uno.injection import Container
-from uno.config.base import UnoSettings as Config
+from uno.config.base import Config as Config
 from uno.logging.protocols import LoggerProtocol
 
 

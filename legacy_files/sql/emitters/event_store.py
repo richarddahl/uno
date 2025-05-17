@@ -21,7 +21,7 @@ class CreateDomainEventsTable(SQLEmitter):
         # Generate the create table SQL
         db_name = self.config.DB_NAME
         admin_role = f"{db_name}_admin"
-        schema = self.config.DB_SCHEMA  # Use configured schema from settings
+        schema = self.config.DB_SCHEMA  # Use configured schema from config
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
 
@@ -149,7 +149,7 @@ class CreateEventProcessorsTable(SQLEmitter):
         # Generate the create table SQL
         db_name = self.config.DB_NAME
         admin_role = f"{db_name}_admin"
-        schema = self.config.DB_SCHEMA  # Use configured schema from settings
+        schema = self.config.DB_SCHEMA  # Use configured schema from config
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
 
@@ -263,7 +263,7 @@ class CreateEventSnapshotsTable(SQLEmitter):
         # Generate the create table SQL
         db_name = self.config.DB_NAME
         admin_role = f"{db_name}_admin"
-        schema = self.config.DB_SCHEMA  # Use configured schema from settings
+        schema = self.config.DB_SCHEMA  # Use configured schema from config
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
 
@@ -385,7 +385,7 @@ class CreateEventProjectionFunction(SQLEmitter):
         # Generate the create function SQL
         db_name = self.config.DB_NAME
         admin_role = f"{db_name}_admin"
-        schema = self.config.DB_SCHEMA  # Use configured schema from settings
+        schema = self.config.DB_SCHEMA  # Use configured schema from config
         reader_role = f"{db_name}_reader"
         writer_role = f"{db_name}_writer"
 

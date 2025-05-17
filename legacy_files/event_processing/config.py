@@ -9,34 +9,34 @@ from typing import Literal
 from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
-from uno.config.base import UnoSettings
+from uno.config.base import Config
 
 
-class EventsConfig(UnoSettings):
+class EventsConfig(Config):
     """Configuration settings for the events module."""
 
-    # Event bus settings
+    # Event bus config
     event_bus_type: Literal["memory", "postgres", "redis"] = Field(
         default="memory",
         description="Type of event bus to use",
         validation_alias="UNO_EVENTS_BUS_TYPE",
     )
 
-    # Event store settings
+    # Event store config
     event_store_type: Literal["memory", "postgres", "json"] = Field(
         default="memory",
         description="Type of event store to use",
         validation_alias="UNO_EVENTS_STORE_TYPE",
     )
 
-    # Performance settings
+    # Performance config
     batch_size: int = Field(
         100,
         description="Maximum number of events to process in a batch",
         validation_alias="UNO_EVENTS_BATCH_SIZE",
     )
 
-    # Publication settings
+    # Publication config
     retry_attempts: int = Field(
         3,
         description="Number of retry attempts for event publication",
@@ -49,14 +49,14 @@ class EventsConfig(UnoSettings):
         validation_alias="UNO_EVENTS_RETRY_DELAY_MS",
     )
 
-    # Database settings
+    # Database config
     db_connection_string: SecretStr | None = Field(
         default=None,
         description="Connection string for the event store database",
         validation_alias="UNO_EVENTS_DB_CONNECTION",
     )
 
-    # Handler settings
+    # Handler config
     parallel_handlers: bool = Field(
         default=False,
         description="Whether to run event handlers in parallel",

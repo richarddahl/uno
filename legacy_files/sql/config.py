@@ -81,14 +81,14 @@ from uno.persistance.sql.interfaces import EngineFactoryProtocol
 class SQLConfig(BaseSettings):
     """SQL configuration."""
 
-    # Connection settings
+    # Connection config
     DB_HOST: str = Field(default="localhost", validation_alias="DB_HOST")
     DB_PORT: int = Field(default=5432, validation_alias="DB_PORT")
     DB_NAME: str = Field(default="uno_db", validation_alias="DB_NAME")
     DB_USER: str = Field(default="uno_user", validation_alias="DB_USER")
     DB_PASSWORD: str = Field(default="uno_password", validation_alias="DB_PASSWORD")
 
-    # SQLAlchemy settings
+    # SQLAlchemy config
     DB_POOL_SIZE: int = Field(default=5, validation_alias="DB_POOL_SIZE")
     DB_MAX_OVERFLOW: int = Field(
         default=10, json_schema_extra={"env": "DB_MAX_OVERFLOW"}
@@ -102,13 +102,13 @@ class SQLConfig(BaseSettings):
     DB_ECHO: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO"})
     DB_ECHO_POOL: bool = Field(default=False, json_schema_extra={"env": "DB_ECHO_POOL"})
 
-    # Transaction settings
+    # Transaction config
     DB_ISOLATION_LEVEL: str = Field(
         default="READ COMMITTED", json_schema_extra={"env": "DB_ISOLATION_LEVEL"}
     )
     DB_READ_ONLY: bool = Field(default=False, json_schema_extra={"env": "DB_READ_ONLY"})
 
-    # Validation settings
+    # Validation config
     DB_VALIDATE_SYNTAX: bool = Field(
         default=True, json_schema_extra={"env": "DB_VALIDATE_SYNTAX"}
     )
@@ -119,7 +119,7 @@ class SQLConfig(BaseSettings):
         default=True, json_schema_extra={"env": "DB_CHECK_PERMISSIONS"}
     )
 
-    # Security settings
+    # Security config
     DB_CHECK_SQL_INJECTION: bool = Field(
         default=True, json_schema_extra={"env": "DB_CHECK_SQL_INJECTION"}
     )
@@ -129,7 +129,7 @@ class SQLConfig(BaseSettings):
 
     model_config = ConfigDict(env_prefix="DB_", extra="forbid")
 
-    # Performance settings
+    # Performance config
     DB_LOG_PERFORMANCE: bool = Field(
         default=True, description="Log performance metrics"
     )
@@ -137,7 +137,7 @@ class SQLConfig(BaseSettings):
         default=1.0, description="Slow query threshold in seconds"
     )
 
-    # Testing settings
+    # Testing config
     DB_TEST_DATABASE: str = Field(
         default="test_db",
         description="Test database name",
@@ -154,7 +154,7 @@ class SQLConfig(BaseSettings):
         json_schema_extra={"env": "DB_TEST_PASSWORD"},
     )
 
-    # Documentation settings
+    # Documentation config
     DB_DOCS_INCLUDE_SCHEMAS: bool = Field(
         default=True, description="Include schema documentation"
     )
@@ -171,7 +171,7 @@ class SQLConfig(BaseSettings):
         default=True, description="Include trigger documentation"
     )
 
-    # Migration settings
+    # Migration config
     DB_MIGRATIONS_DIR: Path = Field(
         default=Path("migrations"), description="Migrations directory"
     )
@@ -179,7 +179,7 @@ class SQLConfig(BaseSettings):
         default="schema_versions", description="Schema versions table"
     )
 
-    # Logging settings
+    # Logging config
     DB_LOG_SQL: bool = Field(
         default=True,
         description="Log SQL statements",

@@ -20,7 +20,7 @@ from uno.domain.errors import AggregateNotDeletedError
 from uno.events.deleted_event import DeletedEvent
 from uno.events.restored_event import RestoredEvent
 from uno.injection import Container
-from uno.config.base import UnoSettings as Config
+from uno.config.base import Config as Config
 from uno.logging.protocols import LoggerProtocol
 
 T_ID = TypeVar("T_ID")

@@ -380,7 +380,7 @@ class Node(BaseModel):
         node_triggers: Whether to generate triggers for this node
         edges: List of edges connected to this node
         target_data_type: Data type for the node's target value
-        config: Configuration settings
+        config: Configuration
     """
 
     column: Column
@@ -605,7 +605,7 @@ class Edge(BaseModel):
         target_column: Column name in the target node
         target_node_label: Label of the target node
         target_val_data_type: Data type for the target value
-        config: Configuration settings
+        config: Configuration
     """
 
     source_node_label: str
@@ -620,7 +620,7 @@ class Edge(BaseModel):
         """Generate SQL for creating an edge label if it does not exist.
 
         Args:
-            config: Configuration settings
+            config: Configuration
 
         Returns:
             SQL statement for creating edge label
