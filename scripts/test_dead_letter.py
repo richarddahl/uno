@@ -73,6 +73,57 @@ async def main() -> None:
     logger.info("Processing dead letter queue...")
     await queue.process(max_attempts=3, retry_delay=1.0)
     
+    # Test with a different reason
+    logger.info("\nTesting with DESERIALIZATION_FAILED reason")
+    event2 = TestEvent(
+        id="test-456",
+        name="Deserialization Test",
+        data={"corrupt": True}
+    )
+    
+    await queue.add(
+        event=event2,
+        reason=DeadLetterReason.DESERIALIZATION_FAILED,
+        error=TypeError("Could not deserialize JSON"),
+        subscription_id="test-sub",
+        attempt_count=1,
+        custom_meta={"source": "test_script", "format": "JSON"}
+    )
+    
+    await queue.process(max_attempts=3, retry_delay=1.0)
+    
+    # Verify metrics were recorded
+    dlq_metrics = metrics.get_metrics().get("event_bus.dead_letter", {})
+    logger.info("\nDead Letter Queue Metrics:")
+    for key, value in dlq_metrics.items():
+        logger.info(f"  {key}: {value}")
+    
+    # Test concurrent processing with multiple events
+    logger.info("\nTesting concurrent processing")
+    
+    events = [
+        TestEvent(id=f"concurrent-{i}", name=f"Concurrent Event {i}", data={"index": i})
+        for i in range(5)
+    ]
+    
+    # Add all events concurrently
+    await asyncio.gather(
+        *[
+            queue.add(
+                event=evt,
+                reason=DeadLetterReason.VALIDATION_FAILED,
+                error=ValueError(f"Validation error for event {evt.id}"),
+                subscription_id="concurrent-sub",
+                attempt_count=1
+            )
+            for evt in events
+        ]
+    )
+    
+    # Process all events concurrently
+    logger.info("Processing multiple events concurrently...")
+    await queue.process(max_attempts=2, retry_delay=0.5)
+    
     logger.info("Test completed")
 
 if __name__ == "__main__":
