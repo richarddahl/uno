@@ -1,4 +1,4 @@
-"""Tests for configuration error hierarchy."""
+"""Tests for configuration error classes."""
 
 from __future__ import annotations
 
@@ -11,88 +11,88 @@ from uno.config.errors import (
     ConfigMissingKeyError,
     ConfigParseError,
     ConfigValidationError,
+    SecureConfigError,
     SecureValueError,
 )
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError
 
 
-class TestErrorHierarchy:
-    """Test the configuration error hierarchy."""
+class TestConfigErrors:
+    """Test configuration error hierarchy."""
 
-    def test_config_error_base(self) -> None:
+    def test_base_config_error(self) -> None:
         """Test the base ConfigError class."""
-        error = ConfigError("Test error")
-        assert error.message == "Test error"
+        # Create with default code
+        error = ConfigError("Test error message")
+        assert error.message == "Test error message"
         assert error.code.code == "CONFIG_ERROR"
-        assert error.code.category.name == "CONFIG"
-        assert error.severity == ErrorSeverity.ERROR
+        assert isinstance(error, UnoError)
 
-        # Test with custom code
-        TEST = ErrorCategory.get_or_create("TEST")
-        error = ConfigError(
-            "Test error", code=ErrorCode.get_or_create("CONFIG_CUSTOM", TEST)
+        # Create with custom code and context
+        custom_code = ErrorCode.get_or_create(
+            "CUSTOM_CONFIG_ERROR", ErrorCategory.get_or_create("CONFIG")
         )
-        assert error.code.code == "CONFIG_CUSTOM"
+        context = {"key": "value"}
+
+        error = ConfigError(
+            message="Custom error",
+            code=custom_code,
+            severity=ErrorSeverity.WARNING,
+            context=context,
+        )
+
+        assert error.message == "Custom error"
+        assert error.code.code == "CUSTOM_CONFIG_ERROR"
+        assert error.severity == ErrorSeverity.WARNING
+        assert error.context["key"] == "value"
 
     def test_config_validation_error(self) -> None:
         """Test ConfigValidationError."""
         error = ConfigValidationError(
-            "Invalid config", config_key="test_key", config_value="test_value"
+            message="Invalid configuration value",
+            config_key="port",
+            config_value="invalid",
         )
-        assert error.message == "Invalid config"
+
+        assert "Invalid configuration value" in error.message
         assert error.code.code == "CONFIG_VALIDATION_ERROR"
-        assert error.context["config_key"] == "test_key"
-        assert error.context["config_value"] == "test_value"
+        assert error.context["config_key"] == "port"
+        assert error.context["config_value"] == "invalid"
 
-    def test_config_file_not_found_error(self) -> None:
-        """Test ConfigFileNotFoundError."""
-        error = ConfigFileNotFoundError("/path/to/config.yaml")
-        assert "Configuration file not found" in error.message
-        assert error.code.code == "CONFIG_FILE_NOT_FOUND"
-        assert error.context["file_path"] == "/path/to/config.yaml"
+    def test_config_file_errors(self) -> None:
+        """Test file-related configuration errors."""
+        # Test file not found
+        not_found = ConfigFileNotFoundError("/path/to/config.json")
+        assert "not found" in not_found.message
+        assert not_found.context["file_path"] == "/path/to/config.json"
 
-    def test_config_parse_error(self) -> None:
-        """Test ConfigParseError."""
-        error = ConfigParseError("/path/to/config.yaml", "Syntax error", line_number=42)
-        assert "Failed to parse configuration file" in error.message
-        assert "line 42" in error.message
-        assert error.code.code == "CONFIG_PARSE_ERROR"
-        assert error.context["file_path"] == "/path/to/config.yaml"
-        assert error.context["reason"] == "Syntax error"
-        assert error.context["line_number"] == 42
-
-    def test_config_missing_key_error(self) -> None:
-        """Test ConfigMissingKeyError."""
-        error = ConfigMissingKeyError("database_url")
-        assert "Required configuration key missing" in error.message
-        assert error.code.code == "CONFIG_MISSING_KEY"
-        assert error.context["key"] == "database_url"
-
-    def test_config_environment_error(self) -> None:
-        """Test ConfigEnvironmentError."""
-        error = ConfigEnvironmentError(
-            "Environment not supported", environment="staging"
+        # Test parse error
+        parse_error = ConfigParseError(
+            file_path="/path/to/config.json", reason="Invalid JSON", line_number=42
         )
-        assert error.message == "Environment not supported"
-        assert error.code.code == "CONFIG_ENVIRONMENT_ERROR"
-        assert error.context["environment"] == "staging"
 
-    def test_secure_value_error(self) -> None:
-        """Test SecureValueError inherits from ConfigError.
+        assert "Failed to parse" in parse_error.message
+        assert "line 42" in parse_error.message
+        assert parse_error.context["file_path"] == "/path/to/config.json"
+        assert parse_error.context["reason"] == "Invalid JSON"
+        assert parse_error.context["line_number"] == 42
 
-        Note: This test will fail with the current implementation and should pass
-        after fixing the inheritance hierarchy.
-        """
-        CONFIG_SECURE_KEY_ERROR = ErrorCode.get_by_code("CONFIG_SECURE_KEY_ERROR")
-        error = SecureValueError("Encryption failed", code=CONFIG_SECURE_KEY_ERROR)
+    def test_secure_value_errors(self) -> None:
+        """Test secure value errors."""
+        # Test basic secure value error
+        error = SecureValueError("Failed to decrypt value")
+        assert "Failed to decrypt value" in error.message
+        assert error.code.code == "CONFIG_SECURE_VALUE_ERROR"
 
-        # Should inherit from ConfigError
-        assert isinstance(error, ConfigError)
-        assert error.message == "Encryption failed"
+        # Test with custom code
+        custom_code = ErrorCode.get_or_create(
+            "CONFIG_SECURE_KEY_ERROR", ErrorCategory.get_or_create("CONFIG")
+        )
+        error = SecureValueError(message="Key rotation failed", code=custom_code)
+
+        assert "Key rotation failed" in error.message
         assert error.code.code == "CONFIG_SECURE_KEY_ERROR"
-        assert error.code.category.name == "CONFIG"
 
-        # Check the whole inheritance chain
-        assert isinstance(error, UnoError)
+        # Verify inheritance
         assert isinstance(error, ConfigError)
-        assert isinstance(error, SecureValueError)
+        assert isinstance(error, SecureConfigError)

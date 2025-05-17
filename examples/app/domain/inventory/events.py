@@ -15,7 +15,7 @@ from pydantic import (
 from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.inventory.value_objects import Count, Grade, Mass, Volume
 from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.events import DomainEvent
+from uno.event_bus import DomainEvent
 
 
 class GradeAssignedToLot(DomainEvent):

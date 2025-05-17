@@ -1,6 +1,6 @@
 """
 In-memory SnapshotStore implementation for Uno example app.
-Integrates with uno.events.snapshots.SnapshotStore for demo/testing purposes.
+Integrates with uno.event_bus.snapshots.SnapshotStore for demo/testing purposes.
 """
 
 from uno.snapshots import SnapshotStore

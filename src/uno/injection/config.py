@@ -17,7 +17,7 @@ from typing import Any, Generic, TypeVar, Optional
 
 from uno.config import (
     SecureValue,
-    UnoSettings,
+    Config,
     requires_secure_access,
 )
 from typing import TYPE_CHECKING
@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from uno.injection.protocols import ContainerProtocol
 
-T = TypeVar("T", bound=UnoSettings)
+T = TypeVar("T", bound=Config)
 
 
 class ServiceLifetime(str, Enum):

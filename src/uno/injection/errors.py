@@ -22,32 +22,29 @@ TContainer = TypeVar("TContainer", bound="ContainerProtocol")
 TScope = TypeVar("TScope", bound="ScopeProtocol")
 
 # Define error categories and codes
-INJECTION: Final = ErrorCategory.get_or_create("INJECTION")
-INJECTION_ERROR: Final = ErrorCode.get_or_create("INJECTION_ERROR", INJECTION)
-INJECTION_SERVICE_CREATION: Final = ErrorCode.get_or_create(
+INJECTION = ErrorCategory.get_or_create("INJECTION")
+INJECTION_ERROR = ErrorCode.get_or_create("INJECTION_ERROR", INJECTION)
+INJECTION_SERVICE_CREATION = ErrorCode.get_or_create(
     "INJECTION_SERVICE_CREATION", INJECTION
 )
-INJECTION_SERVICE_NOT_FOUND: Final = ErrorCode.get_or_create(
+INJECTION_SERVICE_NOT_FOUND = ErrorCode.get_or_create(
     "INJECTION_SERVICE_NOT_FOUND", INJECTION
 )
-INJECTION_DUPLICATE_REGISTRATION: Final = ErrorCode.get_or_create(
+INJECTION_DUPLICATE_REGISTRATION = ErrorCode.get_or_create(
     "INJECTION_DUPLICATE_REGISTRATION", INJECTION
 )
-INJECTION_CIRCULAR_DEPENDENCY: Final = ErrorCode.get_or_create(
+INJECTION_CIRCULAR_DEPENDENCY = ErrorCode.get_or_create(
     "INJECTION_CIRCULAR_DEPENDENCY", INJECTION
 )
-INJECTION_SYNC_IN_ASYNC: Final = ErrorCode.get_or_create(
-    "INJECTION_SYNC_IN_ASYNC", INJECTION
-)
-INJECTION_DISPOSAL: Final = ErrorCode.get_or_create("INJECTION_DISPOSAL", INJECTION)
+INJECTION_SYNC_IN_ASYNC = ErrorCode.get_or_create("INJECTION_SYNC_IN_ASYNC", INJECTION)
+INJECTION_DISPOSAL = ErrorCode.get_or_create("INJECTION_DISPOSAL", INJECTION)
 
-CONTAINER: Final = ErrorCategory.get_or_create("CONTAINER", parent=INJECTION)
-CONTAINER_ERROR: Final = ErrorCode.get_or_create("CONTAINER_ERROR", CONTAINER)
-CONTAINER_DISPOSED: Final = ErrorCode.get_or_create("CONTAINER_DISPOSED", CONTAINER)
+CONTAINER = ErrorCategory.get_or_create("CONTAINER", parent=INJECTION)
+CONTAINER_ERROR = ErrorCode.get_or_create("CONTAINER_ERROR", CONTAINER)
+CONTAINER_DISPOSED = ErrorCode.get_or_create("CONTAINER_DISPOSED", CONTAINER)
 
-SCOPE: Final = ErrorCategory.get_or_create("SCOPE", parent=INJECTION)
-SCOPE_ERROR: Final = ErrorCode.get_or_create("SCOPE_ERROR", SCOPE)
-SCOPE_DISPOSAL_ERROR: Final = ErrorCode.get_or_create("SCOPE_DISPOSAL_ERROR", SCOPE)
+SCOPE_ERROR = ErrorCode.get_or_create("SCOPE_ERROR", INJECTION)
+SCOPE_DISPOSAL_ERROR = ErrorCode.get_or_create("SCOPE_DISPOSAL_ERROR", INJECTION)
 
 
 class InjectionError(UnoError):

@@ -1,0 +1,144 @@
+name: Documentation Quality Check
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/uno/**/*.py'
+      - '.github/workflows/docs-validation.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'src/uno/**/*.py'
+      - '.github/workflows/docs-validation.yml'
+
+jobs:
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          
+      - name: Install hatch
+        run: |
+          python -m pip install --upgrade pip
+          pip install hatch
+          
+      - name: Install project with dev dependencies
+        run: |
+          hatch env create
+          
+      - name: Run documentation validation
+        id: validation
+        run: |
+          # Create documentation validation script
+          cat > docs_validation.py << 'EOF'
+          #!/usr/bin/env python
+          import asyncio
+          import json
+          import sys
+          from pathlib import Path
+          
+          from uno.docs.testing import validate_documentation
+          
+          
+          async def main():
+              modules = [
+                  "uno.config", 
+                  "uno.docs",
+                  # Add other modules here
+              ]
+              
+              all_passed = True
+              summary = []
+              
+              for module in modules:
+                  print(f"Validating documentation for {module}...")
+                  passed, details = await validate_documentation(
+                      module,
+                      min_doc_coverage=0.8,
+                      require_examples=True,
+                  )
+                  
+                  # Add module name to details
+                  details["module"] = module
+                  
+                  # Calculate field documentation coverage
+                  if details["total_fields"] > 0:
+                      details["field_coverage"] = details["documented_fields"] / details["total_fields"]
+                  else:
+                      details["field_coverage"] = 1.0
+                  
+                  all_passed = all_passed and passed
+                  summary.append(details)
+                  
+                  # Output basic stats
+                  print(f"  - Coverage: {details['coverage']:.1%}")
+                  print(f"  - Fields documented: {details['documented_fields']}/{details['total_fields']} ({details.get('field_coverage', 0):.1%})")
+                  print(f"  - Items with examples: {details['items_with_examples']}/{details['total_items']}")
+                  
+                  # Show validation errors
+                  if details["validation_errors"]:
+                      print("  - Validation errors:")
+                      for error in details["validation_errors"]:
+                          print(f"    - {error}")
+              
+              # Write complete report to JSON file
+              with open("docs-validation-report.json", "w") as f:
+                  json.dump({
+                      "passed": all_passed,
+                      "modules": summary,
+                  }, f, indent=2)
+              
+              # Write summary to GitHub step output
+              with open(Path(sys.argv[1]), "a") as f:
+                  f.write(f"VALIDATION_PASSED={all_passed}\n")
+                  
+                  # Create markdown summary
+                  markdown = "| Module | Coverage | Field Coverage | Examples |\n"
+                  markdown += "|--------|----------|---------------|----------|\n"
+                  
+                  for details in summary:
+                      module = details["module"]
+                      coverage = f"{details['coverage']:.1%}"
+                      field_coverage = f"{details.get('field_coverage', 0):.1%}"
+                      examples = f"{details['items_with_examples']}/{details['total_items']}"
+                      
+                      markdown += f"| {module} | {coverage} | {field_coverage} | {examples} |\n"
+                  
+                  f.write(f"VALIDATION_SUMMARY<<EOF\n{markdown}\nEOF\n")
+              
+              return 0 if all_passed else 1
+          
+          
+          if __name__ == "__main__":
+              sys.exit(asyncio.run(main()))
+          EOF
+          
+          # Run the validation script
+          chmod +x docs_validation.py
+          hatch run ./docs_validation.py $GITHUB_OUTPUT
+          
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-validation-report
+          path: docs-validation-report.json
+          
+      - name: Report validation results
+        run: |
+          echo "${{ steps.validation.outputs.VALIDATION_SUMMARY }}"
+          
+      - name: Check validation status
+        if: ${{ steps.validation.outputs.VALIDATION_PASSED != 'True' }}
+        run: |
+          echo "::error::Documentation validation failed. See report for details."
+          exit 1

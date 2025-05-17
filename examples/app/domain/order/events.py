@@ -12,7 +12,7 @@ from examples.app.domain.inventory.value_objects import Count, Money
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.domain.errors import DomainValidationError
 from uno.errors.base import get_error_context
-from uno.events import DomainEvent
+from uno.event_bus import DomainEvent
 
 
 class PaymentReceived(DomainEvent):

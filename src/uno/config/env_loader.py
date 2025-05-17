@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Environment variable loading utilities for the Uno configuration system.
 
@@ -8,11 +11,11 @@ This module provides functions for loading environment variables from
 from __future__ import annotations
 
 import os
-import warnings
-from collections import defaultdict
+import asyncio
 from pathlib import Path
-from dotenv import load_dotenv
-from uno.config.base import Environment
+
+from uno.config.environment import Environment
+from uno.config.env_cache import env_cache
 
 
 def find_env_files(env: Environment, base_dir: Path | None = None) -> list[Path]:
@@ -57,68 +60,17 @@ def find_env_files(env: Environment, base_dir: Path | None = None) -> list[Path]
     return files
 
 
-def load_env_file(file_path: str | Path) -> dict[str, str]:
-    """
-    Load environment variables from a .env file.
+def load_env_file(file_path: Path) -> dict[str, str]:
+    """Load environment variables from a file, using cache.
 
     Args:
         file_path: Path to the .env file
 
     Returns:
         Dictionary of environment variables
-
-    Raises:
-        FileNotFoundError: If the file doesn't exist
-        ValueError: If the file has invalid format
     """
-    # Convert string path to Path object for consistent handling
-    path = Path(file_path)
-
-    if not path.exists():
-        raise FileNotFoundError(f"Environment file not found: {path}")
-
-    env_vars = {}
-    case_insensitive_map = defaultdict(set)
-
-    with open(path, "r") as file:
-        for line_num, line in enumerate(file, 1):
-            line = line.strip()
-
-            # Skip empty lines and comments
-            if not line or line.startswith("#"):
-                continue
-
-            # Parse KEY=VALUE format
-            if "=" not in line:
-                raise ValueError(f"Invalid format at line {line_num}: {line}")
-
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip()
-
-            # Remove quotes if present
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
-            ):
-                value = value[1:-1]
-
-            # Check for case-insensitive duplicates
-            case_insensitive_key = key.lower()
-            case_insensitive_map[case_insensitive_key].add(key)
-
-            if case_insensitive_key in [k.lower() for k in env_vars]:
-                # Get the existing key that collides
-                existing_keys = case_insensitive_map[case_insensitive_key]
-                collision_key = next(k for k in existing_keys if k != key)
-                warnings.warn(
-                    f"Case-insensitive environment variable collision detected: "
-                    f"'{key}' conflicts with existing '{collision_key}' at line {line_num}. "
-                    f"The newer value will take precedence."
-                )
-
-            env_vars[key] = value
-
-    return env_vars
+    # Use the singleton env_cache instance directly
+    return env_cache.get_env_file_content(file_path)
 
 
 def load_dotenv(
@@ -146,6 +98,10 @@ def load_dotenv(
         if dotenv_path is None:
             return {}
 
+    # Ensure dotenv_path is a Path object
+    if isinstance(dotenv_path, str):
+        dotenv_path = Path(dotenv_path)
+
     env_vars = load_env_file(dotenv_path)
 
     # Set variables in environment if requested
@@ -157,6 +113,66 @@ def load_dotenv(
         for key, value in env_vars.items():
             if key not in os.environ:
                 os.environ[key] = value
+
+    return env_vars
+
+
+async def async_load_env_files(
+    env: Environment = Environment.DEVELOPMENT,
+    base_dir: Path | None = None,
+    override: bool = True,
+) -> dict[str, str]:
+    """Asynchronously load environment variables from .env files.
+
+    Args:
+        env: The environment to load for
+        base_dir: Optional base directory to search in
+        override: Whether to override existing environment variables
+
+    Returns:
+        Dictionary of loaded environment variables
+    """
+    env_files = find_env_files(env, base_dir)
+
+    # For custom env files that might be passed for testing, add them explicitly
+    if base_dir:
+        quoted_env = base_dir / ".env.quoted"
+        if quoted_env.exists() and quoted_env not in env_files:
+            env_files.append(quoted_env)
+
+    # Load all files concurrently - properly create tasks
+    tasks = []
+    for env_file in env_files:
+        # Create proper Task objects instead of just coroutines
+        task = asyncio.create_task(_async_load_env_file(env_file, override))
+        tasks.append(task)
+
+    # Wait for all files to load
+    results = await asyncio.gather(*tasks)
+
+    # Merge results in priority order (later files override earlier ones)
+    final_vars: dict[str, str] = {}
+    for result in results:
+        final_vars.update(result)
+
+    # Set variables in environment
+    if override:
+        for key, value in final_vars.items():
+            os.environ[key] = value
+
+    return final_vars
+
+
+async def _async_load_env_file(env_file: Path, override: bool) -> dict[str, str]:
+    """Helper to load a single env file asynchronously."""
+    # Run file I/O in a thread pool to avoid blocking
+    loop = asyncio.get_event_loop()
+    env_vars = await loop.run_in_executor(None, load_env_file, env_file)
+
+    # Set variables in environment if requested
+    if override:
+        for key, value in env_vars.items():
+            os.environ[key] = value
 
     return env_vars
 
@@ -176,52 +192,27 @@ def load_env_files(
     Returns:
         Dictionary of loaded environment variables
     """
+    # Simple synchronous implementation to avoid event loop issues
     env_files = find_env_files(env, base_dir)
 
-    # For custom env files that might be passed for testing, add them explicitly
+    # For custom env files that might be passed for testing
     if base_dir:
         quoted_env = base_dir / ".env.quoted"
         if quoted_env.exists() and quoted_env not in env_files:
             env_files.append(quoted_env)
 
-    # Track which variables we've loaded
-    loaded_vars: set[str] = set()
-    result: dict[str, str] = {}
-
-    # Load each file in priority order
+    # Load all files sequentially - avoid async complexity
+    final_vars: dict[str, str] = {}
     for env_file in env_files:
-        # Load without overriding environment
-        load_dotenv(env_file, override=override)
+        env_vars = load_env_file(env_file)
+        final_vars.update(env_vars)
 
-        # Also build a return dictionary of what was loaded
-        with env_file.open() as f:
-            for line in f:
-                line_ = line.strip()
+    # Set variables in environment if requested
+    if override:
+        for key, value in final_vars.items():
+            os.environ[key] = value
 
-                # Skip comments and empty lines
-                if not line_ or line_.startswith("#"):
-                    continue
-
-                # Parse KEY=VALUE format
-                if "=" in line_:
-                    key, value = line_.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
-
-                    # Remove quotes if present
-                    if (value.startswith('"') and value.endswith('"')) or (
-                        value.startswith("'") and value.endswith("'")
-                    ):
-                        value = value[1:-1]
-
-                    # Only add if we haven't loaded this variable or if overriding
-                    if key not in loaded_vars or override:
-                        result[key] = value
-                        loaded_vars.add(key)
-                        # Also ensure it's in the environment
-                        os.environ[key] = value
-
-    return result
+    return final_vars
 
 
 def get_env_value(
@@ -237,8 +228,8 @@ def get_env_value(
     Returns:
         Environment variable value or default if not found
     """
-    # Check if already in environment
-    value = os.environ.get(key)
+    # Check if already in environment (using cache)
+    value = env_cache.get_env_var(key)
     if value is not None:
         return value
 

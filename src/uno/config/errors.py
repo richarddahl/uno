@@ -10,6 +10,9 @@ file handling, parsing, validation, and environment issues.
 
 from __future__ import annotations
 
+# Ensure error code registration happens before anything else
+import uno.errors.base
+
 from typing import Any, Final
 
 from uno.errors.base import ErrorCode, ErrorCategory, ErrorSeverity, UnoError

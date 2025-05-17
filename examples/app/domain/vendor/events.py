@@ -9,7 +9,7 @@ from pydantic import ConfigDict
 from examples.app.domain.vendor.value_objects import EmailAddress
 from uno.errors.base import get_error_context
 from uno.domain.errors import DomainValidationError
-from uno.events import DomainEvent
+from uno.event_bus import DomainEvent
 
 
 class VendorEmailUpdated(DomainEvent):

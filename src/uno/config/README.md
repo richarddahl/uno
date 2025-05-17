@@ -1,45 +1,60 @@
 # Uno Configuration System
 
-The Uno Configuration System provides a robust, flexible, and secure way to manage application configuration across different environments.
+The Uno configuration system provides tools for loading and managing configuration from various sources including environment variables and files.
 
-## Features
+## Key Features
 
-- **Type-safe Configuration**: Built on Pydantic for strong type checking and validation
-- **Environment-based Configuration**: Support for development, testing, and production environments
-- **Multiple Configuration Sources**: Load from .env files, environment variables, and code
-- **Secure Configuration Values**: Protect sensitive configuration with masking, encryption, and access control
-- **Key Rotation**: Utilities for securely rotating encryption keys
-- **DI Integration**: Seamless integration with dependency injection system
+- Environment-aware configuration loading
+- Secure value handling with encryption
+- Environment variable caching for performance
+- Configuration file support (.env files)
+- Configuration manager for easy DI integration
 
-## Quick Start
+## Migration Notice: Schema Validation
+
+The schema validation functionality previously provided by this package has been moved to the dedicated `uno.ui.schema` package. This provides a cleaner separation of concerns and allows the UI schema system to evolve independently.
+
+### Migration Guide
+
+If you were using schema validation features like:
 
 ```python
-from uno.config import UnoSettings, Environment, SecureField
-
-class DatabaseSettings(UnoSettings):
-    host: str = "localhost"
-    port: int = 5432
-    username: str = "postgres"
-    password: str = SecureField(default="")
-    
-# Load settings
-settings = await load_settings(DatabaseSettings, env=Environment.DEVELOPMENT)
-
-# Access settings
-print(f"Connecting to {settings.host}:{settings.port}")
-print(f"Username: {settings.username}")
-# Password is masked in logs automatically
-print(f"Password: {settings.password}")  # Will show: Password: ******
+from uno.config import (
+    SchemaVersion,
+    ValidationLevel,
+    ValidationScope,
+    FieldCategory,
+    FieldDisplayType,
+    ConfigField,
+    EnhancedConfig,
+    fields_dependency,
+    generate_markdown_docs,
+    export_schema_json,
+    requires,
+)
 ```
 
-## Documentation
+You should now import these from the `uno.ui.schema` package:
 
-For more detailed documentation, see:
+```python
+from uno.ui.schema import (
+    SchemaVersion,
+    ValidationLevel, 
+    ValidationScope,
+    FieldCategory,
+    FieldDisplayType,
+    discover_config_classes,
+    SchemaExtensionRegistry,
+    SchemaAdapter,
+)
 
-- [User Guide](../../docs/config/user-guide.md) - For application developers using the configuration system
-- [Developer Guide](../../docs/config/developer-guide.md) - For contributors extending the configuration system
-- [Security Guide](../../docs/config/security-guide.md) - For understanding and implementing secure configuration
+# Additional components are available in specific modules:
+from uno.ui.schema.components import UIComponentRegistry
+from uno.ui.schema.registry import (
+    SchemaRegistry,
+    register_discovered_schemas,
+    create_api_response,
+)
+```
 
-## License
-
-MIT
+The new package offers an improved and more extensible API for schema-driven UI generation with support for various UI frameworks.

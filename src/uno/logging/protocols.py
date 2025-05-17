@@ -55,134 +55,35 @@ class LoggerScopeProtocol(Protocol):
 
 
 class LoggerProtocol(Protocol):
-    """Protocol defining the interface for all loggers in the Uno framework.
+    """
+    Protocol defining the interface for loggers in the Uno framework.
 
-    Supports async context management for resource setup and teardown.
+    This protocol is NOT runtime_checkable and should be used
+    for static type checking only.
     """
 
-    async def __aenter__(self) -> LoggerProtocol:
-        """Enter the async context manager.
-
-        Returns:
-            LoggerProtocol: The logger instance (self).
-        """
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a debug message."""
         ...
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None:
-        """Exit the async context manager.
-
-        Args:
-            exc_type: Exception type, if raised
-            exc: Exception instance, if raised
-            tb: Traceback, if exception raised
-        """
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an info message."""
         ...
 
-    async def debug(self, message: str, **kwargs: Any) -> None:
-        """Log a debug message asynchronously.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a warning message."""
         ...
 
-    async def info(self, message: str, **kwargs: Any) -> None:
-        """Log an info message asynchronously.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an error message."""
         ...
 
-    async def warning(self, message: str, **kwargs: Any) -> None:
-        """Log a warning message asynchronously.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
+    def critical(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a critical message."""
         ...
 
-    async def error(self, message: str, **kwargs: Any) -> None:
-        """Log an error message asynchronously.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    async def structured_log(
-        self, level: LogLevel, message: str, **kwargs: Any
-    ) -> None:
-        """Log a structured message with level and context asynchronously.
-
-        Args:
-            level: Log level
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    async def critical(self, message: str, **kwargs: Any) -> None:
-        """Log a critical message asynchronously.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    async def set_level(self, level: LogLevel) -> None:
-        """Set the logger's level.
-
-        Args:
-            level: New logging level
-        """
-        ...
-
-    @asynccontextmanager
-    async def context(self, **kwargs: Any) -> AsyncGenerator[None]:
-        """Add context information to all logs within this async context.
-
-        This creates an async context manager that adds the provided context
-        information to all logs emitted within its scope.
-
-        Args:
-            **kwargs: Context key-value pairs
-
-        Yields:
-            None
-        """
-        ...
-
-    def bind(self, **kwargs: Any) -> LoggerProtocol:
-        """Create a new logger with bound context values.
-
-        Args:
-            **kwargs: Context values to bind
-
-        Returns:
-            New logger instance with bound context
-        """
-        ...
-
-    def with_correlation_id(self, correlation_id: str) -> LoggerProtocol:
-        """Bind a correlation ID to all logs from this logger.
-
-        Args:
-            correlation_id: Correlation ID for tracing
-
-        Returns:
-            New logger instance with correlation ID
-        """
+    def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an exception message."""
         ...
 
 

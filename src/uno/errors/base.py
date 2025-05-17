@@ -15,6 +15,9 @@ import os
 from enum import Enum
 from typing import Any, ClassVar, Final
 
+# Import our single registry
+from uno.errors.registry import registry
+
 
 class ErrorSeverity(str, Enum):
     """Severity levels for errors across Uno (logging, domain, infra, etc)."""
@@ -29,9 +32,6 @@ class ErrorSeverity(str, Enum):
 class ErrorCategory:
     """Base class for error categories with hierarchical support."""
 
-    # Registry of all categories by name for validation
-    _registry: dict[str, "ErrorCategory"] = {}
-
     def __init__(self, name: str, parent: "ErrorCategory | None" = None) -> None:
         """Initialize a new error category.
 
@@ -39,12 +39,9 @@ class ErrorCategory:
             name: Unique identifier for this category
             parent: Optional parent category for hierarchical structure
         """
-        if name in ErrorCategory._registry:
-            raise ValueError(f"Error category '{name}' already exists")
-
+        # Note: Registry singleton handles preventing duplicate categories
         self.name = name
         self.parent = parent
-        ErrorCategory._registry[name] = self
 
     def __str__(self) -> str:
         return self.name
@@ -75,7 +72,7 @@ class ErrorCategory:
         while queue:
             current = queue.pop(0)
             # Find direct children
-            for category in ErrorCategory._registry.values():
+            for category in registry.get_all_categories():
                 if category.parent == current and category not in result:
                     result.add(category)
                     queue.append(category)
@@ -118,7 +115,7 @@ class ErrorCategory:
         Returns:
             A list of all registered error categories
         """
-        return list(cls._registry.values())
+        return registry.get_all_categories()
 
     @classmethod
     def get_by_name(cls, name: str) -> "ErrorCategory | None":
@@ -130,16 +127,14 @@ class ErrorCategory:
         Returns:
             The category if found, None otherwise
         """
-        return cls._registry.get(name)
+        return registry.lookup_category(name)
 
     @classmethod
     def get_or_create(
         cls, name: str, parent: "ErrorCategory | None" = None
     ) -> "ErrorCategory":
-        existing = cls.get_by_name(name)
-        if existing is not None:
-            return existing
-        return cls(name, parent=parent)
+        """Get or create an error category."""
+        return registry.get_category(name, parent)
 
 
 INTERNAL: Final = ErrorCategory.get_or_create("INTERNAL")
@@ -148,13 +143,10 @@ INTERNAL: Final = ErrorCategory.get_or_create("INTERNAL")
 class ErrorCode:
     """Base class for error codes with hierarchical support and category association."""
 
-    # Registry of all error codes by name
-    _registry: ClassVar[dict[str, "ErrorCode"]] = {}
-
     def __init__(
         self,
         code: str,
-        category: ErrorCategory = INTERNAL,
+        category: ErrorCategory = None,
         parent: "ErrorCode | None" = None,
     ) -> None:
         """Initialize a new error code.
@@ -164,13 +156,13 @@ class ErrorCode:
             category: The category this error code belongs to
             parent: Optional parent error code for hierarchical structure
         """
-        if code in ErrorCode._registry:
-            raise ValueError(f"Error code '{code}' already exists")
+        # Default to INTERNAL category if none provided
+        if category is None:
+            category = registry.get_category("INTERNAL")
 
         self.code = code
         self.category = category
         self.parent = parent
-        ErrorCode._registry[code] = self
 
     def __str__(self) -> str:
         return self.code
@@ -208,7 +200,7 @@ class ErrorCode:
         while queue:
             current = queue.pop(0)
             # Find direct children
-            for code in ErrorCode._registry.values():
+            for code in registry.get_all_codes():
                 if code.parent == current and code not in result:
                     result.add(code)
                     queue.append(code)
@@ -219,27 +211,10 @@ class ErrorCode:
     def get_by_code(
         cls, code: str, *, raise_if_missing: bool = True
     ) -> "ErrorCode | None":
-        """Get an error code by its string representation.
-
-        Args:
-            code: The error code string
-            raise_if_missing: Whether to raise if the code is not found (defaults to True)
-
-        Returns:
-            The ErrorCode object if found, None if not found and raise_if_missing is False
-
-        Raises:
-            ValueError: If the error code is not found and raise_if_missing is True
-        """
-        error_code = cls._registry.get(code)
-        if error_code is None:
-            if raise_if_missing:
-                raise ValueError(f"Error code '{code}' not found in registry")
-            else:
-                logging.warning(
-                    f"Error code '{code}' not found in registry, returning None"
-                )
-                return None
+        """Get an error code by its string representation."""
+        error_code = registry.lookup_code(code)
+        if error_code is None and raise_if_missing:
+            raise ValueError(f"Error code '{code}' not found in registry")
         return error_code
 
     @classmethod
@@ -257,15 +232,13 @@ class ErrorCode:
 
         # Filter error codes by category
         return [
-            code for code in cls._registry.values() if code.category in subcategories
+            code for code in registry.get_all_codes() if code.category in subcategories
         ]
 
     @classmethod
     def get_or_create(cls, name: str, category: "ErrorCategory") -> "ErrorCode":
-        existing = cls.get_by_code(name, raise_if_missing=False)
-        if existing is not None:
-            return existing
-        return cls(name, category=category)
+        """Get or create an error code."""
+        return registry.get_code(name, category.name)
 
 
 # Define base error categories and codes here
@@ -316,9 +289,8 @@ class UnoError(Exception):
             context: Additional contextual information
             **kwargs: Ignored. Accepts arbitrary keyword arguments for subclass compatibility.
         """
-        # Accept both ErrorCode and str for code
-        if isinstance(code, str):
-            code = ErrorCode.get_by_code(code)
+        if not isinstance(code, ErrorCode):
+            raise TypeError("code must be an ErrorCode instance, not a string")
 
         full_context = context or {}
         full_context.update(kwargs)
@@ -342,9 +314,8 @@ class UnoError(Exception):
         """
         Async factory for UnoError. Subclasses may override for richer async context.
         """
-        # Accept both ErrorCode and str for code
-        if isinstance(code, str):
-            code = ErrorCode.get_by_code(code)
+        if not isinstance(code, ErrorCode):
+            raise TypeError("code must be an ErrorCode instance, not a string")
         return cls(
             message=message,
             code=code,
@@ -356,7 +327,6 @@ class UnoError(Exception):
     def with_context(self, context: dict[str, Any]) -> "UnoError":
         """Return a new error with additional context."""
         # Combine the original context with the new context
-        # The __init__ will handle merging this with any kwargs
         combined_context = {**(self.context or {}), **context}
 
         # Get the class of the current instance (supports subclasses)
@@ -445,6 +415,7 @@ def get_error_context() -> dict[str, Any]:
             "function_name": "unknown",
             "timestamp": datetime.now(UTC).isoformat(),
         }
+
     frame_info = inspect.getframeinfo(caller_frame)
 
     # Extract relevant information

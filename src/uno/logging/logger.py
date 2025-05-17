@@ -326,6 +326,20 @@ class UnoLogger:
     def with_correlation_id(self, correlation_id: str) -> Self:
         return self.bind(correlation_id=correlation_id)
 
+    async def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an exception with traceback information.
+
+        This method is specifically for exception handling contexts
+        and automatically includes the exception traceback.
+
+        Args:
+            msg: The message to log
+            *args: Variable arguments to be formatted into the message
+            **kwargs: Additional keyword arguments for the logger
+        """
+        exc_info = kwargs.pop("exc_info", True)  # Default to True for exception method
+        await self.error(msg, *args, exc_info=exc_info, **kwargs)
+
     """Default logger implementation for the Uno framework.
 
     Supports async context management for resource setup and teardown.

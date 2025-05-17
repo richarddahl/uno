@@ -5,8 +5,8 @@ Example OrderFulfillmentSaga for Uno: demonstrates stateful, multi-step orchestr
 from typing import Any
 
 from uno.errors import UnoError
-from uno.events.saga_store import SagaState
-from uno.events.sagas import Saga
+from uno.event_bus.saga_store import SagaState
+from uno.event_bus.sagas import Saga
 from uno.logging import LoggerProtocol
 
 

@@ -1,15 +1,37 @@
-"""Pytest configuration and fixtures for event store tests."""
+"""Top-level pytest configuration for the uno framework."""
 
 import asyncio
 import os
-from typing import AsyncIterator, Any, Dict, TypeVar, Generic, Optional, Generator
 
 import pytest
 import pytest_asyncio
-from pydantic import BaseModel
+
+# First import modules for their side effects to ensure registries are populated
+import uno.errors.base
+import uno.config.errors
+import uno.event_store.errors
+import uno.event_bus.errors
+import uno.injection.errors
+import uno.logging.errors
+
+# Then import and initialize registry
+from uno.errors.registry import registry
+
+# Then import specific symbols
+from uno.errors.base import (
+    INTERNAL_ERROR,
+    ErrorCode,
+    ErrorCategory,
+    ErrorSeverity,
+    UnoError,
+)
 
 # Configure asyncio to be less verbose
 os.environ["PYTHONASYNCIODEBUG"] = "0"
+
+pytest_plugins = [
+    "pytest_asyncio",
+]
 
 
 # Fixture for event loop policy

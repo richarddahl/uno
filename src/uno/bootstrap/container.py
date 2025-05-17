@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any
 from uno.commands.protocols import CommandHandlerRegistryProtocol
 from uno.commands.registry import CommandHandlerRegistry
 from uno.config import UnoConfig
-from uno.events.protocols import EventHandlerRegistryProtocol, EventPublisherProtocol
-from uno.events.registry import EventHandlerRegistry
-from uno.events.publisher import EventPublisher
+from uno.event_bus.protocols import EventHandlerRegistryProtocol, EventPublisherProtocol
+from uno.event_bus.registry import EventHandlerRegistry
+from uno.event_bus.publisher import EventPublisher
 from uno.logging.protocols import LoggerProtocol
 from uno.logging.logger import UnoLogger
 from uno.persistance.event_sourcing.protocols import EventStoreProtocol
