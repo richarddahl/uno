@@ -5,9 +5,9 @@ Implements Uno canonical serialization, DDD, and event sourcing contracts.
 
 """
 
-from typing import Any, Self
+from typing import Self
 
-from pydantic import ConfigDict, PrivateAttr, field_validator
+from pydantic import PrivateAttr, model_validator
 
 from examples.app.domain.inventory.events import (
     InventoryItemAdjusted,
@@ -18,10 +18,8 @@ from examples.app.domain.inventory.measurement import Measurement
 from examples.app.domain.inventory.value_objects import Count, CountUnit
 from uno.domain.aggregate import AggregateRoot
 from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Result, Success
-from uno.events import DomainEvent
-from uno.logging.logger import LoggerService
+from uno.domain.errors import DomainValidationError
+from uno.event_bus import DomainEvent
 
 
 # --- Aggregate ---
@@ -36,7 +34,7 @@ class InventoryItem(AggregateRoot[str]):
         aggregate_id: str,
         name: str,
         measurement: int | float | Measurement | Count,
-    ) -> Result[Self, Exception]:
+    ) -> Self:
         """
         Create a new inventory item with initial measurement.
 
@@ -46,20 +44,19 @@ class InventoryItem(AggregateRoot[str]):
             measurement: Initial measurement (int/float) or Measurement object
 
         Returns:
-            Success[Self](item) if successful, Failure[Exception](error) otherwise
+            A new InventoryItem
+
+        Raises:
+            DomainValidationError: If validation fails
         """
         try:
             if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "aggregate_id is required", details=get_error_context()
                 )
             if not name:
-                return Failure(
-                    DomainValidationError(
-                        "name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "name is required", details=get_error_context()
                 )
             # Accept Measurement, Count, int, float
             if isinstance(measurement, Measurement):
@@ -74,11 +71,9 @@ class InventoryItem(AggregateRoot[str]):
                 )
             elif isinstance(measurement, int | float):
                 if measurement < 0:
-                    return Failure(
-                        DomainValidationError(
-                            "measurement must be non-negative",
-                            details=get_error_context(),
-                        )
+                    raise DomainValidationError(
+                        "measurement must be non-negative",
+                        details=get_error_context(),
                     )
                 # Direct construction of Count and Measurement to avoid logger service
                 count = Count(
@@ -90,75 +85,76 @@ class InventoryItem(AggregateRoot[str]):
                 # Avoid any usage of factory methods or DI for test compatibility
                 item = cls(id=aggregate_id, name=name, measurement=m)
 
-                # Create a dict representing the event data (DDD core pattern)
-                event_data = {
-                    "aggregate_id": aggregate_id,
-                    "name": name,
-                    "measurement": m,
-                    "version": 1,
-                }
-
-                # Create the event using the synchronous from_dict method
-                event = InventoryItemCreated.from_dict(event_data)
-                if isinstance(event, Failure):
-                    return Failure(
-                        DomainValidationError(
-                            f"Failed to create inventory item event: {event.error}",
-                            details=get_error_context(),
-                        )
-                    )
-
-                # Record the event and return success
-                item._record_event(event.value)
-                return Success(item)
-            except Exception as e:
-                return Failure(
-                    DomainValidationError(
-                        f"Failed to create inventory item: {str(e)}",
-                        details=get_error_context(),
-                    )
+                # Create the event with named parameters
+                event = InventoryItemCreated(
+                    aggregate_id=aggregate_id,
+                    name=name,
+                    measurement=m,
+                    version=1,
                 )
+
+                # Record the event
+                item._record_event(event)
+                return item
+            except Exception as e:
+                raise DomainValidationError(
+                    f"Failed to create inventory item: {e}", details=get_error_context()
+                ) from e
         except Exception as e:
             from pydantic import ValidationError
 
             if isinstance(e, ValidationError):
-                return Failure(
-                    DomainValidationError(
-                        f"resulting measurement cannot be negative: {e}",
-                        details=get_error_context(),
-                    )
-                )
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+                raise DomainValidationError(
+                    f"resulting measurement cannot be negative: {e}",
+                    details=get_error_context(),
+                ) from e
+            if isinstance(e, DomainValidationError):
+                raise
+            raise DomainValidationError(str(e), details=get_error_context()) from e
 
-    def rename(self, new_name: str) -> Result[None, Exception]:
+    def rename(self, new_name: str) -> None:
+        """
+        Rename the inventory item.
+
+        Args:
+            new_name: The new name for the item
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         try:
             if not new_name:
-                return Failure(
-                    DomainValidationError(
-                        "new_name is required", details=get_error_context()
-                    )
+                raise DomainValidationError(
+                    "new_name is required", details=get_error_context()
                 )
-            result = InventoryItemRenamed.create(
-                aggregate_id=self.id, new_name=new_name, measurement=self.measurement
+            event = InventoryItemRenamed(
+                aggregate_id=self.id,
+                new_name=new_name,
+                measurement=self.measurement,
             )
-            if isinstance(result, Failure):
-                return result
-            event = result.value
             self._record_event(event)
-            return Success(None)
         except Exception as e:
             from pydantic import ValidationError
 
             if isinstance(e, ValidationError):
-                return Failure(
-                    DomainValidationError(
-                        f"resulting measurement cannot be negative: {e}",
-                        details=get_error_context(),
-                    )
-                )
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+                raise DomainValidationError(
+                    f"resulting measurement cannot be negative: {e}",
+                    details=get_error_context(),
+                ) from e
+            if isinstance(e, DomainValidationError):
+                raise
+            raise DomainValidationError(str(e), details=get_error_context()) from e
 
-    def adjust_measurement(self, adjustment: int | float) -> Result[None, Exception]:
+    def adjust_measurement(self, adjustment: int | float) -> None:
+        """
+        Adjust the measurement of the inventory item.
+
+        Args:
+            adjustment: The amount to adjust by (positive or negative)
+
+        Raises:
+            DomainValidationError: If validation fails
+        """
         import logging
 
         logger = logging.getLogger(__name__)
@@ -175,11 +171,9 @@ class InventoryItem(AggregateRoot[str]):
             current_value = self.measurement.value.value
             new_value = round(current_value + adjustment, 10)
             if new_value < 0:
-                return Failure(
-                    DomainValidationError(
-                        "resulting measurement cannot be negative",
-                        details=get_error_context(),
-                    )
+                raise DomainValidationError(
+                    "resulting measurement cannot be negative",
+                    details=get_error_context(),
                 )
             # Do NOT mutate self.measurement here!
             # Only record the event; state will be updated in _apply_event
@@ -192,9 +186,10 @@ class InventoryItem(AggregateRoot[str]):
                     "new_measurement": self.measurement.value.value + adjustment,
                 }
             )
-            return Success(None)
         except Exception as e:
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+            if isinstance(e, DomainValidationError):
+                raise
+            raise DomainValidationError(str(e), details=get_error_context()) from e
 
     def _record_event(self, event: DomainEvent) -> None:
         self._domain_events.append(event)
@@ -230,10 +225,6 @@ class InventoryItem(AggregateRoot[str]):
                 )
             current_value = self.measurement.value.value
             adjustment = event.adjustment
-            if not isinstance(current_value, float):
-                current_value = float(current_value)
-            if not isinstance(adjustment, float):
-                adjustment = float(adjustment)
             new_value = round(current_value + adjustment, 10)
             if new_value < 0:
                 raise DomainValidationError(
@@ -245,21 +236,3 @@ class InventoryItem(AggregateRoot[str]):
             raise DomainValidationError(
                 f"Unhandled event: {event}", details=get_error_context()
             )
-
-    from pydantic import model_validator
-
-    @model_validator(mode="after")
-    def check_invariants(self) -> Self:
-        """
-        Validate the aggregate's invariants. Raises ValueError if invalid, returns self if valid.
-        """
-        from examples.app.domain.inventory.measurement import Measurement
-
-        if not self.name or not isinstance(self.name, str):
-            raise ValueError("name must be a non-empty string")
-        if self.measurement is None or not isinstance(self.measurement, Measurement):
-            raise ValueError("measurement must be a Measurement value object")
-        if self.measurement.value.value < 0:
-            raise ValueError("measurement must be non-negative")
-        # Add more invariants as needed
-        return self

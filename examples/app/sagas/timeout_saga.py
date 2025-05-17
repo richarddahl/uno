@@ -3,10 +3,11 @@ Example TimeoutSaga: demonstrates how to implement timeouts and retries in a Uno
 """
 
 from typing import Any
-from uno.events.sagas import Saga
-from uno.errors import Result, Success, Failure
-from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+
+from uno.event_bus.saga_store import SagaState
+from uno.event_bus.sagas import Saga
+
+from uno.logging import LoggerProtocol
 
 
 class TimeoutSaga(Saga):
@@ -14,10 +15,10 @@ class TimeoutSaga(Saga):
     Orchestrates a process with a timeout and retry pattern.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Args:
-            logger: Optional DI-injected logger. If not provided, uses get_saga_logger().
+            logger: Logger instance (must be injected via DI).
         """
         super().__init__()
         self.data = {
@@ -27,12 +28,12 @@ class TimeoutSaga(Saga):
             "timeout_triggered": False,
         }
         self.status = "waiting_step"
-        self.logger = logger or get_saga_logger("timeout")
+        self.logger = logger
 
-    async def handle_event(self, event: Any) -> Result[None, str]:
+    async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
-                "INFO",
+            await self.logger.structured_log(
+                LogLevel.INFO,
                 f"Saga event received",
                 saga_type="TimeoutSaga",
                 event_type=event.get("type"),
@@ -42,43 +43,46 @@ class TimeoutSaga(Saga):
             if event["type"] == "StepCompleted":
                 self.data["step_completed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Step completed",
                     status=self.status,
                 )
-                return Ok(None)
+                return
             elif event["type"] == "Timeout":
                 self.data["timeout_triggered"] = True
                 if self.data["retries"] < self.data["max_retries"]:
                     self.data["retries"] += 1
                     self.status = "waiting_step"
-                    self.logger.structured_log(
-                        "INFO",
+                    await self.logger.structured_log(
+                        LogLevel.INFO,
                         f"Timeout triggered - retrying (attempt {self.data['retries']})",
                         status=self.status,
                     )
-                    return Success(None)
+                    return
                     # Would dispatch a retry command here
                 else:
                     self.status = "failed"
-                    self.logger.structured_log(
-                        "ERROR",
+                    await self.logger.structured_log(
+                        LogLevel.ERROR,
                         f"Timeout triggered - max retries ({self.data['max_retries']}) exceeded",
                         status=self.status,
                     )
                     # Delete the saga state when max retries are exceeded
-                    return Failure("Max retries exceeded")
+                    raise RuntimeError("Max retries exceeded")
             # Add more event types as needed
         except Exception as e:
-            self.logger.structured_log(
-                "ERROR",
+            await self.logger.structured_log(
+                LogLevel.ERROR,
                 f"Saga event handling failed",
                 error=str(e),
                 status=self.status,
             )
-            return Failure(f"Event handling failed: {str(e)}")
             raise
 
     async def is_completed(self) -> bool:
         return self.status in ("completed", "failed")
+
+    def set_state(self, state: SagaState) -> None:
+        self.status = state.status
+        self.data = state.data.copy()

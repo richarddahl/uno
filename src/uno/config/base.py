@@ -1,230 +1,108 @@
+"""Base configuration classes for Uno applications.
+
+This module provides the foundational Config class that all configuration
+classes in the Uno framework should inherit from.
 """
-Base configuration classes and utilities for the Uno framework.
 
-This module provides the foundation for environment-driven configuration
-with support for env files, environment variables, and type validation.
-"""
-
-from __future__ import annotations
-
-import os
-from enum import Enum
-from pathlib import Path
 from typing import Any, ClassVar, TypeVar
+from pathlib import Path
+import tempfile
 
-from pydantic import model_serializer, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, Field, create_model
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings
 
 from uno.config.secure import SecureValue, SecureValueHandling
-from uno.errors import ErrorCategory, UnoError
+from uno.config.environment import Environment
+from uno.config.env_loader import load_env_files
+
+T = TypeVar("T")
 
 
-class ConfigError(UnoError):
-    """Base class for configuration-related errors."""
+class Config(BaseSettings):
+    """Base class for all configuration settings in Uno applications.
 
-    def __init__(
-        self, message: str, error_code: str | None = None, **context: Any
-    ) -> None:
-        """Initialize a configuration error.
-
-        Args:
-            message: Human-readable error message
-            error_code: Error code without prefix
-            **context: Additional context information
-        """
-        super().__init__(
-            message=message,
-            error_code=f"CONFIG_{error_code}" if error_code else "CONFIG_ERROR",
-            category=ErrorCategory.CONFIG,
-            **context,
-        )
-
-
-class Environment(str, Enum):
-    """Supported environment types."""
-
-    DEVELOPMENT = "development"
-    TESTING = "testing"
-    PRODUCTION = "production"
-
-    @classmethod
-    def from_string(cls, value: str | None) -> Environment:
-        """Convert a string to an Environment enum value.
-
-        Args:
-            value: String representation of environment
-
-        Returns:
-            Environment enum value
-
-        Raises:
-            ConfigError: If the string doesn't match a valid environment
-        """
-        if value is None:
-            return cls.DEVELOPMENT
-
-        normalized = value.lower().strip()
-
-        if normalized in ("dev", "development"):
-            return cls.DEVELOPMENT
-        elif normalized in ("test", "testing"):
-            return cls.TESTING
-        elif normalized in ("prod", "production"):
-            return cls.PRODUCTION
-        else:
-            raise ConfigError(
-                f"Invalid environment: {value}",
-                error_code="INVALID_ENVIRONMENT",
-                provided_value=value,
-            )
-
-    @classmethod
-    def get_current(cls) -> Environment:
-        """Get the current environment based on env vars.
-
-        This checks UNO_ENV or fallbacks to ENVIRONMENT or ENV
-
-        Returns:
-            Current environment enum value
-        """
-        env_var = (
-            os.environ.get("UNO_ENV")
-            or os.environ.get("ENVIRONMENT")
-            or os.environ.get("ENV")
-        )
-        return cls.from_string(env_var)
-
-
-T = TypeVar("T", bound="UnoSettings")
-
-
-class UnoSettings(BaseSettings):
-    """Base settings class for all Uno configuration.
-
-    This class extends Pydantic's BaseSettings with Uno-specific functionality.
+    All configuration classes should inherit from this class to ensure
+    consistent behavior and features.
     """
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        env_nested_delimiter="__",
-        extra="ignore",
-        validate_default=True,
-    )
+    # Class variable to track secure fields across all Config subclasses
+    _secure_fields: ClassVar[set[str]] = set()
 
-    # Keep track of secure fields
-    _secure_fields: ClassVar[dict[str, SecureValueHandling]] = {}
+    model_config = {
+        "env_nested_delimiter": "__",
+        "extra": "ignore",
+        "validate_assignment": True,
+    }
 
-    # Track if we've initialized secure values for this instance
-    _secure_values_initialized: bool = False
-
-    @classmethod
-    def from_env(cls: type[T], env: Environment | None = None) -> T:
-        """Load settings from environment or specific env file (Pydantic v2 compatible).
+    def __init__(self, **data: Any) -> None:
+        """Initialize a Config instance and process secure fields.
 
         Args:
-            env: Optional environment to load settings for
-
-        Returns:
-            Settings instance
+            **data: Initial field values
         """
-        if env is None:
-            env = Environment.get_current()
+        super().__init__(**data)
 
-        # Determine the env file to use
-        env_file = f".env.{env.value}"
-        if Path(env_file).exists():
-            # Dynamically create a subclass with the correct env_file in model_config
-            dynamic_env_settings: type[T] = type(
-                "DynamicEnvSettings",
-                (cls,),
-                {
-                    "model_config": SettingsConfigDict(
-                        **{**getattr(cls, "model_config", {}), "env_file": env_file}
-                    )
-                },
-            )
+        # Detect secure fields every time (works for dynamic classes)
+        secure_fields: set[str] = set()
+        for field_name, field_info in type(self).model_fields.items():
+            if (
+                field_info.json_schema_extra
+                and field_info.json_schema_extra.get("secure") is True
+            ):
+                secure_fields.add(field_name)
+        # Set on the class, not the instance!
+        type(self)._secure_fields = secure_fields
 
-            return dynamic_env_settings(**cls._get_environment_overrides())
-
-        # Fallback to default .env file (already in model_config)
-        return cls(**cls._get_environment_overrides())
-
-    @classmethod
-    def _get_environment_overrides(cls) -> dict[str, Any]:
-        """Get environment-specific overrides from env vars.
-
-        Returns:
-            Dictionary of environment variable overrides
-        """
-        # Extract environment variables that match the prefix
-        result: dict[str, Any] = {}
-        prefix = cls.model_config.get("env_prefix", "")
-
-        for key, value in os.environ.items():
-            if prefix and not key.startswith(prefix):
-                continue
-
-            # Strip prefix if present
-            clean_key = key[len(prefix) :] if key.startswith(prefix) else key
-            result[clean_key] = value
-
-        return result
-
-    @model_validator(mode="after")
-    def _handle_secure_fields(self) -> UnoSettings:
-        """Process secure fields and wrap them in SecureValue containers.
-
-        This method is called after the model is validated and initialized,
-        and it processes any fields marked as secure to ensure proper handling.
-
-        Returns:
-            The processed settings object
-        """
-        if self._secure_values_initialized:
-            return self
-
-        # Extract secure field information from the schema
-        schema = self.model_json_schema()
-        properties = schema.get("properties", {})
-
-        # Find all secure fields
-        secure_fields: dict[str, SecureValueHandling] = {}
-        for field_name, field_schema in properties.items():
-            if field_schema.get("secure"):
-                handling = field_schema.get("handling", "mask")
-                secure_fields[field_name] = SecureValueHandling(handling)
-
-        # Update class-level tracking of secure fields
-        self._secure_fields.update(secure_fields)
-
-        # Process each secure field
-        for field_name, handling in secure_fields.items():
+        # Wrap secure fields as SecureValue if not already
+        for field_name in type(self)._secure_fields:
             value = getattr(self, field_name, None)
-
-            # Skip if already a SecureValue
             if isinstance(value, SecureValue):
                 continue
-
-            # Skip if None
-            if value is None:
+            field_info = type(self).model_fields.get(field_name)
+            if not field_info or not field_info.json_schema_extra:
                 continue
+            handling_value = field_info.json_schema_extra.get("handling")
+            if not handling_value:
+                continue
+            try:
+                handling = SecureValueHandling(handling_value)
+                setattr(self, field_name, SecureValue(value, handling=handling))
+            except Exception:
+                pass
 
-            # Wrap in SecureValue
-            secure_value = SecureValue(value, handling=handling)
-            setattr(self, field_name, secure_value)
+    def model_dump(self, *args, **kwargs) -> dict[str, Any]:
+        """Dump model as dict, masking SecureValue fields."""
+        data = super().model_dump(*args, **kwargs)
+        for field in type(self)._secure_fields:
+            if field in data and isinstance(data[field], SecureValue):
+                data[field] = str(data[field])
+        return data
 
-        self._secure_values_initialized = True
-        return self
+    def model_dump_json(self, *args, **kwargs) -> str:
+        """Dump model as JSON, masking SecureValue fields."""
+        import json
 
-    @model_serializer(mode="plain")
-    def _mask_secure_fields(self) -> dict[str, Any]:
-        """Mask secure fields and optionally unwrap SecureValue for non-masked fields."""
-        d = super().__dict__.copy()
-        for k in self._secure_fields:
-            if k in d:
-                d[k] = "********"
-        for k, v in d.items():
-            if k not in self._secure_fields and isinstance(v, SecureValue):
-                d[k] = v.get_value()
-        return d
+        data = self.model_dump(*args, **kwargs)
+        return json.dumps(data)
+
+    async def _load_env_settings(self, env: Environment) -> None:
+        """Load environment-specific settings from .env files.
+
+        Args:
+            env: The environment to load settings for
+        """
+        from uno.config.env_loader import load_env_files
+
+        # Try to use the directory of the file where the config class is defined
+        try:
+            base_dir = Path(__file__).parent
+        except Exception:
+            base_dir = Path(tempfile.gettempdir())
+
+        # Always pass a safe base_dir to avoid FileNotFoundError
+        env_vars = load_env_files(env=env, base_dir=base_dir, override=True)
+
+        # The values will be automatically loaded from environment by Pydantic
+        # Since we've set override=True, they're already in os.environ
+        # No need to manually update fields - Pydantic BaseSettings handles this

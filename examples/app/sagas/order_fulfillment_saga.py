@@ -4,12 +4,10 @@ Example OrderFulfillmentSaga for Uno: demonstrates stateful, multi-step orchestr
 
 from typing import Any
 
-from uno.events.saga_store import SagaState
-from uno.events.sagas import Saga
-from uno.errors import Result, Success, Failure
 from uno.errors import UnoError
-from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+from uno.event_bus.saga_store import SagaState
+from uno.event_bus.sagas import Saga
+from uno.logging import LoggerProtocol
 
 
 class OrderFulfillmentSaga(Saga):
@@ -17,10 +15,10 @@ class OrderFulfillmentSaga(Saga):
     Orchestrates order fulfillment: reserve inventory, process payment, complete or compensate.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Args:
-            logger: Optional DI-injected logger. If not provided, uses get_saga_logger().
+            logger: Logger instance (must be injected via DI).
         """
         super().__init__()
         self.steps = ["reserve_inventory", "process_payment", "complete_order"]
@@ -31,15 +29,15 @@ class OrderFulfillmentSaga(Saga):
             "compensated": False,
         }
         self._command_bus = None
-        self.logger = logger or get_saga_logger("order_fulfillment")
+        self.logger = logger
 
     def set_command_bus(self, command_bus) -> None:
         self._command_bus = command_bus
 
     async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
-                "INFO",
+            await self.logger.structured_log(
+                LogLevel.INFO,
                 f"Saga event received",
                 saga_id=self.saga_id,
                 saga_type="OrderFulfillmentSaga",
@@ -51,8 +49,8 @@ class OrderFulfillmentSaga(Saga):
             if event["type"] == "OrderPlaced":
                 self.saga_id = event["order_id"]
                 self.status = "waiting_inventory"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Order placed",
                     status=self.status,
                 )
@@ -65,8 +63,8 @@ class OrderFulfillmentSaga(Saga):
             elif event["type"] == "InventoryReserved":
                 self.data["inventory_reserved"] = True
                 self.status = "waiting_payment"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Inventory reserved",
                     status=self.status,
                 )
@@ -79,8 +77,8 @@ class OrderFulfillmentSaga(Saga):
             elif event["type"] == "PaymentProcessed":
                 self.data["payment_processed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Payment processed",
                     status=self.status,
                 )
@@ -88,8 +86,8 @@ class OrderFulfillmentSaga(Saga):
 
             elif event["type"] == "PaymentFailed":
                 self.status = "compensating"
-                self.logger.structured_log(
-                    "ERROR",
+                await self.logger.structured_log(
+                    LogLevel.ERROR,
                     f"Payment failed: starting compensation",
                     saga_id=self.saga_id,
                     status=self.status,
@@ -97,7 +95,7 @@ class OrderFulfillmentSaga(Saga):
                 await self.compensate()
                 raise UnoError(
                     message="Payment failed",
-                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
+                    code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="PaymentFailed",
@@ -105,14 +103,14 @@ class OrderFulfillmentSaga(Saga):
 
             elif event["type"] == "InventoryReservationFailed":
                 self.status = "failed"
-                self.logger.structured_log(
-                    "ERROR",
+                await self.logger.structured_log(
+                    LogLevel.ERROR,
                     f"Inventory reservation failed",
                     status=self.status,
                 )
                 raise UnoError(
                     message="Inventory reservation failed",
-                    error_code=UnoError.ErrorCode.INTERNAL_ERROR,
+                    code=UnoError.ErrorCode.INTERNAL_ERROR,
                     saga_id=self.saga_id,
                     saga_type="OrderFulfillmentSaga",
                     event_type="InventoryReservationFailed",
@@ -122,8 +120,8 @@ class OrderFulfillmentSaga(Saga):
             return
 
         except Exception as e:
-            self.logger.structured_log(
-                "ERROR",
+            await self.logger.structured_log(
+                LogLevel.ERROR,
                 f"Error handling event: {e}",
                 saga_id=self.saga_id,
                 saga_type="OrderFulfillmentSaga",
@@ -132,16 +130,16 @@ class OrderFulfillmentSaga(Saga):
             raise
 
     async def compensate(self) -> None:
-        self.logger.structured_log(
-            "INFO",
+        await self.logger.structured_log(
+            LogLevel.INFO,
             f"Compensating: releasing inventory",
             saga_id=self.saga_id,
             status=self.status,
         )
         self.data["compensated"] = True
         self.status = "compensated"
-        self.logger.structured_log(
-            "INFO",
+        await self.logger.structured_log(
+            LogLevel.INFO,
             f"Compensation complete",
             saga_id=self.saga_id,
             status=self.status,
@@ -156,7 +154,7 @@ class OrderFulfillmentSaga(Saga):
             saga_id=self.saga_id or "", status=self.status, data=self.data.copy()
         )
 
-    def load_state(self, state: SagaState) -> None:
+    def set_state(self, state: SagaState) -> None:
         self.saga_id = state.saga_id
         self.status = state.status
         self.data = state.data.copy()

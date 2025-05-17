@@ -1,91 +1,62 @@
-# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-# SPDX-License-Identifier: MIT
-# SPDX-Package-Name: uno framework# core_library/config/__init__.py
+"""Configuration management for Uno applications.
 
-"""
-Public API for the Uno configuration system.
-
-This module exports the core components needed to define and load configuration
-settings in the Uno framework.
+This module provides tools for loading and managing configuration
+from various sources including environment variables and files.
 """
 
-from __future__ import annotations
-
-from typing import TypeVar
-
-from uno.config.base import ConfigError, Environment, UnoSettings
-from uno.config.env_loader import get_env_value, load_env_files
+# Core imports
+from uno.config.base import Config
+from uno.config.settings import (
+    clear_config_cache,
+    get_config,
+    load_settings,
+)
+from uno.config.environment import Environment
 from uno.config.secure import (
     SecureField,
     SecureValue,
-    SecureValueError,
     SecureValueHandling,
     requires_secure_access,
+    setup_secure_config,
 )
 
-T = TypeVar("T", bound=UnoSettings)
-
-
-def load_settings(settings_class: type[T], env: Environment | None = None) -> T:
-    """Load settings from environment variables and .env files.
-
-    This function loads configuration settings for the specified class,
-    leveraging environment variables, .env files, and default values.
-
-    Args:
-        settings_class: Settings class to load
-        env: Optional environment to target (defaults to current)
-
-    Returns:
-        Initialized settings instance
-    """
-    if env is None:
-        env = Environment.get_current()
-
-    return settings_class.from_env(env)
-
-
-def get_config(settings_class: type[T]) -> T:
-    """Get configuration for a component.
-
-    This is a convenience wrapper around load_settings with global config caching.
-
-    Args:
-        settings_class: Settings class to load
-
-    Returns:
-        Initialized settings instance
-    """
-    # In a future implementation, this would include caching
-    return load_settings(settings_class)
-
-
-def setup_secure_config(master_key: str | bytes | None = None) -> None:
-    """Set up secure configuration with encryption capabilities.
-
-    This function initializes the encryption system for secure config values.
-
-    Args:
-        master_key: Master encryption key (will use UNO_MASTER_KEY env var if None)
-    """
-    SecureValue.setup_encryption(master_key)
-
+# Key rotation system
+from uno.config.key_policy import (
+    TimeBasedRotationPolicy,
+    UsageBasedRotationPolicy,
+    CompositeRotationPolicy,
+    ScheduledRotationPolicy,
+    RotationReason,
+)
+from uno.config.key_rotation import (
+    rotate_secure_values,
+    setup_key_rotation,
+    schedule_key_rotation,
+)
+from uno.config.key_scheduler import get_rotation_scheduler
+from uno.config.key_history import get_key_history
 
 __all__ = [
-    "ConfigError",
+    # Core functionality
+    "Config",
     "Environment",
-    # Secure configuration
     "SecureField",
     "SecureValue",
-    "SecureValueError",
     "SecureValueHandling",
-    # Base classes
-    "UnoSettings",
+    "clear_config_cache",
     "get_config",
-    "get_env_value",
-    "load_env_files",
-    # Loading functions
     "load_settings",
     "requires_secure_access",
     "setup_secure_config",
+    # Key rotation system
+    "TimeBasedRotationPolicy",
+    "UsageBasedRotationPolicy",
+    "CompositeRotationPolicy",
+    "ScheduledRotationPolicy",
+    "RotationReason",
+    "rotate_secure_values",
+    "setup_key_rotation",
+    "schedule_key_rotation",
+    "get_rotation_scheduler",
+    "get_key_history",
 ]

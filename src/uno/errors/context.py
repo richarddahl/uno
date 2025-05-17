@@ -1,13 +1,26 @@
 # SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-#
 # SPDX-License-Identifier: MIT
-
+# SPDX-Package-Name: uno framework
 """
 Error context enrichment utilities for the Uno framework.
 
 This module provides utilities for enriching errors with contextual information
 as they propagate through the application. Context enrichment helps with
 debugging, tracing, and correlating errors across different components.
+
+Example usage with Dependency Injection:
+
+    from uno.errors.context import ErrorContext, enrich_error, Context
+    from uno.di import inject
+
+    @inject
+    def service_fn(context: ErrorContext):
+        with context(operation="my-op", user_id="abc123"):
+            ...
+            try:
+                ...
+            except Exception as exc:
+                raise enrich_error(exc)
 """
 
 from __future__ import annotations
@@ -19,15 +32,151 @@ import inspect
 import threading
 from collections.abc import AsyncGenerator, Callable, Generator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from functools import wraps
-from typing import (
-    Any,
-    TypeVar,
-    cast,
-)
+from typing import Any, TypeVar, cast
 
-from uno.errors.base import ErrorCategory, ErrorSeverity, UnoError
+from uno.errors.base import UnoError
+
+# Define public API
+__all__ = [
+    "Context",
+    "ContextRegistry",
+    "ErrorContext",
+    "ErrorContextBridge",
+    "ErrorContextMiddleware",
+    "add_async_context",
+    "add_global_context",
+    "add_thread_context",
+    "capture_error_context",
+    "enrich_error",
+    "get_current_context",
+    "with_dynamic_error_context",
+    "with_error_context",
+]
+
+
+class Context:
+    """
+    Tracks contextual information for errors.
+
+    Context is used to capture information about the environment in which
+    an error occurred, such as the current request, user, or operation.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        """
+        Initialize a new error context.
+
+        Args:
+            **kwargs: Initial context values
+        """
+        self._data: dict[str, Any] = {}
+        self.update(**kwargs)
+
+    def update(self, **kwargs: Any) -> None:
+        """
+        Update the context with new values.
+
+        Args:
+            **kwargs: New context values to add
+        """
+        self._data.update(kwargs)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a value from the context.
+
+        Args:
+            key: The context key to retrieve
+            default: Value to return if key is not found
+
+        Returns:
+            The context value or default
+        """
+        return self._data.get(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Get a value from the context using dictionary syntax.
+
+        Args:
+            key: The context key to retrieve
+
+        Returns:
+            The context value
+
+        Raises:
+            KeyError: If the key is not found
+        """
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """
+        Set a value in the context using dictionary syntax.
+
+        Args:
+            key: The context key to set
+            value: The value to set
+        """
+        self._data[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        """
+        Check if a key exists in the context.
+
+        Args:
+            key: The key to check
+
+        Returns:
+            True if the key exists, False otherwise
+        """
+        return key in self._data
+
+    def __len__(self) -> int:
+        """
+        Get the number of items in the context.
+
+        Returns:
+            The number of context items
+        """
+        return len(self._data)
+
+    def items(self) -> Any:
+        """
+        Get all items in the context.
+
+        Returns:
+            Dictionary view of all context items
+        """
+        return self._data.items()
+
+    def keys(self) -> Any:
+        """
+        Get all keys in the context.
+
+        Returns:
+            Dictionary view of all context keys
+        """
+        return self._data.keys()
+
+    def values(self) -> Any:
+        """
+        Get all values in the context.
+
+        Returns:
+            Dictionary view of all context values
+        """
+        return self._data.values()
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the context to a dictionary.
+
+        Returns:
+            A dictionary containing all context values
+        """
+        return self._data.copy()
+
 
 # =============================================================================
 # Context carriers - Global, thread, and async contexts
@@ -94,9 +243,9 @@ def add_thread_context(key: str, value: Any) -> None:
         key: The context key
         value: The context value
     """
-    if not hasattr(_THREAD_LOCAL, "error_context"):
-        _THREAD_LOCAL.error_context = {}
-    _THREAD_LOCAL.error_context[key] = value
+    if not hasattr(_THREAD_LOCAL, "context"):
+        _THREAD_LOCAL.context = {}
+    _THREAD_LOCAL.context[key] = value
 
 
 def remove_thread_context(key: str) -> None:
@@ -105,8 +254,8 @@ def remove_thread_context(key: str) -> None:
     Args:
         key: The context key to remove
     """
-    if hasattr(_THREAD_LOCAL, "error_context") and key in _THREAD_LOCAL.error_context:
-        del _THREAD_LOCAL.error_context[key]
+    if hasattr(_THREAD_LOCAL, "context") and key in _THREAD_LOCAL.context:
+        del _THREAD_LOCAL.context[key]
 
 
 def get_thread_context() -> dict[str, Any]:
@@ -115,15 +264,15 @@ def get_thread_context() -> dict[str, Any]:
     Returns:
         A copy of the thread-local error context
     """
-    if not hasattr(_THREAD_LOCAL, "error_context"):
-        _THREAD_LOCAL.error_context = {}
-    return _THREAD_LOCAL.error_context.copy()
+    if not hasattr(_THREAD_LOCAL, "context"):
+        _THREAD_LOCAL.context = {}
+    return _THREAD_LOCAL.context.copy()
 
 
 def clear_thread_context() -> None:
     """Clear all values from the thread-local error context."""
-    if hasattr(_THREAD_LOCAL, "error_context"):
-        _THREAD_LOCAL.error_context.clear()
+    if hasattr(_THREAD_LOCAL, "context"):
+        _THREAD_LOCAL.context.clear()
 
 
 def add_async_context(key: str, value: Any) -> contextvars.Token:
@@ -710,11 +859,8 @@ class ErrorContextBridge:
         # Save old values to restore later
         old_values = {}
         for key in self._context:
-            if (
-                hasattr(_THREAD_LOCAL, "error_context")
-                and key in _THREAD_LOCAL.error_context
-            ):
-                old_values[key] = _THREAD_LOCAL.error_context[key]
+            if hasattr(_THREAD_LOCAL, "context") and key in _THREAD_LOCAL.context:
+                old_values[key] = _THREAD_LOCAL.context[key]
 
         # Apply bridge context to thread context
         for key, value in self._context.items():

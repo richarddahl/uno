@@ -18,7 +18,7 @@ def to_http_error_response(error: UnoError) -> dict[str, Any]:
         A dictionary representing the HTTP error response.
     """
     response = {
-        "error_code": error.error_code,
+        "code": error.code,
         "message": error.message,
         "category": error.category.name,
         "severity": error.severity.name,

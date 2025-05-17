@@ -1,0 +1,38 @@
+"""
+DeletedEvent for Uno event sourcing soft delete pattern.
+"""
+
+from __future__ import annotations
+
+from typing import ClassVar
+
+from pydantic import ConfigDict, Field
+
+from uno.events.base import DomainEvent
+
+
+class DeletedEvent(DomainEvent):
+    """
+    Event representing the soft deletion of an aggregate.
+
+    Note: After creating a DeletedEvent instance, always call set_event_hash() before saving or publishing.
+    """
+
+    event_type: ClassVar[str] = "deleted"
+    aggregate_id: str = Field(
+        ...,
+        description="ID of the deleted aggregate.",
+        json_schema_extra={"env": "AGGREGATE_ID"},
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Reason for deletion, if any.",
+        json_schema_extra={"env": "REASON"},
+    )
+    deleted_by: str | None = Field(
+        default=None,
+        description="Who performed the deletion.",
+        json_schema_extra={"env": "DELETED_BY"},
+    )
+
+    model_config = ConfigDict(frozen=True)

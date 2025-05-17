@@ -11,8 +11,7 @@ from typing import Any
 from examples.app.api.errors import VendorNotFoundError
 from examples.app.domain.vendor import Vendor, VendorCreated, VendorUpdated
 from examples.app.domain.vendor.value_objects import EmailAddress
-from uno.errors.result import Failure, Success
-from uno.logging import LoggerService
+from uno.logging import LoggerProtocol
 
 
 class InMemoryVendorRepository:
@@ -21,13 +20,13 @@ class InMemoryVendorRepository:
     Stores and replays domain events for each Vendor by ID.
     """
 
-    def __init__(self, logger: LoggerService) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """Initialize the in-memory event store."""
         self._events: dict[str, list[Any]] = {}
         self._logger = logger
         self._logger.debug("InMemoryVendorRepository initialized.")
 
-    def save(self, vendor: Vendor) -> Success[None, None] | Failure[None, Exception]:
+    def save(self, vendor: Vendor) -> None:
         """
         Persist all new domain events for a Vendor aggregate.
 
@@ -41,26 +40,24 @@ class InMemoryVendorRepository:
             self._logger.debug(
                 f"Vendor {vendor.id} saved with {len(vendor._domain_events)} events."
             )
-            return Success(None)
+            return None
         except Exception as e:
-            self._logger.error(f"Error saving vendor {vendor.id}: {e}")
-            return Failure(e)
+            self._logger(f"Error saving vendor {vendor.id}: {e}")
+            raise e
 
-    def get(
-        self, vendor_id: str
-    ) -> Success[Vendor, None] | Failure[None, VendorNotFoundError]:
+    def get(self, vendor_id: str) -> Vendor:
         """
         Retrieve a Vendor aggregate by replaying its event stream.
 
         Args:
             vendor_id: The unique ID of the Vendor.
         Returns:
-            Success[Vendor] | Failure[VendorNotFoundError]: The reconstructed Vendor, or a VendorNotFoundError if not found.
+            Vendor: The reconstructed Vendor, or raises VendorNotFoundError if not found.
         """
         events = self._events.get(vendor_id)
         if not events:
             self._logger.warning(f"Vendor not found: {vendor_id}")
-            return Failure(VendorNotFoundError(vendor_id))
+            raise VendorNotFoundError(vendor_id)
         vendor = None
         for event in events:
             if isinstance(event, VendorCreated):
@@ -81,7 +78,7 @@ class InMemoryVendorRepository:
                     else event.contact_email
                 )
         self._logger.debug(f"Fetched vendor: {vendor_id}")
-        return Success(vendor)
+        return vendor
 
     def all_ids(self) -> list[str]:
         """
@@ -101,7 +98,9 @@ class InMemoryVendorRepository:
         """
         vendors: list[Vendor] = []
         for vendor_id in self.all_ids():
-            result = self.get(vendor_id)
-            if not isinstance(result, Failure):
-                vendors.append(result.value)
+            try:
+                vendor = self.get(vendor_id)
+                vendors.append(vendor)
+            except VendorNotFoundError:
+                continue
         return vendors

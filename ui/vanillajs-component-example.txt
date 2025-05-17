@@ -1,0 +1,700 @@
+// product-service.js - Service to communicate with the product microservice
+export class ProductService {
+  constructor() {
+    this.baseUrl = '/api/products'; // Would point to your API gateway
+  }
+  
+  async getProducts(category = '') {
+    let url = this.baseUrl;
+    if (category) {
+      url += `?category=${encodeURIComponent(category)}`;
+    }
+    
+    try {
+      // For demo purposes, simulate API response
+      // In production, this would be a real fetch call:
+      // const response = await fetch(url, {
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
+      //   }
+      // });
+      // return await response.json();
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock products
+      const mockProducts = [
+        {
+          id: '1',
+          name: 'Smartphone',
+          description: 'Latest model with advanced features',
+          price: 699.99,
+          category: 'electronics',
+          inventory: 15
+        },
+        {
+          id: '2',
+          name: 'Laptop',
+          description: 'Powerful laptop for work and gaming',
+          price: 1299.99,
+          category: 'electronics',
+          inventory: 8
+        },
+        {
+          id: '3',
+          name: 'T-Shirt',
+          description: 'Comfortable cotton t-shirt',
+          price: 19.99,
+          category: 'clothing',
+          inventory: 50
+        },
+        {
+          id: '4',
+          name: 'Coffee Maker',
+          description: 'Automatic coffee maker with timer',
+          price: 89.99,
+          category: 'home',
+          inventory: 12
+        }
+      ];
+      
+      // Filter by category if provided
+      if (category) {
+        return mockProducts.filter(p => p.category === category);
+      }
+      
+      return mockProducts;
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      throw error;
+    }
+  }
+  
+  async getProductById(id) {
+    try {
+      // In production: return await fetch(`${this.baseUrl}/${id}`).then(r => r.json());
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Find product by ID from mock data
+      const mockProducts = await this.getProducts();
+      const product = mockProducts.find(p => p.id === id);
+      
+      if (!product) {
+        throw new Error('Product not found');
+      }
+      
+      return product;
+    } catch (error) {
+      console.error(`Error fetching product ${id}:`, error);
+      throw error;
+    }
+  }
+}
+
+// product-list.js - Lit component that displays a list of products
+import { LitElement, html, css } from 'https://cdn.jsdelivr.net/npm/lit@2.8.0/+esm';
+import { ProductService } from './product-service.js';
+
+class ProductList extends LitElement {
+  static get properties() {
+    return {
+      products: { type: Array },
+      loading: { type: Boolean },
+      error: { type: String },
+      category: { type: String }
+    };
+  }
+  
+  static get styles() {
+    return css`
+      :host {
+        display: block;
+      }
+      
+      .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: var(--wa-space-m);
+        margin-top: var(--wa-space-m);
+      }
+      
+      .loading {
+        display: flex;
+        justify-content: center;
+        padding: var(--wa-space-xl);
+      }
+      
+      .filters {
+        margin-bottom: var(--wa-space-m);
+      }
+    `;
+  }
+  
+  constructor() {
+    super();
+    this.products = [];
+    this.loading = true;
+    this.error = null;
+    this.category = '';
+    this.productService = new ProductService();
+  }
+  
+  connectedCallback() {
+    super.connectedCallback();
+    this.loadProducts();
+    
+    // Listen for category selection events
+    window.addEventListener('category-selected', this.handleCategorySelected.bind(this));
+  }
+  
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('category-selected', this.handleCategorySelected.bind(this));
+  }
+  
+  handleCategorySelected(e) {
+    this.category = e.detail.category;
+    this.loadProducts();
+  }
+  
+  async loadProducts() {
+    try {
+      this.loading = true;
+      this.error = null;
+      this.products = await this.productService.getProducts(this.category);
+    } catch (err) {
+      this.error = err.message || 'Failed to load products';
+      console.error('Error loading products:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+  
+  render() {
+    return html`
+      <div>
+        <div class="filters">
+          <wa-heading level="2">Products ${this.category ? `- ${this.category}` : ''}</wa-heading>
+          
+          <wa-button-group label="Filter by category">
+            <wa-button 
+              variant="${this.category === '' ? 'brand' : 'default'}" 
+              @click=${() => this.setCategory('')}
+            >
+              All
+            </wa-button>
+            <wa-button 
+              variant="${this.category === 'electronics' ? 'brand' : 'default'}" 
+              @click=${() => this.setCategory('electronics')}
+            >
+              Electronics
+            </wa-button>
+            <wa-button 
+              variant="${this.category === 'clothing' ? 'brand' : 'default'}" 
+              @click=${() => this.setCategory('clothing')}
+            >
+              Clothing
+            </wa-button>
+            <wa-button 
+              variant="${this.category === 'home' ? 'brand' : 'default'}" 
+              @click=${() => this.setCategory('home')}
+            >
+              Home
+            </wa-button>
+          </wa-button-group>
+        </div>
+      
+        ${this.renderProducts()}
+      </div>
+    `;
+  }
+  
+  renderProducts() {
+    if (this.loading) {
+      return html`
+        <div class="loading">
+          <wa-spinner></wa-spinner>
+        </div>
+      `;
+    }
+    
+    if (this.error) {
+      return html`
+        <wa-callout variant="danger">
+          <p>Error: ${this.error}</p>
+          <wa-button @click=${this.loadProducts}>Retry</wa-button>
+        </wa-callout>
+      `;
+    }
+    
+    if (this.products.length === 0) {
+      return html`
+        <wa-callout>
+          <p>No products found${this.category ? ` in category "${this.category}"` : ''}.</p>
+        </wa-callout>
+      `;
+    }
+    
+    return html`
+      <div class="product-grid">
+        ${this.products.map(product => this.renderProductCard(product))}
+      </div>
+    `;
+  }
+  
+  renderProductCard(product) {
+    return html`
+      <wa-card>
+        <wa-heading level="3">${product.name}</wa-heading>
+        <p>${product.description}</p>
+        <p><strong>${product.price.toFixed(2)}</strong></p>
+        <wa-badge variant="${product.inventory > 0 ? 'success' : 'danger'}">
+          ${product.inventory > 0 ? 'In Stock' : 'Out of Stock'}
+        </wa-badge>
+        <div style="margin-top: var(--wa-space-m);">
+          <wa-button 
+            ?disabled=${product.inventory === 0}
+            @click=${() => this.handleAddToCart(product)}
+          >
+            Add to Cart
+          </wa-button>
+        </div>
+      </wa-card>
+    `;
+  }
+  
+  setCategory(category) {
+    this.category = category;
+    this.loadProducts();
+  }
+  
+  handleAddToCart(product) {
+    if (product.inventory === 0) return;
+    
+    // Dispatch an event to notify parent components
+    const event = new CustomEvent('add-to-cart', {
+      detail: { product },
+      bubbles: true,
+      composed: true
+    });
+    
+    this.dispatchEvent(event);
+    
+    // Show a toast notification
+    this.dispatchEvent(new CustomEvent('show-toast', {
+      bubbles: true,
+      composed: true,
+      detail: { 
+        message: `Added ${product.name} to cart`, 
+        variant: 'success' 
+      }
+    }));
+  }
+}
+
+customElements.define('product-list', ProductList);
+
+// app-shell.js - Main application component
+import { LitElement, html, css } from 'https://cdn.jsdelivr.net/npm/lit@2.8.0/+esm';
+
+// Import the product list component
+// import './product-list.js';
+
+class AppShell extends LitElement {
+  static get properties() {
+    return {
+      currentView: { type: String },
+      isAuthenticated: { type: Boolean },
+      cartItems: { type: Array },
+      mobileMenuOpen: { type: Boolean }
+    };
+  }
+  
+  static get styles() {
+    return css`
+      :host {
+        display: block;
+        min-height: 100vh;
+      }
+      
+      .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--wa-space-s);
+      }
+      
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: var(--wa-space-xs);
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--wa-color-brand-fill-loud);
+        text-decoration: none;
+      }
+      
+      .nav-desktop {
+        display: flex;
+        gap: var(--wa-space-m);
+      }
+      
+      .cart-badge {
+        position: relative;
+      }
+      
+      .cart-count {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background-color: var(--wa-color-danger-fill-loud);
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      
+      @media (max-width: 768px) {
+        .nav-desktop {
+          display: none;
+        }
+      }
+      
+      @media (min-width: 769px) {
+        .mobile-menu-button {
+          display: none;
+        }
+      }
+    `;
+  }
+  
+  constructor() {
+    super();
+    this.currentView = 'products';
+    this.isAuthenticated = false;
+    this.cartItems = [];
+    this.mobileMenuOpen = false;
+    
+    // Check if user is authenticated
+    this.isAuthenticated = localStorage.getItem('authToken') !== null;
+    
+    // Bind event handlers
+    this.handleAddToCart = this.handleAddToCart.bind(this);
+    this.handleShowToast = this.handleShowToast.bind(this);
+  }
+  
+  connectedCallback() {
+    super.connectedCallback();
+    
+    // Listen for add-to-cart events
+    window.addEventListener('add-to-cart', this.handleAddToCart);
+    
+    // Listen for toast notifications
+    window.addEventListener('show-toast', this.handleShowToast);
+    
+    // Load cart items
+    this.loadCartItems();
+  }
+  
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('add-to-cart', this.handleAddToCart);
+    window.removeEventListener('show-toast', this.handleShowToast);
+  }
+  
+  async loadCartItems() {
+    // In a real app, this would fetch from the cart service
+    const cartJson = localStorage.getItem('cartItems') || '[]';
+    this.cartItems = JSON.parse(cartJson);
+  }
+  
+  handleAddToCart(e) {
+    const { product } = e.detail;
+    
+    // In a real app, this would call the cart service API
+    const cartItems = [...this.cartItems];
+    const existingItem = cartItems.find(item => item.id === product.id);
+    
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      cartItems.push({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1
+      });
+    }
+    
+    this.cartItems = cartItems;
+    localStorage.setItem('cartItems', JSON.stringify(cartItems));
+  }
+  
+  handleShowToast(e) {
+    const { message, variant = 'success' } = e.detail;
+    
+    // Create toast element
+    const toast = document.createElement('wa-callout');
+    toast.setAttribute('variant', variant);
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '1000';
+    toast.style.animation = 'fadeIn 0.3s, fadeOut 0.3s 2.7s';
+    
+    // Add animation styles if not already in document
+    if (!document.getElementById('toast-styles')) {
+      const style = document.createElement('style');
+      style.id = 'toast-styles';
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; transform: translateY(0); }
+          to { opacity: 0; transform: translateY(20px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Add to document
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.style.animation = 'fadeOut 0.3s';
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 3000);
+  }
+  
+  render() {
+    return html`
+      <wa-page>
+        <header slot="header" class="header-content">
+          <a href="/" class="logo">
+            <wa-icon name="shop"></wa-icon>
+            <span>MyShop</span>
+          </a>
+          
+          <nav class="nav-desktop">
+            <wa-button @click=${() => this.setView('products')}>Products</wa-button>
+            <wa-button @click=${() => this.setView('categories')}>Categories</wa-button>
+            <wa-button @click=${() => this.setView('about')}>About</wa-button>
+          </nav>
+          
+          <div style="display: flex; gap: var(--wa-space-s); align-items: center;">
+            <div class="cart-badge" @click=${this.openCart}>
+              <wa-icon-button name="cart" label="Cart"></wa-icon-button>
+              ${this.cartItems.length > 0 ? html`
+                <div class="cart-count">${this.getTotalCartItems()}</div>
+              ` : ''}
+            </div>
+            
+            ${this.isAuthenticated ? 
+              html`<wa-button @click=${this.handleLogout}>Logout</wa-button>` : 
+              html`<wa-button @click=${this.handleLogin}>Login</wa-button>`
+            }
+            
+            <wa-icon-button 
+              class="mobile-menu-button" 
+              name="bars" 
+              label="Menu"
+              @click=${() => this.mobileMenuOpen = true}
+            ></wa-icon-button>
+          </div>
+        </header>
+        
+        <main slot="main">
+          ${this.renderCurrentView()}
+        </main>
+        
+        <footer slot="footer">
+          <p>© 2025 MyShop - Built with Lit and WebAwesome 3.0</p>
+        </footer>
+      </wa-page>
+      
+      <!-- Mobile menu drawer -->
+      <wa-drawer 
+        label="Menu" 
+        ?open=${this.mobileMenuOpen} 
+        @wa-close=${() => this.mobileMenuOpen = false}
+      >
+        <wa-button-group vertical style="width: 100%;">
+          <wa-button @click=${() => this.setViewMobile('products')}>Products</wa-button>
+          <wa-button @click=${() => this.setViewMobile('categories')}>Categories</wa-button>
+          <wa-button @click=${() => this.setViewMobile('about')}>About</wa-button>
+        </wa-button-group>
+      </wa-drawer>
+      
+      <!-- Cart drawer -->
+      <wa-drawer id="cart-drawer" label="Your Cart" placement="end">
+        ${this.renderCart()}
+      </wa-drawer>
+    `;
+  }
+  
+  renderCurrentView() {
+    switch(this.currentView) {
+      case 'products':
+        return html`<product-list></product-list>`;
+        
+      case 'categories':
+        return html`
+          <wa-heading level="2">Product Categories</wa-heading>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--wa-space-m); margin-top: var(--wa-space-m);">
+            <wa-card @click=${() => this.selectCategory('electronics')}>
+              <wa-heading level="3">Electronics</wa-heading>
+              <p>The latest gadgets and tech products</p>
+            </wa-card>
+            
+            <wa-card @click=${() => this.selectCategory('clothing')}>
+              <wa-heading level="3">Clothing</wa-heading>
+              <p>Fashion for everyone</p>
+            </wa-card>
+            
+            <wa-card @click=${() => this.selectCategory('home')}>
+              <wa-heading level="3">Home</wa-heading>
+              <p>Everything for your living space</p>
+            </wa-card>
+          </div>
+        `;
+        
+      case 'about':
+        return html`
+          <wa-heading level="2">About MyShop</wa-heading>
+          <p>MyShop is a demo e-commerce application built with Web Components using Lit and WebAwesome 3.0.</p>
+          <p>This application demonstrates how to create a modern web interface without build steps that connects to a microservice backend.</p>
+        `;
+        
+      default:
+        return html`<p>Page not found</p>`;
+    }
+  }
+  
+  renderCart() {
+    if (this.cartItems.length === 0) {
+      return html`
+        <div style="padding: var(--wa-space-m); text-align: center;">
+          <wa-heading level="3">Your cart is empty</wa-heading>
+          <p>Add some products to your cart</p>
+          <wa-button @click=${this.closeCart}>Continue Shopping</wa-button>
+        </div>
+      `;
+    }
+    
+    return html`
+      <div>
+        <div style="margin-bottom: var(--wa-space-m);">
+          ${this.cartItems.map(item => html`
+            <div style="display: flex; justify-content: space-between; padding: var(--wa-space-s); border-bottom: 1px solid var(--wa-color-neutral-100);">
+              <div>
+                <div>${item.name}</div>
+                <div>Qty: ${item.quantity}</div>
+              </div>
+              <div>
+                ${(item.price * item.quantity).toFixed(2)}
+              </div>
+            </div>
+          `)}
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; padding: var(--wa-space-s); font-weight: bold;">
+          <div>Total:</div>
+          <div>${this.getCartTotal()}</div>
+        </div>
+        
+        <div style="display: flex; gap: var(--wa-space-s); margin-top: var(--wa-space-m);">
+          <wa-button @click=${this.clearCart}>Clear Cart</wa-button>
+          <wa-button variant="brand" @click=${this.checkout}>Checkout</wa-button>
+        </div>
+      </div>
+    `;
+  }
+  
+  getTotalCartItems() {
+    return this.cartItems.reduce((total, item) => total + item.quantity, 0);
+  }
+  
+  getCartTotal() {
+    return this.cartItems.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
+  }
+  
+  setView(view) {
+    this.currentView = view;
+  }
+  
+  setViewMobile(view) {
+    this.currentView = view;
+    this.mobileMenuOpen = false;
+  }
+  
+  selectCategory(category) {
+    this.setView('products');
+    
+    // Dispatch event to notify product list of category change
+    window.dispatchEvent(new CustomEvent('category-selected', {
+      detail: { category }
+    }));
+  }
+  
+  openCart() {
+    const drawer = this.shadowRoot.querySelector('#cart-drawer');
+    if (drawer) {
+      drawer.open = true;
+    }
+  }
+  
+  closeCart() {
+    const drawer = this.shadowRoot.querySelector('#cart-drawer');
+    if (drawer) {
+      drawer.open = false;
+    }
+  }
+  
+  clearCart() {
+    this.cartItems = [];
+    localStorage.setItem('cartItems', '[]');
+    this.handleShowToast({ 
+      detail: { message: 'Cart cleared', variant: 'success' }
+    });
+  }
+  
+  checkout() {
+    alert('Checkout functionality would be implemented here');
+    this.closeCart();
+  }
+  
+  handleLogin() {
+    // In a real app, show login form
+    setTimeout(() => {
+      this.isAuthenticated = true;
+      localStorage.setItem('authToken', 'mock-token-' + Math.random());
+      this.handleShowToast({ 
+        detail: { message: 'Successfully logged in', variant: 'success' }
+      });
+    }, 1000);
+  }
+  
+  handleLogout() {
+    this.isAuthenticated = false;
+    localStorage.removeItem('authToken');
+    this.handleShowToast({ 
+      detail: { message: 'Successfully logged out', variant: 'success' }
+    });
+  }
+}
+
+customElements.define('app-shell', AppShell);

@@ -84,3 +84,4 @@ site
 data/postgresql/
 context_map.png
 .cursor/rules/uno-rules.mdc
+.uno_salt

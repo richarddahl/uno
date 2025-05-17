@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
+# SPDX-License-Identifier: MIT
+# SPDX-Package-Name: uno framework
 """
 Error middleware for handling and formatting API errors.
 
@@ -23,20 +26,23 @@ class ErrorMiddleware:
 
     def __init__(
         self,
+        *,
+        logger: "LoggerProtocol",
         include_traceback: bool = False,
-        logger:int | Nonelogging.Logger] = None,
         handle_non_uno_errors: bool = True,
-    ):
+    ) -> None:
         """
-        Initialize the error middleware.
+        Initialize the error middleware (DI required).
 
         Args:
+            logger: Logger instance (must be provided via DI)
             include_traceback: Whether to include traceback in API responses
-            logger: Optional logger to use; if None, a default logger is created
             handle_non_uno_errors: Whether to handle non-UnoError exceptions
         """
+        if logger is None:
+            raise ValueError("LoggerProtocol instance must be provided via DI.")
         self.include_traceback = include_traceback
-        self.logger = logger or ErrorLogger.get_logger("api.errors")
+        self.logger = logger
         self.handle_non_uno_errors = handle_non_uno_errors
 
     async def __call__(
@@ -69,7 +75,7 @@ class ErrorMiddleware:
             # Wrap in UnoError
             wrapped = UnoError(
                 message=str(e),
-                error_code="UNHANDLED_ERROR",
+                code="UNHANDLED_ERROR",
                 category=ErrorCategory.INTERNAL,
                 severity=ErrorSeverity.ERROR,
                 exception_type=type(e).__name__,
@@ -98,7 +104,7 @@ class ErrorMiddleware:
         # Subclasses should override this to create proper response objects
         response_data = {
             "error": {
-                "code": error.error_code,
+                "code": error.code,
                 "message": error.message,
                 "category": error.context.category.name,
             }

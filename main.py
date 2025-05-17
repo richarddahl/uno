@@ -32,9 +32,9 @@ from uno.examples.todolist.api.routes import router as todo_router
 async def lifespan(app: FastAPI) -> None:
     """Lifespan context manager for FastAPI application."""
 
-    from uno.di.provider import configure_base_services, shutdown_services
-    from uno.di.service_collection import ServiceCollection
-    from uno.di.service_provider import ServiceProvider
+    from uno.injection.provider import configure_base_services, shutdown_services
+    from uno.injection.service_collection import ServiceCollection
+    from uno.injection.service_provider import ServiceProvider
 
     # Strict DI: Construct ServiceProvider explicitly at startup
     services = ServiceCollection()
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> None:
     logger.info("Modern DI Service Provider initialized")
 
     # Register services using automatic discovery (optional)
-    from uno.di.discovery import register_services_in_package
+    from uno.injection.discovery import register_services_in_package
 
     try:
         # Discover and register services in the application
@@ -138,7 +138,7 @@ if "/static" not in [route.path for route in api_app.routes]:
     )
 
 # Configure the modern dependency injection system with FastAPI
-from uno.di.fastapi_integration import configure_fastapi
+from uno.injection.fastapi_integration import configure_fastapi
 
 configure_fastapi(api_app)
 
@@ -301,7 +301,7 @@ def get_schema(schema_name: str):
 @api_app.on_event("startup")
 async def startup_event():
     """Startup event handler."""
-    from uno.di.provider import configure_base_services
+    from uno.injection.provider import configure_base_services
     await configure_base_services()
     await initialize_todolist()
 

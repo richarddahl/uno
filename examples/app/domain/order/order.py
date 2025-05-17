@@ -8,61 +8,25 @@ Implements Uno canonical serialization, DDD, and event sourcing contracts.
 
 from typing import Literal, Self
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, model_validator
 
 from examples.app.domain.inventory.measurement import Measurement
-from examples.app.domain.inventory.value_objects import Money, Currency, Count
+from examples.app.domain.inventory.value_objects import Money, Count
 from examples.app.domain.order.events import (
-    OrderCancelled,
     OrderCreated,
     OrderFulfilled,
+    OrderCancelled,
 )
-from uno.domain.entity import Entity
+from uno.domain.aggregate import AggregateRoot
 from uno.errors.base import get_error_context
-from uno.errors.errors import DomainValidationError
-from uno.errors.result import Failure, Success
-from uno.events import DomainEvent
-
-from examples.app.domain.inventory.measurement import Measurement
-from examples.app.domain.inventory.value_objects import Money
-
-from examples.app.domain.order.events import (
-    OrderCreated,
-    OrderFulfilled,
-    OrderCancelled,
-)
+from uno.domain.errors import DomainValidationError
+from uno.event_bus import DomainEvent
 
 
-class Order(Entity[str]):
+class Order(AggregateRoot[str]):
     """
     Order aggregate root.
-
-    Note: to_dict() is always canonical and contract-compliant (see Uno DDD base classes).
-    Use to_dict() for all serialization needs.
     """
-
-    @classmethod
-    def replay_from_events(cls, id: str, events: list[DomainEvent]) -> "Order":
-        """
-        Create an Order instance for event sourcing replay. Initializes with placeholder values, then applies the given events in order.
-
-        Note:
-            This method is used for event sourcing and aggregate rehydration. It relies on internal mutation of a frozen Pydantic model
-            via `object.__setattr__` in `_apply_event`, which is the idiomatic and recommended approach for DDD/event sourcing with Pydantic v2.
-            Direct mutation is only permitted in this tightly controlled context; all other code should treat the model as immutable.
-        """
-        dummy = cls(
-            id=id,
-            aggregate_id="PLACEHOLDER",
-            lot_id="PLACEHOLDER",
-            vendor_id="PLACEHOLDER",
-            measurement=Measurement.from_count(1),
-            price=Money.from_value(0, currency=Currency.USD).unwrap(),
-            order_type="purchase",
-        )
-        for event in events:
-            dummy._apply_event(event)
-        return dummy
 
     aggregate_id: str
     lot_id: str
@@ -74,108 +38,43 @@ class Order(Entity[str]):
     is_cancelled: bool = False
     _domain_events: list[DomainEvent] = PrivateAttr(default_factory=list)
 
-    # Note: to_dict() is always canonical and contract-compliant (see Uno DDD base classes).
-    # No need for a separate to_dict. Use to_dict() for all serialization needs.
-
     @classmethod
-    def create(
-        cls,
-        order_id: str,
-        aggregate_id: str,
-        lot_id: str,
-        vendor_id: str,
-        measurement: int | float | Count | Measurement,
-        price: Money,
-        order_type: str,
-    ) -> Success[Self, Exception] | Failure[None, Exception]:
-        try:
-            if not order_id:
-                return Failure(
-                    DomainValidationError(
-                        "order_id is required", details=get_error_context()
-                    )
-                )
-            if not aggregate_id:
-                return Failure(
-                    DomainValidationError(
-                        "aggregate_id is required", details=get_error_context()
-                    )
-                )
-            if not lot_id:
-                return Failure(
-                    DomainValidationError(
-                        "lot_id is required", details=get_error_context()
-                    )
-                )
-            if not vendor_id:
-                return Failure(
-                    DomainValidationError(
-                        "vendor_id is required", details=get_error_context()
-                    )
-                )
-            if isinstance(measurement, Measurement):
-                m = measurement
-            elif isinstance(measurement, Count):
-                m = Measurement.from_count(measurement)
-            elif isinstance(measurement, int | float):
-                m = Measurement.from_each(measurement)
-            if not order_type:
-                return Failure(
-                    DomainValidationError(
-                        "order_type is required", details=get_error_context()
-                    )
-                )
-            order = cls(
-                id=order_id,
-                aggregate_id=aggregate_id,
-                lot_id=lot_id,
-                vendor_id=vendor_id,
-                measurement=m,
-                price=price,
-                order_type=order_type,
-            )
-            event = OrderCreated(
-                order_id=order_id,
-                aggregate_id=aggregate_id,
-                lot_id=lot_id,
-                vendor_id=vendor_id,
-                measurement=m,
-                price=price,
-                order_type=order_type,
-            )
-            order._record_event(event)
-            return Success(order)
-        except Exception as e:
-            return Failure(DomainValidationError(str(e), details=get_error_context()))
+    def from_events(cls, events: list[DomainEvent]) -> "Order":
+        """
+        Canonical Uno event replay/rehydration method.
+        """
+        if not events:
+            raise DomainValidationError("No events to rehydrate Order.")
+        instance = cls.__new__(cls)
+        for event in events:
+            instance.apply_event(event)
+        return instance
 
     def fulfill(self, fulfilled_measurement: int) -> None:
         event = OrderFulfilled(
-            order_id=self.id, fulfilled_measurement=fulfilled_measurement
+            aggregate_id=self.aggregate_id,
+            order_id=self.id,
+            fulfilled_measurement=fulfilled_measurement,
         )
-        self._record_event(event)
+        self.add_event(event)
 
     def cancel(self, reason: str | None = None) -> None:
-        event = OrderCancelled(order_id=self.id, reason=reason)
-        self._record_event(event)
+        event = OrderCancelled(
+            aggregate_id=self.aggregate_id,
+            order_id=self.id,
+            reason=reason,
+        )
+        self.add_event(event)
 
-    def _record_event(self, event: DomainEvent) -> None:
+    def add_event(self, event: DomainEvent) -> None:
         self._domain_events.append(event)
-        self._apply_event(event)
+        self.apply_event(event)
 
-    def _apply_event(self, event: DomainEvent) -> None:
-        """
-        Internal: Applies a domain event to this aggregate, mutating state as needed.
-
-        This method uses `object.__setattr__` to mutate fields on a frozen Pydantic model. This is the idiomatic and recommended approach
-        for event replay/rehydration in DDD systems using Pydantic v2. Direct mutation is strictly limited to this internal mechanism.
-        """
+    def apply_event(self, event: DomainEvent) -> None:
         if isinstance(event, OrderCreated):
-            # All field assignments here use object.__setattr__ to bypass Pydantic's frozen model restriction.
-            # This is intentional and safe ONLY for event replay/rehydration.
             object.__setattr__(self, "aggregate_id", event.aggregate_id)
             object.__setattr__(self, "lot_id", event.lot_id)
             object.__setattr__(self, "vendor_id", event.vendor_id)
-            # Accept Measurement, Count, int, float for replay
             if isinstance(event.measurement, Measurement):
                 object.__setattr__(self, "measurement", event.measurement)
             elif isinstance(event.measurement, Count | int | float):
@@ -207,8 +106,6 @@ class Order(Entity[str]):
                 f"Unhandled event: {event}", details=get_error_context()
             )
 
-    from pydantic import model_validator
-
     @model_validator(mode="after")
     def check_invariants(self) -> Self:
         """
@@ -225,4 +122,4 @@ class Order(Entity[str]):
         # Add more invariants as needed
         return self
 
-    # Canonical serialization already handled by AggregateRoot/Entity base
+    # Canonical serialization already handled by AggregateRoot base

@@ -10,7 +10,7 @@ from pydantic import (
     model_serializer,
 )
 
-from uno.domain import ValueObject
+from uno.domain.value_object import ValueObject
 
 
 # --- Email Address ---

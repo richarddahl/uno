@@ -2,23 +2,21 @@
 Measurement value object for representing polymorphic quantities.
 """
 
+from __future__ import annotations
+
+import enum
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
-from uno.domain import ValueObject
-
-# Import value objects
 from examples.app.domain.inventory.value_objects import (
     Count,
     Dimension,
-    DimensionUnit,
     Mass,
-    MassUnit,
     Volume,
-    VolumeUnit,
 )
+from uno.domain.value_object import ValueObject
 
 
 class Measurement(ValueObject):

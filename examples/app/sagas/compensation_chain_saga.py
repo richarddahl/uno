@@ -3,9 +3,10 @@ Example CompensationChainSaga: demonstrates multi-step compensation in a Uno sag
 """
 
 from typing import Any
-from uno.events.sagas import Saga
-from examples.app.sagas.saga_logging import get_saga_logger
-from uno.logging import LoggerService
+
+from uno.event_bus.saga_store import SagaState
+from uno.event_bus.sagas import Saga
+from uno.logging import LoggerProtocol
 
 
 class CompensationChainSaga(Saga):
@@ -13,10 +14,10 @@ class CompensationChainSaga(Saga):
     Orchestrates a process with multiple steps and chained compensations on failure.
     """
 
-    def __init__(self, logger: LoggerService | None = None) -> None:
+    def __init__(self, logger: LoggerProtocol) -> None:
         """
         Args:
-            logger: Optional DI-injected logger. If not provided, uses get_saga_logger().
+            logger: Logger instance (must be injected via DI).
         """
         super().__init__()
         self.data = {
@@ -26,12 +27,12 @@ class CompensationChainSaga(Saga):
             "compensation_log": [],
         }
         self.status = "waiting_step1"
-        self.logger = logger or get_saga_logger("compensation_chain")
+        self.logger = logger
 
     async def handle_event(self, event: Any) -> None:
         try:
-            self.logger.structured_log(
-                "INFO",
+            await self.logger.structured_log(
+                LogLevel.INFO,
                 f"Saga event received",
                 saga_type="CompensationChainSaga",
                 event_type=event.get("type"),
@@ -41,30 +42,30 @@ class CompensationChainSaga(Saga):
             if event["type"] == "Step1Completed":
                 self.data["step1_completed"] = True
                 self.status = "waiting_step2"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Step1 completed",
                     status=self.status,
                 )
             elif event["type"] == "Step2Completed":
                 self.data["step2_completed"] = True
                 self.status = "completed"
-                self.logger.structured_log(
-                    "INFO",
+                await self.logger.structured_log(
+                    LogLevel.INFO,
                     f"Step2 completed: saga completed",
                     status=self.status,
                 )
             elif event["type"] == "Step2Failed":
                 self.status = "compensating"
-                self.logger.structured_log(
-                    "WARNING",
+                await self.logger.structured_log(
+                    LogLevel.WARNING,
                     f"Step2 failed: starting compensation",
                     status=self.status,
                 )
                 await self.compensate()
         except Exception as e:
-            self.logger.structured_log(
-                "ERROR",
+            await self.logger.structured_log(
+                LogLevel.ERROR,
                 f"Error handling event: {e}",
                 saga_type="CompensationChainSaga",
                 error=str(e),
@@ -72,8 +73,8 @@ class CompensationChainSaga(Saga):
             raise
 
     async def compensate(self) -> None:
-        self.logger.structured_log(
-            "INFO",
+        await self.logger.structured_log(
+            LogLevel.INFO,
             f"Starting compensation chain",
             status=self.status,
         )
@@ -86,11 +87,15 @@ class CompensationChainSaga(Saga):
             self.data["step1_completed"] = False
         self.data["compensated"] = True
         self.status = "compensated"
-        self.logger.structured_log(
-            "INFO",
+        await self.logger.structured_log(
+            LogLevel.INFO,
             f"Compensation chain complete",
             status=self.status,
         )
 
     async def is_completed(self) -> bool:
         return self.status in ("completed", "compensated")
+
+    def set_state(self, state: SagaState) -> None:
+        self.status = state.status
+        self.data = state.data.copy()

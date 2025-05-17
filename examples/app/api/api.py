@@ -22,12 +22,12 @@ from examples.app.services.inventory_item_service import InventoryItemService
 from examples.app.services.vendor_service import VendorService
 
 # Import the new DI, error, config, and logging systems
-from uno.di.container import DIContainer
+from uno.injection.container import Container
 from uno.domain.di import register_domain_services
-from uno.events.di import register_event_services
+from uno.event_bus.injection import register_event_services
 from uno.domain.errors import DomainValidationError
 from uno.logging.protocols import LoggerProtocol
-from uno.events.config import EventsConfig
+from uno.event_bus.config import EventsConfig
 from uno.domain.config import DomainConfig
 
 
@@ -39,7 +39,7 @@ async def app_factory() -> FastAPI:
         The configured FastAPI application
     """
     # Create and configure the DI container
-    container = DIContainer()
+    container = Container()
 
     # Register core services from uno framework
     await _register_core_services(container)
@@ -198,7 +198,7 @@ async def app_factory() -> FastAPI:
     return app
 
 
-async def _register_core_services(container: DIContainer) -> None:
+async def _register_core_services(container: Container) -> None:
     """
     Register core services with the DI container.
 
@@ -210,7 +210,7 @@ async def _register_core_services(container: DIContainer) -> None:
     await register_event_services(container)
 
 
-async def _register_app_services(container: DIContainer) -> None:
+async def _register_app_services(container: Container) -> None:
     """
     Register example app services with the DI container.
 

@@ -11,151 +11,104 @@ providing a consistent contract for all logging implementations.
 
 from __future__ import annotations
 
-import logging
-from contextlib import contextmanager
-from enum import Enum
+from contextlib import contextmanager, asynccontextmanager
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    Generator,
-    Optional,
     Protocol,
-    TypeVar,
-    runtime_checkable,
 )
 
+from uno.logging.level import LogLevel
 
-# Define standard logging levels
-class LogLevel(str, Enum):
-    """Standard logging levels."""
-
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-    def to_stdlib_level(self) -> int:
-        """Convert to standard library logging level.
-
-        Returns:
-            Standard library logging level integer
-        """
-        return getattr(logging, self.value)
-
-    @classmethod
-    def from_string(cls, value: str) -> LogLevel:
-        """Convert a string to a LogLevel.
-
-        Args:
-            value: String representation of level
-
-        Returns:
-            LogLevel enum value
-
-        Raises:
-            ValueError: If the string doesn't match a valid level
-        """
-        try:
-            return cls(value.upper())
-        except ValueError:
-            raise ValueError(f"Invalid log level: {value}")
+if TYPE_CHECKING:
+    from collections.abc import Generator, AsyncGenerator, AsyncIterator
+    from types import TracebackType
 
 
-T = TypeVar("T")
+class ContextProtocol(Protocol):
+    """Protocol for managing context data in the logging system."""
+
+    async def get_context(self) -> dict[str, Any]:
+        """Get the current context data."""
+        ...
+
+    async def set_context(self, context: dict[str, Any]) -> None:
+        """Set the current context data."""
+        ...
+
+    async def update_context(self, **kwargs: Any) -> None:
+        """Update the current context data with new values."""
+        ...
+
+    @asynccontextmanager
+    async def context_scope(self, **kwargs: Any) -> AsyncGenerator[None]:
+        """Create an async context scope that will be automatically cleaned up."""
+        ...
 
 
-@runtime_checkable
+class LoggerScopeProtocol(Protocol):
+    """Protocol for logger scope/context management in Uno logging system."""
+
+    async def scope(self, name: str) -> Any:
+        """Async context manager for logger scope. Yields a logger scope/context object."""
+        ...
+
+
 class LoggerProtocol(Protocol):
-    """Protocol defining the interface for all loggers in the Uno framework."""
+    """
+    Protocol defining the interface for loggers in the Uno framework.
 
-    def debug(self, message: str, **kwargs: Any) -> None:
-        """Log a debug message.
+    This protocol is NOT runtime_checkable and should be used
+    for static type checking only.
+    """
+
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a debug message."""
+        ...
+
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an info message."""
+        ...
+
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a warning message."""
+        ...
+
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an error message."""
+        ...
+
+    def critical(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a critical message."""
+        ...
+
+    def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log an exception message."""
+        ...
+
+
+class LoggerFactoryProtocol(Protocol):
+    """Protocol for logger factory implementations."""
+
+    async def create_logger(self, name: str) -> LoggerProtocol:
+        """Create a new logger instance.
 
         Args:
-            message: Log message
-            **kwargs: Additional context data
+            name: The name of the logger to create
+
+        Returns:
+            A configured logger instance
         """
         ...
 
-    def info(self, message: str, **kwargs: Any) -> None:
-        """Log an info message.
+    @asynccontextmanager
+    async def scoped_logger(self, name: str) -> AsyncIterator[LoggerProtocol]:
+        """Create a scoped logger instance that will be automatically cleaned up.
 
         Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    def warning(self, message: str, **kwargs: Any) -> None:
-        """Log a warning message.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    def error(self, message: str, **kwargs: Any) -> None:
-        """Log an error message.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    def critical(self, message: str, **kwargs: Any) -> None:
-        """Log a critical message.
-
-        Args:
-            message: Log message
-            **kwargs: Additional context data
-        """
-        ...
-
-    def set_level(self, level: LogLevel) -> None:
-        """Set the logger's level.
-
-        Args:
-            level: New logging level
-        """
-        ...
-
-    @contextmanager
-    def context(self, **kwargs: Any) -> Generator[None, None, None]:
-        """Add context information to all logs within this context.
-
-        This creates a context manager that adds the provided context
-        information to all logs emitted within its scope.
-
-        Args:
-            **kwargs: Context key-value pairs
+            name: The name of the logger to create
 
         Yields:
-            None
-        """
-        ...
-
-    def bind(self, **kwargs: Any) -> LoggerProtocol:
-        """Create a new logger with bound context values.
-
-        Args:
-            **kwargs: Context values to bind
-
-        Returns:
-            New logger instance with bound context
-        """
-        ...
-
-    def with_correlation_id(self, correlation_id: str) -> LoggerProtocol:
-        """Bind a correlation ID to all logs from this logger.
-
-        Args:
-            correlation_id: Correlation ID for tracing
-
-        Returns:
-            New logger instance with correlation ID
+            A scoped logger instance
         """
         ...

@@ -15,7 +15,7 @@ import os
 # SPDX-License-Identifier: MIT
 import sys
 
-from uno.logging.logger import LoggerService
+from uno.logging.protocols import LoggerProtocol
 
 
 def init_database(
@@ -23,7 +23,7 @@ def init_database(
     db_name: str = None,
     extensions: list[str] | None = None,
     graph_name: str = "graph",
-    logger_service: LoggerService | None = None,
+    logger_service: LoggerProtocol | None = None,
 ) -> int:
     """
     Initialize the PostgreSQL database with required extensions.
@@ -38,7 +38,7 @@ def init_database(
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    logger = (logger_service or LoggerService()).get_logger("db_init")
+    logger = (logger_service or LoggerProtocol()).get_logger("db_init")
 
     # Get username and database name from environment if not provided
     if db_user is None:
@@ -143,7 +143,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    logger_service = LoggerService()
+    logger_service = LoggerProtocol()
     return init_database(
         db_user=args.db_user,
         db_name=args.db_name,

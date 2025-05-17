@@ -21,11 +21,12 @@ from pydantic import (
     field_validator,
 )
 
-from uno.domain import ValueObject
-from uno.errors import Failure, Result, Success
+from uno.domain.value_object import ValueObject
+from uno.errors import UnoError
+from uno.errors.codes import ErrorCode
 
 if TYPE_CHECKING:
-    from .measurement import Measurement
+    from examples.app.domain.inventory.measurement import Measurement
 
 # NOTE: Do NOT import or re-export Measurement here.
 # Measurement must be imported directly from measurement.py to avoid circular imports.
@@ -511,9 +512,7 @@ class Money(ValueObject):
         symbol = symbols.get(self.currency, "")
         return f"{symbol}{self.amount}"
 
-    def to(
-        self, target_currency: Currency, fx_rate: Decimal | None = None
-    ) -> Result["Money", Exception]:
+    def to(self, target_currency: Currency, fx_rate: Decimal | None = None) -> "Money":
         """Convert to another currency using provided fx rate.
 
         Args:
@@ -521,23 +520,32 @@ class Money(ValueObject):
             fx_rate: Exchange rate for conversion. Required.
 
         Returns:
-            Success with new Money object if successful, Failure otherwise.
+            New Money object in target currency.
+        Raises:
+            Error: If exchange rate is not provided or conversion fails.
         """
+        if target_currency == self.currency:
+            return self
+
         if fx_rate is None:
-            return Failure(
-                Exception("FX rate is required for currency conversion"),
+            raise UnoError(
+                code=ErrorCode.INVALID_INPUT,
+                message="Exchange rate is required for currency conversion",
             )
 
         try:
-            new_amount = self.amount * fx_rate
-            return Success(self.__class__(amount=new_amount, currency=target_currency))
+            new_amount = (self.amount * Decimal(str(fx_rate))).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            return Money(amount=new_amount, currency=target_currency)
         except Exception as e:
-            return Failure(e)
+            raise UnoError(
+                code=ErrorCode.INTERNAL_ERROR,
+                message=f"Currency conversion failed: {e}",
+            ) from e
 
     @classmethod
-    def from_value(
-        cls, value: Decimal | float | int, currency: Currency
-    ) -> Result[Self, Exception]:
+    def from_value(cls, value: Decimal | float | int, currency: Currency) -> "Money":
         """Create Money from a value and currency with validation.
 
         Args:
@@ -545,20 +553,28 @@ class Money(ValueObject):
             currency: The currency.
 
         Returns:
-            Success with Money object if valid, Failure otherwise.
+            New Money object.
+
+        Raises:
+            Error: If the value is invalid or negative.
         """
         try:
             if isinstance(value, int | float):
                 value = Decimal(str(value))
 
             if value < 0:
-                return Failure(
-                    ValueError("Money amount must be non-negative"),
+                raise UnoError(
+                    code=ErrorCode.INVALID_INPUT,
+                    message="Money amount must be non-negative",
                 )
 
-            return Success(cls(amount=value, currency=currency))
+            return cls(amount=value, currency=currency)
+        except UnoError:
+            raise
         except Exception as e:
-            return Failure(e)
+            raise UnoError(
+                code=ErrorCode.INVALID_INPUT, message=f"Invalid money value: {e}"
+            ) from e
 
 
 class Grade(ValueObject):

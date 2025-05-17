@@ -1,8 +1,14 @@
-# SPDX-FileCopyrightText: 2024-present Richard Dahl <richard@dahl.us>
-# SPDX-License-Identifier: MIT
-# uno framework
-# Domain layer for Uno DDD framework.
+"""Domain layer for the uno application.
 
-from .value_object import ValueObject
+This package contains domain entities, value objects, and domain services.
+"""
 
-__all__ = ["ValueObject"]
+from .protocols import RepositoryProtocol
+
+# Import other domain components as needed
+
+__all__ = [
+    # Protocols
+    "RepositoryProtocol",
+    # Other exports
+]
